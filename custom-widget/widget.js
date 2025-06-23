@@ -1,0 +1,541 @@
+(function() {
+    'use strict';
+
+    const VilniusChat = {
+        config: {
+            apiUrl: 'http://localhost:3002',
+            flowiseUrl: 'http://localhost:3000',
+            flowiseChatflowId: '',
+            theme: {
+                primaryColor: '#4F46E5',
+                position: 'bottom-right'
+            }
+        },
+
+        init: function(options) {
+            Object.assign(this.config, options);
+            this.createWidget();
+            this.attachEventListeners();
+            this.loadConversation();
+        },
+
+        createWidget: function() {
+            const widgetHTML = `
+                <div id="vilnius-chat-container" style="
+                    position: fixed;
+                    ${this.config.theme.position === 'bottom-right' ? 'right: 20px; bottom: 20px;' : 'left: 20px; bottom: 20px;'}
+                    z-index: 9999;
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                ">
+                    <!-- Chat Bubble -->
+                    <button id="vilnius-chat-bubble" style="
+                        width: 60px;
+                        height: 60px;
+                        border-radius: 50%;
+                        background: ${this.config.theme.primaryColor};
+                        border: none;
+                        cursor: pointer;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: transform 0.3s ease;
+                    ">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L1 23l6.71-1.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.41 0-2.73-.36-3.88-.99l-.28-.15-2.9.85.85-2.9-.15-.28C4.36 14.73 4 13.41 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
+                            <path d="M7 9h10v2H7zm0 3h7v2H7z"/>
+                        </svg>
+                    </button>
+
+                    <!-- Chat Window -->
+                    <div id="vilnius-chat-window" style="
+                        display: none;
+                        position: absolute;
+                        bottom: 80px;
+                        ${this.config.theme.position === 'bottom-right' ? 'right: 0;' : 'left: 0;'}
+                        width: 380px;
+                        height: 600px;
+                        background: white;
+                        border-radius: 16px;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+                        overflow: hidden;
+                        flex-direction: column;
+                    ">
+                        <!-- Header -->
+                        <div style="
+                            background: ${this.config.theme.primaryColor};
+                            color: white;
+                            padding: 20px;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        ">
+                            <div>
+                                <h3 style="margin: 0; font-size: 18px;">Support Assistant</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">
+                                    Powered by AI
+                                </p>
+                            </div>
+                            <button id="vilnius-close-chat" style="
+                                background: none;
+                                border: none;
+                                color: white;
+                                cursor: pointer;
+                                padding: 8px;
+                            ">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Messages Container -->
+                        <div id="vilnius-messages" style="
+                            flex: 1;
+                            overflow-y: auto;
+                            padding: 20px;
+                            background: #f9fafb;
+                        ">
+                            <div class="vilnius-message vilnius-ai" style="
+                                margin-bottom: 16px;
+                                display: flex;
+                                align-items: flex-start;
+                            ">
+                                <div style="
+                                    background: white;
+                                    padding: 12px 16px;
+                                    border-radius: 12px;
+                                    max-width: 80%;
+                                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                                ">
+                                    <p style="margin: 0; color: #1f2937;">
+                                        Hello! I'm here to help. What can I assist you with today?
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input Area -->
+                        <div style="
+                            background: white;
+                            border-top: 1px solid #e5e7eb;
+                            padding: 16px;
+                        ">
+                            <form id="vilnius-chat-form" style="
+                                display: flex;
+                                gap: 12px;
+                            ">
+                                <input 
+                                    id="vilnius-chat-input"
+                                    type="text" 
+                                    placeholder="Type your message..."
+                                    style="
+                                        flex: 1;
+                                        padding: 12px 16px;
+                                        border: 1px solid #e5e7eb;
+                                        border-radius: 24px;
+                                        outline: none;
+                                        font-size: 14px;
+                                        transition: border-color 0.3s;
+                                    "
+                                />
+                                <button type="submit" style="
+                                    background: ${this.config.theme.primaryColor};
+                                    color: white;
+                                    border: none;
+                                    border-radius: 50%;
+                                    width: 44px;
+                                    height: 44px;
+                                    cursor: pointer;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    transition: background 0.3s;
+                                ">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', widgetHTML);
+        },
+
+        attachEventListeners: function() {
+            const bubble = document.getElementById('vilnius-chat-bubble');
+            const window = document.getElementById('vilnius-chat-window');
+            const closeBtn = document.getElementById('vilnius-close-chat');
+            const form = document.getElementById('vilnius-chat-form');
+            const input = document.getElementById('vilnius-chat-input');
+
+            bubble.addEventListener('click', () => {
+                window.style.display = window.style.display === 'none' ? 'flex' : 'none';
+                if (window.style.display === 'flex') {
+                    input.focus();
+                }
+            });
+
+            closeBtn.addEventListener('click', () => {
+                window.style.display = 'none';
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const message = input.value.trim();
+                if (message) {
+                    await this.sendMessage(message);
+                    input.value = '';
+                }
+            });
+
+
+            // Style focus states
+            input.addEventListener('focus', () => {
+                input.style.borderColor = this.config.theme.primaryColor;
+            });
+
+            input.addEventListener('blur', () => {
+                input.style.borderColor = '#e5e7eb';
+            });
+        },
+
+        loadConversation: function() {
+            const conversationId = localStorage.getItem('vilnius_conversation_id');
+            if (conversationId) {
+                this.conversationId = conversationId;
+                // Load previous messages if needed
+                this.loadMessages();
+                
+                // Start polling for new messages
+                this.startPolling();
+            }
+        },
+
+        async loadMessages() {
+            if (!this.conversationId) return;
+            
+            try {
+                const response = await fetch(`${this.config.apiUrl}/api/conversations/${this.conversationId}/messages`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.renderMessages(data.messages);
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        },
+
+        renderMessages(messages) {
+            const messagesContainer = document.getElementById('vilnius-messages');
+            
+            // Get all existing message elements
+            const existingMessages = Array.from(messagesContainer.querySelectorAll('.vilnius-message:not(:first-child)'));
+            
+            // Filter messages for customer view
+            const visibleMessages = messages.filter(msg => 
+                msg.sender === 'visitor' || msg.sender === 'agent' || msg.sender === 'ai'
+            );
+            
+            // Track which messages we've already displayed using data attributes
+            const existingMessageIds = new Set(
+                existingMessages
+                    .map(el => el.getAttribute('data-message-id'))
+                    .filter(id => id)
+            );
+            
+            // Check if we have any agent responses
+            const hasAgentResponse = visibleMessages.some(msg => msg.sender === 'agent');
+            
+            // If we have agent responses, remove any system waiting messages
+            if (hasAgentResponse) {
+                existingMessages.forEach(el => {
+                    const msgId = el.getAttribute('data-message-id');
+                    if (msgId && msgId.startsWith('system-')) {
+                        el.remove();
+                    }
+                });
+            }
+            
+            // Only add new messages that haven't been displayed yet
+            visibleMessages.forEach(msg => {
+                if (!existingMessageIds.has(msg.id)) {
+                    const messageEl = this.createMessageElement(msg);
+                    messagesContainer.appendChild(messageEl);
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            });
+        },
+        
+        createMessageElement(msg) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `vilnius-message vilnius-${msg.sender === 'visitor' ? 'user' : 'ai'}`;
+            messageDiv.setAttribute('data-message-id', msg.id);
+            messageDiv.style.cssText = `
+                margin-bottom: 16px;
+                display: flex;
+                align-items: flex-start;
+                ${msg.sender === 'visitor' ? 'justify-content: flex-end;' : ''}
+            `;
+
+            const bubbleStyle = msg.sender === 'visitor' 
+                ? `background: ${this.config.theme.primaryColor}; color: white;`
+                : 'background: white; color: #1f2937;';
+
+            let content = msg.content;
+            if (msg.sender === 'system' && content.includes('[Message pending agent response')) {
+                content = 'Your message has been received. An agent will respond shortly.';
+            }
+
+            const formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
+
+            messageDiv.innerHTML = `
+                <div style="
+                    ${bubbleStyle}
+                    padding: 12px 16px;
+                    border-radius: 12px;
+                    max-width: 80%;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                ">
+                    <div style="margin: 0;">${formattedText}</div>
+                </div>
+            `;
+
+            return messageDiv;
+        },
+
+        startPolling() {
+            // Prevent multiple polling intervals
+            if (this.pollingInterval) return;
+            
+            // Poll for new messages every 2 seconds
+            this.pollingInterval = setInterval(() => {
+                if (this.conversationId) {
+                    this.loadMessages();
+                }
+            }, 2000);
+        },
+
+        async sendMessage(message) {
+            // Generate a temporary ID for the message
+            const tempMessageId = 'temp-' + Date.now();
+            
+            // Add user message to chat with temporary ID
+            this.addMessage(message, 'user', tempMessageId);
+
+            // Show typing indicator
+            const typingId = this.showTypingIndicator();
+
+            try {
+                // Ensure we have a conversation ID
+                const isNewConversation = !this.conversationId;
+                if (isNewConversation) {
+                    this.conversationId = this.generateSessionId();
+                }
+
+                // Send message through backend API
+                const response = await fetch(`${this.config.apiUrl}/api/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        conversationId: this.conversationId,
+                        message: message,
+                        visitorId: this.getVisitorId()
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Remove typing indicator
+                this.removeTypingIndicator(typingId);
+                
+                // Replace temp message with the real one from server
+                const tempMsg = document.querySelector(`[data-message-id="${tempMessageId}"]`);
+                if (tempMsg && data.userMessage) {
+                    tempMsg.setAttribute('data-message-id', data.userMessage.id);
+                }
+                
+                // Start polling if this was a new conversation
+                if (isNewConversation) {
+                    this.startPolling();
+                }
+                
+                if (data.aiMessage) {
+                    // Only show non-system messages to customer
+                    if (data.aiMessage.sender !== 'system') {
+                        this.addMessage(data.aiMessage.content, 'ai', data.aiMessage.id);
+                    } else {
+                        // For system messages, show a friendly waiting message
+                        this.addMessage('Your message has been received. An agent will respond shortly.', 'system', 'system-' + Date.now());
+                    }
+                } else {
+                    // Error handling
+                    this.addMessage('I apologize, but I encountered an error. Please try again.', 'ai', 'error-' + Date.now());
+                }
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                this.removeTypingIndicator(typingId);
+                this.addMessage('I apologize, but I\'m having trouble connecting. Please try again later.', 'ai', 'error-' + Date.now());
+            }
+        },
+
+        getVisitorId() {
+            let visitorId = localStorage.getItem('vilnius_visitor_id');
+            if (!visitorId) {
+                visitorId = 'visitor-' + Math.random().toString(36).substring(2, 11);
+                localStorage.setItem('vilnius_visitor_id', visitorId);
+            }
+            return visitorId;
+        },
+
+        addMessage(text, sender, messageId = null) {
+            const messagesContainer = document.getElementById('vilnius-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `vilnius-message vilnius-${sender}`;
+            
+            // Add message ID if provided
+            if (messageId) {
+                messageDiv.setAttribute('data-message-id', messageId);
+            }
+            
+            messageDiv.style.cssText = `
+                margin-bottom: 16px;
+                display: flex;
+                align-items: flex-start;
+                ${sender === 'user' ? 'justify-content: flex-end;' : ''}
+            `;
+
+            const bubbleStyle = sender === 'user' 
+                ? `background: ${this.config.theme.primaryColor}; color: white;`
+                : sender === 'system' 
+                ? 'background: #FEF3C7; color: #92400E; border: 1px solid #F59E0B;'
+                : 'background: white; color: #1f2937;';
+
+            // Handle system messages specially
+            if (sender === 'system' && text.includes('[Message pending agent response')) {
+                text = 'Your message has been received. An agent will respond shortly.';
+            }
+
+            // Convert markdown to HTML for AI/agent messages
+            const formattedText = (sender === 'ai' || sender === 'agent') ? this.markdownToHtml(text) : text;
+
+            messageDiv.innerHTML = `
+                <div style="
+                    ${bubbleStyle}
+                    padding: 12px 16px;
+                    border-radius: 12px;
+                    max-width: 80%;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                ">
+                    <div style="margin: 0;">${formattedText}</div>
+                </div>
+            `;
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        },
+
+        showTypingIndicator() {
+            const id = 'typing-' + Date.now();
+            const messagesContainer = document.getElementById('vilnius-messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = id;
+            typingDiv.className = 'vilnius-message vilnius-ai';
+            typingDiv.style.cssText = 'margin-bottom: 16px; display: flex; align-items: flex-start;';
+            
+            typingDiv.innerHTML = `
+                <div style="
+                    background: white;
+                    padding: 16px;
+                    border-radius: 12px;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                ">
+                    <div style="display: flex; gap: 4px;">
+                        <span style="
+                            width: 8px;
+                            height: 8px;
+                            background: #9ca3af;
+                            border-radius: 50%;
+                            animation: typing 1.4s infinite;
+                        "></span>
+                        <span style="
+                            width: 8px;
+                            height: 8px;
+                            background: #9ca3af;
+                            border-radius: 50%;
+                            animation: typing 1.4s infinite 0.2s;
+                        "></span>
+                        <span style="
+                            width: 8px;
+                            height: 8px;
+                            background: #9ca3af;
+                            border-radius: 50%;
+                            animation: typing 1.4s infinite 0.4s;
+                        "></span>
+                    </div>
+                </div>
+            `;
+
+            // Add CSS animation
+            if (!document.getElementById('vilnius-typing-styles')) {
+                const style = document.createElement('style');
+                style.id = 'vilnius-typing-styles';
+                style.textContent = `
+                    @keyframes typing {
+                        0%, 60%, 100% { transform: translateY(0); }
+                        30% { transform: translateY(-10px); }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return id;
+        },
+
+        removeTypingIndicator(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.remove();
+            }
+        },
+
+        generateSessionId() {
+            const sessionId = 'session-' + Math.random().toString(36).substring(2, 11);
+            this.conversationId = sessionId;
+            localStorage.setItem('vilnius_conversation_id', sessionId);
+            return sessionId;
+        },
+
+        markdownToHtml(text) {
+            return text
+                // Bold text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Italic text
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                // Links
+                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #4F46E5; text-decoration: underline;">$1</a>')
+                // Line breaks
+                .replace(/\n/g, '<br>')
+                // Bullet points
+                .replace(/^\*\s+(.+)$/gm, '<li style="margin-left: 16px;">$1</li>')
+                // Wrap lists
+                .replace(/(<li.*?<\/li>)/gs, '<ul style="margin: 8px 0; padding-left: 0;">$1</ul>')
+                // Headers
+                .replace(/^### (.*$)/gm, '<h3 style="margin: 8px 0; font-size: 16px; font-weight: bold;">$1</h3>')
+                .replace(/^## (.*$)/gm, '<h2 style="margin: 8px 0; font-size: 18px; font-weight: bold;">$1</h2>')
+                .replace(/^# (.*$)/gm, '<h1 style="margin: 8px 0; font-size: 20px; font-weight: bold;">$1</h1>');
+        },
+
+    };
+
+    // Expose to global scope
+    window.VilniusChat = VilniusChat;
+})();

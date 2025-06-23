@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .demo-content {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-content">
+        <h1>Your Website Content</h1>
+        <p>This is a demo page showing how the chat widget would appear on your website.</p>
+        <p>The widget is embedded in the bottom-right corner and can be toggled open/closed.</p>
+        <p>Try clicking the chat bubble to interact with the AI assistant!</p>
+    </div>
+
+    <!-- Vilnius Chat Widget -->
+    <div id="vilnius-chat-widget"></div>
+    <script src="widget.js"></script>
+    <script>
+        VilniusChat.init({
+            apiUrl: 'http://localhost:3002',
+            theme: {
+                primaryColor: '#4F46E5',
+                position: 'bottom-right'
+            }
+        });
+    </script>
+</body>
+</html>

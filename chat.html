@@ -46,14 +46,17 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-6xl">
+<body class="bg-gray-50 min-h-screen" data-api-url="http://localhost:3000">
+    <div class="container mx-auto px-4 py-8 max-w-6xl" id="mainContent" style="display: none;">
         <!-- Header -->
         <header class="flex justify-between items-center mb-8">
             <div>
                 <h1 class="text-3xl font-bold text-indigo-700">SupportHub AI</h1>
                 <p class="text-gray-600">AI-assisted customer support</p>
             </div>
+            <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                <i class="fas fa-sign-out-alt mr-2"></i>Logout
+            </button>
         </header>
 
         <!-- Main Content -->
@@ -62,15 +65,9 @@
             <div class="lg:w-1/4">
                 <div class="bg-white rounded-lg shadow-md p-6">
                     <h2 class="text-lg font-semibold mb-4 text-gray-800">Ticket Information</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <p class="text-sm text-gray-500">Ticket ID</p>
-                            <p class="font-medium">#CS-2023-0456</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-500">Email</p>
-                            <p class="font-medium">john.smith@example.com</p>
-                        </div>
+                    <div class="space-y-4" id="ticket-info">
+                        <!-- Ticket info will be loaded dynamically -->
+                        <div class="text-sm text-gray-500">Loading ticket information...</div>
                     </div>
                 </div>
             </div>
@@ -79,18 +76,10 @@
             <div class="lg:w-3/4">
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
                     <!-- Conversation Header -->
-                    <div class="bg-indigo-700 text-white p-4 flex justify-between items-center">
+                    <div class="bg-indigo-700 text-white p-4" id="conversation-header">
                         <div>
-                            <h2 class="font-semibold">Order Delivery Issue</h2>
-                            <p class="text-sm text-indigo-100">Ticket #CS-2023-0456</p>
-                        </div>
-                        <div class="flex space-x-2">
-                            <button class="p-2 rounded-full hover:bg-indigo-600 transition">
-                                <i class="fas fa-tag"></i>
-                            </button>
-                            <button class="p-2 rounded-full hover:bg-indigo-600 transition">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </button>
+                            <h2 class="font-semibold" id="conversation-title">Loading...</h2>
+                            <p class="text-sm text-indigo-100" id="conversation-subtitle">Please wait</p>
                         </div>
                     </div>
 
@@ -103,39 +92,7 @@
                             <div class="flex-grow border-t border-gray-200"></div>
                         </div>
 
-                        <!-- Previous messages -->
-                        <div class="message-animation mb-4">
-                            <div class="flex items-start">
-                                <div>
-                                    <div class="bg-gray-100 rounded-lg p-3 max-w-[80%]">
-                                        <p class="text-gray-800">Hi, I never received my order.</p>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-1">John Smith • 10:32 AM</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="message-animation mb-4">
-                            <div class="flex items-start justify-end">
-                                <div class="text-right">
-                                    <div class="bg-indigo-100 rounded-lg p-3 inline-block max-w-[80%]">
-                                        <p class="text-gray-800">Hi John, could you share your order number?</p>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-1">You • 10:35 AM</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="message-animation mb-4">
-                            <div class="flex items-start">
-                                <div>
-                                    <div class="bg-gray-100 rounded-lg p-3 max-w-[80%]">
-                                        <p class="text-gray-800">Sure, it's 123456.</p>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-1">John Smith • 10:36 AM</p>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Messages will be loaded dynamically -->
 
                         <!-- AI Suggestion -->
                         <div class="message-animation mb-4">
@@ -189,169 +146,7 @@
         </div>
     </div>
 
-    <script>
-        // Scroll to bottom of messages container
-        const messagesContainer = document.getElementById('messages-container');
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-        // Function to send AI suggestion as is
-        function sendAsIs() {
-            const aiText = document.getElementById('ai-suggestion-text').textContent;
-            
-            // Show sending animation
-            const sendingDiv = document.createElement('div');
-            sendingDiv.className = 'mb-4 flex items-start justify-end';
-            sendingDiv.innerHTML = `
-                <div class="text-right">
-                    <div class="bg-indigo-100 rounded-lg p-3 inline-block max-w-[80%]">
-                        <div class="flex items-center">
-                            <span class="typing-indicator"></span>
-                            <span class="typing-indicator"></span>
-                            <span class="typing-indicator"></span>
-                        </div>
-                    </div>
-                </div>
-                <div class="w-8 h-8 rounded-full ml-3 bg-indigo-100 flex items-center justify-center">
-                    <i class="fas fa-user text-indigo-500 text-sm"></i>
-                </div>
-            `;
-            messagesContainer.appendChild(sendingDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            // After 1.5 seconds, replace with actual message
-            setTimeout(() => {
-                sendingDiv.remove();
-                
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message-animation mb-4 flex items-start justify-end';
-                messageDiv.innerHTML = `
-                    <div class="text-right">
-                        <div class="bg-indigo-100 rounded-lg p-3 inline-block max-w-[80%]">
-                            <p class="text-gray-800">${aiText}</p>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">You • Just now</p>
-                    </div>
-                `;
-                messagesContainer.appendChild(messageDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                
-                // Hide AI suggestion overlay
-                document.getElementById('ai-overlay').style.display = 'none';
-                
-                // Show success notification
-                showNotification('Message sent successfully!');
-            }, 1500);
-        }
-
-        // Function to edit the AI suggestion
-        function editSuggestion() {
-            const aiText = document.getElementById('ai-suggestion-text').textContent;
-            document.getElementById('message-textarea').value = aiText;
-            
-            document.getElementById('action-buttons').classList.add('hidden');
-            document.getElementById('edit-area').classList.remove('hidden');
-            
-            document.getElementById('message-textarea').focus();
-        }
-
-        // Function to write from scratch
-        function writeFromScratch() {
-            document.getElementById('message-textarea').value = '';
-            
-            document.getElementById('action-buttons').classList.add('hidden');
-            document.getElementById('edit-area').classList.remove('hidden');
-            
-            document.getElementById('message-textarea').focus();
-        }
-
-        // Function to cancel editing
-        function cancelEdit() {
-            document.getElementById('action-buttons').classList.remove('hidden');
-            document.getElementById('edit-area').classList.add('hidden');
-        }
-
-        // Function to send edited message
-        function sendMessage() {
-            const messageText = document.getElementById('message-textarea').value.trim();
-            
-            if (messageText === '') {
-                alert('Please enter a message');
-                return;
-            }
-            
-            // Show sending animation
-            const sendingDiv = document.createElement('div');
-            sendingDiv.className = 'mb-4 flex items-start justify-end';
-            sendingDiv.innerHTML = `
-                <div class="text-right">
-                    <div class="bg-indigo-100 rounded-lg p-3 inline-block max-w-[80%]">
-                        <div class="flex items-center">
-                            <span class="typing-indicator"></span>
-                            <span class="typing-indicator"></span>
-                            <span class="typing-indicator"></span>
-                        </div>
-                    </div>
-                </div>
-                <div class="w-8 h-8 rounded-full ml-3 bg-indigo-100 flex items-center justify-center">
-                    <i class="fas fa-user text-indigo-500 text-sm"></i>
-                </div>
-            `;
-            messagesContainer.appendChild(sendingDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            // After 1.5 seconds, replace with actual message
-            setTimeout(() => {
-                sendingDiv.remove();
-                
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message-animation mb-4 flex items-start justify-end';
-                messageDiv.innerHTML = `
-                    <div class="text-right">
-                        <div class="bg-indigo-100 rounded-lg p-3 inline-block max-w-[80%]">
-                            <p class="text-gray-800">${messageText}</p>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">You • Just now</p>
-                    </div>
-                    <div class="w-8 h-8 rounded-full ml-3 bg-indigo-100 flex items-center justify-center">
-                        <i class="fas fa-user text-indigo-500 text-sm"></i>
-                    </div>
-                `;
-                messagesContainer.appendChild(messageDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                
-                // Hide AI suggestion overlay
-                document.getElementById('ai-overlay').style.display = 'none';
-                
-                // Reset edit area
-                document.getElementById('action-buttons').classList.remove('hidden');
-                document.getElementById('edit-area').classList.add('hidden');
-                
-                // Show success notification
-                showNotification('Message sent successfully!');
-            }, 1500);
-        }
-
-        // Auto-resize textarea
-        const textarea = document.getElementById('message-textarea');
-        textarea.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
-
-        // Show notification function
-        function showNotification(message) {
-            const notification = document.createElement('div');
-            notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in-out';
-            notification.innerHTML = `
-                <i class="fas fa-check-circle mr-2"></i>
-                <span>${message}</span>
-            `;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
-        }
-    </script>
+    <script src="js/utils.js"></script>
+    <script src="js/chat.js"></script>
 </body>
 </html>

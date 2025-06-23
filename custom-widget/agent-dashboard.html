@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Dashboard - Vilnius Support</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        .notification-ping {
+            animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        
+        @keyframes ping {
+            75%, 100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+        
+        .active-chat {
+            background: linear-gradient(to right, #EEF2FF, #FFFFFF);
+        }
+        
+        .agent-online {
+            background: #10B981;
+        }
+        
+        .agent-busy {
+            background: #F59E0B;
+        }
+        
+        .agent-offline {
+            background: #EF4444;
+        }
+        
+        /* Improved chat styling */
+        #chat-messages {
+            background: linear-gradient(to bottom, #F9FAFB, #FFFFFF);
+        }
+        
+        .chat-queue-item {
+            transition: all 0.2s ease;
+        }
+        
+        .chat-queue-item:hover {
+            transform: translateX(4px);
+        }
+        
+        /* Better scrollbar styling */
+        #messages-area::-webkit-scrollbar,
+        #chat-queue::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #messages-area::-webkit-scrollbar-track,
+        #chat-queue::-webkit-scrollbar-track {
+            background: #F3F4F6;
+        }
+        
+        #messages-area::-webkit-scrollbar-thumb,
+        #chat-queue::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 4px;
+        }
+        
+        #messages-area::-webkit-scrollbar-thumb:hover,
+        #chat-queue::-webkit-scrollbar-thumb:hover {
+            background: #9CA3AF;
+        }
+        
+        /* Message animations */
+        .message-animation {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* AI Suggestion panel improvements */
+        #ai-suggestion-panel {
+            background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%);
+            box-shadow: 0 -2px 10px rgba(147, 51, 234, 0.1);
+        }
+        
+        #ai-suggestion-text {
+            background: white;
+            border: 1px solid #E9D5FF;
+            box-shadow: 0 2px 4px rgba(147, 51, 234, 0.05);
+        }
+        
+        /* Input area improvements */
+        #message-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        /* Better avatar styling */
+        .avatar {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen overflow-hidden" data-api-url="http://localhost:3002">
+    <!-- Main Container -->
+    <div class="flex h-full">
+        <!-- Sidebar - Chat Queue -->
+        <div class="w-1/3 bg-white border-r border-gray-200 flex flex-col">
+            <!-- Header -->
+            <div class="p-4 border-b border-gray-200 bg-indigo-600 text-white">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-lg font-semibold">Agent Dashboard</h1>
+                        <p class="text-sm text-indigo-100">Customer Support</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <!-- Agent Status -->
+                        <div class="flex items-center gap-2">
+                            <div id="agent-status-dot" class="w-3 h-3 rounded-full agent-online"></div>
+                            <select id="agent-status" class="bg-indigo-500 text-white text-sm border-0 rounded px-2 py-1">
+                                <option value="online">Online</option>
+                                <option value="busy">Busy</option>
+                                <option value="offline">Offline</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue Stats -->
+            <div class="p-4 bg-gray-50 border-b">
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <div class="text-2xl font-bold text-indigo-600" id="queue-count">0</div>
+                        <div class="text-xs text-gray-500">In Queue</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-green-600" id="active-count">0</div>
+                        <div class="text-xs text-gray-500">Active</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-gray-600" id="resolved-count">0</div>
+                        <div class="text-xs text-gray-500">Resolved</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Queue -->
+            <div class="flex-1 overflow-y-auto">
+                <div id="chat-queue" class="space-y-1 p-2">
+                    <!-- Chat items will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div id="chat-header" class="p-4 border-b border-gray-200 bg-white hidden">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-3">
+                        <div class="avatar w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-gray-600"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-semibold" id="customer-name"></h2>
+                            <p class="text-sm text-gray-500" id="customer-info"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="flex-1 overflow-y-auto bg-gray-50" id="messages-area">
+                <div id="no-chat-selected" class="h-full flex items-center justify-center text-gray-500">
+                    <div class="text-center">
+                        <i class="fas fa-comments text-6xl mb-4 text-gray-300"></i>
+                        <h3 class="text-xl font-semibold mb-2">No chat selected</h3>
+                        <p>Select a conversation from the queue to start helping customers</p>
+                    </div>
+                </div>
+                
+                <div id="chat-messages" class="hidden p-4 space-y-4">
+                    <!-- Messages will be populated here -->
+                </div>
+            </div>
+
+            <!-- AI Suggestion Panel -->
+            <div id="ai-suggestion-panel" class="hidden bg-purple-50 border-t border-purple-200 p-4">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="font-semibold text-purple-700">AI Suggestion</span>
+                            <span class="text-xs text-gray-500">for customer's latest message</span>
+                        </div>
+                        <div id="ai-suggestion-text" class="text-gray-700 mb-3 bg-white p-3 rounded border" style="line-height: 1.5;">
+                            <!-- AI suggestion will appear here -->
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="send-as-is-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium">
+                                <i class="fas fa-paper-plane mr-1"></i> Send as-is
+                            </button>
+                            <button id="edit-suggestion-btn" class="bg-white hover:bg-gray-50 text-purple-600 border border-purple-200 px-4 py-2 rounded text-sm font-medium">
+                                <i class="fas fa-edit mr-1"></i> Edit
+                            </button>
+                            <button id="write-from-scratch-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium">
+                                <i class="fas fa-pen mr-1"></i> From Scratch
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <div id="message-input-area" class="hidden bg-white border-t border-gray-200 p-4">
+                <form id="message-form" class="flex gap-3">
+                    <textarea 
+                        id="message-input" 
+                        placeholder="Type your message..."
+                        class="flex-1 border border-gray-300 rounded-lg px-4 py-2 resize-none h-20 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    ></textarea>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg h-fit">
+                        <i class="fas fa-paper-plane mr-1"></i> Send
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/utils.js"></script>
+    <script src="js/agent-dashboard.js"></script>
+</body>
+</html>
