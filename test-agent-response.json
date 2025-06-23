@@ -1,7 +1,0 @@
-{
-  "conversationId": "test-ai-assist",
-  "message": "I understand you're waiting for order 12345. Let me help you track that down and find out what happened.",
-  "agentId": "test-agent-007",
-  "usedSuggestion": "Atsiprašau, bet neturiu jokios informacijos apie užsakymus. Ar galėčiau Jums padėti kuo nors kitu, susijusiu su Vilniaus miesto savivaldybės paslaugomis?",
-  "suggestionAction": "from-scratch"
-}
