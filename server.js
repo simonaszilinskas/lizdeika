@@ -10,7 +10,7 @@ app.use(express.json());
 app.use(express.static('.'));
 
 // Serve agent dashboard as default
-app.get('/', (req, res) => {
+app.get('/', (_, res) => {
     res.sendFile(path.join(__dirname, 'custom-widget', 'agent-dashboard.html'));
 });
 
