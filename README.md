@@ -32,17 +32,15 @@ cd custom-widget/backend && npm start
 ```
 
 4. Access the applications:
-- Login: http://localhost:3000
-- Agent Dashboard: http://localhost:3000/custom-widget/agent-dashboard.html
+- Agent Dashboard: http://localhost:3000
+- Admin Dashboard: http://localhost:3000/custom-widget/admin.html
 - Widget Demo: http://localhost:3000/custom-widget/embed-widget.html
 
 ## Environment Variables
 
-- `LOGIN_USERNAME`: Admin login username
-- `LOGIN_PASSWORD`: Admin login password
-- `SESSION_SECRET`: Session encryption key
 - `FLOWISE_URL`: Your Flowise instance URL
 - `FLOWISE_CHATFLOW_ID`: Your Flowise chatflow ID
+- `FLOWISE_API_KEY`: Your Flowise API key (if required)
 
 ## Embedding the Widget
 
