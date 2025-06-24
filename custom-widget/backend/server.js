@@ -1,9 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+
 const PORT = process.env.WIDGET_BACKEND_PORT || process.env.PORT || 3002;
 
 // Middleware
@@ -234,6 +244,14 @@ app.post('/api/messages', async (req, res) => {
         // Store the cleaned up messages
         messages.set(conversationId, filteredMessages);
         
+        // Emit new message to agents via WebSocket
+        io.to('agents').emit('new-message', {
+            conversationId,
+            message: userMessage,
+            aiSuggestion: aiMessage,
+            timestamp: new Date()
+        });
+        
         res.json({
             userMessage,
             aiMessage,
@@ -457,6 +475,12 @@ app.post('/api/agent/respond', (req, res) => {
         filteredMessages.push(agentMessage);
         messages.set(conversationId, filteredMessages);
         
+        // Emit agent message to customer via WebSocket
+        io.to(conversationId).emit('agent-message', {
+            message: agentMessage,
+            timestamp: new Date()
+        });
+        
         console.log(`Agent ${agentId} sent message to conversation ${conversationId}: ${message.substring(0, 50)}...`);
         
         res.json({ success: true, message: agentMessage });
@@ -510,8 +534,84 @@ app.get('/health', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
+// WebSocket connection handling
+io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+    
+    // Join conversation room
+    socket.on('join-conversation', (conversationId) => {
+        socket.join(conversationId);
+        console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+    });
+    
+    // Join agent dashboard
+    socket.on('join-agent-dashboard', (agentId) => {
+        socket.join('agents');
+        socket.agentId = agentId;
+        
+        // Update agent status to online
+        agents.set(agentId, {
+            id: agentId,
+            status: 'online',
+            lastSeen: new Date(),
+            socketId: socket.id,
+            activeChats: Array.from(conversations.values()).filter(c => c.assignedAgent === agentId).length
+        });
+        
+        console.log(`Agent ${agentId} connected with socket ${socket.id}`);
+        
+        // Broadcast agent status to all agents
+        io.to('agents').emit('agent-status-update', {
+            agentId,
+            status: 'online',
+            timestamp: new Date()
+        });
+    });
+    
+    // Handle agent typing
+    socket.on('agent-typing', (data) => {
+        const { conversationId, isTyping } = data;
+        socket.to(conversationId).emit('agent-typing-status', {
+            isTyping,
+            timestamp: new Date()
+        });
+    });
+    
+    // Handle customer typing
+    socket.on('customer-typing', (data) => {
+        const { conversationId, isTyping } = data;
+        io.to('agents').emit('customer-typing-status', {
+            conversationId,
+            isTyping,
+            timestamp: new Date()
+        });
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+        
+        // Update agent status if this was an agent
+        if (socket.agentId) {
+            const agent = agents.get(socket.agentId);
+            if (agent) {
+                agent.status = 'offline';
+                agent.lastSeen = new Date();
+                agents.set(socket.agentId, agent);
+                
+                // Broadcast agent status to all agents
+                io.to('agents').emit('agent-status-update', {
+                    agentId: socket.agentId,
+                    status: 'offline',
+                    timestamp: new Date()
+                });
+            }
+        }
+    });
+});
+
+server.listen(PORT, () => {
     console.log(`Widget backend running on http://localhost:${PORT}`);
+    console.log('WebSocket server initialized');
     console.log('Configuration:');
     console.log(`- Flowise URL: ${flowise.url}`);
     console.log(`- Chatflow ID: ${flowise.chatflowId || 'NOT SET'}`);

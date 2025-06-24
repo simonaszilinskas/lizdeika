@@ -16,6 +16,7 @@
             Object.assign(this.config, options);
             this.createWidget();
             this.attachEventListeners();
+            this.initializeWebSocket();
             this.loadConversation();
         },
 
@@ -96,6 +97,14 @@
                             padding: 20px;
                             background: #f9fafb;
                         ">
+                            <!-- Typing indicator for agent -->
+                            <div id="vilnius-agent-typing" style="
+                                display: none;
+                                margin-bottom: 16px;
+                                font-size: 14px;
+                                font-style: italic;
+                                color: #6b7280;
+                            ">Agent is typing...</div>
                             <div class="vilnius-message vilnius-ai" style="
                                 margin-bottom: 16px;
                                 display: flex;
@@ -191,6 +200,25 @@
                     input.value = '';
                 }
             });
+            
+            // Add typing indicators for customer
+            let typingTimer;
+            input.addEventListener('input', () => {
+                this.sendCustomerTyping(true);
+                
+                // Clear existing timer
+                clearTimeout(typingTimer);
+                
+                // Set timer to stop typing after 1 second of inactivity
+                typingTimer = setTimeout(() => {
+                    this.sendCustomerTyping(false);
+                }, 1000);
+            });
+            
+            input.addEventListener('blur', () => {
+                this.sendCustomerTyping(false);
+                clearTimeout(typingTimer);
+            });
 
 
             // Style focus states
@@ -203,6 +231,63 @@
             });
         },
 
+        initializeWebSocket: function() {
+            const wsUrl = this.config.apiUrl.replace('http', 'ws');
+            this.socket = io(wsUrl);
+            
+            this.socket.on('connect', () => {
+                console.log('Widget connected to WebSocket server');
+                
+                // Join conversation room if we have an active conversation
+                if (this.conversationId) {
+                    this.socket.emit('join-conversation', this.conversationId);
+                }
+            });
+            
+            this.socket.on('disconnect', () => {
+                console.log('Widget disconnected from WebSocket server');
+            });
+            
+            // Listen for agent messages
+            this.socket.on('agent-message', (data) => {
+                console.log('Received agent message:', data);
+                this.addMessage(data.message.content, 'agent', data.message.id);
+            });
+            
+            // Listen for agent typing status
+            this.socket.on('agent-typing-status', (data) => {
+                this.showAgentTyping(data.isTyping);
+            });
+            
+            this.socket.on('connect_error', (error) => {
+                console.error('Widget WebSocket connection error:', error);
+            });
+        },
+        
+        showAgentTyping: function(isTyping) {
+            const indicator = document.getElementById('vilnius-agent-typing');
+            if (indicator) {
+                indicator.style.display = isTyping ? 'block' : 'none';
+                
+                // Auto-scroll to show typing indicator
+                if (isTyping) {
+                    const messagesContainer = document.getElementById('vilnius-messages');
+                    if (messagesContainer) {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                }
+            }
+        },
+        
+        sendCustomerTyping: function(isTyping) {
+            if (this.socket && this.conversationId) {
+                this.socket.emit('customer-typing', {
+                    conversationId: this.conversationId,
+                    isTyping: isTyping
+                });
+            }
+        },
+
         loadConversation: function() {
             const conversationId = localStorage.getItem('vilnius_conversation_id');
             if (conversationId) {
@@ -210,7 +295,12 @@
                 // Load previous messages if needed
                 this.loadMessages();
                 
-                // Start polling for new messages
+                // Join conversation room via WebSocket
+                if (this.socket && this.socket.connected) {
+                    this.socket.emit('join-conversation', this.conversationId);
+                }
+                
+                // Start polling for new messages (fallback)
                 this.startPolling();
             }
         },
@@ -363,6 +453,11 @@
                 // Start polling if this was a new conversation
                 if (isNewConversation) {
                     this.startPolling();
+                    
+                    // Join WebSocket room for this conversation
+                    if (this.socket && this.socket.connected) {
+                        this.socket.emit('join-conversation', this.conversationId);
+                    }
                 }
                 
                 if (data.aiMessage) {

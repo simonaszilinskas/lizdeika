@@ -15,6 +15,7 @@ class AgentDashboard {
         this.conversations = new Map();
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || 3000;
+        this.socket = null;
         
         console.log(`Agent Dashboard initialized with API URL: ${this.apiUrl}`);
         this.init();
@@ -22,8 +23,9 @@ class AgentDashboard {
 
     async init() {
         this.initializeEventListeners();
+        this.initializeWebSocket();
         await this.loadConversations();
-        this.startPolling();
+        // No need for polling anymore with WebSockets
     }
 
     /**
@@ -89,9 +91,29 @@ class AgentDashboard {
     setupTextareaAutoResize() {
         const textarea = document.getElementById('message-input');
         if (textarea) {
+            let typingTimer;
+            
             textarea.addEventListener('input', function() {
                 this.style.height = 'auto';
                 this.style.height = (this.scrollHeight) + 'px';
+            });
+            
+            // Send typing status
+            textarea.addEventListener('input', () => {
+                this.sendTypingStatus(true);
+                
+                // Clear existing timer
+                clearTimeout(typingTimer);
+                
+                // Set timer to stop typing after 1 second of inactivity
+                typingTimer = setTimeout(() => {
+                    this.sendTypingStatus(false);
+                }, 1000);
+            });
+            
+            textarea.addEventListener('blur', () => {
+                this.sendTypingStatus(false);
+                clearTimeout(typingTimer);
             });
         }
     }
@@ -678,16 +700,77 @@ class AgentDashboard {
     }
 
     /**
-     * Start polling for updates
+     * Initialize WebSocket connection
      */
-    startPolling() {
-        setInterval(() => {
+    initializeWebSocket() {
+        const wsUrl = this.apiUrl.replace('http', 'ws');
+        this.socket = io(wsUrl);
+        
+        this.socket.on('connect', () => {
+            console.log('Connected to WebSocket server');
+            this.socket.emit('join-agent-dashboard', this.agentId);
+        });
+        
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from WebSocket server');
+        });
+        
+        // Listen for new messages from customers
+        this.socket.on('new-message', (data) => {
+            console.log('New message received:', data);
             this.loadConversations();
-            if (this.currentChatId) {
+            
+            // If this is the current chat, update messages and check for suggestion
+            if (data.conversationId === this.currentChatId) {
                 this.loadChatMessages(this.currentChatId);
                 this.checkForPendingSuggestion(this.currentChatId);
             }
-        }, this.pollInterval);
+        });
+        
+        // Listen for agent status updates
+        this.socket.on('agent-status-update', (data) => {
+            console.log('Agent status update:', data);
+            // Update UI to show other agents' status if needed
+        });
+        
+        // Listen for customer typing status
+        this.socket.on('customer-typing-status', (data) => {
+            if (data.conversationId === this.currentChatId) {
+                this.showCustomerTyping(data.isTyping);
+            }
+        });
+        
+        this.socket.on('connect_error', (error) => {
+            console.error('WebSocket connection error:', error);
+        });
+    }
+    
+    /**
+     * Show/hide customer typing indicator
+     * @param {boolean} isTyping - Whether customer is typing
+     */
+    showCustomerTyping(isTyping) {
+        const indicator = document.getElementById('customer-typing-indicator');
+        if (indicator) {
+            if (isTyping) {
+                indicator.classList.remove('hidden');
+            } else {
+                indicator.classList.add('hidden');
+            }
+        }
+    }
+    
+    /**
+     * Send agent typing status
+     * @param {boolean} isTyping - Whether agent is typing
+     */
+    sendTypingStatus(isTyping) {
+        if (this.socket && this.currentChatId) {
+            this.socket.emit('agent-typing', {
+                conversationId: this.currentChatId,
+                isTyping: isTyping
+            });
+        }
     }
 
 
