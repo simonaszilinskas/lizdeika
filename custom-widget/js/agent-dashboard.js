@@ -11,7 +11,7 @@ class AgentDashboard {
         
         this.apiUrl = apiUrl;
         this.currentChatId = null;
-        this.agentId = 'agent-' + Math.random().toString(36).substr(2, 9);
+        this.agentId = 'agent-' + Math.random().toString(36).substring(2, 11);
         this.conversations = new Map();
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || 3000;
@@ -132,9 +132,6 @@ class AgentDashboard {
             this.renderQueue(data.conversations);
         } catch (error) {
             console.error('Error loading conversations:', error);
-            if (window.Utils) {
-                window.Utils.showNotification('Failed to load conversations. Please refresh the page.', 'error');
-            }
         }
     }
 
@@ -639,13 +636,8 @@ class AgentDashboard {
             });
             
             if (response.ok) {
-                console.log('Message sent successfully');
                 this.hideAISuggestion();
                 this.clearMessageInput();
-                
-                if (window.Utils) {
-                    window.Utils.showNotification('Message sent successfully!', 'success', 2000);
-                }
                 
                 // Reload messages and queue with slight delay
                 setTimeout(async () => {
@@ -655,15 +647,9 @@ class AgentDashboard {
             } else {
                 const errorText = await response.text();
                 console.error('Failed to send message:', errorText);
-                if (window.Utils) {
-                    window.Utils.showNotification('Failed to send message. Please try again.', 'error');
-                }
             }
         } catch (error) {
             console.error('Error sending agent response:', error);
-            if (window.Utils) {
-                window.Utils.showNotification('Network error. Please check your connection.', 'error');
-            }
         }
     }
 
@@ -704,31 +690,6 @@ class AgentDashboard {
         }, this.pollInterval);
     }
 
-    /**
-     * Convert markdown to HTML using shared utility
-     * @param {string} text - Markdown text
-     * @returns {string} HTML string
-     */
-    markdownToHtml(text) {
-        if (window.Utils) {
-            return window.Utils.markdownToHtml(text);
-        }
-        // Fallback if utils not loaded
-        return text.replace(/\n/g, '<br>');
-    }
-
-    /**
-     * Escape HTML using shared utility
-     * @param {string} text - Text to escape
-     * @returns {string} Escaped text
-     */
-    escapeHtml(text) {
-        if (window.Utils) {
-            return window.Utils.escapeHtml(text);
-        }
-        // Fallback if utils not loaded
-        return text;
-    }
 
     /**
      * Utility method to show element
@@ -750,6 +711,38 @@ class AgentDashboard {
         if (element) {
             element.classList.add('hidden');
         }
+    }
+
+    /**
+     * Convert markdown text to HTML
+     */
+    markdownToHtml(text) {
+        if (!text) return '';
+        
+        return text
+            // Bold text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // Italic text
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            // Links
+            .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #4F46E5; text-decoration: underline;">$1</a>')
+            // Line breaks
+            .replace(/\n/g, '<br>')
+            // Headers
+            .replace(/^### (.*$)/gm, '<h3 style="margin: 8px 0; font-size: 16px; font-weight: bold;">$1</h3>')
+            .replace(/^## (.*$)/gm, '<h2 style="margin: 8px 0; font-size: 18px; font-weight: bold;">$1</h2>')
+            .replace(/^# (.*$)/gm, '<h1 style="margin: 8px 0; font-size: 20px; font-weight: bold;">$1</h1>');
+    }
+
+    /**
+     * Escape HTML to prevent XSS attacks
+     */
+    escapeHtml(text) {
+        if (!text) return '';
+        
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
