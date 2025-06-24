@@ -30,7 +30,12 @@ const agents = new Map(); // Store agent status and info
 const flowise = {
     url: process.env.FLOWISE_URL || 'https://flowise-production-478e.up.railway.app',
     apiKey: process.env.FLOWISE_API_KEY,
-    chatflowId: process.env.FLOWISE_CHATFLOW_ID || '941a1dae-117e-4667-bf4f-014221e8435b'
+    chatflowId: process.env.FLOWISE_CHATFLOW_ID || '941a1dae-117e-4667-bf4f-014221e8435b',
+    isHealthy: true,
+    lastHealthCheck: new Date(),
+    healthCheckInterval: 5 * 60 * 1000, // 5 minutes
+    retryAttempts: 3,
+    retryDelay: 2000 // 2 seconds
 };
 
 // Helper function to get an available agent
@@ -52,6 +57,90 @@ function getAvailableAgent() {
     agentLoads.sort((a, b) => a.activeChats - b.activeChats);
     
     return agentLoads[0];
+}
+
+/**
+ * Check Flowise health status
+ * @returns {boolean} True if Flowise is healthy
+ */
+async function checkFlowiseHealth() {
+    try {
+        const response = await fetch(`${flowise.url}/api/v1/chatflows`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(flowise.apiKey && { 'Authorization': `Bearer ${flowise.apiKey}` })
+            },
+            signal: AbortSignal.timeout(10000) // 10 second timeout
+        });
+        
+        const isHealthy = response.ok;
+        flowise.isHealthy = isHealthy;
+        flowise.lastHealthCheck = new Date();
+        
+        if (!isHealthy) {
+            console.warn(`Flowise health check failed: ${response.status} ${response.statusText}`);
+        } else {
+            console.log('Flowise health check passed');
+        }
+        
+        return isHealthy;
+    } catch (error) {
+        console.error('Flowise health check error:', error.message);
+        flowise.isHealthy = false;
+        flowise.lastHealthCheck = new Date();
+        return false;
+    }
+}
+
+/**
+ * Get fallback AI response when Flowise is unavailable
+ * @param {string} conversationContext - Conversation context
+ * @returns {string} Fallback response
+ */
+function getFallbackResponse(conversationContext) {
+    const fallbackResponses = [
+        "Thank you for your message. I'm currently experiencing some technical difficulties with my AI assistant, but I'll make sure to respond to you as soon as possible.",
+        "I apologize for any inconvenience. My AI system is temporarily unavailable, but I've received your message and will get back to you shortly.",
+        "Thanks for reaching out! While my AI assistant is temporarily offline, I've noted your inquiry and will provide you with a response soon.",
+        "I appreciate your patience. My AI support system is currently down for maintenance, but I'll personally review your message and respond promptly.",
+        "Thank you for contacting us. Due to a temporary technical issue, I'm unable to provide an immediate AI-generated response, but I'll address your concern as soon as possible."
+    ];
+    
+    // Simple logic to vary responses based on context
+    const contextLength = conversationContext.length;
+    const index = contextLength % fallbackResponses.length;
+    
+    return fallbackResponses[index];
+}
+
+/**
+ * Retry function with exponential backoff
+ * @param {Function} fn - Function to retry
+ * @param {number} maxRetries - Maximum retry attempts
+ * @param {number} baseDelay - Base delay in milliseconds
+ * @returns {Promise} Result of function or throws error
+ */
+async function retryWithBackoff(fn, maxRetries = flowise.retryAttempts, baseDelay = flowise.retryDelay) {
+    let lastError;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            
+            if (attempt === maxRetries) {
+                break;
+            }
+            
+            const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+            console.log(`Retry attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms:`, error.message);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    
+    throw lastError;
 }
 
 /**
@@ -101,40 +190,68 @@ function buildConversationContext(conversationMessages, currentMessage) {
  * @returns {string} AI suggestion
  */
 async function generateAISuggestion(conversationId, conversationContext) {
+    // Check if we need to perform a health check
+    const timeSinceLastCheck = new Date() - flowise.lastHealthCheck;
+    if (timeSinceLastCheck > flowise.healthCheckInterval) {
+        await checkFlowiseHealth();
+    }
+    
+    // If Flowise is known to be unhealthy, return fallback immediately
+    if (!flowise.isHealthy) {
+        console.log('Flowise is unhealthy, using fallback response');
+        return getFallbackResponse(conversationContext);
+    }
+    
     try {
-        // Create a more contextual prompt for the AI
-        const contextualPrompt = conversationContext.includes('Agent:') 
-            ? `Please respond to the customer based on this conversation history:\n\n${conversationContext}\n\nProvide a helpful, professional response that addresses the customer's latest message and any unresolved issues from the conversation.`
-            : `Customer message: ${conversationContext}\n\nPlease provide a helpful, professional response to this customer inquiry.`;
-        
-        // Use the exact same format as your working query function
-        const response = await fetch(
-            `${flowise.url}/api/v1/prediction/${flowise.chatflowId}`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    question: contextualPrompt,
-                    overrideConfig: {
-                        sessionId: conversationId
-                    }
-                })
+        return await retryWithBackoff(async () => {
+            // Create a more contextual prompt for the AI
+            const contextualPrompt = conversationContext.includes('Agent:') 
+                ? `Please respond to the customer based on this conversation history:\n\n${conversationContext}\n\nProvide a helpful, professional response that addresses the customer's latest message and any unresolved issues from the conversation.`
+                : `Customer message: ${conversationContext}\n\nPlease provide a helpful, professional response to this customer inquiry.`;
+            
+            const response = await fetch(
+                `${flowise.url}/api/v1/prediction/${flowise.chatflowId}`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...(flowise.apiKey && { 'Authorization': `Bearer ${flowise.apiKey}` })
+                    },
+                    body: JSON.stringify({
+                        question: contextualPrompt,
+                        overrideConfig: {
+                            sessionId: conversationId
+                        }
+                    }),
+                    signal: AbortSignal.timeout(30000) // 30 second timeout
+                }
+            );
+            
+            if (!response.ok) {
+                // Mark as unhealthy for certain error codes
+                if (response.status >= 500 || response.status === 429) {
+                    flowise.isHealthy = false;
+                }
+                throw new Error(`Flowise API error: ${response.status} ${response.statusText}`);
             }
-        );
+            
+            const result = await response.json();
+            console.log('Flowise response received successfully');
+            
+            // Mark as healthy on successful response
+            flowise.isHealthy = true;
+            
+            return result.text || result.answer || 'I apologize, but I couldn\'t generate a response at this time.';
+        });
         
-        if (!response.ok) {
-            throw new Error(`Flowise API error: ${response.status} ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        console.log('Flowise response:', result);
-        
-        return result.text || result.answer || 'I apologize, but I couldn\'t generate a response at this time.';
     } catch (error) {
-        console.error('Error generating AI suggestion:', error.message);
-        return 'I apologize, but I\'m having trouble generating a suggestion right now. Please respond based on your best judgment.';
+        console.error('Error generating AI suggestion after retries:', error.message);
+        
+        // Mark Flowise as unhealthy
+        flowise.isHealthy = false;
+        
+        // Return fallback response
+        return getFallbackResponse(conversationContext);
     }
 }
 
@@ -524,14 +641,55 @@ app.post('/api/reset', (req, res) => {
 });
 
 // Health check
-app.get('/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        flowise: {
-            url: flowise.url,
-            configured: !!flowise.chatflowId
+app.get('/health', async (req, res) => {
+    try {
+        // Check our own health
+        const serverHealth = {
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            connections: {
+                conversations: conversations.size,
+                messages: Array.from(messages.values()).reduce((total, msgs) => total + msgs.length, 0),
+                agents: agents.size
+            }
+        };
+        
+        // Check Flowise health if configured
+        if (flowise.chatflowId) {
+            const flowiseHealthy = await checkFlowiseHealth();
+            serverHealth.flowise = {
+                url: flowise.url,
+                configured: true,
+                healthy: flowiseHealthy,
+                lastCheck: flowise.lastHealthCheck,
+                chatflowId: flowise.chatflowId ? 'configured' : 'missing'
+            };
+        } else {
+            serverHealth.flowise = {
+                url: flowise.url,
+                configured: false,
+                healthy: false,
+                error: 'Chatflow ID not configured'
+            };
         }
-    });
+        
+        // Determine overall status
+        const overallStatus = (!flowise.chatflowId || flowise.isHealthy) ? 'ok' : 'degraded';
+        serverHealth.status = overallStatus;
+        
+        const httpStatus = overallStatus === 'ok' ? 200 : 503;
+        res.status(httpStatus).json(serverHealth);
+        
+    } catch (error) {
+        console.error('Health check error:', error);
+        res.status(500).json({
+            status: 'error',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // WebSocket connection handling
