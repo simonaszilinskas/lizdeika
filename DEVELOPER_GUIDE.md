@@ -3,7 +3,7 @@
 ## How This Project Works
 
 ### The Big Picture
-This is a customer support chat system with 3 main parts:
+This is a customer support chat system with a human in the loop and AI with 3 main parts:
 1. **Customer Widget** - The chat bubble customers see on websites
 2. **Agent Dashboard** - Where support agents respond to messages
 3. **AI Integration** - Flowise generates suggested responses
@@ -70,7 +70,7 @@ Agent Dashboard (port 3000)
 1. **Data Loss on Restart**
    - Everything is stored in memory
    - Restart server = lose all conversations
-   - Fix: Add database (PostgreSQL or SQLite)
+   - Fix: Add database (PostgreSQL)
 
 2. **No Real-time Updates**
    - Uses polling (every 2-3 seconds)
@@ -106,90 +106,18 @@ Agent Dashboard (port 3000)
    ```
 
 2. **Agent Authentication**
-   - Login system for agents
-   - Track which agent sent what
+   - Login system for one agent only - no need for multiple. Credentials stored in .env
 
-3. **File Uploads**
-   - Customers send screenshots
-   - Agents send documents
-
-4. **Conversation Search**
-   - Find old chats by keyword
-   - Filter by date, status
+3. **Send the past 4 messages to Flowise**
+   - So that the chatbot has more context - send both the assistant and user messages
 
 ### Medium Priority
-5. **Canned Responses**
-   - Pre-written answers for common questions
-   - Quick insert buttons
 
-6. **Customer Info**
-   - Name, email, phone collection
-   - Show in agent dashboard
+6. **Analytics**
+   - Integrate with Langfuse to provide feedback on messages
 
-7. **Analytics**
-   - Response time tracking
-   - Customer satisfaction
-
-8. **Multiple Languages**
+7. **Translate all to Lithuanian**
    - UI translation
-   - Auto-detect customer language
-
-### Nice to Have
-9. **Voice Messages**
-10. **Screen Sharing**
-11. **Co-browsing**
-12. **Chatbot Handoff**
-
-## How to Add a New Feature
-
-### Example: Adding Email Collection
-
-1. **Update Widget UI** (`widget.js`):
-```javascript
-// Add email input to chat window
-const emailInput = '<input type="email" placeholder="Your email" id="customer-email">';
-```
-
-2. **Update Message Sending** (`widget.js`):
-```javascript
-// In sendMessage function
-const email = document.getElementById('customer-email').value;
-body: JSON.stringify({
-    conversationId: this.conversationId,
-    message: message,
-    customerEmail: email // NEW
-})
-```
-
-3. **Update Backend** (`backend/server.js`):
-```javascript
-// In POST /api/messages
-const { conversationId, message, customerEmail } = req.body;
-// Store email with conversation
-```
-
-4. **Show in Dashboard** (`agent-dashboard.js`):
-```javascript
-// Display email in conversation header
-document.getElementById('customer-email').textContent = conv.customerEmail;
-```
-
-## Common Issues & Solutions
-
-### "Can't see messages"
-1. Check both servers are running (ports 3000 & 3002)
-2. Check browser console for errors
-3. Check network tab for failed requests
-
-### "AI suggestions not working"
-1. Verify `.env` has correct Flowise URL
-2. Test Flowise directly with curl
-3. Check widget backend logs
-
-### "Widget not appearing"
-1. Check if `widget.js` loaded (network tab)
-2. Look for JavaScript errors
-3. Try incognito mode (no extensions)
 
 ## Testing Checklist
 
@@ -209,6 +137,9 @@ Before any change:
 3. **Log errors** - Always console.error() failures
 4. **Check if element exists** - Before using getElementById
 5. **Use async/await** - Not .then() chains
+6. **Keep it simple** 
+7. **New branch for every feature** 
+
 
 ## Deployment Notes
 
@@ -239,13 +170,3 @@ curl -X POST https://your-flowise-url/api/v1/prediction/your-chatflow-id \
 lsof -ti:3000 | xargs kill -9
 lsof -ti:3002 | xargs kill -9
 ```
-
-## Contact for Questions
-
-If you're stuck:
-1. Check browser console first
-2. Check server logs
-3. Search for the error message
-4. Try the quick fixes above
-
-Remember: This is a simple system. Don't overcomplicate it. Most bugs are probably port issues or missing API calls.
