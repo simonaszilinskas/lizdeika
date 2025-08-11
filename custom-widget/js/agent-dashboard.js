@@ -273,13 +273,13 @@ class AgentDashboard {
 
             if (response.ok) {
                 // Show success message
-                this.showNotification('Nustatymai išsaugoti! Serveris bus paleistas iš naujo.', 'success');
+                this.showNotification('Nustatymai išsaugoti sėkmingai!', 'success');
                 this.closeSettingsModal();
                 
-                // Reload after a delay to let the server restart
+                // Reload settings display to show changes
                 setTimeout(() => {
-                    window.location.reload();
-                }, 3000);
+                    this.loadCurrentSettings();
+                }, 1000);
             } else {
                 throw new Error('Failed to save settings');
             }

@@ -699,29 +699,49 @@ app.get('/api/config/system-prompt', (req, res) => {
 });
 
 app.post('/api/config/settings', (req, res) => {
-    const { aiProvider, systemPrompt } = req.body;
+    const { aiProvider: newProvider, systemPrompt } = req.body;
     
-    if (!aiProvider || !systemPrompt) {
+    if (!newProvider || !systemPrompt) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
     try {
-        // Update environment variables (this would typically update a config file)
-        process.env.AI_PROVIDER = aiProvider;
+        // Update environment variables for runtime changes
+        const oldProvider = process.env.AI_PROVIDER;
+        process.env.AI_PROVIDER = newProvider;
         process.env.SYSTEM_PROMPT = systemPrompt;
         
-        // For a proper implementation, you'd write to .env file here
-        // For now, we'll just update the runtime environment
-        
-        console.log(`Settings updated: AI_PROVIDER=${aiProvider}, SYSTEM_PROMPT updated`);
+        // Reinitialize AI provider if it changed
+        if (oldProvider !== newProvider) {
+            console.log(`Switching AI provider from ${oldProvider} to ${newProvider}`);
+            
+            try {
+                // Create new AI provider instance
+                const newAIProvider = createAIProvider(newProvider, process.env);
+                
+                // Replace the global aiProvider
+                aiProvider = newAIProvider;
+                
+                console.log(`AI Provider successfully switched to: ${newProvider}`);
+            } catch (providerError) {
+                console.error(`Failed to initialize new AI provider "${newProvider}":`, providerError.message);
+                
+                // Fallback to previous provider
+                process.env.AI_PROVIDER = oldProvider;
+                
+                return res.status(500).json({ 
+                    error: `Failed to switch to ${newProvider}. Reverted to ${oldProvider}.` 
+                });
+            }
+        } else {
+            console.log(`System prompt updated for ${newProvider}`);
+        }
         
         res.json({ 
             success: true, 
-            message: 'Settings updated successfully. Restart required to take effect.' 
+            message: 'Settings updated successfully!',
+            currentProvider: newProvider
         });
-        
-        // In a production environment, you might want to restart the server automatically
-        // setTimeout(() => process.exit(0), 1000); // Restart after 1 second
         
     } catch (error) {
         console.error('Error updating settings:', error);
