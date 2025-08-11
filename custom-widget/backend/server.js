@@ -585,14 +585,14 @@ app.get('/health', async (req, res) => {
         if (aiProvider) {
             const providerHealthy = await aiProvider.healthCheck();
             serverHealth.aiProvider = {
-                provider: AI_PROVIDER,
+                provider: process.env.AI_PROVIDER, // Use current runtime config
                 configured: true,
                 healthy: providerHealthy,
                 lastCheck: aiProvider.lastHealthCheck
             };
         } else {
             serverHealth.aiProvider = {
-                provider: AI_PROVIDER,
+                provider: process.env.AI_PROVIDER, // Use current runtime config
                 configured: false,
                 healthy: false,
                 error: 'AI provider failed to initialize'
