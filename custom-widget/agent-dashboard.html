@@ -69,6 +69,33 @@
         #chat-queue::-webkit-scrollbar-thumb:hover {
             background: #9CA3AF;
         }
+
+        /* AI suggestion panel scrollbars */
+        #ai-suggestion-panel::-webkit-scrollbar,
+        #ai-suggestion-text::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #ai-suggestion-panel::-webkit-scrollbar-track,
+        #ai-suggestion-text::-webkit-scrollbar-track {
+            background: #F3F4F6;
+        }
+        
+        #ai-suggestion-panel::-webkit-scrollbar-thumb,
+        #ai-suggestion-text::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 3px;
+        }
+        
+        #ai-suggestion-panel::-webkit-scrollbar-thumb:hover,
+        #ai-suggestion-text::-webkit-scrollbar-thumb:hover {
+            background: #9CA3AF;
+        }
+
+        /* Textarea resize styling */
+        #message-input {
+            transition: height 0.2s ease;
+        }
         
         /* Message animations */
         .message-animation {
@@ -195,20 +222,20 @@
             </div>
 
             <!-- AI Suggestion Panel -->
-            <div id="ai-suggestion-panel" class="hidden bg-purple-50 border-t border-purple-200 p-4">
+            <div id="ai-suggestion-panel" class="hidden bg-purple-50 border-t border-purple-200 p-4 max-h-64 overflow-y-auto">
                 <div class="flex items-start gap-3">
-                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center">
+                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
                         <i class="fas fa-robot text-white text-sm"></i>
                     </div>
-                    <div class="flex-1">
+                    <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-2">
                             <span class="font-semibold text-purple-700">AI pasiūlymas</span>
                             <span class="text-xs text-gray-500">kliento paskutiniam pranešimui</span>
                         </div>
-                        <div id="ai-suggestion-text" class="text-gray-700 mb-3 bg-white p-3 rounded border" style="line-height: 1.5;">
+                        <div id="ai-suggestion-text" class="text-gray-700 mb-3 bg-white p-3 rounded border max-h-32 overflow-y-auto" style="line-height: 1.5;">
                             <!-- AI suggestion will appear here -->
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-wrap">
                             <button id="send-as-is-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium">
                                 <i class="fas fa-paper-plane mr-1"></i> Siųsti kaip yra
                             </button>
@@ -225,13 +252,16 @@
 
             <!-- Message Input -->
             <div id="message-input-area" class="hidden bg-white border-t border-gray-200 p-4">
-                <form id="message-form" class="flex gap-3">
-                    <textarea 
-                        id="message-input" 
-                        placeholder="Rašykite savo pranešimą..."
-                        class="flex-1 border border-gray-300 rounded-lg px-4 py-2 resize-none h-20 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    ></textarea>
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg h-fit">
+                <form id="message-form" class="flex gap-3 items-end">
+                    <div class="flex-1 relative">
+                        <textarea 
+                            id="message-input" 
+                            placeholder="Rašykite savo pranešimą..."
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            style="resize: none; overflow-y: auto; height: 80px; min-height: 80px; max-height: 160px; transition: height 0.1s ease;"
+                        ></textarea>
+                    </div>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0 self-end">
                         <i class="fas fa-paper-plane mr-1"></i> Siųsti
                     </button>
                 </form>

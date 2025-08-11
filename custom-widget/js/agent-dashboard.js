@@ -93,9 +93,20 @@ class AgentDashboard {
         if (textarea) {
             let typingTimer;
             
+            // Auto-resize textarea that expands upward
             textarea.addEventListener('input', function() {
+                // Store current scroll position
+                const scrollTop = this.scrollTop;
+                
+                // Reset height to calculate new height
                 this.style.height = 'auto';
-                this.style.height = (this.scrollHeight) + 'px';
+                
+                // Calculate new height with min/max constraints
+                const newHeight = Math.min(Math.max(this.scrollHeight, 80), 160); // min 80px (5rem), max 160px (10rem)
+                this.style.height = newHeight + 'px';
+                
+                // Restore scroll position
+                this.scrollTop = scrollTop;
             });
             
             // Send typing status
@@ -115,6 +126,9 @@ class AgentDashboard {
                 this.sendTypingStatus(false);
                 clearTimeout(typingTimer);
             });
+            
+            // Initialize with proper height
+            textarea.style.height = '80px'; // Start with minimum height
         }
     }
 
