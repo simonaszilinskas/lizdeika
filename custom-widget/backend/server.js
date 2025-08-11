@@ -691,6 +691,44 @@ io.on('connection', (socket) => {
     });
 });
 
+// Configuration endpoints
+app.get('/api/config/system-prompt', (req, res) => {
+    res.json({
+        systemPrompt: process.env.SYSTEM_PROMPT || 'Jūs esate naudingas klientų palaikymo asistentas Vilniaus miestui. Atsakykite lietuvių kalba ir būkite mandagūs bei informatyvūs.'
+    });
+});
+
+app.post('/api/config/settings', (req, res) => {
+    const { aiProvider, systemPrompt } = req.body;
+    
+    if (!aiProvider || !systemPrompt) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        // Update environment variables (this would typically update a config file)
+        process.env.AI_PROVIDER = aiProvider;
+        process.env.SYSTEM_PROMPT = systemPrompt;
+        
+        // For a proper implementation, you'd write to .env file here
+        // For now, we'll just update the runtime environment
+        
+        console.log(`Settings updated: AI_PROVIDER=${aiProvider}, SYSTEM_PROMPT updated`);
+        
+        res.json({ 
+            success: true, 
+            message: 'Settings updated successfully. Restart required to take effect.' 
+        });
+        
+        // In a production environment, you might want to restart the server automatically
+        // setTimeout(() => process.exit(0), 1000); // Restart after 1 second
+        
+    } catch (error) {
+        console.error('Error updating settings:', error);
+        res.status(500).json({ error: 'Failed to update settings' });
+    }
+});
+
 server.listen(PORT, () => {
     console.log(`Widget backend running on http://localhost:${PORT}`);
     console.log('WebSocket server initialized');

@@ -96,10 +96,13 @@ class OpenRouterProvider extends AIProvider {
     }
 
     async generateResponse(conversationContext, conversationId) {
+        // Use current system prompt from environment (allows runtime updates)
+        const currentSystemPrompt = process.env.SYSTEM_PROMPT || this.systemPrompt;
+        
         const messages = [
             {
-                role: "system",
-                content: this.systemPrompt
+                role: "system", 
+                content: currentSystemPrompt
             }
         ];
 
