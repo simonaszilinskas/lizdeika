@@ -72,9 +72,9 @@
                             align-items: center;
                         ">
                             <div>
-                                <h3 style="margin: 0; font-size: 18px;">Support Assistant</h3>
+                                <h3 style="margin: 0; font-size: 18px;">Pagalbos asistentas</h3>
                                 <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">
-                                    Powered by AI
+                                    Veikia su AI
                                 </p>
                             </div>
                             <button id="vilnius-close-chat" style="
@@ -104,7 +104,7 @@
                                 font-size: 14px;
                                 font-style: italic;
                                 color: #6b7280;
-                            ">Agent is typing...</div>
+                            ">Agentas rašo...</div>
                             <div class="vilnius-message vilnius-ai" style="
                                 margin-bottom: 16px;
                                 display: flex;
@@ -118,7 +118,7 @@
                                     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                                 ">
                                     <p style="margin: 0; color: #1f2937;">
-                                        Hello! I'm here to help. What can I assist you with today?
+                                        Labas! Aš čia, kad padėčiau. Kuo galiu jums padėti šiandien?
                                     </p>
                                 </div>
                             </div>
@@ -137,7 +137,7 @@
                                 <input 
                                     id="vilnius-chat-input"
                                     type="text" 
-                                    placeholder="Type your message..."
+                                    placeholder="Rašykite savo pranešimą..."
                                     style="
                                         flex: 1;
                                         padding: 12px 16px;
@@ -261,6 +261,21 @@
             
             this.socket.on('connect_error', (error) => {
                 console.error('Widget WebSocket connection error:', error);
+                this.handleConnectionError();
+            });
+            
+            this.socket.on('reconnect', (attemptNumber) => {
+                console.log(`Widget reconnected after ${attemptNumber} attempts`);
+                this.handleReconnection();
+            });
+            
+            this.socket.on('reconnect_error', (error) => {
+                console.error('Widget reconnection error:', error);
+            });
+            
+            this.socket.on('reconnect_failed', () => {
+                console.error('Widget reconnection failed - using polling fallback');
+                this.ensurePollingActive();
             });
         },
         
@@ -377,7 +392,7 @@
 
             let content = msg.content;
             if (msg.sender === 'system' && content.includes('[Message pending agent response')) {
-                content = 'Your message has been received. An agent will respond shortly.';
+                content = 'Jūsų pranešimas gautas. Agentas netrukus atsakys.';
             }
 
             const formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
@@ -397,7 +412,27 @@
             return messageDiv;
         },
 
-        startPolling() {
+        handleConnectionError: function() {
+            console.log('Widget WebSocket failed, ensuring polling is active');
+            this.ensurePollingActive();
+        },
+        
+        handleReconnection: function() {
+            // Rejoin conversation room if we have one
+            if (this.conversationId && this.socket && this.socket.connected) {
+                this.socket.emit('join-conversation', this.conversationId);
+                console.log('Widget rejoined conversation room after reconnection');
+            }
+        },
+        
+        ensurePollingActive: function() {
+            if (!this.pollingInterval && this.conversationId) {
+                console.log('Starting polling fallback for widget');
+                this.startPolling();
+            }
+        },
+
+        startPolling: function() {
             // Prevent multiple polling intervals
             if (this.pollingInterval) return;
             
@@ -466,17 +501,32 @@
                         this.addMessage(data.aiMessage.content, 'ai', data.aiMessage.id);
                     } else {
                         // For system messages, show a friendly waiting message
-                        this.addMessage('Your message has been received. An agent will respond shortly.', 'system', 'system-' + Date.now());
+                        this.addMessage('Jūsų pranešimas gautas. Agentas netrukus atsakys.', 'system', 'system-' + Date.now());
                     }
                 } else {
                     // Error handling
-                    this.addMessage('I apologize, but I encountered an error. Please try again.', 'ai', 'error-' + Date.now());
+                    this.addMessage('Atsiprašau, bet įvyko klaida. Pabandykite dar kartą.', 'ai', 'error-' + Date.now());
                 }
 
             } catch (error) {
                 console.error('Error sending message:', error);
                 this.removeTypingIndicator(typingId);
-                this.addMessage('I apologize, but I\'m having trouble connecting. Please try again later.', 'ai', 'error-' + Date.now());
+                
+                // Provide different error messages based on error type
+                let errorMessage = 'Atsiprašau, bet kyla ryšio problemų. Pabandykite vėliau.';
+                
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    errorMessage = 'Nepavyksta prisijungti prie serverio. Patikrinkite interneto ryšį ir pabandykite dar kartą.';
+                } else if (error.message.includes('timeout')) {
+                    errorMessage = 'Užklausa trunka ilgiau nei tikėtasi. Pabandykite dar kartą.';
+                } else if (error.message.includes('500')) {
+                    errorMessage = 'Serveris patiria problemų. Pabandykite po kelių akimirkų.';
+                }
+                
+                this.addMessage(errorMessage, 'ai', 'error-' + Date.now());
+                
+                // Ensure polling is active as fallback
+                this.ensurePollingActive();
             }
         },
 
@@ -514,7 +564,7 @@
 
             // Handle system messages specially
             if (sender === 'system' && text.includes('[Message pending agent response')) {
-                text = 'Your message has been received. An agent will respond shortly.';
+                text = 'Jūsų pranešimas gautas. Agentas netrukus atsakys.';
             }
 
             // Convert markdown to HTML for AI/agent messages

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dashboard Connection</title>
+</head>
+<body>
+    <h1>Testing Dashboard Connection</h1>
+    <div id="result"></div>
+    
+    <script>
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Test 1: Check if backend is accessible
+                const response = await fetch('http://localhost:3002/api/admin/conversations');
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <h2>Backend Connection: ✅ Success</h2>
+                    <h3>Conversations Found: ${data.total}</h3>
+                    <pre>${JSON.stringify(data.conversations, null, 2)}</pre>
+                `;
+                
+                // Test 2: Check agent dashboard location
+                const dashboardResponse = await fetch('http://localhost:3002/agent-dashboard.html');
+                if (dashboardResponse.ok) {
+                    resultDiv.innerHTML += '<h3>Agent Dashboard HTML: ✅ Found</h3>';
+                } else {
+                    resultDiv.innerHTML += '<h3>Agent Dashboard HTML: ❌ Not Found</h3>';
+                }
+                
+                // Test 3: Check JS file
+                const jsResponse = await fetch('http://localhost:3002/js/agent-dashboard.js');
+                if (jsResponse.ok) {
+                    resultDiv.innerHTML += '<h3>Agent Dashboard JS: ✅ Found</h3>';
+                } else {
+                    resultDiv.innerHTML += '<h3>Agent Dashboard JS: ❌ Not Found</h3>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<h2>Error: ${error.message}</h2>`;
+            }
+        }
+        
+        testConnection();
+    </script>
+</body>
+</html>

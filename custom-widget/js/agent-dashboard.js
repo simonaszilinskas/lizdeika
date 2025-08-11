@@ -672,6 +672,30 @@ class AgentDashboard {
             }
         } catch (error) {
             console.error('Error sending agent response:', error);
+            
+            // Show user-friendly error message
+            let errorMessage = 'Failed to send message. Please try again.';
+            
+            if (error.message.includes('403')) {
+                errorMessage = 'You are not authorized to respond to this conversation.';
+            } else if (error.message.includes('404')) {
+                errorMessage = 'This conversation no longer exists.';
+            } else if (error.message.includes('500')) {
+                errorMessage = 'Server error. Please try again in a moment.';
+            } else if (error.name === 'TypeError') {
+                errorMessage = 'Network error. Please check your connection and try again.';
+            }
+            
+            // Show error to user (you could implement a toast notification here)
+            console.warn('User-facing error:', errorMessage);
+            
+            // Attempt to refresh data in case it helps
+            setTimeout(() => {
+                this.loadConversations();
+                if (this.currentChatId) {
+                    this.loadChatMessages(this.currentChatId);
+                }
+            }, 1000);
         }
     }
 
@@ -742,6 +766,21 @@ class AgentDashboard {
         
         this.socket.on('connect_error', (error) => {
             console.error('WebSocket connection error:', error);
+            this.handleConnectionError();
+        });
+        
+        this.socket.on('reconnect', (attemptNumber) => {
+            console.log(`Reconnected to WebSocket server after ${attemptNumber} attempts`);
+            this.handleReconnection();
+        });
+        
+        this.socket.on('reconnect_error', (error) => {
+            console.error('WebSocket reconnection error:', error);
+        });
+        
+        this.socket.on('reconnect_failed', () => {
+            console.error('WebSocket reconnection failed - falling back to polling');
+            this.fallbackToPolling();
         });
     }
     
@@ -771,6 +810,61 @@ class AgentDashboard {
                 isTyping: isTyping
             });
         }
+    }
+    
+    /**
+     * Handle WebSocket connection errors
+     */
+    handleConnectionError() {
+        console.log('WebSocket connection failed, starting polling fallback');
+        this.fallbackToPolling();
+    }
+    
+    /**
+     * Handle successful WebSocket reconnection
+     */
+    handleReconnection() {
+        // Rejoin agent dashboard
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('join-agent-dashboard', this.agentId);
+            
+            // Rejoin current conversation if any
+            if (this.currentChatId) {
+                this.socket.emit('join-conversation', this.currentChatId);
+            }
+        }
+        
+        // Stop polling if it was started as fallback
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+            console.log('WebSocket reconnected, stopping polling fallback');
+        }
+        
+        // Refresh data
+        this.loadConversations();
+        if (this.currentChatId) {
+            this.loadChatMessages(this.currentChatId);
+            this.checkForPendingSuggestion(this.currentChatId);
+        }
+    }
+    
+    /**
+     * Fall back to polling when WebSocket fails
+     */
+    fallbackToPolling() {
+        if (this.pollingInterval) {
+            return; // Already polling
+        }
+        
+        console.log('Starting polling fallback due to WebSocket issues');
+        this.pollingInterval = setInterval(() => {
+            this.loadConversations();
+            if (this.currentChatId) {
+                this.loadChatMessages(this.currentChatId);
+                this.checkForPendingSuggestion(this.currentChatId);
+            }
+        }, this.pollInterval);
     }
 
 
