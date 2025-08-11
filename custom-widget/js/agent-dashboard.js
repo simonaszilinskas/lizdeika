@@ -86,6 +86,26 @@ class AgentDashboard {
     }
 
     /**
+     * Manually resize textarea (for programmatic content changes)
+     */
+    resizeTextarea() {
+        const textarea = document.getElementById('message-input');
+        if (textarea) {
+            // Reset height to recalculate
+            textarea.style.height = 'auto';
+            
+            // Calculate new height with much larger range
+            const minHeight = 80;   // ~2 lines
+            const maxHeight = 300;  // ~8-10 lines  
+            const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+            
+            textarea.style.height = newHeight + 'px';
+            
+            // console.log(`Manual textarea resize: scrollHeight=${textarea.scrollHeight}, newHeight=${newHeight}`); // Debug
+        }
+    }
+
+    /**
      * Setup auto-resize functionality for textarea
      */
     setupTextareaAutoResize() {
@@ -94,18 +114,8 @@ class AgentDashboard {
             let typingTimer;
             
             // Auto-resize textarea that expands upward
-            textarea.addEventListener('input', function() {
-                // Reset height to recalculate
-                this.style.height = 'auto';
-                
-                // Calculate new height with much larger range
-                const minHeight = 80;   // ~2 lines
-                const maxHeight = 300;  // ~8-10 lines  
-                const newHeight = Math.min(Math.max(this.scrollHeight, minHeight), maxHeight);
-                
-                this.style.height = newHeight + 'px';
-                
-                console.log(`Textarea resize: scrollHeight=${this.scrollHeight}, newHeight=${newHeight}`); // Debug
+            textarea.addEventListener('input', () => {
+                this.resizeTextarea();
             });
             
             // Send typing status
@@ -631,6 +641,8 @@ class AgentDashboard {
         if (input) {
             input.value = this.currentSuggestion;
             input.focus();
+            // Manually resize after setting content
+            setTimeout(() => this.resizeTextarea(), 10); // Small delay to ensure content is set
         }
         
         this.hideAISuggestion();
@@ -644,6 +656,8 @@ class AgentDashboard {
         if (input) {
             input.value = '';
             input.focus();
+            // Resize to minimum height after clearing
+            setTimeout(() => this.resizeTextarea(), 10);
         }
         
         this.hideAISuggestion();
