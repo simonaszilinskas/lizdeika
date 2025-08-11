@@ -95,18 +95,17 @@ class AgentDashboard {
             
             // Auto-resize textarea that expands upward
             textarea.addEventListener('input', function() {
-                // Store current scroll position
-                const scrollTop = this.scrollTop;
-                
-                // Reset height to calculate new height
+                // Reset height to recalculate
                 this.style.height = 'auto';
                 
-                // Calculate new height with min/max constraints
-                const newHeight = Math.min(Math.max(this.scrollHeight, 80), 160); // min 80px (5rem), max 160px (10rem)
+                // Calculate new height with much larger range
+                const minHeight = 80;   // ~2 lines
+                const maxHeight = 300;  // ~8-10 lines  
+                const newHeight = Math.min(Math.max(this.scrollHeight, minHeight), maxHeight);
+                
                 this.style.height = newHeight + 'px';
                 
-                // Restore scroll position
-                this.scrollTop = scrollTop;
+                console.log(`Textarea resize: scrollHeight=${this.scrollHeight}, newHeight=${newHeight}`); // Debug
             });
             
             // Send typing status
