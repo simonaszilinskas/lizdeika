@@ -3,6 +3,7 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const { createAIProvider, retryWithBackoff } = require('./ai-providers');
 require('dotenv').config();
 
 const app = express();
@@ -26,17 +27,29 @@ const conversations = new Map();
 const messages = new Map();
 const agents = new Map(); // Store agent status and info
 
-// Flowise configuration
-const flowise = {
-    url: process.env.FLOWISE_URL || 'https://flowise-production-478e.up.railway.app',
-    apiKey: process.env.FLOWISE_API_KEY,
-    chatflowId: process.env.FLOWISE_CHATFLOW_ID || '941a1dae-117e-4667-bf4f-014221e8435b',
-    isHealthy: true,
-    lastHealthCheck: new Date(),
-    healthCheckInterval: 5 * 60 * 1000, // 5 minutes
-    retryAttempts: 3,
-    retryDelay: 2000 // 2 seconds
-};
+// AI Provider configuration
+const AI_PROVIDER = process.env.AI_PROVIDER || 'flowise';
+let aiProvider;
+
+try {
+    aiProvider = createAIProvider(AI_PROVIDER, process.env);
+    console.log(`AI Provider initialized: ${AI_PROVIDER}`);
+} catch (error) {
+    console.error(`Failed to initialize AI provider "${AI_PROVIDER}":`, error.message);
+    
+    // Fallback to Flowise if OpenRouter fails
+    if (AI_PROVIDER !== 'flowise') {
+        try {
+            aiProvider = createAIProvider('flowise', process.env);
+            console.log('Fallback to Flowise provider successful');
+        } catch (fallbackError) {
+            console.error('Fallback to Flowise also failed:', fallbackError.message);
+            aiProvider = null;
+        }
+    } else {
+        aiProvider = null;
+    }
+}
 
 // Helper function to get an available agent
 function getAvailableAgent() {
@@ -60,51 +73,17 @@ function getAvailableAgent() {
 }
 
 /**
- * Check Flowise health status
- * @returns {boolean} True if Flowise is healthy
- */
-async function checkFlowiseHealth() {
-    try {
-        const response = await fetch(`${flowise.url}/api/v1/chatflows`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(flowise.apiKey && { 'Authorization': `Bearer ${flowise.apiKey}` })
-            },
-            signal: AbortSignal.timeout(10000) // 10 second timeout
-        });
-        
-        const isHealthy = response.ok;
-        flowise.isHealthy = isHealthy;
-        flowise.lastHealthCheck = new Date();
-        
-        if (!isHealthy) {
-            console.warn(`Flowise health check failed: ${response.status} ${response.statusText}`);
-        } else {
-            console.log('Flowise health check passed');
-        }
-        
-        return isHealthy;
-    } catch (error) {
-        console.error('Flowise health check error:', error.message);
-        flowise.isHealthy = false;
-        flowise.lastHealthCheck = new Date();
-        return false;
-    }
-}
-
-/**
- * Get fallback AI response when Flowise is unavailable
+ * Get fallback AI response when AI provider is unavailable
  * @param {string} conversationContext - Conversation context
  * @returns {string} Fallback response
  */
 function getFallbackResponse(conversationContext) {
     const fallbackResponses = [
-        "Thank you for your message. I'm currently experiencing some technical difficulties with my AI assistant, but I'll make sure to respond to you as soon as possible.",
-        "I apologize for any inconvenience. My AI system is temporarily unavailable, but I've received your message and will get back to you shortly.",
-        "Thanks for reaching out! While my AI assistant is temporarily offline, I've noted your inquiry and will provide you with a response soon.",
-        "I appreciate your patience. My AI support system is currently down for maintenance, but I'll personally review your message and respond promptly.",
-        "Thank you for contacting us. Due to a temporary technical issue, I'm unable to provide an immediate AI-generated response, but I'll address your concern as soon as possible."
+        "Ačiū už jūsų pranešimą. Šiuo metu išgyvenu techninių sunkumų su AI asistentu, bet užtikrinsiu, kad jums atsakysiu kuo greičiau.",
+        "Atsiprašau už nepatogumus. Mano AI sistema laikinai neprieinama, bet gavau jūsų pranešimą ir netrukus jums atsakysiu.",
+        "Ačiū, kad kreipėtės! Nors mano AI asistentas laikinai neprieinamas, užsirašiau jūsų užklausą ir netrukus pateiksius atsakymą.",
+        "Dėkoju už kantrybę. Mano AI palaikymo sistema šiuo metu neprieiama dėl techninių darbų, bet asmeniškai peržiūrėsiu jūsų pranešimą ir nedelsiant atsakysiu.",
+        "Ačiū, kad susisiekėte su mumis. Dėl laikinos techninės problemos negaliu iš karto pateikti AI atsakymo, bet kuo greičiau spręsiu jūsų problemą."
     ];
     
     // Simple logic to vary responses based on context
@@ -112,35 +91,6 @@ function getFallbackResponse(conversationContext) {
     const index = contextLength % fallbackResponses.length;
     
     return fallbackResponses[index];
-}
-
-/**
- * Retry function with exponential backoff
- * @param {Function} fn - Function to retry
- * @param {number} maxRetries - Maximum retry attempts
- * @param {number} baseDelay - Base delay in milliseconds
- * @returns {Promise} Result of function or throws error
- */
-async function retryWithBackoff(fn, maxRetries = flowise.retryAttempts, baseDelay = flowise.retryDelay) {
-    let lastError;
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-            return await fn();
-        } catch (error) {
-            lastError = error;
-            
-            if (attempt === maxRetries) {
-                break;
-            }
-            
-            const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
-            console.log(`Retry attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms:`, error.message);
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-    
-    throw lastError;
 }
 
 /**
@@ -190,65 +140,40 @@ function buildConversationContext(conversationMessages, currentMessage) {
  * @returns {string} AI suggestion
  */
 async function generateAISuggestion(conversationId, conversationContext) {
-    // Check if we need to perform a health check
-    const timeSinceLastCheck = new Date() - flowise.lastHealthCheck;
-    if (timeSinceLastCheck > flowise.healthCheckInterval) {
-        await checkFlowiseHealth();
+    // If no AI provider is available, return fallback
+    if (!aiProvider) {
+        console.log('No AI provider available, using fallback response');
+        return getFallbackResponse(conversationContext);
     }
     
-    // If Flowise is known to be unhealthy, return fallback immediately
-    if (!flowise.isHealthy) {
-        console.log('Flowise is unhealthy, using fallback response');
+    // Check if we need to perform a health check (every 5 minutes)
+    const timeSinceLastCheck = new Date() - aiProvider.lastHealthCheck;
+    if (timeSinceLastCheck > 5 * 60 * 1000) {
+        await aiProvider.healthCheck();
+    }
+    
+    // If provider is known to be unhealthy, return fallback immediately
+    if (!aiProvider.isHealthy) {
+        console.log(`${AI_PROVIDER} provider is unhealthy, using fallback response`);
         return getFallbackResponse(conversationContext);
     }
     
     try {
         return await retryWithBackoff(async () => {
-            // Create a more contextual prompt for the AI
-            const contextualPrompt = conversationContext.includes('Agent:') 
-                ? `Please respond to the customer based on this conversation history:\n\n${conversationContext}\n\nProvide a helpful, professional response that addresses the customer's latest message and any unresolved issues from the conversation.`
-                : `Customer message: ${conversationContext}\n\nPlease provide a helpful, professional response to this customer inquiry.`;
-            
-            const response = await fetch(
-                `${flowise.url}/api/v1/prediction/${flowise.chatflowId}`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...(flowise.apiKey && { 'Authorization': `Bearer ${flowise.apiKey}` })
-                    },
-                    body: JSON.stringify({
-                        question: contextualPrompt,
-                        overrideConfig: {
-                            sessionId: conversationId
-                        }
-                    }),
-                    signal: AbortSignal.timeout(30000) // 30 second timeout
-                }
-            );
-            
-            if (!response.ok) {
-                // Mark as unhealthy for certain error codes
-                if (response.status >= 500 || response.status === 429) {
-                    flowise.isHealthy = false;
-                }
-                throw new Error(`Flowise API error: ${response.status} ${response.statusText}`);
-            }
-            
-            const result = await response.json();
-            console.log('Flowise response received successfully');
+            const response = await aiProvider.generateResponse(conversationContext, conversationId);
+            console.log(`${AI_PROVIDER} response received successfully`);
             
             // Mark as healthy on successful response
-            flowise.isHealthy = true;
+            aiProvider.isHealthy = true;
             
-            return result.text || result.answer || 'I apologize, but I couldn\'t generate a response at this time.';
+            return response || 'I apologize, but I couldn\'t generate a response at this time.';
         });
         
     } catch (error) {
-        console.error('Error generating AI suggestion after retries:', error.message);
+        console.error(`Error generating AI suggestion from ${AI_PROVIDER} after retries:`, error.message);
         
-        // Mark Flowise as unhealthy
-        flowise.isHealthy = false;
+        // Mark provider as unhealthy
+        aiProvider.isHealthy = false;
         
         // Return fallback response
         return getFallbackResponse(conversationContext);
@@ -656,27 +581,26 @@ app.get('/health', async (req, res) => {
             }
         };
         
-        // Check Flowise health if configured
-        if (flowise.chatflowId) {
-            const flowiseHealthy = await checkFlowiseHealth();
-            serverHealth.flowise = {
-                url: flowise.url,
+        // Check AI provider health
+        if (aiProvider) {
+            const providerHealthy = await aiProvider.healthCheck();
+            serverHealth.aiProvider = {
+                provider: AI_PROVIDER,
                 configured: true,
-                healthy: flowiseHealthy,
-                lastCheck: flowise.lastHealthCheck,
-                chatflowId: flowise.chatflowId ? 'configured' : 'missing'
+                healthy: providerHealthy,
+                lastCheck: aiProvider.lastHealthCheck
             };
         } else {
-            serverHealth.flowise = {
-                url: flowise.url,
+            serverHealth.aiProvider = {
+                provider: AI_PROVIDER,
                 configured: false,
                 healthy: false,
-                error: 'Chatflow ID not configured'
+                error: 'AI provider failed to initialize'
             };
         }
         
         // Determine overall status
-        const overallStatus = (!flowise.chatflowId || flowise.isHealthy) ? 'ok' : 'degraded';
+        const overallStatus = (aiProvider && aiProvider.isHealthy) ? 'ok' : 'degraded';
         serverHealth.status = overallStatus;
         
         const httpStatus = overallStatus === 'ok' ? 200 : 503;
@@ -771,9 +695,19 @@ server.listen(PORT, () => {
     console.log(`Widget backend running on http://localhost:${PORT}`);
     console.log('WebSocket server initialized');
     console.log('Configuration:');
-    console.log(`- Flowise URL: ${flowise.url}`);
-    console.log(`- Chatflow ID: ${flowise.chatflowId || 'NOT SET'}`);
-    console.log(`- API Key: ${flowise.apiKey ? 'SET' : 'NOT SET'}`);
+    console.log(`- AI Provider: ${AI_PROVIDER}`);
+    if (aiProvider) {
+        console.log(`- Provider Status: INITIALIZED`);
+        if (AI_PROVIDER === 'openrouter') {
+            console.log(`- OpenRouter Model: ${process.env.OPENROUTER_MODEL}`);
+            console.log(`- API Key: ${process.env.OPENROUTER_API_KEY ? 'SET' : 'NOT SET'}`);
+        } else if (AI_PROVIDER === 'flowise') {
+            console.log(`- Flowise URL: ${process.env.FLOWISE_URL}`);
+            console.log(`- Chatflow ID: ${process.env.FLOWISE_CHATFLOW_ID}`);
+        }
+    } else {
+        console.log(`- Provider Status: FAILED TO INITIALIZE`);
+    }
     console.log('\nEndpoints:');
     console.log('- POST /api/conversations');
     console.log('- POST /api/messages');
