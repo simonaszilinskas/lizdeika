@@ -47,6 +47,7 @@ function createApp() {
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));
     app.use('/', createSystemRoutes()); // Health check at root level
+    app.use('/api', createSystemRoutes()); // Config routes under /api
 
     // Error handling middleware (must be last)
     app.use(errorHandler);

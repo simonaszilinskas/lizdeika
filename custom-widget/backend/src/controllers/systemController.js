@@ -67,14 +67,23 @@ class SystemController {
         try {
             const { aiProvider: newProvider, systemPrompt } = req.body;
             
-            if (!newProvider || !systemPrompt) {
-                return res.status(400).json({ error: 'Missing required fields' });
+            if (!newProvider) {
+                return res.status(400).json({ error: 'Missing aiProvider field' });
+            }
+            
+            // OpenRouter requires system prompt, Flowise doesn't
+            if (newProvider === 'openrouter' && !systemPrompt) {
+                return res.status(400).json({ error: 'System prompt required for OpenRouter' });
             }
 
             // Update environment variables for runtime changes
             const oldProvider = process.env.AI_PROVIDER;
             process.env.AI_PROVIDER = newProvider;
-            process.env.SYSTEM_PROMPT = systemPrompt;
+            
+            // Only update system prompt if provided (OpenRouter needs it, Flowise doesn't)
+            if (systemPrompt) {
+                process.env.SYSTEM_PROMPT = systemPrompt;
+            }
             
             // Reinitialize AI provider if it changed
             if (oldProvider !== newProvider) {

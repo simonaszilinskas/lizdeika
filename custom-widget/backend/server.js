@@ -41,21 +41,35 @@ server.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
+function gracefulShutdown(signal) {
+    console.log(`${signal} received, shutting down gracefully`);
+    
+    // Close the HTTP server
     server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
+        console.log('HTTP server closed');
+        
+        // Close all WebSocket connections
+        io.close(() => {
+            console.log('WebSocket server closed');
+            process.exit(0);
+        });
+        
+        // Force exit if WebSocket doesn't close in time
+        setTimeout(() => {
+            console.log('Forcing shutdown...');
+            process.exit(0);
+        }, 5000);
     });
-});
+    
+    // If server doesn't close in time, force exit
+    setTimeout(() => {
+        console.log('Could not close connections in time, forcefully shutting down');
+        process.exit(1);
+    }, 10000);
+}
 
-process.on('SIGINT', () => {
-    console.log('SIGINT received, shutting down gracefully');
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
