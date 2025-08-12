@@ -64,6 +64,18 @@ class ConversationService {
     }
 
     /**
+     * Remove pending messages from conversation
+     */
+    removePendingMessages(conversationId) {
+        const conversationMessages = messages.get(conversationId) || [];
+        const filteredMessages = conversationMessages.filter(msg => 
+            !(msg.sender === 'system' && msg.metadata && msg.metadata.pendingAgent)
+        );
+        messages.set(conversationId, filteredMessages);
+        return filteredMessages;
+    }
+
+    /**
      * Get all conversations with stats
      */
     getAllConversationsWithStats() {

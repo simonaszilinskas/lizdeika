@@ -49,9 +49,7 @@ class AgentController {
                 agentId
             };
             
-            const conversationMessages = conversationService.getMessages(conversationId);
-            conversationMessages.push(agentMessage);
-            conversationService.setMessages(conversationId, conversationMessages);
+            conversationService.addMessage(conversationId, agentMessage);
             
             res.json({ success: true, message: agentMessage });
             
@@ -88,15 +86,11 @@ class AgentController {
                 }
             };
             
-            const conversationMessages = conversationService.getMessages(conversationId);
-            
             // Remove any pending system messages for this conversation
-            const filteredMessages = conversationMessages.filter(msg => 
-                !(msg.sender === 'system' && msg.metadata && msg.metadata.pendingAgent)
-            );
+            conversationService.removePendingMessages(conversationId);
             
-            filteredMessages.push(agentMessage);
-            conversationService.setMessages(conversationId, filteredMessages);
+            // Add agent message atomically
+            conversationService.addMessage(conversationId, agentMessage);
             
             // Emit agent message to customer via WebSocket
             this.io.to(conversationId).emit('agent-message', {

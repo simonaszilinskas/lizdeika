@@ -70,13 +70,15 @@ class ConversationController {
             // Generate AI suggestion with full conversation context
             const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext);
             
-            // Remove any existing pending messages first
-            const filteredMessages = conversationMessages.filter(msg => 
-                !(msg.sender === 'system' && msg.metadata && msg.metadata.pendingAgent)
-            );
+            // First, add the user message atomically
+            conversationService.addMessage(conversationId, userMessage);
+            
+            // Remove any existing pending messages to avoid duplicates
+            conversationService.removePendingMessages(conversationId);
             
             // Count customer messages for context (including current message)
-            const customerMessageCount = filteredMessages.filter(msg => msg.sender === 'visitor').length + 1;
+            const updatedMessages = conversationService.getMessages(conversationId);
+            const customerMessageCount = updatedMessages.filter(msg => msg.sender === 'visitor').length;
             
             // Create new pending message with AI suggestion
             const aiMessage = {
@@ -95,9 +97,8 @@ class ConversationController {
                 }
             };
             
-            // Add messages
-            filteredMessages.push(userMessage);
-            filteredMessages.push(aiMessage);
+            // Add AI suggestion message atomically
+            conversationService.addMessage(conversationId, aiMessage);
             
             console.log(`Generated AI suggestion for conversation ${conversationId} with ${customerMessageCount} customer messages`);
             
@@ -116,14 +117,12 @@ class ConversationController {
                         conversationId,
                         content: `Conversation assigned to agent ${availableAgent.id}`,
                         sender: 'system',
-                        timestamp: new Date()
+                        timestamp: new Date(),
+                        metadata: { assignmentMessage: true }
                     };
-                    filteredMessages.push(assignmentMessage);
+                    conversationService.addMessage(conversationId, assignmentMessage);
                 }
             }
-            
-            // Store the cleaned up messages
-            conversationService.setMessages(conversationId, filteredMessages);
             
             // Emit new message to agents via WebSocket
             this.io.to('agents').emit('new-message', {
@@ -239,15 +238,14 @@ class ConversationController {
                 conversationService.updateConversation(conversationId, conversation);
                 
                 // Add system message about assignment
-                const conversationMessages = conversationService.getMessages(conversationId);
-                conversationMessages.push({
+                conversationService.addMessage(conversationId, {
                     id: uuidv4(),
                     conversationId,
                     content: `Agent has joined the conversation`,
                     sender: 'system',
-                    timestamp: new Date()
+                    timestamp: new Date(),
+                    metadata: { systemMessage: true }
                 });
-                conversationService.setMessages(conversationId, conversationMessages);
                 
                 res.json({ success: true, conversation });
             } else {
@@ -274,15 +272,14 @@ class ConversationController {
                 conversationService.updateConversation(conversationId, conversation);
                 
                 // Add system message
-                const conversationMessages = conversationService.getMessages(conversationId);
-                conversationMessages.push({
+                conversationService.addMessage(conversationId, {
                     id: uuidv4(),
                     conversationId,
                     content: `Conversation ended by agent`,
                     sender: 'system',
-                    timestamp: new Date()
+                    timestamp: new Date(),
+                    metadata: { systemMessage: true }
                 });
-                conversationService.setMessages(conversationId, conversationMessages);
                 
                 res.json({ success: true });
             } else {
