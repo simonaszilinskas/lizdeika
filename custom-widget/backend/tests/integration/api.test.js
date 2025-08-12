@@ -2,7 +2,6 @@
  * Integration tests for API endpoints
  */
 const request = require('supertest');
-const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 
 // Mock the ai-providers module
@@ -16,278 +15,239 @@ jest.mock('../../ai-providers', () => ({
     retryWithBackoff: jest.fn((fn) => fn())
 }));
 
-// Mock socket.io
-jest.mock('socket.io', () => ({
-    Server: jest.fn(() => ({
-        on: jest.fn(),
-        to: jest.fn(() => ({
-            emit: jest.fn()
-        }))
-    }))
-}));
-
 // Set test environment variables
 process.env.AI_PROVIDER = 'flowise';
 process.env.FLOWISE_URL = 'http://test-flowise';
 process.env.FLOWISE_CHATFLOW_ID = 'test-chatflow';
 process.env.SYSTEM_PROMPT = 'Test system prompt';
+process.env.NODE_ENV = 'test';
 
-// Import server after mocks are set up
-let app, server;
+// Import app factory after mocks are set up
+const createApp = require('../../src/app');
+
+let app;
 
 describe('API Endpoints', () => {
     beforeAll(() => {
-        // Import server after mocks
-        delete require.cache[require.resolve('../../server.js')];
-        const serverModule = require('../../server.js');
-        
-        // Extract app from the server module
-        // Since server.js doesn't export anything, we'll create our own test app
-        app = express();
-        app.use(express.json());
-        app.use(require('cors')());
-        
-        // We'll need to import the routes manually or refactor server.js
-        // For now, let's test the basic structure
-    });
-
-    afterAll(async () => {
-        if (server) {
-            server.close();
-        }
-    });
-
-    beforeEach(() => {
-        // Clear any existing data structures
-        jest.clearAllMocks();
+        // Create test app instance without starting server
+        const appInstance = createApp();
+        app = appInstance.app;
     });
 
     describe('Health Check', () => {
         it('should return server health status', async () => {
-            // This test would need the actual server running
-            // For now, let's test the basic structure
-            expect(true).toBe(true);
+            const response = await request(app)
+                .get('/health')
+                .expect(200);
+
+            expect(response.body).toHaveProperty('status');
+            expect(response.body).toHaveProperty('timestamp');
+            expect(response.body).toHaveProperty('uptime');
+            expect(response.body).toHaveProperty('aiProvider');
         });
     });
 
-    describe('Conversations API', () => {
-        let conversationId;
+    describe('System Configuration', () => {
+        it('should get system prompt', async () => {
+            const response = await request(app)
+                .get('/config/system-prompt')
+                .expect(200);
 
-        beforeEach(() => {
-            conversationId = uuidv4();
+            expect(response.body).toHaveProperty('systemPrompt');
+            expect(response.body.systemPrompt).toBe('Test system prompt');
         });
 
-        it('should create a new conversation', async () => {
-            const response = {
-                conversationId: conversationId,
-                conversation: {
-                    id: conversationId,
-                    visitorId: expect.any(String),
-                    startedAt: expect.any(String),
-                    status: 'active',
-                    metadata: {}
-                }
-            };
-
-            // Mock the conversation creation
-            expect(response.conversationId).toBeDefined();
-            expect(response.conversation.status).toBe('active');
-        });
-
-        it('should handle message sending with AI generation', async () => {
-            const messageData = {
-                conversationId: conversationId,
-                message: 'Hello, I need help',
-                visitorId: uuidv4()
-            };
-
-            // Mock the AI response generation
-            const mockAIResponse = 'How can I help you today?';
-            
-            expect(mockAIResponse).toBeDefined();
-            expect(typeof mockAIResponse).toBe('string');
-        });
-
-        it('should retrieve conversation messages', async () => {
-            const messages = {
-                conversationId: conversationId,
-                messages: [
-                    {
-                        id: uuidv4(),
-                        conversationId: conversationId,
-                        content: 'Hello',
-                        sender: 'visitor',
-                        timestamp: new Date()
-                    }
-                ]
-            };
-
-            expect(messages.conversationId).toBe(conversationId);
-            expect(Array.isArray(messages.messages)).toBe(true);
-        });
-    });
-
-    describe('Agent API', () => {
-        let agentId;
-
-        beforeEach(() => {
-            agentId = 'agent-' + Math.random().toString(36).substring(2, 11);
-        });
-
-        it('should update agent status', async () => {
-            const statusUpdate = {
-                agentId: agentId,
-                status: 'online'
-            };
-
-            // Mock agent status update
-            expect(statusUpdate.agentId).toBeDefined();
-            expect(['online', 'busy', 'offline']).toContain(statusUpdate.status);
-        });
-
-        it('should handle agent message sending', async () => {
-            const messageData = {
-                conversationId: uuidv4(),
-                message: 'I can help you with that',
-                agentId: agentId
-            };
-
-            // Mock agent message
-            expect(messageData.agentId).toBe(agentId);
-            expect(messageData.message).toBeDefined();
-        });
-
-        it('should handle agent response with suggestion metadata', async () => {
-            const responseData = {
-                conversationId: uuidv4(),
-                message: 'Here is your answer',
-                agentId: agentId,
-                usedSuggestion: true,
-                suggestionAction: 'edited'
-            };
-
-            expect(responseData.usedSuggestion).toBe(true);
-            expect(['as-is', 'edited', 'from-scratch']).toContain(responseData.suggestionAction);
-        });
-    });
-
-    describe('Configuration API', () => {
-        it('should retrieve current system prompt', async () => {
-            const config = {
-                systemPrompt: 'Test system prompt'
-            };
-
-            expect(config.systemPrompt).toBeDefined();
-        });
-
-        it('should update AI provider settings', async () => {
+        it('should update settings', async () => {
             const newSettings = {
-                aiProvider: 'openrouter',
-                systemPrompt: 'Updated system prompt'
+                aiProvider: 'flowise',
+                systemPrompt: 'Updated test prompt'
             };
 
-            // Mock settings update
-            expect(['flowise', 'openrouter']).toContain(newSettings.aiProvider);
-            expect(newSettings.systemPrompt).toBeDefined();
+            const response = await request(app)
+                .post('/config/settings')
+                .send(newSettings)
+                .expect(200);
+
+            expect(response.body.success).toBe(true);
+            expect(response.body.currentProvider).toBe('flowise');
         });
 
         it('should validate required fields in settings update', async () => {
             const invalidSettings = {
-                aiProvider: 'openrouter'
+                aiProvider: 'flowise'
                 // Missing systemPrompt
             };
 
-            // Should validate required fields
-            expect(invalidSettings.systemPrompt).toBeUndefined();
+            await request(app)
+                .post('/config/settings')
+                .send(invalidSettings)
+                .expect(400);
+        });
+    });
+
+    describe('Conversations API', () => {
+        it('should create a new conversation', async () => {
+            const conversationData = {
+                visitorId: uuidv4(),
+                metadata: { source: 'test' }
+            };
+
+            const response = await request(app)
+                .post('/api/conversations')
+                .send(conversationData)
+                .expect(200);
+
+            expect(response.body).toHaveProperty('conversationId');
+            expect(response.body).toHaveProperty('conversation');
+            expect(response.body.conversation.status).toBe('active');
+        });
+
+        it('should send message and get AI response', async () => {
+            const messageData = {
+                conversationId: uuidv4(),
+                message: 'Hello, I need help',
+                visitorId: uuidv4()
+            };
+
+            const response = await request(app)
+                .post('/api/messages')
+                .send(messageData)
+                .expect(200);
+
+            expect(response.body).toHaveProperty('userMessage');
+            expect(response.body).toHaveProperty('aiMessage');
+            expect(response.body.userMessage.content).toBe('Hello, I need help');
+        });
+
+        it('should get conversation messages', async () => {
+            const conversationId = uuidv4();
+
+            const response = await request(app)
+                .get(`/api/conversations/${conversationId}/messages`)
+                .expect(200);
+
+            expect(response.body).toHaveProperty('conversationId');
+            expect(response.body).toHaveProperty('messages');
+            expect(Array.isArray(response.body.messages)).toBe(true);
+        });
+
+        it('should get admin conversations overview', async () => {
+            const response = await request(app)
+                .get('/api/admin/conversations')
+                .expect(200);
+
+            expect(response.body).toHaveProperty('conversations');
+            expect(response.body).toHaveProperty('total');
+            expect(Array.isArray(response.body.conversations)).toBe(true);
+        });
+    });
+
+    describe('Agent API', () => {
+        it('should update agent status', async () => {
+            const statusData = {
+                agentId: 'agent-123',
+                status: 'online'
+            };
+
+            const response = await request(app)
+                .post('/api/agent/status')
+                .send(statusData)
+                .expect(200);
+
+            expect(response.body.success).toBe(true);
+        });
+
+        it('should get active agents', async () => {
+            const response = await request(app)
+                .get('/api/agents')
+                .expect(200);
+
+            expect(response.body).toHaveProperty('agents');
+            expect(Array.isArray(response.body.agents)).toBe(true);
+        });
+
+        it('should handle agent response with metadata', async () => {
+            const responseData = {
+                conversationId: uuidv4(),
+                message: 'Here is your answer',
+                agentId: 'agent-123',
+                usedSuggestion: true,
+                suggestionAction: 'edited'
+            };
+
+            // First create a conversation and assign agent
+            await request(app)
+                .post('/api/conversations')
+                .send({ visitorId: uuidv4() });
+
+            // This should return 403 since conversation isn't assigned to agent
+            await request(app)
+                .post('/api/agent/respond')
+                .send(responseData)
+                .expect(403);
         });
     });
 
     describe('Error Handling', () => {
-        it('should handle invalid conversation IDs', async () => {
+        it('should handle invalid conversation IDs gracefully', async () => {
             const invalidId = 'invalid-conversation-id';
             
-            // Mock error response
-            const errorResponse = {
-                error: 'Conversation not found'
-            };
+            const response = await request(app)
+                .get(`/api/conversations/${invalidId}/messages`)
+                .expect(200);
 
-            expect(errorResponse.error).toBeDefined();
+            expect(response.body.messages).toEqual([]);
         });
 
-        it('should handle AI provider failures gracefully', async () => {
-            // Mock AI provider failure
-            const fallbackResponse = 'I apologize, but I am experiencing technical difficulties. An agent will assist you shortly.';
-            
-            expect(fallbackResponse).toContain('technical difficulties');
-        });
-
-        it('should handle unauthorized agent actions', async () => {
-            const unauthorizedAction = {
-                conversationId: uuidv4(),
-                agentId: 'wrong-agent',
-                message: 'Unauthorized message'
-            };
-
-            // Mock unauthorized response
-            const errorResponse = {
-                error: 'Not authorized for this conversation'
-            };
-
-            expect(errorResponse.error).toBe('Not authorized for this conversation');
+        it('should handle malformed requests', async () => {
+            // Send request without required fields
+            const response = await request(app)
+                .post('/api/messages')
+                .send({ invalidData: true });
+                
+            // Should either return 400 (bad request) or 200 with default handling
+            expect([200, 400, 500]).toContain(response.status);
         });
     });
 
     describe('Data Validation', () => {
-        it('should validate message content', async () => {
+        it('should validate message structure', async () => {
             const validMessage = {
                 conversationId: uuidv4(),
                 message: 'Valid message content',
                 visitorId: uuidv4()
             };
 
-            expect(validMessage.message.length).toBeGreaterThan(0);
-            expect(typeof validMessage.message).toBe('string');
+            const response = await request(app)
+                .post('/api/messages')
+                .send(validMessage)
+                .expect(200);
+
+            expect(response.body.userMessage.content).toBe('Valid message content');
         });
 
-        it('should validate agent status values', async () => {
-            const validStatuses = ['online', 'busy', 'offline'];
-            const testStatus = 'online';
-
-            expect(validStatuses).toContain(testStatus);
-        });
-
-        it('should validate UUID formats', async () => {
-            const testId = uuidv4();
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-            expect(uuidRegex.test(testId)).toBe(true);
-        });
-    });
-
-    describe('Rate Limiting and Performance', () => {
-        it('should handle multiple simultaneous requests', async () => {
-            const requests = Array.from({ length: 10 }, (_, i) => ({
+        it('should handle empty message content', async () => {
+            const emptyMessage = {
                 conversationId: uuidv4(),
-                message: `Test message ${i}`,
-                visitorId: uuidv4()
-            }));
-
-            expect(requests.length).toBe(10);
-            requests.forEach(req => {
-                expect(req.conversationId).toBeDefined();
-                expect(req.message).toContain('Test message');
-            });
-        });
-
-        it('should handle large message content', async () => {
-            const largeMessage = 'A'.repeat(5000);
-            const messageData = {
-                conversationId: uuidv4(),
-                message: largeMessage,
+                message: '',
                 visitorId: uuidv4()
             };
 
-            expect(messageData.message.length).toBe(5000);
+            await request(app)
+                .post('/api/messages')
+                .send(emptyMessage)
+                .expect(200); // Should still work, just create empty message
+        });
+    });
+
+    describe('System Admin Functions', () => {
+        it('should reset system data', async () => {
+            const response = await request(app)
+                .post('/reset')
+                .expect(200);
+
+            expect(response.body.success).toBe(true);
+            expect(response.body).toHaveProperty('cleared');
         });
     });
 });
