@@ -18,7 +18,7 @@ class AgentController {
         try {
             const { agentId, status } = req.body;
             
-            await agentService.updateAgentStatus(agentId, status);
+            await agentService.updateAgentStatus(agentId, status, conversationService);
             
             res.json({ success: true });
         } catch (error) {

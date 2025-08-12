@@ -5,6 +5,7 @@
 const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
+const agentService = require('../services/agentService');
 
 class ConversationController {
     constructor(io) {
@@ -103,7 +104,7 @@ class ConversationController {
             // Auto-assign to available agent if not assigned
             const conversation = conversationService.getConversation(conversationId);
             if (!conversation.assignedAgent) {
-                const availableAgent = conversationService.getAvailableAgent();
+                const availableAgent = conversationService.getAvailableAgent(agentService);
                 if (availableAgent) {
                     conversation.assignedAgent = availableAgent.id;
                     conversation.assignedAt = new Date();

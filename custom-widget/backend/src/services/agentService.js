@@ -10,14 +10,16 @@ class AgentService {
     /**
      * Update agent status
      */
-    updateAgentStatus(agentId, status) {
-        const conversationService = require('./conversationService');
+    updateAgentStatus(agentId, status, conversationService = null) {
+        const activeChats = conversationService 
+            ? conversationService.getAgentConversations(agentId).length 
+            : 0;
         
         agents.set(agentId, {
             id: agentId,
             status: status, // online, busy, offline
             lastSeen: new Date(),
-            activeChats: conversationService.getAgentConversations(agentId).length
+            activeChats: activeChats
         });
         
         return agents.get(agentId);
@@ -60,15 +62,17 @@ class AgentService {
     /**
      * Set agent as online with socket info
      */
-    setAgentOnline(agentId, socketId = null) {
-        const conversationService = require('./conversationService');
+    setAgentOnline(agentId, socketId = null, conversationService = null) {
+        const activeChats = conversationService 
+            ? conversationService.getAgentConversations(agentId).length 
+            : 0;
         
         const agent = {
             id: agentId,
             status: 'online',
             lastSeen: new Date(),
             socketId: socketId,
-            activeChats: conversationService.getAgentConversations(agentId).length
+            activeChats: activeChats
         };
         
         agents.set(agentId, agent);
@@ -135,11 +139,23 @@ class AgentService {
     /**
      * Get agent performance metrics
      */
-    getAgentPerformance(agentId) {
-        const conversationService = require('./conversationService');
+    getAgentPerformance(agentId, conversationService = null) {
         const agent = agents.get(agentId);
         
         if (!agent) return null;
+        
+        if (!conversationService) {
+            return {
+                agentId: agentId,
+                totalConversations: 0,
+                resolvedConversations: 0,
+                activeConversations: 0,
+                resolutionRate: 0,
+                averageResolutionTime: 0,
+                currentStatus: agent.status,
+                lastActive: agent.lastSeen
+            };
+        }
         
         const agentConversations = conversationService.getAgentConversations(agentId);
         const resolvedConversations = agentConversations.filter(c => c.status === 'resolved');

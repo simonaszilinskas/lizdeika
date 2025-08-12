@@ -90,9 +90,11 @@ class ConversationService {
 
     /**
      * Get available agent for assignment
+     * Note: This method will be called from controllers with agentService injected
      */
-    getAvailableAgent() {
-        const agentService = require('./agentService');
+    getAvailableAgent(agentService) {
+        if (!agentService) return null;
+        
         const activeAgents = agentService.getActiveAgents();
         
         if (activeAgents.length === 0) return null;

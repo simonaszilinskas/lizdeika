@@ -3,6 +3,7 @@
  * Handles WebSocket connections and events
  */
 const agentService = require('./agentService');
+const conversationService = require('./conversationService');
 
 class WebSocketService {
     constructor(io) {
@@ -26,7 +27,7 @@ class WebSocketService {
                 socket.agentId = agentId;
                 
                 // Update agent status to online
-                agentService.setAgentOnline(agentId, socket.id);
+                agentService.setAgentOnline(agentId, socket.id, conversationService);
                 
                 console.log(`Agent ${agentId} connected with socket ${socket.id}`);
                 
