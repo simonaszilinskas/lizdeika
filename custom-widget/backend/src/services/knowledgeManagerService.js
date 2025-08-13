@@ -299,12 +299,14 @@ class KnowledgeManagerService {
             // Store document info
             this.documents.set(documentId, docInfo);
 
-            // Process the text content
-            const chunks = this.chunkText(content);
+            // Process the text content using documentService
+            const documentService = require('./documentService');
+            const chunks = documentService.chunkText(content, docInfo);
             const chunksCount = chunks.length;
 
             // Add documents to vector database
-            await this.addToVectorDatabase(chunks, documentId, metadata);
+            const chromaService = require('./chromaService');
+            await chromaService.addDocuments(chunks);
 
             // Update document status
             docInfo.status = 'indexed';
