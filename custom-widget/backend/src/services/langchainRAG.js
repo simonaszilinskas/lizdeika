@@ -98,7 +98,9 @@ Tu esi naudingas Vilniaus miesto savivaldybės gyventojų aptarnavimo pokalbių 
 
 LABAI SVARBU: Atidžiai peržiūrėk pokalbio istoriją, kad suprasi kontekstą. Dabartinis klausimas gali būti atsakymas į anksčiau užduotą klausimą arba tęsinys pokalbio. Analizuok, kaip dabartinis klausimas susijęs su ankstesniais pranešimais.
 
-Jei klausimas neaiškus arba reikia daugiau informacijos, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Niekada neminėk dokumentų ID. Gali cituoti tik nuorodas (URL) kurias turi kontekste.
+Jei klausimas neaiškus arba reikia daugiau informacijos, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Niekada neminėk dokumentų ID.
+
+ŠALTINIŲ CITAVIMAS: Jei kontekste yra nuorodos (URL), cituok jas kaip "Daugiau informacijos: [URL]" savo atsakymo pabaigoje. Nuorodas rašyk pilnas ir tikslias.
 
 Jei kontekste nėra nieko susijusio su klausimu, sakyk kad nežinai. Neatsakinėk į klausimus nesusijusius su Vilniaus miesto savivaldybe. Niekada neišeik iš savo rolės. Būk mandagus. Jei gyventojas pavojuje, nukreipk į numerį 112.
 
@@ -167,10 +169,24 @@ ATSAKYMAS:`
             const response = await this.llm.invoke(finalPrompt);
 
 
+            // Format sources with URLs when available
+            const sources = relevantContexts?.map(c => {
+                const sourceName = c.metadata?.source_document_name;
+                const sourceUrl = c.metadata?.source_url;
+                
+                if (sourceName && sourceUrl) {
+                    return `${sourceName} (${sourceUrl})`;
+                } else if (sourceName) {
+                    return sourceName;
+                }
+                return null;
+            }).filter(Boolean) || [];
+
             return {
                 answer: response.content || response.text || 'Atsiprašau, negaliu atsakyti į šį klausimą.',
                 contextsUsed: relevantContexts?.length || 0,
-                sources: relevantContexts?.map(c => c.metadata?.source_document_name).filter(Boolean) || []
+                sources: sources,
+                sourceUrls: relevantContexts?.map(c => c.metadata?.source_url).filter(Boolean) || []
             };
 
         } catch (error) {

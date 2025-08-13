@@ -11,6 +11,8 @@
  * 
  * Routes:
  * - POST /documents/upload - Upload and process documents (.txt, .docx)
+ * - POST /documents/index - Index single document with metadata via API
+ * - POST /documents/index-batch - Index multiple documents in batch via API
  * - GET /documents - List all documents with metadata
  * - GET /documents/:id - Get specific document details
  * - DELETE /documents/:id - Remove document from knowledge base
@@ -84,6 +86,16 @@ function createKnowledgeRoutes() {
     // Get supported file types
     router.get('/file-types', (req, res) => {
         knowledgeController.getSupportedFileTypes(req, res);
+    });
+
+    // API endpoint for direct document indexing with metadata
+    router.post('/documents/index', (req, res) => {
+        knowledgeController.indexDocument(req, res);
+    });
+
+    // API endpoint for batch document indexing
+    router.post('/documents/index-batch', (req, res) => {
+        knowledgeController.indexDocumentsBatch(req, res);
     });
 
     return router;

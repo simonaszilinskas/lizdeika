@@ -271,6 +271,68 @@ class KnowledgeManagerService {
                 note: doc.note
             }));
     }
+
+    /**
+     * Index text content directly via API with metadata
+     * @param {string} content - Text content to index
+     * @param {Object} metadata - Document metadata
+     * @returns {Object} Result with documentId and processing stats
+     */
+    async indexTextContent(content, metadata = {}) {
+        const documentId = require('crypto').randomUUID();
+        
+        try {
+            const timestamp = new Date();
+
+            // Create document info
+            const docInfo = {
+                id: documentId,
+                originalName: metadata.source_document_name || 'API Document',
+                fileType: 'text/plain',
+                size: Buffer.byteLength(content, 'utf8'),
+                uploadSource: 'api',
+                uploadTime: timestamp,
+                status: 'processing',
+                metadata: metadata
+            };
+
+            // Store document info
+            this.documents.set(documentId, docInfo);
+
+            // Process the text content
+            const chunks = this.chunkText(content);
+            const chunksCount = chunks.length;
+
+            // Add documents to vector database
+            await this.addToVectorDatabase(chunks, documentId, metadata);
+
+            // Update document status
+            docInfo.status = 'indexed';
+            docInfo.chunksCount = chunksCount;
+            docInfo.textLength = content.length;
+            docInfo.indexedAt = new Date();
+
+            console.log(`✅ API document indexed successfully: ${documentId} (${chunksCount} chunks)`);
+
+            return {
+                documentId,
+                chunksCount,
+                status: 'indexed',
+                textLength: content.length
+            };
+
+        } catch (error) {
+            // Update document with error status
+            if (this.documents.has(documentId)) {
+                const docInfo = this.documents.get(documentId);
+                docInfo.status = 'error';
+                docInfo.error = error.message;
+            }
+
+            console.error('Failed to index text content:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = new KnowledgeManagerService();

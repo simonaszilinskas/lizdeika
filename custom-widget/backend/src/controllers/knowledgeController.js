@@ -345,6 +345,182 @@ class KnowledgeController {
             });
         }
     }
+
+    /**
+     * Index document directly via API with metadata
+     * 
+     * Expected request body:
+     * {
+     *   "content": "Document text content",
+     *   "metadata": {
+     *     "title": "Document Title",
+     *     "sourceUrl": "https://example.com/source",
+     *     "category": "FAQ",
+     *     "tags": ["vilnius", "registration"],
+     *     "language": "lt",
+     *     "lastUpdated": "2024-01-01T00:00:00Z"
+     *   }
+     * }
+     */
+    async indexDocument(req, res) {
+        try {
+            const { content, metadata = {} } = req.body;
+
+            // Validate required fields
+            if (!content || content.trim().length === 0) {
+                return res.status(400).json({
+                    error: 'Content is required and cannot be empty'
+                });
+            }
+
+            // Set default metadata values
+            const documentMetadata = {
+                source_document_name: metadata.title || 'API Document',
+                source_url: metadata.sourceUrl || null,
+                category: metadata.category || 'general',
+                tags: metadata.tags || [],
+                language: metadata.language || 'lt',
+                content_type: 'api_indexed',
+                upload_timestamp: new Date().toISOString(),
+                last_updated: metadata.lastUpdated || new Date().toISOString(),
+                ...metadata // Allow additional custom metadata
+            };
+
+            // Process and index the document
+            const result = await knowledgeManagerService.indexTextContent(
+                content, 
+                documentMetadata
+            );
+
+            res.json({
+                success: true,
+                message: 'Document indexed successfully',
+                data: {
+                    documentId: result.documentId,
+                    chunksCount: result.chunksCount,
+                    status: 'indexed',
+                    metadata: documentMetadata
+                }
+            });
+
+        } catch (error) {
+            console.error('Failed to index document:', error);
+            res.status(500).json({
+                error: 'Failed to index document',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Index multiple documents in batch via API
+     * 
+     * Expected request body:
+     * {
+     *   "documents": [
+     *     {
+     *       "content": "Document 1 content",
+     *       "metadata": { "title": "Doc 1", "sourceUrl": "..." }
+     *     },
+     *     {
+     *       "content": "Document 2 content", 
+     *       "metadata": { "title": "Doc 2", "sourceUrl": "..." }
+     *     }
+     *   ]
+     * }
+     */
+    async indexDocumentsBatch(req, res) {
+        try {
+            const { documents } = req.body;
+
+            if (!Array.isArray(documents) || documents.length === 0) {
+                return res.status(400).json({
+                    error: 'Documents array is required and cannot be empty'
+                });
+            }
+
+            if (documents.length > 100) {
+                return res.status(400).json({
+                    error: 'Batch size cannot exceed 100 documents'
+                });
+            }
+
+            const results = [];
+            const errors = [];
+
+            // Process each document
+            for (let i = 0; i < documents.length; i++) {
+                const { content, metadata = {} } = documents[i];
+
+                try {
+                    // Validate content
+                    if (!content || content.trim().length === 0) {
+                        errors.push({
+                            index: i,
+                            error: 'Content is required and cannot be empty'
+                        });
+                        continue;
+                    }
+
+                    // Set metadata with batch identifier
+                    const documentMetadata = {
+                        source_document_name: metadata.title || `API Batch Document ${i + 1}`,
+                        source_url: metadata.sourceUrl || null,
+                        category: metadata.category || 'general',
+                        tags: metadata.tags || [],
+                        language: metadata.language || 'lt',
+                        content_type: 'api_batch_indexed',
+                        batch_id: `batch_${Date.now()}`,
+                        batch_index: i,
+                        upload_timestamp: new Date().toISOString(),
+                        last_updated: metadata.lastUpdated || new Date().toISOString(),
+                        ...metadata
+                    };
+
+                    // Process and index
+                    const result = await knowledgeManagerService.indexTextContent(
+                        content, 
+                        documentMetadata
+                    );
+
+                    results.push({
+                        index: i,
+                        documentId: result.documentId,
+                        chunksCount: result.chunksCount,
+                        status: 'indexed',
+                        metadata: documentMetadata
+                    });
+
+                } catch (docError) {
+                    errors.push({
+                        index: i,
+                        error: docError.message
+                    });
+                }
+            }
+
+            res.json({
+                success: true,
+                message: `Batch indexing completed: ${results.length} successful, ${errors.length} failed`,
+                data: {
+                    successful: results,
+                    failed: errors,
+                    summary: {
+                        total: documents.length,
+                        successful: results.length,
+                        failed: errors.length
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Failed to process document batch:', error);
+            res.status(500).json({
+                error: 'Failed to process document batch',
+                details: error.message
+            });
+        }
+    }
 }
 
 module.exports = KnowledgeController;
