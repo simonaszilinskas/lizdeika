@@ -1,6 +1,61 @@
 /**
- * Knowledge Management Controller
- * Handles file uploads, document management, and knowledge base operations
+ * KNOWLEDGE MANAGEMENT CONTROLLER
+ * 
+ * Main Purpose: Handle HTTP endpoints for document upload, processing, and RAG knowledge base management
+ * 
+ * Key Responsibilities:
+ * - Document Upload Processing: Handle .txt and .docx file uploads with validation
+ * - File Content Extraction: Extract text content from various document formats
+ * - Knowledge Base Management: Add, update, and delete documents in the RAG system
+ * - Vector Database Operations: Index documents for semantic search capabilities
+ * - Statistics and Analytics: Provide insights on document storage and processing
+ * - Search Functionality: Enable document search and retrieval for testing
+ * 
+ * Dependencies:
+ * - Multer middleware for multipart file upload handling
+ * - Knowledge manager service for document processing and storage
+ * - ChromaDB for vector storage and semantic search
+ * - Document processors for .txt and .docx file formats
+ * 
+ * Features:
+ * - Multi-format document support (.txt, .docx)
+ * - File size validation (50MB maximum)
+ * - Memory-based upload processing for security
+ * - Automatic text extraction and chunking
+ * - Vector embedding generation using Mistral
+ * - Document metadata tracking and status management
+ * - Bulk operations (clear all, re-index)
+ * 
+ * Endpoints:
+ * - POST /documents/upload - Upload and process new documents
+ * - GET /documents - List all uploaded documents with metadata
+ * - GET /documents/:id - Retrieve specific document details
+ * - DELETE /documents/:id - Remove document from knowledge base
+ * - GET /stats - Get knowledge base statistics and metrics
+ * - GET /search - Search documents by text query
+ * - POST /documents/clear - Clear all documents from knowledge base
+ * - POST /documents/reindex - Re-index all documents for vector search
+ * - GET /supported-types - List supported document formats
+ * 
+ * File Processing Pipeline:
+ * 1. File validation (type, size, content)
+ * 2. Text extraction from document format
+ * 3. Content chunking for vector storage
+ * 4. Vector embedding generation
+ * 5. Metadata extraction and storage
+ * 6. ChromaDB indexing for search
+ * 
+ * Error Handling:
+ * - Comprehensive file validation with user-friendly messages
+ * - Format-specific error handling for unsupported files
+ * - Size limit enforcement with clear feedback
+ * - Content validation to ensure readable text
+ * 
+ * Notes:
+ * - Uses memory storage for security (no files saved to disk)
+ * - Supports both manual uploads and programmatic document addition
+ * - Tracks upload source for administrative purposes
+ * - Provides detailed status tracking (uploaded, processing, indexed, failed)
  */
 const multer = require('multer');
 const knowledgeManagerService = require('../services/knowledgeManagerService');

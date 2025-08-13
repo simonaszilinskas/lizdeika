@@ -1,5 +1,33 @@
 /**
- * LangChain-based RAG implementation matching the working Python version
+ * LangChain RAG Service - Advanced Retrieval-Augmented Generation
+ * 
+ * This service implements a sophisticated RAG (Retrieval-Augmented Generation) system
+ * using LangChain framework for the Vilnius city assistant chatbot.
+ * 
+ * Key Features:
+ * - Query rephrasing using google/gemini-2.5-flash-lite for better retrieval
+ * - Conversation context awareness and multi-turn dialog support  
+ * - Integration with Chroma DB vector database for semantic search
+ * - Two-stage AI processing: query rephrasing → answer generation
+ * - Bilingual support (Lithuanian/English) based on user input
+ * 
+ * Dependencies:
+ * - @langchain/openai - OpenAI/OpenRouter model integration
+ * - @langchain/core - LangChain core components and prompts
+ * - knowledgeService - Document retrieval and vector search
+ * - SystemController - RAG configuration management
+ * 
+ * Environment Variables:
+ * - OPENROUTER_API_KEY - API key for OpenRouter service
+ * - SITE_URL - Site URL for API headers
+ * - SITE_NAME - Application name for API headers
+ * 
+ * Models Used:
+ * - google/gemini-flash-1.5 - Main response generation (temperature: 0.2)
+ * - google/gemini-2.5-flash-lite - Query rephrasing (temperature: 0.1)
+ * 
+ * @author AI Assistant System
+ * @version 2.0.0
  */
 
 const { ChatOpenAI } = require("@langchain/openai");

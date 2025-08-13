@@ -1,6 +1,32 @@
 /**
- * Conversation Routes
- * Routes for conversation-related endpoints
+ * CONVERSATION ROUTES
+ * 
+ * Main Purpose: Define HTTP route endpoints for customer conversations and message handling
+ * 
+ * Key Responsibilities:
+ * - Route Definition: Map conversation-related URLs to controller methods
+ * - Message Flow: Handle customer message submission and AI response generation
+ * - Admin Access: Provide administrative endpoints for conversation monitoring
+ * - Agent Integration: Support agent assignment and conversation management
+ * 
+ * Customer Routes:
+ * - POST /conversations - Create new conversation
+ * - POST /messages - Send customer message and get AI response
+ * - GET /conversations/:id/messages - Retrieve conversation history
+ * 
+ * Agent Routes:
+ * - GET /conversations/:id/pending-suggestion - Get AI suggestion for agent
+ * - POST /conversations/:id/assign - Assign conversation to agent
+ * - POST /conversations/:id/end - End conversation
+ * 
+ * Admin Routes:
+ * - GET /admin/conversations - View all conversations with statistics
+ * 
+ * Notes:
+ * - WebSocket instance enables real-time notifications to agents
+ * - Routes handle both customer-facing and agent-facing functionality
+ * - Controller manages business logic, routes focus on HTTP mapping
+ * - All routes are prefixed with /api when mounted in main application
  */
 const express = require('express');
 const ConversationController = require('../controllers/conversationController');

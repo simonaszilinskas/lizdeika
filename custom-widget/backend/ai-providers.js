@@ -1,6 +1,58 @@
 /**
- * AI Provider Abstraction Layer
- * Supports multiple AI providers with a unified interface
+ * AI PROVIDER ABSTRACTION LAYER
+ * 
+ * Main Purpose: Provide unified interface for multiple AI providers with consistent API and error handling
+ * 
+ * Key Responsibilities:
+ * - Provider Abstraction: Define common interface for different AI services
+ * - Multi-Provider Support: Support Flowise, OpenRouter, and extensible for other providers
+ * - Configuration Management: Handle provider-specific configuration and initialization
+ * - Error Handling: Provide consistent error handling and retry logic across providers
+ * - Health Monitoring: Monitor provider availability and health status
+ * 
+ * Supported Providers:
+ * - Flowise: Self-hosted AI with built-in RAG capabilities
+ * - OpenRouter: API gateway for multiple AI models with external RAG enhancement
+ * - Extensible architecture for adding new providers
+ * 
+ * Features:
+ * - Unified API interface regardless of underlying provider
+ * - Automatic retry logic with exponential backoff
+ * - Provider health checking and monitoring
+ * - Environment-based configuration loading
+ * - Error classification and consistent error responses
+ * - Conversation context management
+ * 
+ * Provider Factory:
+ * - createAIProvider(type, config): Factory function to create provider instances
+ * - Validates configuration and throws descriptive errors
+ * - Supports environment variable configuration
+ * - Returns initialized provider ready for use
+ * 
+ * Error Handling:
+ * - retryWithBackoff(): Exponential backoff retry mechanism
+ * - Consistent error classification across providers
+ * - Network error detection and handling
+ * - Provider-specific error message extraction
+ * 
+ * Health Monitoring:
+ * - Regular health checks with caching
+ * - Provider availability tracking
+ * - Graceful degradation on provider failures
+ * - Health status reporting for system monitoring
+ * 
+ * Configuration:
+ * - Environment variable-based configuration
+ * - Provider-specific validation requirements
+ * - Secure handling of API keys and endpoints
+ * - Fallback configuration for development
+ * 
+ * Notes:
+ * - All providers implement the same interface for consistency
+ * - Built-in retry logic improves reliability
+ * - Health checks are cached to avoid excessive API calls
+ * - Supports both development and production configurations
+ * - Extensible design allows easy addition of new AI providers
  */
 
 // Node.js 18+ has built-in fetch

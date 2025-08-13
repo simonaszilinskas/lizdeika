@@ -1,5 +1,53 @@
 /**
- * AI Service - Enhanced with RAG (Retrieval-Augmented Generation)
+ * AI SERVICE - ENHANCED WITH RAG (RETRIEVAL-AUGMENTED GENERATION)
+ * 
+ * Main Purpose: Provide AI-powered response generation with document context enhancement
+ * 
+ * Key Responsibilities:
+ * - AI Provider Management: Initialize and manage different AI providers (Flowise, OpenRouter)
+ * - RAG Integration: Enhance AI responses with relevant document context from knowledge base
+ * - Provider Health Monitoring: Check AI provider availability and health status
+ * - Response Generation: Generate contextually aware AI suggestions for agent responses
+ * - Provider Switching: Support runtime switching between AI providers with fallback
+ * 
+ * Dependencies:
+ * - AI providers module for multi-provider support
+ * - Knowledge service for document retrieval and context enhancement
+ * - System controller for RAG configuration settings
+ * - Environment variables for provider configuration
+ * 
+ * Features:
+ * - Multi-provider AI support (Flowise with built-in RAG, OpenRouter with external RAG)
+ * - Intelligent context enhancement using vector similarity search
+ * - Automatic fallback from OpenRouter to Flowise on initialization failure
+ * - Retry logic with exponential backoff for improved reliability
+ * - Health monitoring and provider status reporting
+ * - Source attribution for document references in responses
+ * 
+ * RAG Process:
+ * 1. Search knowledge base for relevant context using customer query
+ * 2. Retrieve top-k most relevant document chunks
+ * 3. Build enhanced prompt with conversation context and document information
+ * 4. Include source attribution instructions for transparency
+ * 5. Generate AI response using enhanced context
+ * 6. Return response with confidence score and metadata
+ * 
+ * Provider Configuration:
+ * - Flowise: Uses chatflow URL and ID, includes built-in RAG capabilities
+ * - OpenRouter: Uses API key and model, requires external RAG context enhancement
+ * 
+ * Environment Variables:
+ * - AI_PROVIDER: Current provider (flowise/openrouter)
+ * - FLOWISE_URL, FLOWISE_CHATFLOW_ID: Flowise configuration
+ * - OPENROUTER_API_KEY, OPENROUTER_MODEL: OpenRouter configuration
+ * - RAG_K: Number of document contexts to retrieve
+ * - RAG_SHOW_SOURCES: Whether to include source attribution
+ * 
+ * Notes:
+ * - Provider instances are lazily initialized on first use
+ * - Automatic fallback ensures system reliability
+ * - RAG enhancement is configurable per request
+ * - Health checks include provider-specific status information
  */
 const { createAIProvider, retryWithBackoff } = require('../../ai-providers');
 const knowledgeService = require('./knowledgeService');

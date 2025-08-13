@@ -1,6 +1,73 @@
 /**
- * System Controller
- * Handles system-related endpoints like health checks, configuration, and admin functions
+ * SYSTEM CONTROLLER
+ * 
+ * Main Purpose: Handle system administration, configuration, health monitoring, and RAG testing endpoints
+ * 
+ * Key Responsibilities:
+ * - System Health Monitoring: Provide comprehensive health checks and status reporting
+ * - Configuration Management: Handle AI provider switching and system prompt updates
+ * - RAG System Testing: Provide debugging and testing tools for knowledge base functionality
+ * - Admin Functions: System reset, data clearing, and administrative operations
+ * - Performance Monitoring: Track memory usage, uptime, and connection statistics
+ * 
+ * Dependencies:
+ * - Conversation service for message and conversation statistics
+ * - Agent service for agent counting and status management
+ * - AI service for provider health checks and configuration
+ * - Knowledge service for RAG functionality and document management
+ * - AI providers module for dynamic provider switching
+ * 
+ * Features:
+ * - Multi-provider AI health monitoring (Flowise, OpenRouter)
+ * - Runtime AI provider switching with fallback protection
+ * - Comprehensive RAG testing and debugging tools
+ * - System prompt configuration with provider-specific validation
+ * - Knowledge base search and statistics
+ * - Development and production environment support
+ * 
+ * Health Check Endpoints:
+ * - GET /health - Comprehensive system health with AI provider status
+ * 
+ * Configuration Endpoints:
+ * - GET /config/system-prompt - Retrieve current system prompt
+ * - POST /config/settings - Update AI provider and system prompt
+ * 
+ * Admin Endpoints:
+ * - POST /reset - Clear all conversations, messages, and agent data
+ * - GET /knowledge/stats - Knowledge base statistics and metrics
+ * - POST /knowledge/search - Search knowledge base for testing
+ * - POST /knowledge/reset - Reset knowledge base with sample data
+ * 
+ * RAG Testing Endpoints:
+ * - POST /test-rag - Full RAG functionality test with AI response
+ * - POST /debug-rag - RAG context generation without AI call
+ * - POST /simple-rag-test - Direct AI test with enhanced context
+ * - POST /context-test - Show what would be sent to AI without calling
+ * 
+ * Environment Variables:
+ * - AI_PROVIDER: Current AI provider (flowise/openrouter)
+ * - SYSTEM_PROMPT: Custom system prompt for OpenRouter
+ * - RAG_K: Number of context documents to retrieve (default: 20)
+ * - RAG_SHOW_SOURCES: Whether to show document sources (default: true)
+ * 
+ * RAG Configuration:
+ * - Configurable context retrieval count (k parameter)
+ * - Source attribution control for transparency
+ * - Enhanced prompt generation with document context
+ * - Dynamic source instruction injection
+ * 
+ * Error Handling:
+ * - Provider switch validation with automatic rollback
+ * - Health check degradation detection
+ * - Comprehensive error reporting with details
+ * - Development-friendly debugging information
+ * 
+ * Notes:
+ * - Provider switching updates environment variables at runtime
+ * - RAG settings are managed via environment variables for consistency
+ * - Health checks include memory usage and connection statistics
+ * - Testing endpoints provide detailed debugging information
+ * - Admin functions are designed for development and testing environments
  */
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');

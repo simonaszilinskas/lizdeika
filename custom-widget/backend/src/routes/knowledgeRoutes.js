@@ -1,6 +1,35 @@
 /**
- * Knowledge Management Routes
- * Routes for document upload, management, and knowledge base operations
+ * KNOWLEDGE MANAGEMENT ROUTES
+ * 
+ * Main Purpose: Define HTTP endpoints for document upload, processing, and RAG knowledge base operations
+ * 
+ * Key Responsibilities:
+ * - Document Upload: Handle file upload with validation and processing
+ * - Knowledge Base Management: CRUD operations for documents and metadata
+ * - Search and Analytics: Provide document search and statistics endpoints
+ * - Admin Operations: Bulk operations like clear all and re-indexing
+ * 
+ * Routes:
+ * - POST /documents/upload - Upload and process documents (.txt, .docx)
+ * - GET /documents - List all documents with metadata
+ * - GET /documents/:id - Get specific document details
+ * - DELETE /documents/:id - Remove document from knowledge base
+ * - GET /stats - Knowledge base statistics and metrics
+ * - GET /search - Search documents by text query
+ * - POST /documents/clear - Clear all documents
+ * - POST /documents/reindex - Re-index all documents
+ * - GET /supported-types - List supported file formats
+ * 
+ * Features:
+ * - Multer middleware integration for file upload handling
+ * - File validation and processing pipeline
+ * - Vector database operations for semantic search
+ * - Comprehensive error handling with user-friendly messages
+ * 
+ * Notes:
+ * - Routes are prefixed with /api/knowledge when mounted
+ * - Upload middleware handles file validation and memory storage
+ * - Controller manages business logic and service integration
  */
 const express = require('express');
 const KnowledgeController = require('../controllers/knowledgeController');

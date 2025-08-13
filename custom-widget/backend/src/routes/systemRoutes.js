@@ -1,6 +1,38 @@
 /**
- * System Routes
- * Routes for system-related endpoints (health, config, admin)
+ * SYSTEM ROUTES
+ * 
+ * Main Purpose: Define HTTP endpoints for system administration, health monitoring, and configuration
+ * 
+ * Key Responsibilities:
+ * - Health Monitoring: System health checks and status reporting
+ * - Configuration Management: AI provider and system prompt configuration
+ * - Admin Functions: System reset and data management operations
+ * - RAG Testing: Knowledge base testing and debugging endpoints
+ * 
+ * Health Routes:
+ * - GET /health - Comprehensive system health check
+ * 
+ * Configuration Routes:
+ * - GET /config/system-prompt - Get current system prompt
+ * - POST /config/settings - Update AI provider and system configuration
+ * 
+ * Admin Routes:
+ * - POST /reset - Clear all system data (development/testing)
+ * - GET /knowledge/stats - Knowledge base statistics
+ * - POST /knowledge/search - Search knowledge base
+ * - POST /knowledge/reset - Reset knowledge base with sample data
+ * 
+ * RAG Testing Routes:
+ * - POST /test-rag - Full RAG functionality test
+ * - POST /debug-rag - RAG context generation debugging
+ * - POST /simple-rag-test - Direct AI test with enhanced context
+ * - POST /context-test - Preview context without AI call
+ * 
+ * Notes:
+ * - Health endpoint is available at root level (/health)
+ * - Configuration endpoints are under /api/config/*
+ * - Testing endpoints are designed for development environments
+ * - Routes support both development and production configurations
  */
 const express = require('express');
 const SystemController = require('../controllers/systemController');

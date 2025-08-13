@@ -1,3 +1,31 @@
+<!--
+    DASHBOARD CONNECTION TESTING UTILITY
+    
+    Main Purpose: Diagnostic tool to test backend connectivity and verify dashboard component availability
+    
+    Key Responsibilities:
+    - Backend Connectivity Testing: Verify API endpoints are accessible
+    - File Availability Checking: Test if dashboard HTML and JS files are served correctly
+    - System Health Monitoring: Provide diagnostic information for troubleshooting
+    - Development Support: Help developers verify system setup and configuration
+    
+    Dependencies:
+    - Backend API server on localhost:3002
+    - Agent dashboard HTML and JavaScript files
+    - Fetch API for HTTP requests
+    
+    Features:
+    - Automated connectivity testing on page load
+    - Real-time results display with success/error indicators
+    - JSON data preview for API responses
+    - Multi-step verification process
+    
+    Notes:
+    - Primarily used for development and debugging
+    - Tests multiple endpoints: /api/admin/conversations, dashboard files
+    - Displays raw conversation data for verification
+    - Should not be deployed to production environments
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>

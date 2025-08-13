@@ -1,6 +1,38 @@
 /**
- * Agent Controller
- * Handles agent-related endpoints
+ * AGENT CONTROLLER
+ * 
+ * Main Purpose: Handle HTTP endpoints for agent management and agent-customer communication
+ * 
+ * Key Responsibilities:
+ * - Agent Status Management: Update and track agent availability (online, busy, offline)
+ * - Agent Message Handling: Process and route agent responses to customers
+ * - Authorization Control: Ensure agents can only respond to assigned conversations
+ * - WebSocket Integration: Emit agent messages to customers via real-time channels
+ * - Suggestion Tracking: Track how agents use AI suggestions (as-is, edited, from-scratch)
+ * 
+ * Dependencies:
+ * - Conversation service for message storage and conversation management
+ * - Agent service for agent status tracking and assignment logic
+ * - Socket.io for real-time message broadcasting
+ * - UUID library for unique message identifiers
+ * 
+ * Features:
+ * - Multi-agent support with conversation assignment
+ * - Real-time message delivery via WebSocket events
+ * - AI suggestion usage analytics and metadata tracking
+ * - Conversation authorization and access control
+ * - Pending message cleanup when agents respond
+ * 
+ * Endpoints:
+ * - POST /agent/status - Update agent availability status
+ * - POST /agent/respond - Send agent response with suggestion metadata
+ * - GET /agents/active - List currently active agents
+ * 
+ * Notes:
+ * - Agents must be assigned to conversations before responding
+ * - All agent messages include metadata about AI suggestion usage
+ * - WebSocket events notify customers of new agent messages immediately
+ * - Suggestion actions are tracked for analytics and system improvement
  */
 const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');

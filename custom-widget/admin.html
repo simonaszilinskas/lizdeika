@@ -1,3 +1,32 @@
+<!--
+    CHAT WIDGET ADMIN DASHBOARD
+    
+    Main Purpose: Administrative monitoring interface for chat widget conversations and analytics
+    
+    Key Responsibilities:
+    - Conversation Monitoring: Display and track all chat conversations in real-time
+    - Analytics Dashboard: Show statistics (total conversations, daily activity, average messages)
+    - Conversation Management: View detailed conversation history and message threads
+    - User Activity Tracking: Monitor visitor engagement and conversation patterns
+    
+    Dependencies:
+    - Backend API at /api/admin/conversations and /api/conversations endpoints
+    - External libraries: Tailwind CSS, Font Awesome icons
+    - Real-time data fetching with 30-second refresh intervals
+    
+    Features:
+    - Statistics cards showing conversation metrics
+    - Filterable conversations table with visitor IDs, timestamps, and status
+    - Modal popup for detailed conversation viewing
+    - Responsive design with Tailwind CSS
+    - Auto-refresh functionality for real-time monitoring
+    
+    Notes:
+    - Connects to backend server on localhost:3002
+    - Displays truncated visitor IDs for privacy
+    - Color-coded conversation status (active/inactive)
+    - No authentication - consider adding access control for production use
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>

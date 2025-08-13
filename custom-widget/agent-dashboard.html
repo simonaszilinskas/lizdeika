@@ -1,3 +1,37 @@
+<!--
+    AGENT DASHBOARD INTERFACE
+    
+    Main Purpose: Real-time customer service dashboard for human agents to manage chat conversations
+    
+    Key Responsibilities:
+    - Live Chat Management: Handle multiple customer conversations simultaneously
+    - Queue Management: View and prioritize incoming chat requests
+    - AI Assistance: Receive AI-generated response suggestions for customer inquiries
+    - Agent Status Control: Set availability status (online, busy, offline)
+    - Real-time Communication: WebSocket-based live messaging with customers
+    
+    Dependencies:
+    - Backend WebSocket service for real-time communication
+    - Backend API endpoints for chat and conversation management
+    - Socket.io client library for WebSocket connections
+    - Agent dashboard JavaScript module (js/agent-dashboard.js)
+    - External libraries: Tailwind CSS, Font Awesome icons
+    
+    Features:
+    - Three-panel layout: chat queue, active conversation, AI suggestions
+    - Real-time message exchange with typing indicators
+    - AI-powered response suggestions with edit/send options
+    - Agent status management with visual indicators
+    - Conversation statistics and metrics
+    - Responsive design with Lithuanian localization
+    
+    Notes:
+    - Interface is in Lithuanian (language="lt")
+    - Integrates with AI service for intelligent response suggestions
+    - Supports file uploads and rich message formatting
+    - Connected to admin-settings.html for system configuration
+    - Requires active WebSocket connection for real-time functionality
+-->
 <!DOCTYPE html>
 <html lang="lt">
 <head>

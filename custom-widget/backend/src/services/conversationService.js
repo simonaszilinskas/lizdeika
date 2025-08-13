@@ -1,6 +1,58 @@
 /**
- * Conversation Service
- * Handles conversation data management and business logic
+ * CONVERSATION SERVICE
+ * 
+ * Main Purpose: Manage conversation data persistence, message storage, and conversation lifecycle
+ * 
+ * Key Responsibilities:
+ * - Data Persistence: Store and retrieve conversations and messages in memory (production: database)
+ * - Conversation Lifecycle: Create, update, assign, and end conversations
+ * - Message Management: Add, retrieve, and filter messages with proper sequencing
+ * - Agent Assignment: Automatically assign conversations to available agents
+ * - Statistics and Analytics: Provide conversation metrics and reporting data
+ * - Data Integrity: Ensure atomic operations and consistent data state
+ * 
+ * Dependencies:
+ * - Agent service for agent availability and assignment logic
+ * - In-memory Map storage (should be replaced with PostgreSQL in production)
+ * 
+ * Features:
+ * - Real-time conversation and message management
+ * - Automatic agent assignment based on availability and workload
+ * - Message filtering and cleanup for system messages
+ * - Conversation statistics with message counts and timestamps
+ * - Pending message management for agent response workflows
+ * - Multi-agent support with conversation ownership
+ * 
+ * Data Models:
+ * - Conversation: id, visitorId, status, assignedAgent, timestamps, metadata
+ * - Message: id, conversationId, content, sender, timestamp, metadata
+ * - Supported senders: visitor, agent, ai, system
+ * - Message metadata includes suggestion tracking and system flags
+ * 
+ * Agent Assignment Logic:
+ * - Prioritizes online agents over busy agents
+ * - Considers current workload (conversation count)
+ * - Returns null if no agents are available
+ * - Supports manual assignment override
+ * 
+ * Message Types:
+ * - Visitor messages: Customer input and questions
+ * - Agent messages: Human agent responses
+ * - AI messages: Automated AI responses
+ * - System messages: Status updates, assignments, notifications
+ * 
+ * Statistics Provided:
+ * - Total conversations and message counts
+ * - Conversation status distribution
+ * - Agent assignment information
+ * - Message timestamps and activity metrics
+ * 
+ * Notes:
+ * - Uses in-memory storage for development/testing
+ * - Atomic operations prevent race conditions
+ * - Supports conversation filtering and search
+ * - Includes data cleanup utilities for testing
+ * - Thread-safe operations for concurrent access
  */
 
 // In-memory storage (use PostgreSQL in production)

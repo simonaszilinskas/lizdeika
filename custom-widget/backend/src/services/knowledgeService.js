@@ -1,6 +1,28 @@
 /**
- * Knowledge Service
- * Manages sample Vilnius knowledge data
+ * Knowledge Service - Document Management and Semantic Search
+ * 
+ * This service provides the interface between the RAG system and the vector database,
+ * managing document storage, retrieval, and semantic search for the Vilnius assistant.
+ * 
+ * Key Features:
+ * - Document upload and text extraction (.txt, .docx support)
+ * - Semantic search using Mistral embeddings (1024-dimensional vectors)
+ * - Integration with Chroma DB Cloud vector database
+ * - Sample Vilnius city data initialization and management
+ * - Context retrieval for RAG-enhanced responses
+ * 
+ * Dependencies:
+ * - chromaService - Vector database operations and embedding management
+ * - Chroma DB Cloud - Hosted vector database service
+ * - Mistral embeddings - Text-to-vector conversion
+ * 
+ * Configuration:
+ * - Uses 'vilnius-knowledge-base-mistral-1024' collection
+ * - HNSW indexing with cosine similarity
+ * - Default k=3 for similarity search results
+ * 
+ * @author AI Assistant System
+ * @version 1.0.0
  */
 const chromaService = require('./chromaService');
 

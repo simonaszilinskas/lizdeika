@@ -1,3 +1,31 @@
+<!--
+    ADMIN SETTINGS INTERFACE
+    
+    Main Purpose: Administrative configuration interface for the Vilnius Assistant chat widget system
+    
+    Key Responsibilities:
+    - AI Provider Configuration: Switch between Flowise (built-in RAG) and OpenRouter (external RAG)
+    - System Prompt Management: Configure custom prompts for OpenRouter AI provider
+    - Knowledge Base Management: Upload, view, and manage documents for the RAG system
+    - Document Statistics: Display upload and indexing statistics
+    - File Operations: Support for .txt and .docx file uploads with drag-and-drop functionality
+    
+    Dependencies:
+    - Backend API at /api/settings and /api/knowledge endpoints
+    - Admin settings JavaScript module (js/admin-settings.js)
+    - Integrated with ChromaDB for document storage and vector embeddings
+    
+    Features:
+    - Tabbed interface for Configuration and Knowledge Base management
+    - Real-time document status tracking (indexed, processing, failed, stored)
+    - Bulk document operations (refresh, clear all)
+    - Responsive design with modern CSS styling
+    
+    Notes:
+    - RAG configuration (RAG_K, RAG_SHOW_SOURCES) is managed via environment variables
+    - Requires admin authentication and proper API access
+    - Connected to agent-dashboard.html for navigation
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>

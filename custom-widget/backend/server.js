@@ -1,6 +1,40 @@
 /**
- * Server Entry Point
- * Starts the Vilnius Widget Backend Server
+ * VILNIUS ASSISTANT BACKEND SERVER - MAIN ENTRY POINT
+ * 
+ * Main Purpose: HTTP and WebSocket server for the Vilnius chat widget system
+ * 
+ * Key Responsibilities:
+ * - Server Initialization: Start Express HTTP server and Socket.io WebSocket server
+ * - Configuration Management: Load and validate environment variables and AI provider settings
+ * - Knowledge Base Setup: Initialize RAG (Retrieval-Augmented Generation) system with sample data
+ * - Health Monitoring: Provide system health checks and configuration reporting
+ * - Graceful Shutdown: Handle SIGTERM/SIGINT signals for clean server termination
+ * 
+ * Dependencies:
+ * - Express.js application factory (./src/app.js)
+ * - Knowledge service for RAG initialization
+ * - Environment variables for configuration
+ * - Socket.io for real-time WebSocket communication
+ * 
+ * Features:
+ * - Multi-provider AI support (Flowise, OpenRouter)
+ * - RAG knowledge base with ChromaDB and Mistral embeddings
+ * - Real-time messaging via WebSockets with fallback polling
+ * - Comprehensive error handling and process management
+ * - Development and production environment support
+ * 
+ * Environment Variables:
+ * - WIDGET_BACKEND_PORT/PORT: Server port (default: 3002)
+ * - AI_PROVIDER: AI service provider (flowise/openrouter)
+ * - NODE_ENV: Environment mode (development/production)
+ * - OPENROUTER_API_KEY, OPENROUTER_MODEL: OpenRouter configuration
+ * - FLOWISE_URL, FLOWISE_CHATFLOW_ID: Flowise configuration
+ * 
+ * Notes:
+ * - Initializes knowledge base after server startup
+ * - Provides detailed configuration logging for debugging
+ * - Handles unhandled promise rejections and uncaught exceptions
+ * - Supports graceful shutdown with proper resource cleanup
  */
 const createApp = require('./src/app');
 const knowledgeService = require('./src/services/knowledgeService');

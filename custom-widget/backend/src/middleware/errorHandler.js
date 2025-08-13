@@ -1,6 +1,40 @@
 /**
- * Error Handler Middleware
- * Centralized error handling for the application
+ * ERROR HANDLER MIDDLEWARE
+ * 
+ * Main Purpose: Centralized error handling and response formatting for the entire application
+ * 
+ * Key Responsibilities:
+ * - Global Error Catching: Capture and handle all unhandled errors in the Express application
+ * - Error Classification: Identify different types of errors and provide appropriate responses
+ * - Response Formatting: Standardize error response format across all endpoints
+ * - Security: Prevent sensitive error details from leaking to clients
+ * - Development Support: Provide detailed error information in development environment
+ * 
+ * Error Types Handled:
+ * - MongoDB/Mongoose errors (CastError, ValidationError, duplicate keys)
+ * - JWT authentication errors (invalid token, expired token)
+ * - Generic application errors with custom status codes
+ * - Unhandled exceptions and promise rejections
+ * 
+ * Features:
+ * - Environment-aware error details (stack traces only in development)
+ * - Automatic HTTP status code mapping
+ * - Sanitized error messages for security
+ * - Comprehensive error logging for debugging
+ * - Standardized JSON error response format
+ * 
+ * Response Format:
+ * {
+ *   "success": false,
+ *   "error": "Human-readable error message",
+ *   "stack": "Stack trace (development only)"
+ * }
+ * 
+ * Notes:
+ * - Must be registered as the last middleware in the Express app
+ * - Logs full error details to console for debugging
+ * - Prevents application crashes from unhandled errors
+ * - Provides consistent error experience across all endpoints
  */
 
 const errorHandler = (err, req, res, next) => {

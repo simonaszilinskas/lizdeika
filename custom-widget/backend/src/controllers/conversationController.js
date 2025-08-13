@@ -1,6 +1,51 @@
 /**
- * Conversation Controller
- * Handles conversation-related endpoints
+ * CONVERSATION CONTROLLER
+ * 
+ * Main Purpose: Handle HTTP endpoints for customer conversations and AI interactions
+ * 
+ * Key Responsibilities:
+ * - Conversation Lifecycle: Create, manage, and track customer conversations
+ * - Message Processing: Store customer messages and generate AI responses
+ * - AI Integration: Generate AI suggestions for agent responses using RAG technology
+ * - Agent Assignment: Automatically assign conversations to available agents
+ * - Context Management: Build conversation history for AI understanding
+ * - WebSocket Broadcasting: Notify agents of new customer messages in real-time
+ * 
+ * Dependencies:
+ * - Conversation service for data persistence and retrieval
+ * - AI service for generating intelligent responses and suggestions
+ * - Agent service for automatic agent assignment logic
+ * - Socket.io for real-time notifications to agent dashboard
+ * - UUID library for unique conversation and message identifiers
+ * 
+ * Features:
+ * - RAG-enhanced AI suggestions with document context
+ * - Multi-turn conversation context building
+ * - Automatic agent assignment based on availability
+ * - Pending message system for agent responses
+ * - Admin conversation monitoring and statistics
+ * - Conversation history retrieval with message filtering
+ * 
+ * Endpoints:
+ * - POST /conversations - Create new conversation
+ * - POST /messages - Send customer message and get AI suggestion
+ * - GET /conversations/:id/messages - Retrieve conversation history
+ * - GET /conversations/:id/pending-suggestion - Get AI suggestion for agent
+ * - POST /conversations/:id/assign - Assign conversation to agent
+ * - POST /conversations/:id/end - End conversation
+ * - GET /admin/conversations - Admin view of all conversations
+ * 
+ * AI Suggestion System:
+ * - Uses full conversation context for better understanding
+ * - Integrates with RAG system for document-based responses
+ * - Tracks conversation complexity with message counting
+ * - Provides confidence scores and metadata for agent decision-making
+ * 
+ * Notes:
+ * - Conversations auto-create if they don't exist when messages are sent
+ * - AI suggestions include metadata about customer message count and context
+ * - System messages track conversation state changes and agent assignments
+ * - WebSocket events ensure real-time updates to agent dashboards
  */
 const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');

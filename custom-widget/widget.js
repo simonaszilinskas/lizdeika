@@ -1,3 +1,41 @@
+/**
+ * VILNIUS CHAT WIDGET - CUSTOMER INTERFACE
+ * 
+ * Main Purpose: Embeddable chat widget for customer-facing websites
+ * 
+ * Key Responsibilities:
+ * - Customer Chat Interface: Provide intuitive chat UI for website visitors
+ * - Real-time Communication: WebSocket-based messaging with fallback to polling
+ * - Session Management: Handle visitor identification and conversation persistence
+ * - AI Integration: Interface with backend AI services for automated responses
+ * - Multi-language Support: Lithuanian localization for customer messages
+ * 
+ * Dependencies:
+ * - Socket.io client library for WebSocket communication
+ * - Backend chat API on configurable server endpoint
+ * - Browser localStorage for session persistence
+ * 
+ * Features:
+ * - Floating chat bubble with customizable positioning and theming
+ * - Expandable chat window with message history
+ * - Typing indicators for both customer and agent
+ * - Markdown rendering for rich AI responses
+ * - Automatic message polling fallback when WebSocket fails
+ * - Responsive design with mobile-friendly interface
+ * - Error handling with user-friendly messages in Lithuanian
+ * 
+ * Configuration:
+ * - apiUrl: Backend server URL (default: localhost:3002)
+ * - flowiseUrl: Flowise server URL for direct AI integration
+ * - theme.primaryColor: Widget color scheme
+ * - theme.position: Widget placement (bottom-right/bottom-left)
+ * 
+ * Notes:
+ * - Self-contained IIFE to avoid global namespace pollution
+ * - Generates unique visitor and session IDs for tracking
+ * - Handles both AI responses and human agent handoff
+ * - Includes comprehensive error handling and connection recovery
+ */
 (function() {
     'use strict';
 

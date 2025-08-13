@@ -1,6 +1,37 @@
 /**
- * Chroma DB Service
- * Handles connection and operations with Chroma Cloud with Mistral embeddings
+ * Chroma DB Service - Vector Database Operations
+ * 
+ * This service manages the connection and operations with Chroma DB Cloud,
+ * a hosted vector database service used for semantic search in the RAG system.
+ * 
+ * Key Features:
+ * - Chroma DB Cloud client connection and authentication
+ * - Vector collection management with HNSW indexing
+ * - Document embedding, storage, and retrieval operations
+ * - Mistral embeddings integration (1024-dimensional vectors)
+ * - Batch operations for efficient document processing
+ * - Similarity search with configurable k parameter
+ * 
+ * Dependencies:
+ * - chromadb - Official Chroma DB client library
+ * - mistralEmbeddingFunction - Custom Mistral AI embedding provider
+ * - Chroma DB Cloud - Hosted vector database service
+ * 
+ * Environment Variables:
+ * - CHROMA_URL - Chroma DB Cloud endpoint URL
+ * - CHROMA_TENANT - Tenant identifier for multi-tenancy
+ * - CHROMA_DATABASE - Database name within tenant
+ * - CHROMA_AUTH_TOKEN - Authentication token for cloud access
+ * - MISTRAL_API_KEY - API key for Mistral embedding service
+ * 
+ * Collection Configuration:
+ * - Name: 'vilnius-knowledge-base-mistral-1024'
+ * - Embedding: Mistral-embed model (1024 dimensions)
+ * - Distance: Cosine similarity
+ * - Index: HNSW (ef_construction=200, ef_search=100)
+ * 
+ * @author AI Assistant System
+ * @version 1.0.0
  */
 const { CloudClient } = require("chromadb");
 const MistralEmbeddingFunction = require('./mistralEmbeddingFunction');
