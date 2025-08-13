@@ -39,7 +39,7 @@ class ConversationController {
      * Send message and get AI response
      */
     async sendMessage(req, res) {
-        const { conversationId, message, visitorId, requestHuman } = req.body;
+        const { conversationId, message, visitorId, requestHuman, enableRAG } = req.body;
         
         try {
             // Create conversation if doesn't exist
@@ -67,8 +67,8 @@ class ConversationController {
             // Get conversation context for AI
             const conversationContext = this.buildConversationContext(conversationMessages, message);
             
-            // Generate AI suggestion with full conversation context
-            const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext);
+            // Generate AI suggestion with full conversation context and RAG
+            const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, enableRAG !== false);
             
             // First, add the user message atomically
             conversationService.addMessage(conversationId, userMessage);

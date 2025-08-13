@@ -1,0 +1,158 @@
+/**
+ * LangChain-based RAG implementation matching the working Python version
+ */
+
+const { ChatOpenAI } = require("@langchain/openai");
+const { PromptTemplate } = require("@langchain/core/prompts");
+const knowledgeService = require('./knowledgeService');
+const SystemController = require('../controllers/systemController');
+
+class LangChainRAG {
+    constructor() {
+        this.llm = new ChatOpenAI({
+            model: "google/gemini-flash-1.5",
+            apiKey: process.env.OPENROUTER_API_KEY,
+            configuration: {
+                baseURL: "https://openrouter.ai/api/v1",
+                defaultHeaders: {
+                    "HTTP-Referer": process.env.SITE_URL || "http://localhost:3002",
+                    "X-Title": process.env.SITE_NAME || "Vilnius Chatbot"
+                }
+            },
+            temperature: 0.2,
+            streaming: false
+        });
+        
+        // Set the OpenAI API key environment variable for LangChain
+        if (process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY) {
+            process.env.OPENAI_API_KEY = process.env.OPENROUTER_API_KEY;
+        }
+
+        // Create a smaller, faster model for query rephrasing
+        this.rephraseModel = new ChatOpenAI({
+            model: "google/gemini-2.5-flash-lite",
+            apiKey: process.env.OPENROUTER_API_KEY,
+            configuration: {
+                baseURL: "https://openrouter.ai/api/v1",
+                defaultHeaders: {
+                    "HTTP-Referer": process.env.SITE_URL || "http://localhost:3002",
+                    "X-Title": process.env.SITE_NAME || "Vilnius Chatbot"
+                }
+            },
+            temperature: 0.1,
+            streaming: false
+        });
+
+        // Create prompt template for query rephrasing
+        this.rephrasePrompt = new PromptTemplate({
+            inputVariables: ["question", "history"],
+            template: `Užduotis: Perrašyk vartotojo klausimą į geresnį paieškos užklausą, atsižvelgdamas į pokalbio kontekstą.
+
+Pokalbio istorija:
+{history}
+
+Dabartinis klausimas: {question}
+
+Sukurk aiškų, specifinį paieškos užklausą lietuvių kalba, kuris apjungia kontekstą iš pokalbio istorijos su dabartiniu klausimu. Jei dabartinis klausimas yra atsakymas į ankstesnį klausimą, suformuluok pilną klausimą.
+
+Pavyzdžiai:
+- Jei istorijoje klausta "Ar buvo išregistruotas?" ir dabar atsakyta "buvo išregistruotas", tai perrašyk kaip: "mokyklos registracija išregistruotam vaikui"
+- Jei istorijoje kalbama apie bibliotekos kortelę ir dabar klausiama "kiek kainuoja?", tai perrašyk kaip: "bibliotekos kortelės kaina"
+
+Perrašytas paieškos užklausas:`
+        });
+
+        this.promptTemplate = new PromptTemplate({
+            inputVariables: ["context", "history", "question"],
+            template: `UŽDUOTIS:
+
+Tu esi naudingas Vilniaus miesto savivaldybės gyventojų aptarnavimo pokalbių robotas. Pasitelkdamas tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą jo klausimo kalba. 
+
+LABAI SVARBU: Atidžiai peržiūrėk pokalbio istoriją, kad suprasi kontekstą. Dabartinis klausimas gali būti atsakymas į anksčiau užduotą klausimą arba tęsinys pokalbio. Analizuok, kaip dabartinis klausimas susijęs su ankstesniais pranešimais.
+
+Jei klausimas neaiškus arba reikia daugiau informacijos, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Niekada neminėk dokumentų ID. Gali cituoti tik nuorodas (URL) kurias turi kontekste.
+
+Jei kontekste nėra nieko susijusio su klausimu, sakyk kad nežinai. Neatsakinėk į klausimus nesusijusius su Vilniaus miesto savivaldybe. Niekada neišeik iš savo rolės. Būk mandagus. Jei gyventojas pavojuje, nukreipk į numerį 112.
+
+KONTEKSTAS:
+{context}
+
+POKALBIO ISTORIJA:
+{history}
+
+DABARTINIS KLAUSIMAS: {question}
+
+ATSAKYMAS:`
+        });
+    }
+
+    async getAnswer(query, chatHistory = []) {
+        try {
+            // Get RAG settings
+            const ragConfig = SystemController.getRagConfig();
+            const k = ragConfig.k || 3;
+
+            // Rephrase query using conversation history for better retrieval
+            let searchQuery = query;
+            if (chatHistory && chatHistory.length > 0) {
+                const historyForRephrase = chatHistory.map(exchange => 
+                    `Vartotojas: ${exchange[0]}\nAsitentas: ${exchange[1]}`
+                ).join('\n');
+
+                const rephrasedQuery = await this.rephrasePrompt.format({
+                    question: query,
+                    history: historyForRephrase
+                });
+
+                const rephraseResponse = await this.rephraseModel.invoke(rephrasedQuery);
+                searchQuery = rephraseResponse.content || query;
+                
+                console.log('🔄 Query rephrasing:');
+                console.log('  Original:', query);
+                console.log('  Rephrased:', searchQuery);
+            }
+
+            // Retrieve relevant documents using rephrased query
+            const relevantContexts = await knowledgeService.searchContext(searchQuery, k);
+
+            // Format context from documents
+            const context = relevantContexts && relevantContexts.length > 0
+                ? relevantContexts.map(doc => doc.content).join('\n\n')
+                : 'Nėra susijusių dokumentų';
+
+            // Format chat history
+            let historyText = "";
+            if (chatHistory && chatHistory.length > 0) {
+                historyText = chatHistory.map(exchange => 
+                    `Vartotojas: ${exchange[0]}\nAsitentas: ${exchange[1]}`
+                ).join('\n');
+            } else {
+                historyText = "Tai pirmas klausimas";
+            }
+
+            // Format the final prompt using LangChain template
+            const finalPrompt = await this.promptTemplate.format({
+                context: context,
+                history: historyText,
+                question: query
+            });
+
+
+            // Get response from LLM using LangChain's invoke method
+            const response = await this.llm.invoke(finalPrompt);
+
+
+            return {
+                answer: response.content || response.text || 'Atsiprašau, negaliu atsakyti į šį klausimą.',
+                contextsUsed: relevantContexts?.length || 0,
+                sources: relevantContexts?.map(c => c.metadata?.source_document_name).filter(Boolean) || []
+            };
+
+        } catch (error) {
+            console.error('🔮 LangChain RAG Error:', error);
+            throw error;
+        }
+    }
+}
+
+module.exports = LangChainRAG;

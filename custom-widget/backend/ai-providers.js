@@ -96,39 +96,56 @@ class OpenRouterProvider extends AIProvider {
     }
 
     async generateResponse(conversationContext, conversationId) {
-        // Use current system prompt from environment (allows runtime updates)
-        const currentSystemPrompt = process.env.SYSTEM_PROMPT || this.systemPrompt;
+        // Check if this is RAG-enhanced context by looking for our RAG structure
+        const isRAGContext = conversationContext.includes('UŽDUOTIS:');
         
-        const messages = [
-            {
-                role: "system", 
-                content: currentSystemPrompt
-            }
-        ];
-
-        // Parse conversation context into messages
-        if (conversationContext.includes('Agent:') || conversationContext.includes('Customer:')) {
-            // Multi-turn conversation
-            const lines = conversationContext.split('\n').filter(line => line.trim());
-            for (const line of lines) {
-                if (line.startsWith('Customer: ')) {
-                    messages.push({
-                        role: "user",
-                        content: line.substring(10) // Remove "Customer: " prefix
-                    });
-                } else if (line.startsWith('Agent: ')) {
-                    messages.push({
-                        role: "assistant", 
-                        content: line.substring(7) // Remove "Agent: " prefix
-                    });
+        let messages;
+        
+        if (isRAGContext) {
+            // For RAG, send as a single user message (like the Python implementation)
+            console.log('🔧 OpenRouter RAG: Using Python-style single message approach');
+            
+            messages = [
+                {
+                    role: "user",
+                    content: conversationContext
                 }
-            }
+            ];
         } else {
-            // Single customer message
-            messages.push({
-                role: "user",
-                content: conversationContext
-            });
+            // Use current system prompt from environment for normal contexts
+            const currentSystemPrompt = process.env.SYSTEM_PROMPT || this.systemPrompt;
+            
+            messages = [
+                {
+                    role: "system", 
+                    content: currentSystemPrompt
+                }
+            ];
+            
+            // Parse conversation context into messages for normal flow
+            if (conversationContext.includes('Agent:') || conversationContext.includes('Customer:')) {
+                // Multi-turn conversation
+                const lines = conversationContext.split('\n').filter(line => line.trim());
+                for (const line of lines) {
+                    if (line.startsWith('Customer: ')) {
+                        messages.push({
+                            role: "user",
+                            content: line.substring(10) // Remove "Customer: " prefix
+                        });
+                    } else if (line.startsWith('Agent: ')) {
+                        messages.push({
+                            role: "assistant", 
+                            content: line.substring(7) // Remove "Agent: " prefix
+                        });
+                    }
+                }
+            } else {
+                // Single customer message
+                messages.push({
+                    role: "user",
+                    content: conversationContext
+                });
+            }
         }
 
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -142,7 +159,7 @@ class OpenRouterProvider extends AIProvider {
             body: JSON.stringify({
                 model: this.model,
                 messages: messages,
-                temperature: 0.7,
+                temperature: 0.2, // Use 0.2 like the working Python implementation
                 max_tokens: 1000
             }),
             signal: AbortSignal.timeout(30000)

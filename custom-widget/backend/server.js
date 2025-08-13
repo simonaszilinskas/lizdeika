@@ -3,11 +3,28 @@
  * Starts the Vilnius Widget Backend Server
  */
 const createApp = require('./src/app');
+const knowledgeService = require('./src/services/knowledgeService');
 
 const PORT = process.env.WIDGET_BACKEND_PORT || process.env.PORT || 3002;
 
 // Create and configure the application
 const { app, server, io, websocketService } = createApp();
+
+// Initialize knowledge base
+async function initializeKnowledgeBase() {
+    try {
+        console.log('Initializing RAG knowledge base...');
+        const initialized = await knowledgeService.initializeSampleData();
+        if (initialized) {
+            const stats = await knowledgeService.getStats();
+            console.log('✅ Knowledge base ready:', stats);
+        } else {
+            console.log('⚠️  Knowledge base initialization failed - RAG disabled');
+        }
+    } catch (error) {
+        console.log('⚠️  Knowledge base error - RAG disabled:', error.message);
+    }
+}
 
 // Start server
 server.listen(PORT, () => {
@@ -38,6 +55,9 @@ server.listen(PORT, () => {
     console.log('- join-agent-dashboard');
     console.log('- agent-typing');
     console.log('- customer-typing');
+    
+    // Initialize RAG knowledge base after server starts
+    initializeKnowledgeBase();
 });
 
 // Graceful shutdown

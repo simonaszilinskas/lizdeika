@@ -15,6 +15,7 @@ const requestLogger = require('./middleware/requestLogger');
 const createConversationRoutes = require('./routes/conversationRoutes');
 const createAgentRoutes = require('./routes/agentRoutes');
 const createSystemRoutes = require('./routes/systemRoutes');
+const createKnowledgeRoutes = require('./routes/knowledgeRoutes');
 
 // Import services
 const WebSocketService = require('./services/websocketService');
@@ -46,6 +47,7 @@ function createApp() {
     // Routes
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));
+    app.use('/api/knowledge', createKnowledgeRoutes()); // Knowledge management routes
     app.use('/', createSystemRoutes()); // Health check at root level
     app.use('/api', createSystemRoutes()); // Config routes under /api
 
