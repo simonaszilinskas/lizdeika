@@ -347,59 +347,68 @@ class KnowledgeController {
     }
 
     /**
-     * Index document directly via API with metadata
+     * Index document directly via API with flexible input format (Phase 2.1)
      * 
      * Expected request body:
      * {
-     *   "content": "Document text content",
-     *   "metadata": {
-     *     "title": "Document Title",
-     *     "sourceUrl": "https://example.com/source",
-     *     "category": "FAQ",
-     *     "tags": ["vilnius", "registration"],
-     *     "language": "lt",
-     *     "lastUpdated": "2024-01-01T00:00:00Z"
-     *   }
+     *   "body": "Document text content",              // REQUIRED ONLY
+     *   "title": "Document Title",                    // OPTIONAL - auto-generated if missing
+     *   "sourceUrl": "https://example.com/source",    // OPTIONAL - null if not provided
+     *   "date": "2024-01-15T10:30:00Z"               // OPTIONAL - current date if missing
      * }
      */
     async indexDocument(req, res) {
         try {
-            const { content, metadata = {} } = req.body;
+            const { body, title, sourceUrl, date } = req.body;
 
-            // Validate required fields
-            if (!content || content.trim().length === 0) {
+            // Validate required field - only body is mandatory
+            if (!body || body.trim().length === 0) {
                 return res.status(400).json({
-                    error: 'Content is required and cannot be empty'
+                    error: 'Body field is required and cannot be empty'
                 });
             }
 
-            // Set default metadata values
+            // Auto-generate missing metadata according to Phase 2.1 spec
+            const generatedTitle = title || this.generateTitle(body);
+            const documentDate = date || new Date().toISOString();
+            const documentSourceUrl = sourceUrl || null;
+
+            // Create document metadata for internal processing
             const documentMetadata = {
-                source_document_name: metadata.title || 'API Document',
-                source_url: metadata.sourceUrl || null,
-                category: metadata.category || 'general',
-                tags: metadata.tags || [],
-                language: metadata.language || 'lt',
-                content_type: 'api_indexed',
+                source_document_name: generatedTitle,
+                source_url: documentSourceUrl,
+                category: 'api_indexed',
+                language: 'lt',
+                content_type: 'api_document',
                 upload_timestamp: new Date().toISOString(),
-                last_updated: metadata.lastUpdated || new Date().toISOString(),
-                ...metadata // Allow additional custom metadata
+                last_updated: documentDate,
+                generated_title: !title, // Track if title was auto-generated
+                provided_source_url: !!sourceUrl // Track if URL was provided
             };
 
-            // Process and index the document
+            // Process and index the document with duplicate detection
             const result = await knowledgeManagerService.indexTextContent(
-                content, 
-                documentMetadata
+                body, 
+                documentMetadata,
+                'newer' // Default replacement mode
             );
 
             res.json({
                 success: true,
-                message: 'Document indexed successfully',
+                message: result.status === 'duplicate_rejected' 
+                    ? 'Document rejected - duplicate found' 
+                    : 'Document indexed successfully',
                 data: {
                     documentId: result.documentId,
+                    title: generatedTitle,
+                    sourceUrl: documentSourceUrl,
+                    date: documentDate,
                     chunksCount: result.chunksCount,
-                    status: 'indexed',
-                    metadata: documentMetadata
+                    totalLength: body.length,
+                    status: result.status,
+                    replacedDocument: result.replacedDocument,
+                    generatedTitle: !title,
+                    duplicateReason: result.duplicateReason
                 }
             });
 
@@ -413,18 +422,32 @@ class KnowledgeController {
     }
 
     /**
-     * Index multiple documents in batch via API
+     * Generate title from document body (first 50 characters + "...")
+     */
+    generateTitle(body) {
+        const cleanBody = body.trim();
+        if (cleanBody.length <= 50) {
+            return cleanBody;
+        }
+        return cleanBody.substring(0, 50) + "...";
+    }
+
+    /**
+     * Index multiple documents in batch via API with flexible input format (Phase 2.1)
      * 
      * Expected request body:
      * {
      *   "documents": [
      *     {
-     *       "content": "Document 1 content",
-     *       "metadata": { "title": "Doc 1", "sourceUrl": "..." }
+     *       "body": "Document 1 content",               // REQUIRED ONLY
+     *       "title": "Doc 1",                          // OPTIONAL
+     *       "sourceUrl": "https://example.com/doc1",   // OPTIONAL
+     *       "date": "2024-01-15T10:30:00Z"            // OPTIONAL
      *     },
      *     {
-     *       "content": "Document 2 content", 
-     *       "metadata": { "title": "Doc 2", "sourceUrl": "..." }
+     *       "body": "Document 2 content",
+     *       "title": "Doc 2",
+     *       "sourceUrl": "https://example.com/doc2"
      *     }
      *   ]
      * }
@@ -439,56 +462,69 @@ class KnowledgeController {
                 });
             }
 
-            if (documents.length > 100) {
+            if (documents.length > 10000) {
                 return res.status(400).json({
-                    error: 'Batch size cannot exceed 100 documents'
+                    error: 'Batch size cannot exceed 10,000 documents'
                 });
             }
 
             const results = [];
             const errors = [];
+            const batchId = `batch_${Date.now()}`;
 
             // Process each document
             for (let i = 0; i < documents.length; i++) {
-                const { content, metadata = {} } = documents[i];
+                const { body, title, sourceUrl, date } = documents[i];
 
                 try {
-                    // Validate content
-                    if (!content || content.trim().length === 0) {
+                    // Validate required field - only body is mandatory
+                    if (!body || body.trim().length === 0) {
                         errors.push({
                             index: i,
-                            error: 'Content is required and cannot be empty'
+                            error: 'Body field is required and cannot be empty'
                         });
                         continue;
                     }
 
+                    // Auto-generate missing metadata according to Phase 2.1 spec
+                    const generatedTitle = title || this.generateTitle(body);
+                    const documentDate = date || new Date().toISOString();
+                    const documentSourceUrl = sourceUrl || null;
+
                     // Set metadata with batch identifier
                     const documentMetadata = {
-                        source_document_name: metadata.title || `API Batch Document ${i + 1}`,
-                        source_url: metadata.sourceUrl || null,
-                        category: metadata.category || 'general',
-                        tags: metadata.tags || [],
-                        language: metadata.language || 'lt',
-                        content_type: 'api_batch_indexed',
-                        batch_id: `batch_${Date.now()}`,
+                        source_document_name: generatedTitle,
+                        source_url: documentSourceUrl,
+                        category: 'api_batch_indexed',
+                        language: 'lt',
+                        content_type: 'api_batch_document',
+                        batch_id: batchId,
                         batch_index: i,
                         upload_timestamp: new Date().toISOString(),
-                        last_updated: metadata.lastUpdated || new Date().toISOString(),
-                        ...metadata
+                        last_updated: documentDate,
+                        generated_title: !title,
+                        provided_source_url: !!sourceUrl
                     };
 
-                    // Process and index
+                    // Process and index with duplicate detection
                     const result = await knowledgeManagerService.indexTextContent(
-                        content, 
-                        documentMetadata
+                        body, 
+                        documentMetadata,
+                        'newer' // Default replacement mode for batch
                     );
 
                     results.push({
                         index: i,
                         documentId: result.documentId,
+                        title: generatedTitle,
+                        sourceUrl: documentSourceUrl,
+                        date: documentDate,
                         chunksCount: result.chunksCount,
-                        status: 'indexed',
-                        metadata: documentMetadata
+                        totalLength: body.length,
+                        status: result.status,
+                        replacedDocument: result.replacedDocument,
+                        generatedTitle: !title,
+                        duplicateReason: result.duplicateReason
                     });
 
                 } catch (docError) {
@@ -508,7 +544,8 @@ class KnowledgeController {
                     summary: {
                         total: documents.length,
                         successful: results.length,
-                        failed: errors.length
+                        failed: errors.length,
+                        batchId: batchId
                     }
                 }
             });

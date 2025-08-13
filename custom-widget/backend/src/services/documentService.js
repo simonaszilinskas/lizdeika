@@ -106,43 +106,134 @@ class DocumentService {
     }
 
     /**
-     * Chunk text into smaller pieces for embeddings
+     * Enhanced chunk text with phrase awareness and larger sizes
+     * Uses intelligent boundary detection to maintain context integrity
      */
-    chunkText(text, documentInfo, chunkSize = 1000, overlap = 200) {
-        const chunks = [];
-        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    chunkText(text, documentInfo, chunkSize = 3000, minChunkSize = 1500, overlap = 300) {
+        const cleanText = this.normalizeText(text);
         
-        let currentChunk = '';
+        // For very short text, return as single chunk
+        if (cleanText.length <= minChunkSize) {
+            return [this.createChunk(cleanText, documentInfo, 0)];
+        }
+
+        const chunks = [];
+        let currentPosition = 0;
         let chunkIndex = 0;
 
-        for (let i = 0; i < sentences.length; i++) {
-            const sentence = sentences[i].trim() + '.';
+        while (currentPosition < cleanText.length) {
+            // Find optimal chunk end position
+            const chunkEnd = this.findOptimalChunkEnd(
+                cleanText, 
+                currentPosition, 
+                chunkSize, 
+                minChunkSize
+            );
+
+            // Extract chunk content
+            const chunkContent = cleanText.substring(currentPosition, chunkEnd).trim();
             
-            // If adding this sentence would exceed chunk size, save current chunk
-            if (currentChunk.length + sentence.length > chunkSize && currentChunk.length > 0) {
-                chunks.push(this.createChunk(currentChunk.trim(), documentInfo, chunkIndex));
-                
-                // Start new chunk with overlap
-                const words = currentChunk.split(' ');
-                const overlapWords = Math.min(Math.floor(overlap / 5), words.length); // ~5 chars per word
-                currentChunk = words.slice(-overlapWords).join(' ') + ' ' + sentence;
+            if (chunkContent.length > 0) {
+                chunks.push(this.createChunk(chunkContent, documentInfo, chunkIndex));
                 chunkIndex++;
+            }
+
+            // Calculate next position with overlap
+            const nextPosition = Math.max(
+                chunkEnd - overlap,
+                currentPosition + minChunkSize
+            );
+            
+            // Ensure we make progress
+            if (nextPosition <= currentPosition) {
+                currentPosition = chunkEnd;
             } else {
-                currentChunk += (currentChunk.length > 0 ? ' ' : '') + sentence;
+                currentPosition = nextPosition;
             }
         }
 
-        // Add final chunk if it has content
-        if (currentChunk.trim().length > 0) {
-            chunks.push(this.createChunk(currentChunk.trim(), documentInfo, chunkIndex));
+        return chunks.length > 0 ? chunks : [this.createChunk(cleanText, documentInfo, 0)];
+    }
+
+    /**
+     * Find optimal position to end chunk respecting phrase boundaries
+     */
+    findOptimalChunkEnd(text, startPos, targetSize, minSize) {
+        const targetEnd = startPos + targetSize;
+        const minEnd = startPos + minSize;
+        
+        // If target position is beyond text, return text end
+        if (targetEnd >= text.length) {
+            return text.length;
         }
 
-        // If no chunks were created (very short text), create one chunk
-        if (chunks.length === 0 && text.trim().length > 0) {
-            chunks.push(this.createChunk(text.trim(), documentInfo, 0));
-        }
+        // Find the best boundary within acceptable range
+        const searchStart = Math.min(targetEnd, text.length);
+        const searchEnd = Math.max(minEnd, startPos + 1);
 
-        return chunks;
+        // Priority 1: Paragraph boundaries (\n\n)
+        let boundary = this.findLastOccurrence(text, /\n\n/g, searchEnd, searchStart);
+        if (boundary !== -1) return boundary;
+
+        // Priority 2: Sentence boundaries (. ! ?)
+        boundary = this.findLastOccurrence(text, /[.!?]\s+/g, searchEnd, searchStart);
+        if (boundary !== -1) return boundary + 1; // Include punctuation
+
+        // Priority 3: Clause boundaries (, ; :)
+        boundary = this.findLastOccurrence(text, /[,;:]\s+/g, searchEnd, searchStart);
+        if (boundary !== -1) return boundary + 1;
+
+        // Priority 4: Line breaks
+        boundary = this.findLastOccurrence(text, /\n/g, searchEnd, searchStart);
+        if (boundary !== -1) return boundary;
+
+        // Priority 5: Word boundaries (spaces)
+        boundary = this.findLastOccurrence(text, /\s+/g, searchEnd, searchStart);
+        if (boundary !== -1) return boundary;
+
+        // Last resort: use target position (avoid splitting words)
+        return this.avoidWordSplit(text, targetEnd);
+    }
+
+    /**
+     * Find last occurrence of pattern within range
+     */
+    findLastOccurrence(text, pattern, minPos, maxPos) {
+        let lastMatch = -1;
+        let match;
+        
+        pattern.lastIndex = 0; // Reset regex
+        
+        while ((match = pattern.exec(text)) !== null) {
+            const matchPos = match.index;
+            
+            if (matchPos >= maxPos) break;
+            if (matchPos >= minPos) {
+                lastMatch = matchPos;
+            }
+        }
+        
+        return lastMatch;
+    }
+
+    /**
+     * Ensure we don't split in the middle of a word
+     */
+    avoidWordSplit(text, position) {
+        if (position >= text.length) return text.length;
+        
+        // If we're at a space, we're good
+        if (/\s/.test(text[position])) return position;
+        
+        // Find previous space
+        for (let i = position; i >= 0; i--) {
+            if (/\s/.test(text[i])) {
+                return i;
+            }
+        }
+        
+        // If no space found, use position (shouldn't happen with minSize)
+        return position;
     }
 
     /**
@@ -154,15 +245,27 @@ class DocumentService {
             content: text,
             metadata: {
                 source_document_id: documentInfo.id,
-                source_document_name: documentInfo.originalName,
+                source_document_name: documentInfo.originalName || 'Document',
                 chunk_index: chunkIndex,
                 chunk_length: text.length,
-                document_type: documentInfo.fileType,
-                upload_source: documentInfo.uploadSource,
-                upload_time: documentInfo.uploadTime.toISOString(),
+                document_type: documentInfo.fileType || 'text/plain',
+                upload_source: documentInfo.uploadSource || 'api',
+                upload_time: documentInfo.uploadTime ? documentInfo.uploadTime.toISOString() : new Date().toISOString(),
                 category: 'uploaded_document'
             }
         };
+    }
+
+    /**
+     * Normalize text for consistent processing
+     */
+    normalizeText(text) {
+        return text
+            .replace(/\r\n/g, '\n')      // Normalize line endings
+            .replace(/\n\s*\n/g, '\n\n')  // Normalize multiple line breaks
+            .replace(/\t/g, ' ')          // Replace tabs with spaces
+            .replace(/ +/g, ' ')          // Normalize multiple spaces
+            .trim();                      // Remove leading/trailing whitespace
     }
 
     /**

@@ -142,9 +142,9 @@ ATSAKYMAS:`
             // Retrieve relevant documents using rephrased query
             const relevantContexts = await knowledgeService.searchContext(searchQuery, k);
 
-            // Format context from documents
+            // Format context from documents with structured markdown
             const context = relevantContexts && relevantContexts.length > 0
-                ? relevantContexts.map(doc => doc.content).join('\n\n')
+                ? this.formatContextAsMarkdown(relevantContexts)
                 : 'Nėra susijusių dokumentų';
 
             // Format chat history
@@ -193,6 +193,64 @@ ATSAKYMAS:`
             console.error('🔮 LangChain RAG Error:', error);
             throw error;
         }
+    }
+
+    /**
+     * Format retrieved contexts as structured markdown
+     * Creates clean, separated chunks with metadata headers
+     */
+    formatContextAsMarkdown(contexts) {
+        return contexts.map((doc, index) => {
+            const title = doc.metadata?.source_document_name || 'Dokumento fragmentas';
+            const sourceUrl = doc.metadata?.source_url || null;
+            const date = doc.metadata?.last_updated 
+                ? new Date(doc.metadata.last_updated).toISOString().split('T')[0]
+                : new Date().toISOString().split('T')[0];
+            
+            // Determine chunk info if available
+            const chunkInfo = this.extractChunkInfo(doc.metadata);
+            
+            let markdown = `---
+title: "${title}"
+source: ${sourceUrl ? `"${sourceUrl}"` : 'null'}
+date: "${date}"
+chunk: "${chunkInfo}"
+---
+
+# ${title}
+
+`;
+
+            // Add source and date info
+            if (sourceUrl) {
+                markdown += `**Šaltinis:** ${sourceUrl}  \n`;
+            }
+            markdown += `**Data:** ${date}  \n`;
+            markdown += `**Dalis:** ${chunkInfo}\n\n`;
+            
+            // Add the content (no internal separators)
+            markdown += doc.content;
+            
+            return markdown;
+        }).join('\n\n');
+    }
+
+    /**
+     * Extract or generate chunk information from metadata
+     */
+    extractChunkInfo(metadata) {
+        // If we have specific chunk metadata, use it
+        if (metadata?.chunk_index !== undefined && metadata?.total_chunks !== undefined) {
+            return `${metadata.chunk_index + 1} iš ${metadata.total_chunks}`;
+        }
+        
+        // If we have document chunks info, try to infer
+        if (metadata?.document_chunks) {
+            return `dalis iš ${metadata.document_chunks}`;
+        }
+        
+        // Default fallback
+        return "dokumento dalis";
     }
 }
 
