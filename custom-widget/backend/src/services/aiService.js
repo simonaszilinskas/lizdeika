@@ -98,11 +98,6 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
             // Parse conversation history for context
             const chatHistory = parseConversationHistory(conversationContext);
             
-            console.log('🔍 RAG Debug Info:');
-            console.log('  Recent message:', recentMessage);
-            console.log('  Chat history length:', chatHistory.length);
-            console.log('  Chat history:', JSON.stringify(chatHistory, null, 2));
-            console.log('  Full context preview:', conversationContext.substring(0, 300) + '...');
             
             if (recentMessage) {
                 // Get RAG response using LangChain with full conversation context

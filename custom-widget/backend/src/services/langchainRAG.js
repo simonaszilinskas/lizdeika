@@ -107,9 +107,6 @@ ATSAKYMAS:`
                 const rephraseResponse = await this.rephraseModel.invoke(rephrasedQuery);
                 searchQuery = rephraseResponse.content || query;
                 
-                console.log('🔄 Query rephrasing:');
-                console.log('  Original:', query);
-                console.log('  Rephrased:', searchQuery);
             }
 
             // Retrieve relevant documents using rephrased query
