@@ -51,9 +51,9 @@ class ChromaService {
     async initialize() {
         try {
             this.client = new CloudClient({
-                apiKey: 'ck-3tUkgpDr8MvvVANXfCEXKzyurzeQR8gAH8rvEvfmsHPr',
-                tenant: '707f6b37-54fb-4c51-89e0-430784903964',
-                database: 'Vilnius-first-test'
+                apiKey: process.env.CHROMA_AUTH_TOKEN,
+                tenant: process.env.CHROMA_TENANT,
+                database: process.env.CHROMA_DATABASE
             });
 
             // Initialize Mistral embedding function
