@@ -1,0 +1,21 @@
+# Environment variables - NEVER commit credentials
+.env
+.env.local
+.env.production
+.env.development
+
+# Upload directory - contains user files
+uploads/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
