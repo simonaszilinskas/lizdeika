@@ -228,6 +228,31 @@ class ConversationController {
     }
 
     /**
+     * Get debug information for AI suggestion generation
+     */
+    async getDebugInfo(req, res) {
+        try {
+            const { conversationId } = req.params;
+            
+            const conversationMessages = conversationService.getMessages(conversationId);
+            
+            // Find the most recent message with debug metadata
+            const debugMessage = conversationMessages
+                .filter(msg => msg.metadata && msg.metadata.debugInfo)
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+            if (debugMessage) {
+                res.json(debugMessage.metadata.debugInfo);
+            } else {
+                res.status(404).json({ error: 'No debug information available' });
+            }
+        } catch (error) {
+            console.error('Error getting debug info:', error);
+            res.status(500).json({ error: 'Failed to get debug information' });
+        }
+    }
+
+    /**
      * Get AI suggestion for a pending message
      */
     async getPendingSuggestion(req, res) {

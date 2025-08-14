@@ -10,6 +10,7 @@
  * - Integration with Chroma DB vector database for semantic search
  * - Two-stage AI processing: query rephrasing → answer generation
  * - Bilingual support (Lithuanian/English) based on user input
+ * - Comprehensive debug information capture for developer transparency
  * 
  * Dependencies:
  * - @langchain/openai - OpenAI/OpenRouter model integration
@@ -27,13 +28,13 @@
  * - google/gemini-2.5-flash-lite - Query rephrasing (temperature: 0.1)
  * 
  * @author AI Assistant System
- * @version 2.0.0
+ * @version 2.1.0
  */
 
 const { ChatOpenAI } = require("@langchain/openai");
 const { PromptTemplate } = require("@langchain/core/prompts");
 const knowledgeService = require('./knowledgeService');
-const SystemController = require('../controllers/systemController');
+// Note: Removed SystemController import to avoid circular dependency
 
 class LangChainRAG {
     constructor() {
@@ -112,43 +113,118 @@ ATSAKYMAS:`
         });
     }
 
-    async getAnswer(query, chatHistory = []) {
+    async getAnswer(query, chatHistory = [], includeDebug = true) {
+        const debugInfo = {
+            timestamp: new Date().toISOString(),
+            step1_input: {
+                originalQuery: query,
+                chatHistory: chatHistory,
+                historyLength: chatHistory.length
+            }
+        };
+        
         try {
-            // Get RAG settings
-            const ragConfig = SystemController.getRagConfig();
-            const k = ragConfig.k || 3;
+            // Get RAG settings directly from environment to avoid circular dependency
+            const k = parseInt(process.env.RAG_K) || 3;
+            const ragConfig = {
+                k: k,
+                showSources: process.env.RAG_SHOW_SOURCES !== 'false'
+            };
+            
+            debugInfo.step2_ragConfig = {
+                k: k,
+                config: ragConfig
+            };
 
             // Rephrase query using conversation history for better retrieval
             let searchQuery = query;
+            let rephraseDebug = null;
+            
+            // Only skip rephrasing if there's truly no history at all
             if (chatHistory && chatHistory.length > 0) {
-                const historyForRephrase = chatHistory.map(exchange => 
-                    `Vartotojas: ${exchange[0]}\nAsitentas: ${exchange[1]}`
-                ).join('\n');
+                // Filter out empty assistant responses for rephrasing context
+                const validHistory = chatHistory.filter(exchange => 
+                    exchange[0] && exchange[0].trim() && exchange[1] && exchange[1].trim()
+                );
+                
+                // Use all history (including incomplete exchanges) for context
+                const historyForRephrase = chatHistory.map(exchange => {
+                    const user = exchange[0] || '';
+                    const assistant = exchange[1] || '(Laukiama atsakymo)';
+                    return `Vartotojas: ${user}\nAsitentas: ${assistant}`;
+                }).join('\n');
 
-                const rephrasedQuery = await this.rephrasePrompt.format({
+                const rephrasedPrompt = await this.rephrasePrompt.format({
                     question: query,
                     history: historyForRephrase
                 });
+                
+                rephraseDebug = {
+                    model: "google/gemini-2.5-flash-lite",
+                    temperature: 0.1,
+                    systemPrompt: this.rephrasePrompt.template,
+                    inputVariables: {
+                        question: query,
+                        history: historyForRephrase
+                    },
+                    formattedPrompt: rephrasedPrompt,
+                    promptLength: rephrasedPrompt.length,
+                    historyExchanges: chatHistory.length,
+                    validExchanges: validHistory.length
+                };
 
-                const rephraseResponse = await this.rephraseModel.invoke(rephrasedQuery);
+                const rephraseResponse = await this.rephraseModel.invoke(rephrasedPrompt);
                 searchQuery = rephraseResponse.content || query;
                 
+                rephraseDebug.output = {
+                    rephrasedQuery: searchQuery,
+                    rawResponse: rephraseResponse,
+                    used: searchQuery !== query,
+                    improvement: searchQuery !== query ? 'Query was rephrased for better retrieval' : 'Query unchanged'
+                };
+            } else {
+                rephraseDebug = {
+                    skipped: true,
+                    reason: "No chat history available - this is the first message",
+                    originalQueryUsed: query
+                };
             }
+            
+            debugInfo.step3_queryRephrasing = rephraseDebug;
 
             // Retrieve relevant documents using rephrased query
             const relevantContexts = await knowledgeService.searchContext(searchQuery, k);
+            
+            debugInfo.step4_documentRetrieval = {
+                searchQuery: searchQuery,
+                requestedDocuments: k,
+                retrievedDocuments: relevantContexts?.length || 0,
+                documentsMetadata: relevantContexts?.map(ctx => ({
+                    source: ctx.metadata?.source_document_name,
+                    url: ctx.metadata?.source_url,
+                    score: ctx.score,
+                    contentLength: ctx.content?.length
+                })) || [],
+                fullDocuments: includeDebug ? relevantContexts?.map(ctx => ({
+                    content: ctx.content,
+                    metadata: ctx.metadata,
+                    score: ctx.score
+                })) : undefined
+            };
 
             // Format context from documents with structured markdown
             const context = relevantContexts && relevantContexts.length > 0
                 ? this.formatContextAsMarkdown(relevantContexts)
                 : 'Nėra susijusių dokumentų';
 
-            // Format chat history
+            // Format chat history for the final prompt
             let historyText = "";
             if (chatHistory && chatHistory.length > 0) {
-                historyText = chatHistory.map(exchange => 
-                    `Vartotojas: ${exchange[0]}\nAsitentas: ${exchange[1]}`
-                ).join('\n');
+                historyText = chatHistory.map(exchange => {
+                    const user = exchange[0] || '';
+                    const assistant = exchange[1] || '(Laukiama atsakymo)';
+                    return `Vartotojas: ${user}\nAsitentas: ${assistant}`;
+                }).join('\n');
             } else {
                 historyText = "Tai pirmas klausimas";
             }
@@ -159,11 +235,37 @@ ATSAKYMAS:`
                 history: historyText,
                 question: query
             });
-
+            
+            debugInfo.step5_promptConstruction = {
+                systemPrompt: this.promptTemplate.template,
+                inputVariables: {
+                    context: context,
+                    history: historyText,
+                    question: query
+                },
+                finalPrompt: finalPrompt,
+                contextLength: context.length,
+                historyLength: historyText.length,
+                questionLength: query.length,
+                totalPromptLength: finalPrompt.length
+            };
 
             // Get response from LLM using LangChain's invoke method
             const response = await this.llm.invoke(finalPrompt);
-
+            
+            debugInfo.step6_llmResponse = {
+                model: "google/gemini-flash-1.5",
+                temperature: 0.2,
+                inputPrompt: finalPrompt,
+                rawResponse: response,
+                extractedContent: response.content || response.text,
+                responseLength: (response.content || response.text || '').length,
+                modelConfig: {
+                    baseURL: "https://openrouter.ai/api/v1",
+                    temperature: 0.2,
+                    streaming: false
+                }
+            };
 
             // Format sources with URLs when available
             const sources = relevantContexts?.map(c => {
@@ -177,17 +279,43 @@ ATSAKYMAS:`
                 }
                 return null;
             }).filter(Boolean) || [];
-
-            return {
+            
+            const result = {
                 answer: response.content || response.text || 'Atsiprašau, negaliu atsakyti į šį klausimą.',
                 contextsUsed: relevantContexts?.length || 0,
                 sources: sources,
-                sourceUrls: relevantContexts?.map(c => c.metadata?.source_url).filter(Boolean) || []
+                sourceUrls: relevantContexts?.map(c => c.metadata?.source_url).filter(Boolean) || [],
+                debugInfo: includeDebug ? debugInfo : undefined
             };
+            
+            debugInfo.step7_finalResult = {
+                answer: result.answer,
+                contextsUsed: result.contextsUsed,
+                sources: result.sources,
+                sourceUrls: result.sourceUrls,
+                answerLength: result.answer.length
+            };
+
+            return result;
 
         } catch (error) {
             console.error('🔮 LangChain RAG Error:', error);
-            throw error;
+            debugInfo.error = {
+                message: error.message,
+                stack: error.stack,
+                step: 'langchain_rag_processing',
+                timestamp: new Date().toISOString()
+            };
+            
+            const errorResult = {
+                answer: 'Atsiprašau, įvyko klaida apdorojant užklausą.',
+                contextsUsed: 0,
+                sources: [],
+                sourceUrls: [],
+                debugInfo: includeDebug ? debugInfo : undefined
+            };
+            
+            return errorResult;
         }
     }
 

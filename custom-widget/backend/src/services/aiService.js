@@ -51,7 +51,7 @@
  */
 const { createAIProvider, retryWithBackoff } = require('../../ai-providers');
 const knowledgeService = require('./knowledgeService');
-const SystemController = require('../controllers/systemController');
+// Note: Removed SystemController import to avoid circular dependency
 
 // Global AI provider instance - initialized lazily
 let aiProvider = null;
@@ -107,14 +107,29 @@ function getFallbackResponse(conversationContext) {
 
 /**
  * Generate AI suggestion using current provider with RAG enhancement
+ * Also captures debug information for developer transparency
  */
 async function generateAISuggestion(conversationId, conversationContext, enableRAG = true) {
+    // Initialize debug information collection
+    const debugInfo = {
+        timestamp: new Date().toISOString(),
+        conversationId: conversationId,
+        step1_originalRequest: {
+            conversationContext: conversationContext,
+            enableRAG: enableRAG,
+            provider: process.env.AI_PROVIDER || 'flowise'
+        }
+    };
     const provider = getAIProvider();
     
     // If no AI provider is available, return fallback
     if (!provider) {
         console.log('No AI provider available, using fallback response');
-        return getFallbackResponse(conversationContext);
+        debugInfo.step2_providerCheck = { status: 'unavailable', fallbackUsed: true };
+        const fallbackResponse = getFallbackResponse(conversationContext);
+        debugInfo.finalResponse = fallbackResponse;
+        await storeDebugInfo(conversationId, debugInfo);
+        return fallbackResponse;
     }
     
     // Check if we need to perform a health check (every 5 minutes)
@@ -126,13 +141,25 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
     // If provider is known to be unhealthy, return fallback immediately
     if (!provider.isHealthy) {
         console.log(`${process.env.AI_PROVIDER} provider is unhealthy, using fallback response`);
-        return getFallbackResponse(conversationContext);
+        debugInfo.step2_providerCheck = { status: 'unhealthy', fallbackUsed: true };
+        const fallbackResponse = getFallbackResponse(conversationContext);
+        debugInfo.finalResponse = fallbackResponse;
+        await storeDebugInfo(conversationId, debugInfo);
+        return fallbackResponse;
     }
+
+    debugInfo.step2_providerCheck = { status: 'healthy', provider: process.env.AI_PROVIDER };
     
     // RAG Enhancement: Use LangChain for OpenRouter, Flowise has built-in RAG
     let enhancedContext = conversationContext;
     const currentProvider = process.env.AI_PROVIDER || 'flowise';
     const shouldUseRAG = enableRAG && currentProvider === 'openrouter';
+    
+    debugInfo.step3_ragProcessing = {
+        enabled: enableRAG,
+        provider: currentProvider,
+        shouldUseRAG: shouldUseRAG
+    };
     
     if (shouldUseRAG) {
         try {
@@ -142,35 +169,71 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
             
             // Extract the most recent user message for context retrieval
             const recentMessage = extractRecentUserMessage(conversationContext);
+            debugInfo.step3_ragProcessing.extractedMessage = recentMessage;
             
             // Parse conversation history for context
             const chatHistory = parseConversationHistory(conversationContext);
-            
+            debugInfo.step3_ragProcessing.chatHistoryLength = chatHistory.length;
             
             if (recentMessage) {
-                // Get RAG response using LangChain with full conversation context
-                const ragResult = await ragService.getAnswer(recentMessage, chatHistory);
+                // Get RAG response using LangChain with full conversation context and debug info
+                const ragResult = await ragService.getAnswer(recentMessage, chatHistory, true);
+                
+                // Merge LangChain debug info into main debug structure
+                if (ragResult.debugInfo) {
+                    debugInfo.step4_langchainRAG = ragResult.debugInfo;
+                }
+                
+                debugInfo.step5_ragResults = {
+                    answer: ragResult.answer,
+                    contextsUsed: ragResult.contextsUsed,
+                    sources: ragResult.sources,
+                    sourceUrls: ragResult.sourceUrls
+                };
+                debugInfo.finalResponse = ragResult.answer;
+                
+                // Store comprehensive debug info including LangChain internals
+                await storeDebugInfo(conversationId, debugInfo);
                 
                 // Return the LangChain response directly
                 return ragResult.answer;
             }
         } catch (error) {
             console.error('LangChain RAG Error:', error.message);
+            debugInfo.step3_ragProcessing.error = error.message;
         }
     } else if (currentProvider === 'flowise') {
         console.log('Flowise provider: Using built-in RAG capabilities');
+        debugInfo.step3_ragProcessing.note = 'Flowise uses built-in RAG capabilities';
     }
     
     try {
+        debugInfo.step4_modelRequest = {
+            enhancedContext: enhancedContext,
+            contextLength: enhancedContext.length,
+            provider: currentProvider
+        };
         
-        return await retryWithBackoff(async () => {
-            const response = await provider.generateResponse(enhancedContext, conversationId);
+        const response = await retryWithBackoff(async () => {
+            const aiResponse = await provider.generateResponse(enhancedContext, conversationId);
             
             // Mark as healthy on successful response
             provider.isHealthy = true;
             
-            return response || 'I apologize, but I couldn\'t generate a response at this time.';
+            return aiResponse || 'I apologize, but I couldn\'t generate a response at this time.';
         });
+        
+        debugInfo.step5_modelResponse = {
+            response: response,
+            responseLength: response.length,
+            successful: true
+        };
+        debugInfo.finalResponse = response;
+        
+        // Store debug info
+        await storeDebugInfo(conversationId, debugInfo);
+        
+        return response;
         
     } catch (error) {
         console.error(`Error generating AI suggestion from ${process.env.AI_PROVIDER} after retries:`, error.message);
@@ -178,8 +241,20 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         // Mark provider as unhealthy
         provider.isHealthy = false;
         
+        debugInfo.step5_modelResponse = {
+            error: error.message,
+            successful: false,
+            fallbackUsed: true
+        };
+        
         // Return fallback response
-        return getFallbackResponse(conversationContext);
+        const fallbackResponse = getFallbackResponse(conversationContext);
+        debugInfo.finalResponse = fallbackResponse;
+        
+        // Store debug info
+        await storeDebugInfo(conversationId, debugInfo);
+        
+        return fallbackResponse;
     }
 }
 
@@ -205,26 +280,33 @@ function parseConversationHistory(conversationContext) {
     const lines = conversationContext.split('\n').filter(line => line.trim());
     const history = [];
     
-    for (const line of lines) {
-        const trimmed = line.trim();
+    let currentUserMessage = null;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        
+        // Check for user/customer message
         if (trimmed.startsWith('Customer: ') || trimmed.startsWith('User: ')) {
-            const userMessage = trimmed.replace(/^(Customer:|User:)\s*/, '');
-            
-            // Find corresponding assistant response
-            const nextIndex = lines.indexOf(line) + 1;
-            let assistantMessage = '';
-            
-            if (nextIndex < lines.length) {
-                const nextLine = lines[nextIndex].trim();
-                if (nextLine.startsWith('Assistant: ') || nextLine.startsWith('You: ') || nextLine.startsWith('Agent: ')) {
-                    assistantMessage = nextLine.replace(/^(Assistant:|You:|Agent:)\s*/, '');
-                }
+            // If we have a previous user message without response, add it with empty assistant response
+            if (currentUserMessage) {
+                history.push([currentUserMessage, '']);
             }
+            currentUserMessage = trimmed.replace(/^(Customer:|User:)\s*/, '');
+        }
+        // Check for assistant/agent response
+        else if (trimmed.startsWith('Assistant: ') || trimmed.startsWith('You: ') || trimmed.startsWith('Agent: ')) {
+            const assistantMessage = trimmed.replace(/^(Assistant:|You:|Agent:)\s*/, '');
             
-            if (userMessage && assistantMessage) {
-                history.push([userMessage, assistantMessage]);
+            if (currentUserMessage) {
+                history.push([currentUserMessage, assistantMessage]);
+                currentUserMessage = null;
             }
         }
+    }
+    
+    // Add any remaining user message without response
+    if (currentUserMessage) {
+        history.push([currentUserMessage, '']);
     }
     
     return history;
@@ -252,6 +334,34 @@ async function getProviderHealth() {
             healthy: false,
             error: 'AI provider failed to initialize'
         };
+    }
+}
+
+/**
+ * Store debug information in the conversation for developer transparency
+ */
+async function storeDebugInfo(conversationId, debugInfo) {
+    try {
+        const conversationService = require('./conversationService');
+        const { v4: uuidv4 } = require('uuid');
+        
+        // Create a hidden system message with debug metadata (no visible content)
+        const debugMessage = {
+            id: uuidv4(),
+            conversationId,
+            content: '',  // Empty content - no visible message
+            sender: 'system',
+            timestamp: new Date(),
+            metadata: { 
+                debugInfo: debugInfo,
+                systemMessage: true,
+                debugOnly: true  // Flag to indicate this is debug-only data
+            }
+        };
+        
+        conversationService.addMessage(conversationId, debugMessage);
+    } catch (error) {
+        console.error('Failed to store debug info:', error);
     }
 }
 
