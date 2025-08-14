@@ -422,12 +422,13 @@
         <div class="tab-content active" id="configuration">
             <div class="section">
                 <h3>AI Provider Settings</h3>
-                <div class="form-group">
-                    <label for="ai-provider">AI Provider</label>
-                    <select id="ai-provider">
-                        <option value="flowise">Flowise (Built-in RAG)</option>
-                        <option value="openrouter">OpenRouter (External RAG)</option>
-                    </select>
+                <div class="provider-info">
+                    <h4>Current AI Provider</h4>
+                    <p><strong>Provider:</strong> <span id="current-provider">Loading...</span></p>
+                    <p><strong>Status:</strong> <span id="provider-status">Checking...</span></p>
+                    <p style="font-style: italic; margin-top: 10px;">
+                        <strong>Note:</strong> AI provider is configured via environment variable (AI_PROVIDER) and cannot be changed through this interface. To change the provider, update the .env file and restart the server.
+                    </p>
                 </div>
                 <div id="provider-info" class="provider-info">
                     <!-- Dynamic provider information -->

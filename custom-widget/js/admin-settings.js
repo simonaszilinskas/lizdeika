@@ -21,7 +21,8 @@ class AdminSettings {
         this.tabContents = document.querySelectorAll('.tab-content');
         
         // Configuration elements
-        this.aiProviderSelect = document.getElementById('ai-provider');
+        this.currentProviderSpan = document.getElementById('current-provider');
+        this.providerStatusSpan = document.getElementById('provider-status');
         this.systemPromptTextarea = document.getElementById('system-prompt');
         this.saveConfigButton = document.getElementById('save-config');
         this.providerInfo = document.getElementById('provider-info');
@@ -42,7 +43,6 @@ class AdminSettings {
         });
 
         // Configuration
-        this.aiProviderSelect.addEventListener('change', () => this.updateProviderInfo());
         this.saveConfigButton.addEventListener('click', () => this.saveConfiguration());
 
         // File upload
@@ -76,50 +76,61 @@ class AdminSettings {
 
     async loadCurrentConfiguration() {
         try {
-            // Get current system prompt
-            const promptResponse = await fetch(`${this.apiUrl}/api/config/system-prompt`);
-            const promptData = await promptResponse.json();
+            // Get full system configuration from new endpoint
+            const configResponse = await fetch(`${this.apiUrl}/api/config/system`);
+            const configData = await configResponse.json();
             
-            if (promptData.systemPrompt) {
-                this.systemPromptTextarea.value = promptData.systemPrompt;
+            if (configData.systemPrompt) {
+                this.systemPromptTextarea.value = configData.systemPrompt;
             }
 
-            // Get health info to determine current provider
+            if (configData.aiProvider) {
+                this.currentProvider = configData.aiProvider;
+                this.currentProviderSpan.textContent = this.currentProvider.charAt(0).toUpperCase() + this.currentProvider.slice(1);
+            }
+
+            // Get health info for provider status
             const healthResponse = await fetch(`${this.apiUrl}/health`);
             const healthData = await healthResponse.json();
             
-            if (healthData.aiProvider && healthData.aiProvider.provider) {
-                this.currentProvider = healthData.aiProvider.provider;
-                this.aiProviderSelect.value = this.currentProvider;
+            if (healthData.aiProvider) {
+                const status = healthData.aiProvider.healthy ? 'Healthy' : 'Unhealthy';
+                this.providerStatusSpan.textContent = status;
+                this.providerStatusSpan.style.color = healthData.aiProvider.healthy ? '#28a745' : '#dc3545';
             }
-
 
             this.updateProviderInfo();
         } catch (error) {
             console.error('Failed to load current configuration:', error);
+            this.currentProviderSpan.textContent = 'Error loading';
+            this.providerStatusSpan.textContent = 'Unknown';
             this.showAlert('Failed to load current configuration', 'error');
         }
     }
 
     updateProviderInfo() {
-        const selectedProvider = this.aiProviderSelect.value;
         const info = this.providerInfo;
 
-        if (selectedProvider === 'flowise') {
+        if (this.currentProvider === 'flowise') {
             info.innerHTML = `
-                <h4>Flowise Provider</h4>
+                <h4>Flowise Provider Details</h4>
                 <p>Uses built-in RAG capabilities. External knowledge base uploads will be stored but not indexed in the vector database.</p>
+            `;
+        } else if (this.currentProvider === 'openrouter') {
+            info.innerHTML = `
+                <h4>OpenRouter Provider Details</h4>
+                <p>Uses external RAG with Chroma DB and Mistral embeddings. Uploaded documents will be processed and indexed for enhanced responses.</p>
             `;
         } else {
             info.innerHTML = `
-                <h4>OpenRouter Provider</h4>
-                <p>Uses external RAG with Chroma DB and Mistral embeddings. Uploaded documents will be processed and indexed for enhanced responses.</p>
+                <h4>Provider Information</h4>
+                <p>Loading provider details...</p>
             `;
         }
 
         // Show/hide system prompt based on provider
         const systemPromptSection = this.systemPromptTextarea.closest('.section');
-        systemPromptSection.style.display = selectedProvider === 'openrouter' ? 'block' : 'none';
+        systemPromptSection.style.display = this.currentProvider === 'openrouter' ? 'block' : 'none';
     }
 
     async saveConfiguration() {
@@ -130,12 +141,10 @@ class AdminSettings {
             button.disabled = true;
             button.innerHTML = '<span class="loading"></span>Saving...';
 
-            const data = {
-                aiProvider: this.aiProviderSelect.value
-            };
+            const data = {};
 
             // Only include system prompt for OpenRouter
-            if (this.aiProviderSelect.value === 'openrouter') {
+            if (this.currentProvider === 'openrouter') {
                 data.systemPrompt = this.systemPromptTextarea.value;
             }
 
@@ -150,14 +159,14 @@ class AdminSettings {
             const result = await response.json();
 
             if (response.ok) {
-                this.showAlert('Configuration saved successfully!', 'success');
-                this.currentProvider = this.aiProviderSelect.value;
-                this.updateProviderInfo();
+                this.showAlert(result.message || 'Configuration saved successfully!', 'success');
                 
-                // Refresh knowledge stats if provider changed
-                setTimeout(() => {
-                    this.loadKnowledgeStats();
-                }, 1000);
+                // Show additional note from backend
+                if (result.note) {
+                    setTimeout(() => {
+                        this.showAlert(result.note, 'info');
+                    }, 2000);
+                }
             } else {
                 throw new Error(result.error || 'Failed to save configuration');
             }
