@@ -126,7 +126,7 @@ class SystemController {
     async getSystemPrompt(req, res) {
         try {
             res.json({
-                systemPrompt: process.env.SYSTEM_PROMPT || 'Jūs esate naudingas klientų palaikymo asistentas Vilniaus miestui. Atsakykite lietuvių kalba ir būkite mandagūs bei informatyvūs.'
+                systemPrompt: process.env.SYSTEM_PROMPT || 'UŽDUOTIS:\n\nTu esi naudingas Vilniaus miesto savivaldybės gyventojų aptarnavimo pokalbių robotas. Pasitelkdams tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą jo klausimo kalba. Jei klausimas neaiškus, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Niekada neminėk dokumentų ID. Gali cituoti tik nuorodas (URL) kurias turi kontekste.'
             });
         } catch (error) {
             console.error('Error getting system prompt:', error);
@@ -135,60 +135,62 @@ class SystemController {
     }
 
     /**
-     * Update system settings (AI provider, system prompt, RAG settings)
+     * Update system settings (system prompt only - AI provider is read-only from env)
      */
     async updateSettings(req, res) {
         try {
-            const { aiProvider: newProvider, systemPrompt } = req.body;
+            const { systemPrompt } = req.body;
+            const currentProvider = process.env.AI_PROVIDER;
             
-            if (!newProvider) {
-                return res.status(400).json({ error: 'Missing aiProvider field' });
-            }
-            
-            // OpenRouter requires system prompt, Flowise doesn't
-            if (newProvider === 'openrouter' && !systemPrompt) {
-                return res.status(400).json({ error: 'System prompt required for OpenRouter' });
-            }
-
-            // Update environment variables for runtime changes
-            const oldProvider = process.env.AI_PROVIDER;
-            process.env.AI_PROVIDER = newProvider;
-            
-            // Only update system prompt if provided (OpenRouter needs it, Flowise doesn't)
-            if (systemPrompt) {
+            // AI provider is now read-only from environment variable
+            // Only allow system prompt updates for OpenRouter
+            if (currentProvider === 'openrouter' && systemPrompt) {
                 process.env.SYSTEM_PROMPT = systemPrompt;
-            }
-            
-            // Reinitialize AI provider if it changed
-            if (oldProvider !== newProvider) {
-                console.log(`Switching AI provider from ${oldProvider} to ${newProvider}`);
+                console.log(`System prompt updated for ${currentProvider}`);
                 
-                try {
-                    await aiService.switchProvider(newProvider);
-                    console.log(`AI Provider successfully switched to: ${newProvider}`);
-                } catch (providerError) {
-                    console.error(`Failed to initialize new AI provider "${newProvider}":`, providerError.message);
-                    
-                    // Fallback to previous provider
-                    process.env.AI_PROVIDER = oldProvider;
-                    
-                    return res.status(500).json({ 
-                        error: `Failed to switch to ${newProvider}. Reverted to ${oldProvider}.` 
-                    });
-                }
+                res.json({ 
+                    success: true, 
+                    message: 'System prompt updated successfully!',
+                    currentProvider: currentProvider,
+                    note: 'AI provider is configured via environment variable and cannot be changed at runtime'
+                });
+            } else if (currentProvider === 'flowise') {
+                res.json({ 
+                    success: true, 
+                    message: 'No settings to update - Flowise uses built-in prompts',
+                    currentProvider: currentProvider,
+                    note: 'AI provider is configured via environment variable'
+                });
             } else {
-                console.log(`System prompt updated for ${newProvider}`);
+                res.status(400).json({ 
+                    error: 'No system prompt provided or invalid configuration',
+                    currentProvider: currentProvider
+                });
             }
-
-            res.json({ 
-                success: true, 
-                message: 'Settings updated successfully!',
-                currentProvider: newProvider
-            });
             
         } catch (error) {
             console.error('Error updating settings:', error);
             res.status(500).json({ error: 'Failed to update settings' });
+        }
+    }
+
+    /**
+     * Get current system configuration (display-only)
+     */
+    async getSystemConfig(req, res) {
+        try {
+            const config = {
+                aiProvider: process.env.AI_PROVIDER || 'flowise',
+                systemPrompt: process.env.SYSTEM_PROMPT || 'Default prompt not set',
+                ragSettings: ragSettings,
+                providerReadOnly: true,
+                note: 'AI provider is configured via AI_PROVIDER environment variable'
+            };
+            
+            res.json(config);
+        } catch (error) {
+            console.error('Error getting system config:', error);
+            res.status(500).json({ error: 'Failed to get system configuration' });
         }
     }
 

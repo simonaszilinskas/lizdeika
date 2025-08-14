@@ -14,7 +14,8 @@
  * 
  * Configuration Routes:
  * - GET /config/system-prompt - Get current system prompt
- * - POST /config/settings - Update AI provider and system configuration
+ * - GET /config/system - Get full system configuration (display-only)
+ * - POST /config/settings - Update system prompt (AI provider read-only from env)
  * 
  * Admin Routes:
  * - POST /reset - Clear all system data (development/testing)
@@ -51,7 +52,12 @@ function createSystemRoutes() {
         systemController.getSystemPrompt(req, res);
     });
 
-    // Update system settings (AI provider, system prompt)
+    // Get full system configuration (display-only)
+    router.get('/config/system', (req, res) => {
+        systemController.getSystemConfig(req, res);
+    });
+
+    // Update system settings (system prompt only - AI provider is read-only)
     router.post('/config/settings', (req, res) => {
         systemController.updateSettings(req, res);
     });
