@@ -36,7 +36,7 @@ class KnowledgeManagerService {
             const currentProvider = process.env.AI_PROVIDER || 'flowise';
             if (currentProvider === 'openrouter') {
                 try {
-                    // Add chunks to vector database
+                    // Add chunks to vector database with fallback protection
                     await chromaService.addDocuments(chunks);
                     
                     // Update status
@@ -46,13 +46,50 @@ class KnowledgeManagerService {
                     
                     console.log(`Document ${document.originalName} indexed successfully with ${chunks.length} chunks`);
                 } catch (error) {
-                    // Update status to failed
-                    const docMetadata = this.documents.get(document.id);
-                    docMetadata.status = 'failed';
-                    docMetadata.error = error.message;
-                    
-                    console.error('Failed to index document:', error);
-                    throw new Error(`Document processed but indexing failed: ${error.message}`);
+                    // Check if error is about chunk size and try re-chunking
+                    if (error.message.includes('Chunk size error for re-chunking')) {
+                        try {
+                            console.log(`🔄 Chunk size error for file upload, re-chunking with smaller strategy...`);
+                            
+                            // Re-chunk with smaller strategy
+                            const rechunkingResult = await documentService.chunkTextWithFallback(
+                                processResult.text, 
+                                document, 
+                                processResult.chunkingStrategy // Skip the failed strategy
+                            );
+                            
+                            const smallerChunks = rechunkingResult.chunks;
+                            console.log(`📦 Re-chunked file using ${rechunkingResult.strategy} strategy: ${smallerChunks.length} chunks`);
+                            
+                            // Try adding the smaller chunks
+                            await chromaService.addDocuments(smallerChunks);
+                            
+                            // Update document metadata with new chunk info
+                            const docMetadata = this.documents.get(document.id);
+                            docMetadata.status = 'indexed';
+                            docMetadata.indexedAt = new Date();
+                            docMetadata.chunksCount = smallerChunks.length;
+                            docMetadata.chunkingStrategy = rechunkingResult.strategy;
+                            
+                            console.log(`✅ File successfully indexed with smaller chunks (${rechunkingResult.strategy})`);
+                        } catch (rechunkError) {
+                            // Update status to failed
+                            const docMetadata = this.documents.get(document.id);
+                            docMetadata.status = 'failed';
+                            docMetadata.error = rechunkError.message;
+                            
+                            console.error('Failed to index document after re-chunking:', rechunkError);
+                            throw new Error(`Document processed but indexing failed after re-chunking: ${rechunkError.message}`);
+                        }
+                    } else {
+                        // Update status to failed for non-chunk-size errors
+                        const docMetadata = this.documents.get(document.id);
+                        docMetadata.status = 'failed';
+                        docMetadata.error = error.message;
+                        
+                        console.error('Failed to index document:', error);
+                        throw new Error(`Document processed but indexing failed: ${error.message}`);
+                    }
                 }
             } else {
                 // For Flowise, we don't index in external vector DB
@@ -339,14 +376,45 @@ class KnowledgeManagerService {
             // Store document info
             this.documents.set(documentId, docInfo);
 
-            // Process the text content using documentService
+            // Process the text content using documentService with intelligent fallback
             const documentService = require('./documentService');
-            const chunks = documentService.chunkText(content, docInfo);
+            const chunkingResult = await documentService.chunkTextWithFallback(content, docInfo);
+            const chunks = chunkingResult.chunks;
             const chunksCount = chunks.length;
+            
+            console.log(`📊 Document indexed using ${chunkingResult.strategy} chunking strategy`);
+            console.log(`📝 Created ${chunksCount} chunks, avg size: ${chunkingResult.avgChunkSize} chars`);
 
-            // Add documents to vector database
+            // Add documents to vector database with chunk size fallback protection
             const chromaService = require('./chromaService');
-            await chromaService.addDocuments(chunks);
+            try {
+                await chromaService.addDocuments(chunks);
+            } catch (error) {
+                // If error is about chunk size, try re-chunking with smaller strategy
+                if (error.message.includes('Chunk size error for re-chunking')) {
+                    console.log(`🔄 Chunk size error detected, re-chunking with smaller strategy...`);
+                    
+                    // Force re-chunking with smaller strategy by excluding the current one
+                    const rechunkingResult = await documentService.chunkTextWithFallback(
+                        content, 
+                        docInfo, 
+                        chunkingResult.strategy // Pass current strategy to skip it
+                    );
+                    
+                    const smallerChunks = rechunkingResult.chunks;
+                    console.log(`📦 Re-chunked using ${rechunkingResult.strategy} strategy: ${smallerChunks.length} chunks`);
+                    
+                    // Try adding the smaller chunks
+                    await chromaService.addDocuments(smallerChunks);
+                    
+                    // Update chunk information
+                    chunks = smallerChunks;
+                    chunksCount = smallerChunks.length;
+                    console.log(`✅ Successfully indexed with smaller chunks (${rechunkingResult.strategy})`);
+                } else {
+                    throw error;
+                }
+            }
 
             // Update document status
             docInfo.status = 'indexed';

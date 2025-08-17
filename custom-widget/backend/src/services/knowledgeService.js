@@ -86,7 +86,7 @@ const SAMPLE_VILNIUS_DATA = [
 
 class KnowledgeService {
     /**
-     * Initialize the knowledge base with sample data (only for OpenRouter)
+     * Initialize the knowledge base connection (sample data loading skipped to avoid automatic embeddings)
      */
     async initializeSampleData() {
         const currentProvider = process.env.AI_PROVIDER || 'flowise';
@@ -105,17 +105,12 @@ class KnowledgeService {
                 return false;
             }
 
-            console.log('Loading sample Vilnius data...');
-            const success = await chromaService.addDocuments(SAMPLE_VILNIUS_DATA);
+            // Skip loading sample data on startup to avoid automatic embedding generation
+            console.log('External RAG knowledge base connection established (sample data loading skipped)');
+            const stats = await chromaService.getStats();
+            console.log('External RAG knowledge base ready:', stats);
+            return true;
             
-            if (success) {
-                const stats = await chromaService.getStats();
-                console.log('External RAG knowledge base initialized:', stats);
-                return true;
-            } else {
-                console.error('Failed to load sample data');
-                return false;
-            }
         } catch (error) {
             console.error('Error initializing external RAG knowledge base:', error);
             return false;
@@ -137,12 +132,41 @@ class KnowledgeService {
     }
 
     /**
+     * Manually load sample data to knowledge base (for testing purposes)
+     */
+    async loadSampleData() {
+        const currentProvider = process.env.AI_PROVIDER || 'flowise';
+        
+        if (currentProvider === 'flowise') {
+            console.log('Flowise provider: Sample data not needed (using built-in RAG)');
+            return true;
+        }
+
+        try {
+            console.log('Loading sample Vilnius data...');
+            const success = await chromaService.addDocuments(SAMPLE_VILNIUS_DATA);
+            
+            if (success) {
+                const stats = await chromaService.getStats();
+                console.log('Sample data loaded successfully:', stats);
+                return true;
+            } else {
+                console.error('Failed to load sample data');
+                return false;
+            }
+        } catch (error) {
+            console.error('Error loading sample data:', error);
+            return false;
+        }
+    }
+
+    /**
      * Reset knowledge base with fresh sample data
      */
     async resetSampleData() {
         try {
             await chromaService.clearAll();
-            return await this.initializeSampleData();
+            return await this.loadSampleData();
         } catch (error) {
             console.error('Error resetting sample data:', error);
             return false;

@@ -44,16 +44,16 @@ const PORT = process.env.WIDGET_BACKEND_PORT || process.env.PORT || 3002;
 // Create and configure the application
 const { app, server, io, websocketService } = createApp();
 
-// Initialize knowledge base
+// Initialize knowledge base connection (no automatic sample data loading)
 async function initializeKnowledgeBase() {
     try {
-        console.log('Initializing RAG knowledge base...');
+        console.log('Initializing RAG knowledge base connection...');
         const initialized = await knowledgeService.initializeSampleData();
         if (initialized) {
             const stats = await knowledgeService.getStats();
-            console.log('✅ Knowledge base ready:', stats);
+            console.log('✅ Knowledge base connection ready:', stats);
         } else {
-            console.log('⚠️  Knowledge base initialization failed - RAG disabled');
+            console.log('⚠️  Knowledge base connection failed - RAG disabled');
         }
     } catch (error) {
         console.log('⚠️  Knowledge base error - RAG disabled:', error.message);
@@ -90,7 +90,7 @@ server.listen(PORT, () => {
     console.log('- agent-typing');
     console.log('- customer-typing');
     
-    // Initialize RAG knowledge base after server starts
+    // Initialize RAG knowledge base connection after server starts (no automatic embeddings)
     initializeKnowledgeBase();
 });
 

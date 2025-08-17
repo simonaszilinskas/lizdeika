@@ -101,13 +101,14 @@ Jei kontekste nėra nieko susijusio su klausimu, sakyk kad nežinai. Neatsakinė
 
 LABAI SVARBU: Atidžiai peržiūrėk pokalbio istoriją, kad suprasi kontekstą. Dabartinis klausimas gali būti atsakymas į anksčiau užduotą klausimą arba tęsinys pokalbio. Analizuok, kaip dabartinis klausimas susijęs su ankstesniais pranešimais.
 
-KONTEKSTAS:
+TURIMI DUOMENYS IR KONTEKSTAS:
 {context}
 
 POKALBIO ISTORIJA:
 {history}
 
-DABARTINIS KLAUSIMAS: {question}
+DABARTINIS KLAUSIMAS:
+{question}
 
 ATSAKYMAS:`
         });
@@ -215,18 +216,18 @@ ATSAKYMAS:`
             // Format context from documents with structured markdown
             const context = relevantContexts && relevantContexts.length > 0
                 ? this.formatContextAsMarkdown(relevantContexts)
-                : 'Nėra susijusių dokumentų';
+                : `**DUOMENŲ BAZĖJE NERASTA SUSIJUSIŲ DOKUMENTŲ**\n\nIeškant informacijos apie: "${searchQuery}"\nPeržiūrėta dokumentų: 0\n\nAtsakymas bus suformuluotas tik pagal bendrąsias žinias arba nurodyta, kad informacijos nėra.`;
 
             // Format chat history for the final prompt
             let historyText = "";
             if (chatHistory && chatHistory.length > 0) {
-                historyText = chatHistory.map(exchange => {
+                historyText = chatHistory.map((exchange, index) => {
                     const user = exchange[0] || '';
                     const assistant = exchange[1] || '(Laukiama atsakymo)';
-                    return `Vartotojas: ${user}\nAsitentas: ${assistant}`;
-                }).join('\n');
+                    return `[${index + 1}] Gyventojas: ${user}\n    Asistentas: ${assistant}`;
+                }).join('\n\n');
             } else {
-                historyText = "Tai pirmas klausimas";
+                historyText = "Tai pirmasis klausimas pokalbio pradžioje";
             }
 
             // Format the final prompt using LangChain template
@@ -320,61 +321,88 @@ ATSAKYMAS:`
     }
 
     /**
-     * Format retrieved contexts as structured markdown
-     * Creates clean, separated chunks with metadata headers
+     * Format retrieved contexts as clean, well-separated markdown
+     * Only includes fields that have actual data, optimized for large chunks
      */
     formatContextAsMarkdown(contexts) {
         return contexts.map((doc, index) => {
-            const title = doc.metadata?.source_document_name || 'Dokumento fragmentas';
-            const sourceUrl = doc.metadata?.source_url || null;
-            const date = doc.metadata?.last_updated 
-                ? new Date(doc.metadata.last_updated).toISOString().split('T')[0]
-                : new Date().toISOString().split('T')[0];
-            
-            // Determine chunk info if available
+            const title = doc.metadata?.source_document_name || `Dokumentas ${index + 1}`;
+            const sourceUrl = doc.metadata?.source_url;
+            const category = doc.metadata?.category;
             const chunkInfo = this.extractChunkInfo(doc.metadata);
             
-            let markdown = `---
-title: "${title}"
-source: ${sourceUrl ? `"${sourceUrl}"` : 'null'}
-date: "${date}"
-chunk: "${chunkInfo}"
----
-
-# ${title}
-
-`;
-
-            // Add source and date info
-            if (sourceUrl) {
-                markdown += `**Šaltinis:** ${sourceUrl}  \n`;
-            }
-            markdown += `**Data:** ${date}  \n`;
-            markdown += `**Dalis:** ${chunkInfo}\n\n`;
+            // Build clean title section
+            let markdown = `\n## ${title}\n\n`;
             
-            // Add the content (no internal separators)
-            markdown += doc.content;
+            // Add metadata only if data exists
+            const metadata = [];
+            if (sourceUrl) {
+                metadata.push(`**Šaltinis:** ${sourceUrl}`);
+            }
+            if (category && category !== 'uploaded_document') {
+                metadata.push(`**Kategorija:** ${category}`);
+            }
+            if (chunkInfo) {
+                metadata.push(`**Dalis:** ${chunkInfo}`);
+            }
+            
+            // Only add metadata section if we have actual metadata
+            if (metadata.length > 0) {
+                markdown += metadata.join(' | ') + '\n\n';
+            }
+            
+            // Add the actual content with proper spacing
+            markdown += doc.content.trim();
             
             return markdown;
-        }).join('\n\n');
+        }).join('\n\n---\n\n');
     }
 
     /**
-     * Extract or generate chunk information from metadata
+     * Extract meaningful chunk information from metadata
+     * Optimized for large chunks and minimal redundant info
      */
     extractChunkInfo(metadata) {
-        // If we have specific chunk metadata, use it
-        if (metadata?.chunk_index !== undefined && metadata?.total_chunks !== undefined) {
-            return `${metadata.chunk_index + 1} iš ${metadata.total_chunks}`;
+        // Check if we have specific chunk index information
+        if (metadata?.chunk_index !== undefined) {
+            const chunkIndex = metadata.chunk_index;
+            
+            // For large documents that are split, show meaningful part info
+            if (chunkIndex === 0) {
+                return "pradžia";
+            } else if (metadata?.total_chunks && chunkIndex === metadata.total_chunks - 1) {
+                return "pabaiga";
+            } else if (metadata?.total_chunks && metadata.total_chunks > 1) {
+                return `${chunkIndex + 1} dalis`;
+            }
         }
         
-        // If we have document chunks info, try to infer
-        if (metadata?.document_chunks) {
-            return `dalis iš ${metadata.document_chunks}`;
+        // If document has multiple chunks but we don't know which one
+        if (metadata?.document_chunks && metadata.document_chunks > 1) {
+            return `viena iš ${metadata.document_chunks} dalių`;
         }
         
-        // Default fallback
-        return "dokumento dalis";
+        // For content length indication (useful for large chunks)
+        if (metadata?.chunk_length) {
+            const length = metadata.chunk_length;
+            if (length > 20000) {
+                return "išsamus turinys";
+            } else if (length > 10000) {
+                return "platus turinys";
+            } else if (length > 5000) {
+                return "detalus turinys";
+            }
+        }
+        
+        // Check document type for better context
+        if (metadata?.content_type === 'api_document') {
+            return "API duomenys";
+        } else if (metadata?.upload_source === 'api') {
+            return "importuotas turinys";
+        }
+        
+        // Return null for default case - will be filtered out
+        return null;
     }
 }
 

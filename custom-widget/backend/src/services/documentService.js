@@ -76,15 +76,18 @@ class DocumentService {
             const textPath = path.join(this.uploadDir, `${fileId}_extracted.txt`);
             await fs.writeFile(textPath, extractedText, 'utf-8');
 
-            // Chunk the text
-            const chunks = this.chunkText(extractedText, documentInfo);
+            // Chunk the text with intelligent fallback
+            const chunkingResult = await this.chunkTextWithFallback(extractedText, documentInfo);
+            const chunks = chunkingResult.chunks;
 
-            console.log(`Processed file: ${file.originalname} -> ${chunks.length} chunks`);
+            console.log(`Processed file: ${file.originalname} -> ${chunks.length} chunks using ${chunkingResult.strategy} strategy`);
+            console.log(`Average chunk size: ${chunkingResult.avgChunkSize} characters`);
 
             return {
                 document: documentInfo,
                 text: extractedText,
-                chunks: chunks
+                chunks: chunks,
+                chunkingStrategy: chunkingResult.strategy
             };
             
         } catch (error) {
@@ -109,7 +112,7 @@ class DocumentService {
      * Enhanced chunk text with phrase awareness and larger sizes
      * Uses intelligent boundary detection to maintain context integrity
      */
-    chunkText(text, documentInfo, chunkSize = 3000, minChunkSize = 1500, overlap = 300) {
+    chunkText(text, documentInfo, chunkSize = 25000, minChunkSize = 12000, overlap = 500) {
         const cleanText = this.normalizeText(text);
         
         // For very short text, return as single chunk
@@ -266,6 +269,85 @@ class DocumentService {
             .replace(/\t/g, ' ')          // Replace tabs with spaces
             .replace(/ +/g, ' ')          // Normalize multiple spaces
             .trim();                      // Remove leading/trailing whitespace
+    }
+
+    /**
+     * Intelligent chunking with fallback protection
+     * Tries maximum chunk sizes first, falls back to smaller sizes if embedding fails
+     * @param {string} text - Text to chunk
+     * @param {Object} documentInfo - Document metadata
+     * @param {string} skipStrategy - Strategy name to skip (for re-chunking)
+     */
+    async chunkTextWithFallback(text, documentInfo, skipStrategy = null) {
+        // Define chunk size strategies from largest to smallest
+        const chunkingStrategies = [
+            { size: 25000, minSize: 12000, overlap: 500, name: 'Maximum' },
+            { size: 15000, minSize: 8000, overlap: 400, name: 'Large' },
+            { size: 8000, minSize: 4000, overlap: 300, name: 'Medium' },
+            { size: 4000, minSize: 2000, overlap: 200, name: 'Standard' },
+            { size: 2000, minSize: 1000, overlap: 100, name: 'Small' },
+            { size: 1000, minSize: 500, overlap: 50, name: 'Fallback' }
+        ];
+
+        // Filter strategies to skip the failed one when re-chunking
+        let availableStrategies = chunkingStrategies;
+        if (skipStrategy) {
+            const skipIndex = chunkingStrategies.findIndex(s => s.name === skipStrategy);
+            if (skipIndex !== -1) {
+                availableStrategies = chunkingStrategies.slice(skipIndex + 1);
+                console.log(`⏭️ Skipping ${skipStrategy} strategy and all larger ones, trying smaller strategies...`);
+            }
+        }
+
+        if (availableStrategies.length === 0) {
+            throw new Error('No chunking strategies available (all were skipped)');
+        }
+
+        for (const strategy of availableStrategies) {
+            try {
+                console.log(`🔄 Trying ${strategy.name} chunking (${strategy.size} chars)...`);
+                
+                // Create chunks with current strategy
+                const chunks = this.chunkText(text, documentInfo, strategy.size, strategy.minSize, strategy.overlap);
+                
+                console.log(`✅ ${strategy.name} chunking successful: ${chunks.length} chunks created`);
+                console.log(`📊 Chunk sizes: ${chunks.map(c => c.content.length).join(', ')} characters`);
+                
+                return {
+                    chunks: chunks,
+                    strategy: strategy.name,
+                    chunkCount: chunks.length,
+                    avgChunkSize: Math.round(chunks.reduce((sum, c) => sum + c.content.length, 0) / chunks.length)
+                };
+
+            } catch (error) {
+                console.warn(`⚠️ ${strategy.name} chunking failed: ${error.message}`);
+                
+                // If this is the last available strategy, throw the error
+                if (strategy === availableStrategies[availableStrategies.length - 1]) {
+                    throw new Error(`All available chunking strategies failed. Last error: ${error.message}`);
+                }
+                
+                // Continue to next strategy
+                continue;
+            }
+        }
+    }
+
+    /**
+     * Validate chunk against embedding service limits
+     * This can be called by embedding services to test if a chunk is too large
+     */
+    validateChunkForEmbedding(chunk) {
+        const maxTokens = 8000; // Mistral embedding limit
+        const avgCharsPerToken = 4;
+        const maxChars = maxTokens * avgCharsPerToken; // ~32,000 characters
+        
+        if (chunk.content.length > maxChars) {
+            throw new Error(`Chunk too large for embedding: ${chunk.content.length} chars (max: ${maxChars})`);
+        }
+        
+        return true;
     }
 
     /**

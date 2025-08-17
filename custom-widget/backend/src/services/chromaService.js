@@ -40,7 +40,7 @@ class ChromaService {
     constructor() {
         this.client = null;
         this.collection = null;
-        this.collectionName = 'vilnius-knowledge-base-mistral-1024';
+        this.collectionName = 'vilnius-test-collection-2025';
         this.isConnected = false;
         this.embeddingFunction = null;
     }
@@ -121,7 +121,15 @@ class ChromaService {
                     embeddings = await this.embeddingFunction.generate(texts);
                     console.log(`Generated ${embeddings.length} Mistral embeddings`);
                 } catch (error) {
-                    console.warn('Failed to generate Mistral embeddings, using default:', error.message);
+                    console.warn('Failed to generate Mistral embeddings:', error.message);
+                    
+                    // If error is about chunk size, propagate it to trigger re-chunking
+                    if (error.message.includes('too large') || error.message.includes('32,000') || error.message.includes('8000 tokens')) {
+                        throw new Error(`Chunk size error for re-chunking: ${error.message}`);
+                    }
+                    
+                    // For other errors, continue with default embeddings
+                    console.warn('Using default embeddings instead');
                     embeddings = null;
                 }
             }
@@ -144,6 +152,12 @@ class ChromaService {
             return true;
         } catch (error) {
             console.error('Failed to add documents:', error);
+            
+            // If it's a chunk size error, re-throw to trigger re-chunking
+            if (error.message.includes('Chunk size error for re-chunking')) {
+                throw error;
+            }
+            
             return false;
         }
     }

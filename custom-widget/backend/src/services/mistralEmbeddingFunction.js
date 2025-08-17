@@ -24,6 +24,9 @@ class MistralEmbeddingFunction {
         try {
             console.log(`Generating embeddings for ${texts.length} texts using Mistral ${this.model}`);
             
+            // Validate text size before sending to Mistral
+            this.validateTextsForEmbedding(texts);
+            
             const response = await this.client.embeddings.create({
                 model: this.model,
                 inputs: texts,
@@ -36,6 +39,12 @@ class MistralEmbeddingFunction {
             
         } catch (error) {
             console.error('Failed to generate Mistral embeddings:', error.message);
+            
+            // If error is about token limit, provide helpful message
+            if (error.message.includes('token') || error.message.includes('length') || error.message.includes('limit')) {
+                throw new Error(`Text too large for Mistral embeddings. Maximum ~8000 tokens (~32,000 characters) per text. Error: ${error.message}`);
+            }
+            
             throw error;
         }
     }
@@ -52,6 +61,25 @@ class MistralEmbeddingFunction {
      */
     getModel() {
         return this.model;
+    }
+
+    /**
+     * Validate texts for embedding generation
+     * Ensures texts don't exceed Mistral's token limits
+     */
+    validateTextsForEmbedding(texts) {
+        const maxTokens = 8000; // Mistral embedding limit
+        const avgCharsPerToken = 4; // Conservative estimate
+        const maxChars = maxTokens * avgCharsPerToken; // ~32,000 characters
+        
+        for (let i = 0; i < texts.length; i++) {
+            const text = texts[i];
+            if (text.length > maxChars) {
+                throw new Error(`Text ${i + 1} too large for embedding: ${text.length} chars (max: ${maxChars}). Use smaller chunks.`);
+            }
+        }
+        
+        console.log(`✅ All ${texts.length} texts validated for Mistral embedding (max length: ${Math.max(...texts.map(t => t.length))} chars)`);
     }
 }
 
