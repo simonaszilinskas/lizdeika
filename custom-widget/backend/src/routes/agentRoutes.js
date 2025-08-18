@@ -26,6 +26,11 @@ function createAgentRoutes(io) {
     const router = express.Router();
     const agentController = new AgentController(io);
 
+    // Get current agent status
+    router.get('/agent/status', (req, res) => {
+        agentController.getStatus(req, res);
+    });
+
     // Update agent status
     router.post('/agent/status', (req, res) => {
         agentController.updateStatus(req, res);

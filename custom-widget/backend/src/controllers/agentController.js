@@ -44,6 +44,44 @@ class AgentController {
     }
 
     /**
+     * Get current agent status
+     */
+    async getStatus(req, res) {
+        try {
+            const allAgents = agentService.getAllAgents();
+            const recentAgents = allAgents.filter(agent => 
+                (new Date() - agent.lastSeen) < 60000 // Active in last minute
+            );
+            
+            // Determine the current operational mode
+            let currentStatus = 'hitl'; // default
+            if (recentAgents.length > 0) {
+                // Check for OFF mode first (highest priority)
+                const offAgents = recentAgents.filter(agent => agent.status === 'off');
+                if (offAgents.length > 0) {
+                    currentStatus = 'off';
+                } else {
+                    // Check for autopilot mode
+                    const autopilotAgents = recentAgents.filter(agent => agent.status === 'autopilot');
+                    if (autopilotAgents.length > 0) {
+                        currentStatus = 'autopilot';
+                    }
+                    // Otherwise stay in HITL mode
+                }
+            }
+            
+            res.json({ 
+                success: true, 
+                status: currentStatus,
+                agentCount: recentAgents.length
+            });
+        } catch (error) {
+            console.error('Error getting agent status:', error);
+            res.status(500).json({ error: 'Failed to get agent status' });
+        }
+    }
+
+    /**
      * Update agent status
      */
     async updateStatus(req, res) {

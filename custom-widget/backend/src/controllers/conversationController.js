@@ -126,7 +126,7 @@ class ConversationController {
             const customerMessageCount = updatedMessages.filter(msg => msg.sender === 'visitor').length;
             
             // Create new pending message with AI suggestion
-            const aiMessage = {
+            let aiMessage = {
                 id: uuidv4(),
                 conversationId,
                 content: '[Message pending agent response - AI suggestion available]',
@@ -147,27 +147,83 @@ class ConversationController {
             
             console.log(`Generated AI suggestion for conversation ${conversationId} with ${customerMessageCount} customer messages`);
             
-            // Auto-assign to available agent if not assigned
-            const conversation = conversationService.getConversation(conversationId);
-            if (!conversation.assignedAgent) {
-                const availableAgent = conversationService.getAvailableAgent(agentService);
-                if (availableAgent) {
-                    conversation.assignedAgent = availableAgent.id;
-                    conversation.assignedAt = new Date();
-                    conversationService.updateConversation(conversationId, conversation);
-                    
-                    // Add system message about assignment
-                    const assignmentMessage = {
-                        id: uuidv4(),
-                        conversationId,
-                        content: `Conversation assigned to agent ${availableAgent.id}`,
-                        sender: 'system',
-                        timestamp: new Date(),
-                        metadata: { assignmentMessage: true }
-                    };
-                    conversationService.addMessage(conversationId, assignmentMessage);
+            // Check if any active agent is in a specific mode
+            const allAgents = agentService ? agentService.getAllAgents() : [];
+            const recentAgents = allAgents.filter(agent => 
+                (new Date() - agent.lastSeen) < 60000 // Active in last minute
+            );
+            
+            // Determine the current operational mode
+            let currentMode = 'hitl'; // default
+            if (recentAgents.length > 0) {
+                // Check for OFF mode first (highest priority)
+                const offAgents = recentAgents.filter(agent => agent.status === 'off');
+                if (offAgents.length > 0) {
+                    currentMode = 'off';
+                } else {
+                    // Check for autopilot mode
+                    const autopilotAgents = recentAgents.filter(agent => agent.status === 'autopilot');
+                    if (autopilotAgents.length > 0) {
+                        currentMode = 'autopilot';
+                    }
+                    // Otherwise stay in HITL mode
                 }
             }
+            
+            console.log(`Processing message in mode: ${currentMode}`);
+            
+            if (currentMode === 'off') {
+                // Check if we already sent an offline message to this conversation
+                const existingMessages = conversationService.getMessages(conversationId);
+                const hasOfflineMessage = existingMessages.some(msg => 
+                    msg.metadata && msg.metadata.messageType === 'offline_notification'
+                );
+                
+                if (hasOfflineMessage) {
+                    // Already sent offline message, don't send again - just keep the AI suggestion
+                    console.log(`Skipping duplicate offline message for conversation ${conversationId}`);
+                } else {
+                    // First time - send offline message
+                    const offlineMessage = {
+                        id: uuidv4(),
+                        conversationId,
+                        content: 'Labas! Šiuo metu klientų aptarnavimo specialistai neprieinami.\n\nMes grįšime ir jums atsakysime darbo valandomis. Prašome:\n• Neuždarykite šio lango - mes su jumis susisieksime\n• Arba palikite savo el. paštą ar telefono numerį žemiau, ir mes su jumis susisieksime\n\nAčiū už kantrybę! 🙏',
+                        sender: 'agent',
+                        timestamp: new Date(),
+                        metadata: { 
+                            isSystemMessage: true,
+                            messageType: 'offline_notification'
+                        }
+                    };
+                    
+                    // Replace the AI suggestion with offline message
+                    conversationService.replaceLastMessage(conversationId, offlineMessage);
+                    aiMessage = offlineMessage;
+                    
+                    console.log(`Sent offline message to conversation ${conversationId}`);
+                }
+                
+            } else if (currentMode === 'autopilot') {
+                // Agent is in AUTOPILOT - send AI response directly with disclaimer
+                const autopilotMessage = {
+                    id: uuidv4(),
+                    conversationId,
+                    content: aiSuggestion, // Store clean content for conversation history
+                    sender: 'agent',
+                    timestamp: new Date(),
+                    metadata: { 
+                        isAutopilotResponse: true,
+                        originalSuggestion: aiSuggestion,
+                        displayDisclaimer: true // Flag to show disclaimer in UI only
+                    }
+                };
+                
+                // Replace the AI suggestion with direct response
+                conversationService.replaceLastMessage(conversationId, autopilotMessage);
+                aiMessage = autopilotMessage;
+                
+            } 
+            // For HITL mode, keep the original AI suggestion for human review
             
             // Emit new message to agents via WebSocket
             this.io.to('agents').emit('new-message', {

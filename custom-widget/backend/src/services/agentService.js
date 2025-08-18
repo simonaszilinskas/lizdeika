@@ -40,21 +40,21 @@ class AgentService {
     }
 
     /**
-     * Get active agents
+     * Get active agents (HITL and Autopilot modes only, not OFF)
      */
     getActiveAgents() {
         return Array.from(agents.values()).filter(agent => 
-            agent.status !== 'offline' && 
+            agent.status !== 'offline' && agent.status !== 'off' && 
             (new Date() - agent.lastSeen) < 60000 // Active in last minute
         );
     }
 
     /**
-     * Get online agents
+     * Get online agents (HITL and Autopilot modes)
      */
     getOnlineAgents() {
         return Array.from(agents.values()).filter(agent => 
-            agent.status === 'online' && 
+            (agent.status === 'online' || agent.status === 'hitl' || agent.status === 'autopilot') && 
             (new Date() - agent.lastSeen) < 60000 // Active in last minute
         );
     }

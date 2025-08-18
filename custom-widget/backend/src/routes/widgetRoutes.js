@@ -14,11 +14,6 @@ function createWidgetRoutes() {
         widgetController.getWidgetConfig(req, res);
     });
 
-    // Update widget configuration
-    router.post('/config', (req, res) => {
-        widgetController.updateWidgetConfig(req, res);
-    });
-
     // Get integration code
     router.get('/integration-code', (req, res) => {
         widgetController.getIntegrationCode(req, res);

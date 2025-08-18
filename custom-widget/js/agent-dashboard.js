@@ -16,6 +16,7 @@ class AgentDashboard {
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || 3000;
         this.socket = null;
+        this.currentStatus = 'hitl'; // Default to HITL mode
         
         console.log(`Agent Dashboard initialized with API URL: ${this.apiUrl}`);
         this.init();
@@ -171,7 +172,7 @@ class AgentDashboard {
 
     /**
      * Update agent status and notify backend
-     * @param {string} status - Agent status (online, busy, offline)
+     * @param {string} status - Agent status (hitl, autopilot, off)
      */
     async updateAgentStatus(status) {
         const dot = document.getElementById('agent-status-dot');
@@ -179,16 +180,46 @@ class AgentDashboard {
             dot.className = `w-3 h-3 rounded-full agent-${status}`;
         }
         
+        // Store current status for behavioral changes
+        this.currentStatus = status;
+        
         try {
             await fetch(`${this.apiUrl}/api/agent/status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agentId: this.agentId, status })
             });
+            
+            // Handle status-specific behaviors
+            this.handleStatusBehavior(status);
         } catch (error) {
             console.error('Error updating agent status:', error);
         }
     }
+
+    /**
+     * Handle different behaviors based on agent status
+     * @param {string} status - Agent status (hitl, autopilot, off)
+     */
+    handleStatusBehavior(status) {
+        switch(status) {
+            case 'hitl':
+                // HITL: Human in the Loop - show AI suggestions for validation
+                console.log('Agent status: HITL - Human in the Loop mode activated');
+                break;
+            case 'autopilot':
+                // Autopilot: Backend automatically sends AI responses with disclaimer
+                console.log('Agent status: Autopilot - Automatic AI responses activated');
+                this.hideAISuggestion(); // Hide any pending suggestions since backend handles responses
+                break;
+            case 'off':
+                // OFF: Backend sends offline messages for new messages
+                console.log('Agent status: OFF - Customer support offline mode activated');
+                this.hideAISuggestion(); // Hide any pending suggestions
+                break;
+        }
+    }
+
 
     /**
      * Load and display conversations
@@ -579,7 +610,7 @@ class AgentDashboard {
     }
 
     /**
-     * Check for pending AI suggestions
+     * Check for pending AI suggestions (HITL mode only)
      * @param {string} conversationId - ID of conversation
      */
     async checkForPendingSuggestion(conversationId) {
@@ -588,7 +619,7 @@ class AgentDashboard {
             if (response.ok) {
                 const data = await response.json();
                 
-                // Update suggestion if it's different (handles follow-up messages)
+                // HITL mode: Show suggestion for human validation
                 if (!this.currentSuggestion || this.currentSuggestion !== data.suggestion) {
                     this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
                 }
@@ -1088,7 +1119,11 @@ class AgentDashboard {
             // If this is the current chat, update messages and check for suggestion
             if (data.conversationId === this.currentChatId) {
                 this.loadChatMessages(this.currentChatId);
-                this.checkForPendingSuggestion(this.currentChatId);
+                
+                // Only check for pending suggestions in HITL mode
+                if (this.currentStatus === 'hitl') {
+                    this.checkForPendingSuggestion(this.currentChatId);
+                }
             }
         });
         

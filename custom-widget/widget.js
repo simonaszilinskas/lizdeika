@@ -56,6 +56,7 @@
             this.attachEventListeners();
             this.initializeWebSocket();
             this.loadConversation();
+            this.loadSupportStatus();
         },
 
         createWidget: function() {
@@ -111,8 +112,8 @@
                         ">
                             <div>
                                 <h3 style="margin: 0; font-size: 18px;">Pagalbos asistentas</h3>
-                                <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">
-                                    Veikia su AI
+                                <p id="vilnius-support-status" style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">
+                                    Kraunama...
                                 </p>
                             </div>
                             <button id="vilnius-close-chat" style="
@@ -431,6 +432,9 @@
             let content = msg.content;
             if (msg.sender === 'system' && content.includes('[Message pending agent response')) {
                 content = 'Jūsų pranešimas gautas. Agentas netrukus atsakys.';
+            } else if (msg.sender === 'agent' && msg.metadata && msg.metadata.displayDisclaimer) {
+                // Add robot disclaimer for autopilot responses (display only)
+                content = `🤖 *Atsako robotas - galimos klaidos*\n\n${content}`;
             }
 
             const formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
@@ -715,6 +719,43 @@
                 .replace(/^### (.*$)/gm, '<h3 style="margin: 8px 0; font-size: 16px; font-weight: bold;">$1</h3>')
                 .replace(/^## (.*$)/gm, '<h2 style="margin: 8px 0; font-size: 18px; font-weight: bold;">$1</h2>')
                 .replace(/^# (.*$)/gm, '<h1 style="margin: 8px 0; font-size: 20px; font-weight: bold;">$1</h1>');
+        },
+
+        loadSupportStatus: function() {
+            const statusElement = document.getElementById('vilnius-support-status');
+            
+            // Fetch current agent status from backend
+            fetch(`${this.config.apiUrl}/api/agent/status`)
+                .then(response => response.json())
+                .then(data => {
+                    let statusText = 'Veikia su AI'; // Default fallback
+                    
+                    if (data.success && data.status) {
+                        switch(data.status) {
+                            case 'hitl':
+                                statusText = 'Aktyvus, DI + žmogus';
+                                break;
+                            case 'autopilot':
+                                statusText = 'Dirbtinio intelekto atsakymai';
+                                break;
+                            case 'off':
+                                statusText = 'Konsultacijų centras šiuo metu nedirba';
+                                break;
+                            default:
+                                statusText = 'Aktyvus, DI + žmogus';
+                        }
+                    }
+                    
+                    if (statusElement) {
+                        statusElement.textContent = statusText;
+                    }
+                })
+                .catch(error => {
+                    console.error('Failed to load support status:', error);
+                    if (statusElement) {
+                        statusElement.textContent = 'Veikia su AI';
+                    }
+                });
         },
 
     };

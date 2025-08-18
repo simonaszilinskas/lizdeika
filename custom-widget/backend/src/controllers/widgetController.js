@@ -28,49 +28,6 @@ class WidgetController {
         }
     }
 
-    /**
-     * Update widget configuration
-     */
-    async updateWidgetConfig(req, res) {
-        try {
-            const { name, primaryColor, allowedDomains } = req.body;
-
-            // Validate inputs
-            if (name && typeof name !== 'string') {
-                return res.status(400).json({ error: 'Widget name must be a string' });
-            }
-
-            if (primaryColor && !this.isValidHexColor(primaryColor)) {
-                return res.status(400).json({ error: 'Primary color must be a valid hex color (e.g., #2c5530)' });
-            }
-
-            if (allowedDomains && !Array.isArray(allowedDomains)) {
-                return res.status(400).json({ error: 'Allowed domains must be an array' });
-            }
-
-            // Note: In production, you'd want to update actual environment variables or a config file
-            // For now, we'll return the current values since env vars can't be changed at runtime
-            const updatedConfig = {
-                name: name || process.env.WIDGET_NAME || 'Vilnius Assistant',
-                primaryColor: primaryColor || process.env.WIDGET_PRIMARY_COLOR || '#2c5530',
-                allowedDomains: allowedDomains || this.parseAllowedDomains(process.env.WIDGET_ALLOWED_DOMAINS || '*'),
-                serverUrl: process.env.SITE_URL || 'http://localhost:3002',
-                note: 'Configuration changes require server restart to take effect. Update your .env file with the new values.'
-            };
-
-            res.json({
-                success: true,
-                data: updatedConfig,
-                message: 'Widget configuration validated. Update your .env file and restart the server to apply changes.'
-            });
-        } catch (error) {
-            console.error('Failed to update widget config:', error);
-            res.status(500).json({
-                error: 'Failed to update widget configuration',
-                details: error.message
-            });
-        }
-    }
 
     /**
      * Generate integration code for embedding the widget

@@ -116,6 +116,24 @@ class ConversationService {
     }
 
     /**
+     * Replace the last message in conversation
+     */
+    replaceLastMessage(conversationId, newMessage) {
+        const conversationMessages = messages.get(conversationId) || [];
+        
+        if (conversationMessages.length === 0) {
+            // No messages to replace, add as first message
+            conversationMessages.push(newMessage);
+        } else {
+            // Replace the last message
+            conversationMessages[conversationMessages.length - 1] = newMessage;
+        }
+        
+        messages.set(conversationId, conversationMessages);
+        return newMessage;
+    }
+
+    /**
      * Remove pending messages from conversation
      */
     removePendingMessages(conversationId) {

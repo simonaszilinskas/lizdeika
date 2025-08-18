@@ -1,25 +1,19 @@
 /**
- * Admin Settings JavaScript
- * Handles the admin interface for configuration and knowledge management
+ * Knowledge Base JavaScript
+ * Handles the knowledge base management interface
  */
 
-class AdminSettings {
+class KnowledgeBase {
     constructor() {
         this.apiUrl = 'http://localhost:3002';
-        this.currentProvider = 'flowise';
         
         this.initializeElements();
         this.attachEventListeners();
         this.loadDocuments();
         this.loadIndexedDocuments();
-        this.loadWidgetConfig();
     }
 
     initializeElements() {
-        // Tab elements
-        this.tabButtons = document.querySelectorAll('.tab-button');
-        this.tabContents = document.querySelectorAll('.tab-content');
-        
         // Knowledge base elements
         this.fileUploadArea = document.getElementById('file-upload-area');
         this.fileInput = document.getElementById('file-input');
@@ -30,21 +24,9 @@ class AdminSettings {
         // Indexed documents elements
         this.indexedList = document.getElementById('indexed-list');
         this.refreshIndexedButton = document.getElementById('refresh-indexed');
-
-        // Widget settings elements
-        this.generateCodeButton = document.getElementById('generate-code');
-        this.copyCodeButton = document.getElementById('copy-code');
-        this.integrationCodeTextarea = document.getElementById('integration-code');
-        this.integrationCodeContainer = document.getElementById('integration-code-container');
-        this.currentWidgetConfigDiv = document.getElementById('current-widget-config');
     }
 
     attachEventListeners() {
-        // Tab switching
-        this.tabButtons.forEach(button => {
-            button.addEventListener('click', () => this.switchTab(button.dataset.tab));
-        });
-
         // File upload
         this.fileUploadArea.addEventListener('click', () => this.fileInput.click());
         this.fileUploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
@@ -57,13 +39,7 @@ class AdminSettings {
         
         // Indexed documents management
         this.refreshIndexedButton.addEventListener('click', () => this.refreshIndexedDocuments());
-
-        // Widget settings
-        this.generateCodeButton.addEventListener('click', () => this.generateIntegrationCode());
-        this.copyCodeButton.addEventListener('click', () => this.copyIntegrationCode());
     }
-
-
 
     async loadDocuments() {
         try {
@@ -101,7 +77,7 @@ class AdminSettings {
                     </div>
                 </div>
                 <div class="document-actions">
-                    <button class="button button-danger" onclick="adminSettings.deleteDocument('${doc.id}')">Delete</button>
+                    <button class="button button-danger" onclick="knowledgeBase.deleteDocument('${doc.id}')">Delete</button>
                 </div>
             </div>
         `).join('');
@@ -236,26 +212,6 @@ class AdminSettings {
         }
     }
 
-    showAlert(message, type = 'info') {
-        // Remove existing alerts
-        const existingAlerts = document.querySelectorAll('.alert');
-        existingAlerts.forEach(alert => alert.remove());
-
-        // Create new alert
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${type}`;
-        alert.textContent = message;
-
-        // Insert at the top of the container
-        const container = document.querySelector('.container');
-        container.insertBefore(alert, container.firstChild);
-
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            alert.remove();
-        }, 5000);
-    }
-
     async loadIndexedDocuments() {
         try {
             const response = await fetch(`${this.apiUrl}/api/knowledge/indexed`);
@@ -308,7 +264,7 @@ class AdminSettings {
                 : '';
 
             return `
-                <div class="document-item indexed-doc-item" style="cursor: pointer;" onclick="adminSettings.toggleIndexedDocDetails('${doc.id}')">
+                <div class="document-item indexed-doc-item" style="cursor: pointer;" onclick="knowledgeBase.toggleIndexedDocDetails('${doc.id}')">
                     <div class="document-info">
                         <h4>${title}${sourceLink}</h4>
                         <div class="document-details">
@@ -395,95 +351,24 @@ class AdminSettings {
         }
     }
 
-    switchTab(tabName) {
-        // Update tab buttons
-        this.tabButtons.forEach(button => {
-            button.classList.toggle('active', button.dataset.tab === tabName);
-        });
+    showAlert(message, type = 'info') {
+        // Remove existing alerts
+        const existingAlerts = document.querySelectorAll('.alert');
+        existingAlerts.forEach(alert => alert.remove());
 
-        // Update tab content
-        this.tabContents.forEach(content => {
-            content.classList.toggle('active', content.id === tabName);
-        });
+        // Create new alert
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+        alert.textContent = message;
 
-        // Load data for active tab
-        if (tabName === 'widget') {
-            this.loadWidgetConfig();
-        } else if (tabName === 'knowledge') {
-            this.loadDocuments();
-            this.loadIndexedDocuments();
-        }
-    }
+        // Insert at the top of the container
+        const container = document.querySelector('.container');
+        container.insertBefore(alert, container.firstChild);
 
-    async loadWidgetConfig() {
-        try {
-            const response = await fetch(`${this.apiUrl}/api/widget/config`);
-            const data = await response.json();
-
-            if (response.ok) {
-                const config = data.data;
-                
-                // Update current config display
-                this.currentWidgetConfigDiv.innerHTML = `
-                    <h4>Current Configuration</h4>
-                    <p><strong>Widget Name:</strong> ${config.name}</p>
-                    <p><strong>Primary Color:</strong> <span style="display: inline-block; width: 20px; height: 20px; background-color: ${config.primaryColor}; border-radius: 3px; vertical-align: middle; margin-right: 5px;"></span>${config.primaryColor}</p>
-                    <p><strong>Server URL:</strong> ${config.serverUrl}</p>
-                    <p><strong>Allowed Domains:</strong> ${config.allowedDomains.join(', ')}</p>
-                    <p style="margin-top: 15px;"><small style="color: #666;"><strong>Note:</strong> To change these settings, update your .env file and restart the server.</small></p>
-                `;
-            } else {
-                throw new Error(data.error || 'Failed to load widget config');
-            }
-        } catch (error) {
-            console.error('Failed to load widget config:', error);
-            this.currentWidgetConfigDiv.innerHTML = `
-                <h4>Error</h4>
-                <p style="color: #dc3545;">Failed to load widget configuration: ${error.message}</p>
-            `;
-        }
-    }
-
-
-    async generateIntegrationCode() {
-        const button = this.generateCodeButton;
-        const originalText = button.textContent;
-
-        try {
-            button.disabled = true;
-            button.innerHTML = '<span class="loading"></span>Generating...';
-
-            const response = await fetch(`${this.apiUrl}/api/widget/integration-code`);
-            const data = await response.json();
-
-            if (response.ok) {
-                this.integrationCodeTextarea.value = data.data.integrationCode;
-                this.integrationCodeContainer.style.display = 'block';
-                this.showAlert('Integration code generated successfully!', 'success');
-            } else {
-                throw new Error(data.error || 'Failed to generate integration code');
-            }
-
-        } catch (error) {
-            console.error('Failed to generate integration code:', error);
-            this.showAlert(`Failed to generate integration code: ${error.message}`, 'error');
-        } finally {
-            button.disabled = false;
-            button.textContent = originalText;
-        }
-    }
-
-    async copyIntegrationCode() {
-        try {
-            await navigator.clipboard.writeText(this.integrationCodeTextarea.value);
-            this.showAlert('Integration code copied to clipboard!', 'success');
-        } catch (error) {
-            console.error('Failed to copy to clipboard:', error);
-            // Fallback: select the text
-            this.integrationCodeTextarea.select();
-            this.integrationCodeTextarea.setSelectionRange(0, 99999);
-            this.showAlert('Code selected. Press Ctrl+C to copy.', 'info');
-        }
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            alert.remove();
+        }, 5000);
     }
 
     formatBytes(bytes) {
@@ -496,9 +381,9 @@ class AdminSettings {
 }
 
 // Initialize when DOM is loaded
-let adminSettings;
+let knowledgeBase;
 document.addEventListener('DOMContentLoaded', () => {
-    adminSettings = new AdminSettings();
+    knowledgeBase = new KnowledgeBase();
 });
 
 // Remove dragover class when leaving the upload area

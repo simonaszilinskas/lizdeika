@@ -468,31 +468,20 @@
         <!-- Widget Settings Tab -->
         <div class="tab-content" id="widget">
             <div class="section">
-                <h3>Widget Customization</h3>
-                <div class="form-group">
-                    <label for="widget-name">Widget Name</label>
-                    <input type="text" id="widget-name" placeholder="e.g., Vilnius Assistant">
+                <h3>Current Widget Configuration</h3>
+                <div id="current-widget-config" class="provider-info">
+                    <h4>Loading...</h4>
+                    <p>Please wait while we load the current widget configuration.</p>
                 </div>
-                <div class="form-group">
-                    <label for="widget-color">Primary Color</label>
-                    <input type="color" id="widget-color" value="#2c5530">
-                    <small style="color: #666; margin-left: 10px;">Used for buttons and highlights</small>
+                <div class="provider-info" style="margin-top: 15px;">
+                    <h4>How to Update Configuration</h4>
+                    <p>To change widget settings, update these environment variables in your <code>.env</code> file and restart the server:</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>WIDGET_NAME</strong> - Display name for the widget</li>
+                        <li><strong>WIDGET_PRIMARY_COLOR</strong> - Hex color for buttons and highlights (e.g., #2c5530)</li>
+                        <li><strong>WIDGET_ALLOWED_DOMAINS</strong> - Comma-separated domains or * for all domains</li>
+                    </ul>
                 </div>
-                <button id="save-widget-config" class="button">Save Configuration</button>
-            </div>
-
-            <div class="section">
-                <h3>Domain Restrictions</h3>
-                <div class="provider-info">
-                    <h4>Control Widget Access</h4>
-                    <p>Specify which domains are allowed to embed your widget. Use '*' to allow all domains, or list specific domains.</p>
-                </div>
-                <div class="form-group">
-                    <label for="allowed-domains">Allowed Domains</label>
-                    <textarea id="allowed-domains" placeholder="example.com&#10;*.mycompany.com&#10;subdomain.example.org" rows="5"></textarea>
-                    <small style="color: #666;">Enter one domain per line. Use *.domain.com for subdomains. Use * to allow all domains.</small>
-                </div>
-                <button id="save-domain-config" class="button">Save Domain Settings</button>
             </div>
 
             <div class="section">
@@ -517,14 +506,6 @@
                             <li>Users can click it to start chatting with the assistant</li>
                         </ol>
                     </div>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>Current Configuration</h3>
-                <div id="current-widget-config" class="provider-info">
-                    <h4>Loading...</h4>
-                    <p>Please wait while we load the current widget configuration.</p>
                 </div>
             </div>
         </div>
