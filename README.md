@@ -69,11 +69,24 @@ npm start
 This system is Phase 0 of the migration to full Lizdeika platform. See the [Migration Plan](./project/migration-plan.md) for:
 
 - **Phase 1**: Dual AI Backend (Flowise + OpenRouter)
-- **Phase 2**: Simple Document RAG  
-- **Phase 3**: Smart Document Retrieval
-- **Phase 4**: Enhanced UI Features
-- **Phase 5**: API and Integration
+- **Phase 2**: Document RAG
+- **Phase 3**: Add users, persistent database
+- **Phase 4**: Package all for deployment
+
+### Remaining tasks for phase 2
+- integrate langfuse to track every request cost, feedback and configure the front from there
+- in the widget make the status update in real time
+- in the widget, check that the colors change successfully
+
+### Tasks for phase 3
+- choose a database that would be easy to manage in an on-premise setting
+- create all the user logic - automatic ticket assignement, login, user creation, forgot password etc.
+- keep a track of all the messages and actions taken but only for 6 months. 
+
+Keep everything as simple as possible. 
+
 
 ## 📖 More Information
+
 
 For detailed technical information, architecture decisions, and development roadmap, see the complete documentation in the [`/project/`](./project/) folder.
