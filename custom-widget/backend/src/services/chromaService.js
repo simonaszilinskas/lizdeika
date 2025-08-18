@@ -238,6 +238,46 @@ class ChromaService {
     }
 
     /**
+     * Get all indexed documents from Chroma
+     */
+    async getAllDocuments(limit = 100) {
+        if (!this.isConnected || !this.collection) {
+            return { connected: false, documents: [] };
+        }
+
+        try {
+            const results = await this.collection.get({
+                limit: limit,
+                include: ["documents", "metadatas", "embeddings"]
+            });
+
+            const documents = [];
+            if (results.documents && results.documents.length > 0) {
+                for (let i = 0; i < results.documents.length; i++) {
+                    documents.push({
+                        id: results.ids[i],
+                        content: results.documents[i],
+                        metadata: results.metadatas[i] || {},
+                        hasEmbedding: results.embeddings && results.embeddings[i] ? true : false,
+                        embeddingDimensions: results.embeddings && results.embeddings[i] ? results.embeddings[i].length : 0
+                    });
+                }
+            }
+
+            console.log(`Retrieved ${documents.length} indexed documents from Chroma`);
+            return {
+                connected: true,
+                documents: documents,
+                totalCount: results.ids ? results.ids.length : 0,
+                collectionName: this.collectionName
+            };
+        } catch (error) {
+            console.error('Failed to get all documents:', error);
+            return { connected: false, documents: [], error: error.message };
+        }
+    }
+
+    /**
      * Clear all data (for testing)
      */
     async clearAll() {

@@ -31,7 +31,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vilnius Assistant - Admin Settings</title>
+    <title>Vilnius Assistant - Knowledge Base</title>
     <style>
         * {
             margin: 0;
@@ -408,61 +408,18 @@
 <body>
     <div class="header">
         <a href="agent-dashboard.html" class="back-button">Back to Dashboard</a>
-        <h1>Admin Settings</h1>
-        <p>Configure your Vilnius Assistant system</p>
+        <h1>Knowledge Base Management</h1>
+        <p>Upload and manage documents for your Vilnius Assistant system</p>
     </div>
 
     <div class="container">
         <div class="tabs">
-            <button class="tab-button active" data-tab="configuration">Configuration</button>
-            <button class="tab-button" data-tab="knowledge">Knowledge Base</button>
-        </div>
-
-        <!-- Configuration Tab -->
-        <div class="tab-content active" id="configuration">
-            <div class="section">
-                <h3>AI Provider Settings</h3>
-                <div class="provider-info">
-                    <h4>Current AI Provider</h4>
-                    <p><strong>Provider:</strong> <span id="current-provider">Loading...</span></p>
-                    <p><strong>Status:</strong> <span id="provider-status">Checking...</span></p>
-                    <p style="font-style: italic; margin-top: 10px;">
-                        <strong>Note:</strong> AI provider is configured via environment variable (AI_PROVIDER) and cannot be changed through this interface. To change the provider, update the .env file and restart the server.
-                    </p>
-                </div>
-                <div id="provider-info" class="provider-info">
-                    <!-- Dynamic provider information -->
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>System Prompt</h3>
-                <div class="form-group">
-                    <label for="system-prompt">System Prompt (for OpenRouter)</label>
-                    <textarea id="system-prompt" placeholder="Enter system prompt for OpenRouter..."></textarea>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>RAG Configuration</h3>
-                <div class="provider-info">
-                    <h4>RAG Settings (Environment Variables)</h4>
-                    <p>RAG configuration is managed via environment variables for consistency:</p>
-                    <ul style="margin-left: 20px; margin-top: 10px;">
-                        <li><strong>RAG_K:</strong> Number of retrieved contexts (currently configured via .env)</li>
-                        <li><strong>RAG_SHOW_SOURCES:</strong> Show document sources in responses (currently configured via .env)</li>
-                    </ul>
-                    <p style="margin-top: 10px; font-style: italic;">To modify RAG settings, update the .env file and restart the server.</p>
-                </div>
-            </div>
-
-            <div class="section">
-                <button id="save-config" class="button">Save Configuration</button>
-            </div>
+            <button class="tab-button active" data-tab="knowledge">Knowledge Base</button>
+            <button class="tab-button" data-tab="widget">Widget Settings</button>
         </div>
 
         <!-- Knowledge Base Tab -->
-        <div class="tab-content" id="knowledge">
+        <div class="tab-content active" id="knowledge">
             <div class="section">
                 <h3>Upload Documents</h3>
                 <div class="file-upload-area" id="file-upload-area">
@@ -473,23 +430,101 @@
                 </div>
             </div>
 
-            <div class="section">
-                <h3>Knowledge Base Statistics</h3>
-                <div class="stats-grid" id="stats-grid">
-                    <!-- Dynamic stats -->
-                </div>
-            </div>
 
             <div class="section">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3>Documents</h3>
+                    <h3>File Uploads</h3>
                     <div>
                         <button id="refresh-documents" class="button button-secondary">Refresh</button>
                         <button id="clear-all-documents" class="button button-danger" style="margin-left: 10px;">Clear All</button>
                     </div>
                 </div>
+                <div class="provider-info" style="margin-bottom: 15px;">
+                    <h4>File Upload Management</h4>
+                    <p>Documents uploaded through the file upload interface. These are stored locally and processed for indexing.</p>
+                </div>
                 <div class="documents-list" id="documents-list">
                     <!-- Dynamic documents list -->
+                </div>
+            </div>
+
+            <div class="section">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>Vector Database Contents</h3>
+                    <div>
+                        <button id="refresh-indexed" class="button button-secondary">Refresh</button>
+                    </div>
+                </div>
+                <div class="provider-info" style="margin-bottom: 15px;">
+                    <h4>What's Actually Searchable</h4>
+                    <p>These are the document chunks indexed in Chroma vector database and available for semantic search in conversations. Includes documents from file uploads and API indexing.</p>
+                </div>
+                <div class="documents-list" id="indexed-list">
+                    <!-- Dynamic indexed documents list -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Widget Settings Tab -->
+        <div class="tab-content" id="widget">
+            <div class="section">
+                <h3>Widget Customization</h3>
+                <div class="form-group">
+                    <label for="widget-name">Widget Name</label>
+                    <input type="text" id="widget-name" placeholder="e.g., Vilnius Assistant">
+                </div>
+                <div class="form-group">
+                    <label for="widget-color">Primary Color</label>
+                    <input type="color" id="widget-color" value="#2c5530">
+                    <small style="color: #666; margin-left: 10px;">Used for buttons and highlights</small>
+                </div>
+                <button id="save-widget-config" class="button">Save Configuration</button>
+            </div>
+
+            <div class="section">
+                <h3>Domain Restrictions</h3>
+                <div class="provider-info">
+                    <h4>Control Widget Access</h4>
+                    <p>Specify which domains are allowed to embed your widget. Use '*' to allow all domains, or list specific domains.</p>
+                </div>
+                <div class="form-group">
+                    <label for="allowed-domains">Allowed Domains</label>
+                    <textarea id="allowed-domains" placeholder="example.com&#10;*.mycompany.com&#10;subdomain.example.org" rows="5"></textarea>
+                    <small style="color: #666;">Enter one domain per line. Use *.domain.com for subdomains. Use * to allow all domains.</small>
+                </div>
+                <button id="save-domain-config" class="button">Save Domain Settings</button>
+            </div>
+
+            <div class="section">
+                <h3>Integration Code</h3>
+                <div class="provider-info">
+                    <h4>Embed Widget on Your Website</h4>
+                    <p>Copy and paste this code into your website's HTML to add the chat widget.</p>
+                </div>
+                <button id="generate-code" class="button button-secondary">Generate Integration Code</button>
+                <div id="integration-code-container" style="margin-top: 15px; display: none;">
+                    <div class="form-group">
+                        <label for="integration-code">HTML Integration Code</label>
+                        <textarea id="integration-code" readonly rows="12" style="font-family: monospace; font-size: 12px;"></textarea>
+                    </div>
+                    <button id="copy-code" class="button button-secondary">Copy to Clipboard</button>
+                    <div id="integration-instructions" style="margin-top: 15px;">
+                        <h4>Integration Instructions:</h4>
+                        <ol style="margin-left: 20px;">
+                            <li>Copy the integration code above</li>
+                            <li>Paste it into your website's HTML, preferably before the closing &lt;/body&gt; tag</li>
+                            <li>The widget will appear as a floating chat button in the bottom-right corner</li>
+                            <li>Users can click it to start chatting with the assistant</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Current Configuration</h3>
+                <div id="current-widget-config" class="provider-info">
+                    <h4>Loading...</h4>
+                    <p>Please wait while we load the current widget configuration.</p>
                 </div>
             </div>
         </div>

@@ -243,19 +243,33 @@ class DocumentService {
      * Create a chunk object
      */
     createChunk(text, documentInfo, chunkIndex) {
+        // Essential metadata for Chroma (staying under 16-key limit)
+        const chunkMetadata = {
+            source_document_id: documentInfo.id,
+            source_document_name: documentInfo.originalName || 'Document',
+            chunk_index: chunkIndex,
+            chunk_length: text.length,
+            upload_source: documentInfo.uploadSource || 'api',
+            upload_time: documentInfo.uploadTime ? documentInfo.uploadTime.toISOString() : new Date().toISOString(),
+            category: 'uploaded_document'
+        };
+
+        // Selectively add important metadata from document (avoiding quota exceeded)
+        if (documentInfo.metadata) {
+            // Only include the most important additional metadata fields
+            const importantFields = ['source_url', 'language', 'content_type'];
+            
+            importantFields.forEach(field => {
+                if (documentInfo.metadata[field] !== undefined && documentInfo.metadata[field] !== null) {
+                    chunkMetadata[field] = documentInfo.metadata[field];
+                }
+            });
+        }
+
         return {
             id: `${documentInfo.id}_chunk_${chunkIndex}`,
             content: text,
-            metadata: {
-                source_document_id: documentInfo.id,
-                source_document_name: documentInfo.originalName || 'Document',
-                chunk_index: chunkIndex,
-                chunk_length: text.length,
-                document_type: documentInfo.fileType || 'text/plain',
-                upload_source: documentInfo.uploadSource || 'api',
-                upload_time: documentInfo.uploadTime ? documentInfo.uploadTime.toISOString() : new Date().toISOString(),
-                category: 'uploaded_document'
-            }
+            metadata: chunkMetadata
         };
     }
 

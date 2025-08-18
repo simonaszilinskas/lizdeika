@@ -10,41 +10,24 @@ class AdminSettings {
         
         this.initializeElements();
         this.attachEventListeners();
-        this.loadCurrentConfiguration();
-        this.loadKnowledgeStats();
         this.loadDocuments();
+        this.loadIndexedDocuments();
     }
 
     initializeElements() {
-        // Tab elements
-        this.tabButtons = document.querySelectorAll('.tab-button');
-        this.tabContents = document.querySelectorAll('.tab-content');
-        
-        // Configuration elements
-        this.currentProviderSpan = document.getElementById('current-provider');
-        this.providerStatusSpan = document.getElementById('provider-status');
-        this.systemPromptTextarea = document.getElementById('system-prompt');
-        this.saveConfigButton = document.getElementById('save-config');
-        this.providerInfo = document.getElementById('provider-info');
-        
         // Knowledge base elements
         this.fileUploadArea = document.getElementById('file-upload-area');
         this.fileInput = document.getElementById('file-input');
-        this.statsGrid = document.getElementById('stats-grid');
         this.documentsList = document.getElementById('documents-list');
         this.refreshButton = document.getElementById('refresh-documents');
         this.clearAllButton = document.getElementById('clear-all-documents');
+        
+        // Indexed documents elements
+        this.indexedList = document.getElementById('indexed-list');
+        this.refreshIndexedButton = document.getElementById('refresh-indexed');
     }
 
     attachEventListeners() {
-        // Tab switching
-        this.tabButtons.forEach(button => {
-            button.addEventListener('click', () => this.switchTab(button.dataset.tab));
-        });
-
-        // Configuration
-        this.saveConfigButton.addEventListener('click', () => this.saveConfiguration());
-
         // File upload
         this.fileUploadArea.addEventListener('click', () => this.fileInput.click());
         this.fileUploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
@@ -54,168 +37,12 @@ class AdminSettings {
         // Knowledge management
         this.refreshButton.addEventListener('click', () => this.refreshDocuments());
         this.clearAllButton.addEventListener('click', () => this.clearAllDocuments());
-    }
-
-    switchTab(tabName) {
-        // Update tab buttons
-        this.tabButtons.forEach(button => {
-            button.classList.toggle('active', button.dataset.tab === tabName);
-        });
-
-        // Update tab content
-        this.tabContents.forEach(content => {
-            content.classList.toggle('active', content.id === tabName);
-        });
-
-        // Load data for active tab
-        if (tabName === 'knowledge') {
-            this.loadKnowledgeStats();
-            this.loadDocuments();
-        }
-    }
-
-    async loadCurrentConfiguration() {
-        try {
-            // Get full system configuration from new endpoint
-            const configResponse = await fetch(`${this.apiUrl}/api/config/system`);
-            const configData = await configResponse.json();
-            
-            if (configData.systemPrompt) {
-                this.systemPromptTextarea.value = configData.systemPrompt;
-            }
-
-            if (configData.aiProvider) {
-                this.currentProvider = configData.aiProvider;
-                this.currentProviderSpan.textContent = this.currentProvider.charAt(0).toUpperCase() + this.currentProvider.slice(1);
-            }
-
-            // Get health info for provider status
-            const healthResponse = await fetch(`${this.apiUrl}/health`);
-            const healthData = await healthResponse.json();
-            
-            if (healthData.aiProvider) {
-                const status = healthData.aiProvider.healthy ? 'Healthy' : 'Unhealthy';
-                this.providerStatusSpan.textContent = status;
-                this.providerStatusSpan.style.color = healthData.aiProvider.healthy ? '#28a745' : '#dc3545';
-            }
-
-            this.updateProviderInfo();
-        } catch (error) {
-            console.error('Failed to load current configuration:', error);
-            this.currentProviderSpan.textContent = 'Error loading';
-            this.providerStatusSpan.textContent = 'Unknown';
-            this.showAlert('Failed to load current configuration', 'error');
-        }
-    }
-
-    updateProviderInfo() {
-        const info = this.providerInfo;
-
-        if (this.currentProvider === 'flowise') {
-            info.innerHTML = `
-                <h4>Flowise Provider Details</h4>
-                <p>Uses built-in RAG capabilities. External knowledge base uploads will be stored but not indexed in the vector database.</p>
-            `;
-        } else if (this.currentProvider === 'openrouter') {
-            info.innerHTML = `
-                <h4>OpenRouter Provider Details</h4>
-                <p>Uses external RAG with Chroma DB and Mistral embeddings. Uploaded documents will be processed and indexed for enhanced responses.</p>
-            `;
-        } else {
-            info.innerHTML = `
-                <h4>Provider Information</h4>
-                <p>Loading provider details...</p>
-            `;
-        }
-
-        // Show/hide system prompt based on provider
-        const systemPromptSection = this.systemPromptTextarea.closest('.section');
-        systemPromptSection.style.display = this.currentProvider === 'openrouter' ? 'block' : 'none';
-    }
-
-    async saveConfiguration() {
-        const button = this.saveConfigButton;
-        const originalText = button.textContent;
         
-        try {
-            button.disabled = true;
-            button.innerHTML = '<span class="loading"></span>Saving...';
-
-            const data = {};
-
-            // Only include system prompt for OpenRouter
-            if (this.currentProvider === 'openrouter') {
-                data.systemPrompt = this.systemPromptTextarea.value;
-            }
-
-            const response = await fetch(`${this.apiUrl}/api/config/settings`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                this.showAlert(result.message || 'Configuration saved successfully!', 'success');
-                
-                // Show additional note from backend
-                if (result.note) {
-                    setTimeout(() => {
-                        this.showAlert(result.note, 'info');
-                    }, 2000);
-                }
-            } else {
-                throw new Error(result.error || 'Failed to save configuration');
-            }
-
-        } catch (error) {
-            console.error('Failed to save configuration:', error);
-            this.showAlert(`Failed to save configuration: ${error.message}`, 'error');
-        } finally {
-            button.disabled = false;
-            button.textContent = originalText;
-        }
+        // Indexed documents management
+        this.refreshIndexedButton.addEventListener('click', () => this.refreshIndexedDocuments());
     }
 
-    async loadKnowledgeStats() {
-        try {
-            const response = await fetch(`${this.apiUrl}/api/knowledge/stats`);
-            const data = await response.json();
 
-            if (response.ok) {
-                this.renderStats(data.data);
-            } else {
-                throw new Error(data.error || 'Failed to load stats');
-            }
-        } catch (error) {
-            console.error('Failed to load knowledge stats:', error);
-            this.statsGrid.innerHTML = '<p>Failed to load statistics</p>';
-        }
-    }
-
-    renderStats(stats) {
-        this.statsGrid.innerHTML = `
-            <div class="stat-card">
-                <span class="stat-number">${stats.totalDocuments}</span>
-                <div class="stat-label">Documents</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">${stats.totalChunks}</span>
-                <div class="stat-label">Chunks</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">${this.formatBytes(stats.totalTextLength)}</span>
-                <div class="stat-label">Total Text</div>
-            </div>
-            <div class="stat-card">
-                <span class="stat-number">${stats.byStatus.indexed || 0}</span>
-                <div class="stat-label">Indexed</div>
-            </div>
-        `;
-    }
 
     async loadDocuments() {
         try {
@@ -281,9 +108,9 @@ class AdminSettings {
             await this.uploadFile(file);
         }
         
-        // Refresh the documents list and stats
+        // Refresh the documents list
         this.loadDocuments();
-        this.loadKnowledgeStats();
+        this.loadIndexedDocuments();
     }
 
     async uploadFile(file) {
@@ -328,7 +155,6 @@ class AdminSettings {
             if (response.ok) {
                 this.showAlert('Document deleted successfully!', 'success');
                 this.loadDocuments();
-                this.loadKnowledgeStats();
             } else {
                 throw new Error(result.error || 'Failed to delete document');
             }
@@ -348,7 +174,6 @@ class AdminSettings {
             button.innerHTML = '<span class="loading"></span>Refreshing...';
             
             await this.loadDocuments();
-            await this.loadKnowledgeStats();
             
         } finally {
             button.disabled = false;
@@ -377,7 +202,6 @@ class AdminSettings {
             if (response.ok) {
                 this.showAlert('All documents cleared successfully!', 'success');
                 this.loadDocuments();
-                this.loadKnowledgeStats();
             } else {
                 throw new Error(result.error || 'Failed to clear documents');
             }
@@ -409,6 +233,145 @@ class AdminSettings {
         setTimeout(() => {
             alert.remove();
         }, 5000);
+    }
+
+    async loadIndexedDocuments() {
+        try {
+            const response = await fetch(`${this.apiUrl}/api/knowledge/indexed`);
+            const data = await response.json();
+
+            if (response.ok) {
+                this.renderIndexedDocuments(data.data);
+            } else {
+                throw new Error(data.error || 'Failed to load indexed documents');
+            }
+        } catch (error) {
+            console.error('Failed to load indexed documents:', error);
+            this.indexedList.innerHTML = '<p>Failed to load indexed documents</p>';
+        }
+    }
+
+    renderIndexedDocuments(data) {
+        if (!data.connected) {
+            if (data.note) {
+                this.indexedList.innerHTML = `<div class="provider-info"><p><strong>Note:</strong> ${data.note}</p></div>`;
+            } else {
+                this.indexedList.innerHTML = '<p>Vector database not connected</p>';
+            }
+            return;
+        }
+
+        const documents = data.documents || [];
+        
+        if (documents.length === 0) {
+            this.indexedList.innerHTML = '<p>No documents indexed in Chroma vector database yet</p>';
+            return;
+        }
+
+        this.indexedList.innerHTML = documents.map((doc, index) => {
+            const contentPreview = doc.content.length > 150 
+                ? doc.content.substring(0, 150) + '...' 
+                : doc.content;
+            
+            const metadata = doc.metadata || {};
+            const title = metadata.source_document_name || `Document ${index + 1}`;
+            const sourceUrl = metadata.source_url;
+            const uploadTime = metadata.upload_time ? new Date(metadata.upload_time).toLocaleDateString() : '';
+            const uploadSource = metadata.upload_source || 'unknown';
+
+            // Create source link
+            const sourceLink = sourceUrl 
+                ? `<a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" style="color: #2c5530; text-decoration: none; margin-left: 8px;" onclick="event.stopPropagation();" title="Open source in new tab">
+                     <i class="fas fa-external-link-alt" style="font-size: 12px;"></i>
+                   </a>`
+                : '';
+
+            return `
+                <div class="document-item indexed-doc-item" style="cursor: pointer;" onclick="adminSettings.toggleIndexedDocDetails('${doc.id}')">
+                    <div class="document-info">
+                        <h4>${title}${sourceLink}</h4>
+                        <div class="document-details">
+                            <small style="color: #666;">${contentPreview}</small>
+                            ${uploadTime ? `<br><small style="color: #999;">Indexed: ${uploadTime} (${uploadSource})</small>` : ''}
+                        </div>
+                    </div>
+                    <div class="document-actions">
+                        <i class="fas fa-chevron-down" id="chevron-${doc.id}"></i>
+                    </div>
+                </div>
+                <div class="indexed-doc-details" id="details-${doc.id}" style="display: none; background: #f8f9fa; padding: 15px; margin: 0 0 10px 0; border-radius: 6px;">
+                    <div style="margin-bottom: 15px;">
+                        <h5 style="margin: 0 0 10px 0; color: #2c5530;">Full Content:</h5>
+                        <div style="background: white; padding: 12px; border-radius: 4px; border: 1px solid #e0e0e0; max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 13px;">${doc.content}</div>
+                    </div>
+                    ${sourceUrl ? `
+                        <div style="margin-bottom: 10px;">
+                            <h5 style="margin: 0 0 5px 0; color: #2c5530;">Source Link:</h5>
+                            <a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" style="color: #2c5530; text-decoration: underline; display: inline-flex; align-items: center; gap: 5px;">
+                                <i class="fas fa-external-link-alt" style="font-size: 12px;"></i>
+                                ${sourceUrl}
+                            </a>
+                        </div>
+                    ` : ''}
+                    <div style="margin-bottom: 10px;">
+                        <h5 style="margin: 0 0 5px 0; color: #2c5530;">Metadata:</h5>
+                        <small style="color: #666;">
+                            Upload source: <strong>${uploadSource}</strong> • 
+                            Chunk ${metadata.chunk_index || 0} • 
+                            ${metadata.language || 'unknown'} language
+                        </small>
+                    </div>
+                    <div>
+                        <h5 style="margin: 0 0 5px 0; color: #2c5530;">Technical Details:</h5>
+                        <small style="color: #666;">
+                            ID: ${doc.id} • 
+                            ${doc.hasEmbedding ? `${doc.embeddingDimensions}D embedding` : 'No embedding'} • 
+                            ${doc.content.length} characters
+                        </small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add summary info
+        const documentsWithSources = documents.filter(doc => doc.metadata && doc.metadata.source_url).length;
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'provider-info';
+        summaryDiv.style.marginBottom = '15px';
+        summaryDiv.innerHTML = `
+            <h4>Collection: ${data.collectionName}</h4>
+            <p>Total indexed chunks: <strong>${documents.length}</strong> • With source URLs: <strong>${documentsWithSources}</strong></p>
+        `;
+        this.indexedList.insertBefore(summaryDiv, this.indexedList.firstChild);
+    }
+
+    toggleIndexedDocDetails(docId) {
+        const detailsDiv = document.getElementById(`details-${docId}`);
+        const chevron = document.getElementById(`chevron-${docId}`);
+        
+        if (detailsDiv.style.display === 'none') {
+            detailsDiv.style.display = 'block';
+            chevron.className = 'fas fa-chevron-up';
+        } else {
+            detailsDiv.style.display = 'none';
+            chevron.className = 'fas fa-chevron-down';
+        }
+    }
+
+    async refreshIndexedDocuments() {
+        const button = this.refreshIndexedButton;
+        const originalText = button.textContent;
+        
+        try {
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span>Refreshing...';
+            
+            await this.loadIndexedDocuments();
+            
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
     }
 
     formatBytes(bytes) {

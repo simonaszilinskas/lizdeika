@@ -257,6 +257,29 @@ class KnowledgeController {
     }
 
     /**
+     * Get all indexed documents from Chroma vector database
+     */
+    async getIndexedDocuments(req, res) {
+        try {
+            const limit = parseInt(req.query.limit) || 100;
+            const knowledgeService = require('../services/knowledgeService');
+            const result = await knowledgeService.getAllIndexedDocuments(limit);
+            
+            res.json({
+                success: true,
+                data: result
+            });
+
+        } catch (error) {
+            console.error('Failed to get indexed documents:', error);
+            res.status(500).json({
+                error: 'Failed to retrieve indexed documents',
+                details: error.message
+            });
+        }
+    }
+
+    /**
      * Search documents
      */
     async searchDocuments(req, res) {

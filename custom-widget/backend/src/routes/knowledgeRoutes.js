@@ -73,6 +73,11 @@ function createKnowledgeRoutes() {
         knowledgeController.getKnowledgeStats(req, res);
     });
 
+    // Get all indexed documents from Chroma vector database
+    router.get('/indexed', (req, res) => {
+        knowledgeController.getIndexedDocuments(req, res);
+    });
+
     // Clear all documents (admin function)
     router.post('/documents/clear', (req, res) => {
         knowledgeController.clearAllDocuments(req, res);
