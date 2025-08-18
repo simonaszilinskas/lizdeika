@@ -175,6 +175,12 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
             const chatHistory = parseConversationHistory(conversationContext);
             debugInfo.step3_ragProcessing.chatHistoryLength = chatHistory.length;
             
+            // Debug logging to understand conversation parsing
+            console.log('🔍 AI Service Debug:');
+            console.log('Conversation context:', conversationContext);
+            console.log('Parsed chat history:', JSON.stringify(chatHistory, null, 2));
+            console.log('Recent message:', recentMessage);
+            
             if (recentMessage) {
                 // Get RAG response using LangChain with full conversation context and debug info
                 const ragResult = await ragService.getAnswer(recentMessage, chatHistory, true);
@@ -182,6 +188,19 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
                 // Merge LangChain debug info into main debug structure
                 if (ragResult.debugInfo) {
                     debugInfo.step4_langchainRAG = ragResult.debugInfo;
+                    
+                    // Ensure step5 data is properly mapped
+                    if (ragResult.debugInfo.step5_promptConstruction) {
+                        debugInfo.step5_promptConstruction = ragResult.debugInfo.step5_promptConstruction;
+                    }
+                    
+                    // Ensure step6 data is properly mapped
+                    if (ragResult.debugInfo.step6_llmResponse) {
+                        debugInfo.step6_llmResponse = ragResult.debugInfo.step6_llmResponse;
+                    }
+                } else {
+                    console.warn('⚠️ No debug info received from LangChain RAG');
+                    debugInfo.step4_langchainRAG = { error: 'No debug info received from LangChain' };
                 }
                 
                 debugInfo.step5_ragResults = {
@@ -193,6 +212,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
                 debugInfo.finalResponse = ragResult.answer;
                 
                 // Store comprehensive debug info including LangChain internals
+                console.log('📝 Storing debug info with keys:', Object.keys(debugInfo));
                 await storeDebugInfo(conversationId, debugInfo);
                 
                 // Return the LangChain response directly

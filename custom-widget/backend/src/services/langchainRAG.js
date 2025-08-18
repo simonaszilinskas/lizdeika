@@ -33,13 +33,14 @@
 
 const { ChatOpenAI } = require("@langchain/openai");
 const { PromptTemplate } = require("@langchain/core/prompts");
+const { HumanMessage, AIMessage, SystemMessage } = require("@langchain/core/messages");
 const knowledgeService = require('./knowledgeService');
 // Note: Removed SystemController import to avoid circular dependency
 
 class LangChainRAG {
     constructor() {
         this.llm = new ChatOpenAI({
-            model: "google/gemini-flash-1.5",
+            model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
             apiKey: process.env.OPENROUTER_API_KEY,
             configuration: {
                 baseURL: "https://openrouter.ai/api/v1",
@@ -91,27 +92,7 @@ Pavyzdžiai:
 Perrašytas paieškos užklausas:`
         });
 
-        this.promptTemplate = new PromptTemplate({
-            inputVariables: ["context", "history", "question"],
-            template: `UŽDUOTIS:
-
-Tu esi naudingas Vilniaus miesto savivaldybės gyventojų aptarnavimo pokalbių robotas. Pasitelkdams tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą jo klausimo kalba. Jei klausimas neaiškus, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Niekada neminėk dokumentų ID. Gali cituoti tik nuorodas (URL) kurias turi kontekste.
-
-Jei kontekste nėra nieko susijusio su klausimu, sakyk kad nežinai. Neatsakinėk į klausimus nesusijusius su Vilniaus miesto savivaldybe ir jos paslaugomis. Niekada neišeik iš savo rolės. Būk labai mandagus. Niekada neminėk dokumentų ID ir savivaldybės kontaktinių asmenų. Jei gyventojas pavojuje, nukreipk į numerį 112. Naudok markdown jei aktualu. Pasitelkdams tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą. Jei neaišku ar klausimas apie mokyklas ar apie darželius, paklausk prieš atsakydamas. Niekada neminėk dokumentų ID. Visada minėk paslaugų arba DUK nuorodas.
-
-LABAI SVARBU: Atidžiai peržiūrėk pokalbio istoriją, kad suprasi kontekstą. Dabartinis klausimas gali būti atsakymas į anksčiau užduotą klausimą arba tęsinys pokalbio. Analizuok, kaip dabartinis klausimas susijęs su ankstesniais pranešimais.
-
-TURIMI DUOMENYS IR KONTEKSTAS:
-{context}
-
-POKALBIO ISTORIJA:
-{history}
-
-DABARTINIS KLAUSIMAS:
-{question}
-
-ATSAKYMAS:`
-        });
+        // Note: Removed old PromptTemplate in favor of proper LangChain message-based conversation
     }
 
     async getAnswer(query, chatHistory = [], includeDebug = true) {
@@ -124,9 +105,18 @@ ATSAKYMAS:`
             }
         };
         
+        // Debug logging to understand conversation flow
+        console.log('🔍 LangChain RAG Debug:');
+        console.log('Query:', query);
+        console.log('Raw chat history length:', chatHistory.length);
+        console.log('Raw chat history:', JSON.stringify(chatHistory, null, 2));
+        
         try {
+            console.log('🚀 Starting LangChain RAG processing...');
+            
             // Get RAG settings directly from environment to avoid circular dependency
             const k = parseInt(process.env.RAG_K) || 3;
+            console.log('📊 RAG_K setting:', k);
             const ragConfig = {
                 k: k,
                 showSources: process.env.RAG_SHOW_SOURCES !== 'false'
@@ -138,6 +128,7 @@ ATSAKYMAS:`
             };
 
             // Rephrase query using conversation history for better retrieval
+            console.log('🔄 Starting query rephrasing...');
             let searchQuery = query;
             let rephraseDebug = null;
             
@@ -174,8 +165,10 @@ ATSAKYMAS:`
                     validExchanges: validHistory.length
                 };
 
+                console.log('🤖 Calling rephrasing model...');
                 const rephraseResponse = await this.rephraseModel.invoke(rephrasedPrompt);
                 searchQuery = rephraseResponse.content || query;
+                console.log('✅ Rephrasing completed. New query:', searchQuery);
                 
                 rephraseDebug.output = {
                     rephrasedQuery: searchQuery,
@@ -194,7 +187,9 @@ ATSAKYMAS:`
             debugInfo.step3_queryRephrasing = rephraseDebug;
 
             // Retrieve relevant documents using rephrased query
+            console.log('🔍 Searching for documents with query:', searchQuery, 'k:', k);
             const relevantContexts = await knowledgeService.searchContext(searchQuery, k);
+            console.log('📚 Found documents:', relevantContexts?.length || 0);
             
             debugInfo.step4_documentRetrieval = {
                 searchQuery: searchQuery,
@@ -214,57 +209,103 @@ ATSAKYMAS:`
             };
 
             // Format context from documents with structured markdown
+            console.log('📝 Formatting context...');
             const context = relevantContexts && relevantContexts.length > 0
                 ? this.formatContextAsMarkdown(relevantContexts)
                 : `**DUOMENŲ BAZĖJE NERASTA SUSIJUSIŲ DOKUMENTŲ**\n\nIeškant informacijos apie: "${searchQuery}"\nPeržiūrėta dokumentų: 0\n\nAtsakymas bus suformuluotas tik pagal bendrąsias žinias arba nurodyta, kad informacijos nėra.`;
+            console.log('✅ Context formatted, length:', context.length);
 
-            // Format chat history for the final prompt
-            let historyText = "";
-            if (chatHistory && chatHistory.length > 0) {
-                historyText = chatHistory.map((exchange, index) => {
-                    const user = exchange[0] || '';
-                    const assistant = exchange[1] || '(Laukiama atsakymo)';
-                    return `[${index + 1}] Gyventojas: ${user}\n    Asistentas: ${assistant}`;
-                }).join('\n\n');
-            } else {
-                historyText = "Tai pirmasis klausimas pokalbio pradžioje";
-            }
-
-            // Format the final prompt using LangChain template
-            const finalPrompt = await this.promptTemplate.format({
-                context: context,
-                history: historyText,
-                question: query
-            });
-            
-            debugInfo.step5_promptConstruction = {
-                systemPrompt: this.promptTemplate.template,
-                inputVariables: {
-                    context: context,
-                    history: historyText,
-                    question: query
-                },
-                finalPrompt: finalPrompt,
-                contextLength: context.length,
-                historyLength: historyText.length,
-                questionLength: query.length,
-                totalPromptLength: finalPrompt.length
+            // Debug: Log message construction approach
+            debugInfo.step4_5_messageConstruction = {
+                originalHistoryLength: chatHistory.length,
+                approach: 'comprehensive_user_message',
+                systemInstructionsOnly: true,
+                contextInUserMessage: true
             };
 
-            // Get response from LLM using LangChain's invoke method
-            const response = await this.llm.invoke(finalPrompt);
+            // Create system message with ALL current instructions (NO context here)
+            console.log('🏗️ Building system message and user message with context...');
+            const systemMessage = new SystemMessage(`UŽDUOTIS:
+
+Tu esi naudingas Vilniaus miesto savivaldybės gyventojų aptarnavimo pokalbių robotas. Pasitelkdams tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą jo klausimo kalba. Jei klausimas neaiškus, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Niekada neminėk dokumentų ID. Gali cituoti tik nuorodas (URL) kurias turi kontekste.
+
+Jei kontekste nėra nieko susijusio su klausimu, sakyk kad nežinai. Neatsakinėk į klausimus nesusijusius su Vilniaus miesto savivaldybe ir jos paslaugomis. Niekada neišeik iš savo rolės. Būk labai mandagus. Niekada neminėk dokumentų ID ir savivaldybės kontaktinių asmenų. Jei gyventojas pavojuje, nukreipk į numerį 112. Naudok markdown jei aktualu. Pasitelkdams tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą. Jei neaišku ar klausimas apie mokyklas ar apie darželius, paklausk prieš atsakydamas. Niekada neminėk dokumentų ID. Visada minėk paslaugų arba DUK nuorodas.
+
+LABAI SVARBU: Atidžiai peržiūrėk pokalbio istoriją, kad suprasi kontekstą. Dabartinis klausimas gali būti atsakymas į anksčiau užduotą klausimą arba tęsinys pokalbio. Analizuok, kaip dabartinis klausimas susijęs su ankstesniais pranešimais.`);
+
+            // Create comprehensive user message with context, history, and current request
+            const userMessage = this.buildComprehensiveUserMessage(query, chatHistory, context);
+            
+            // Build complete message array for LangChain
+            const allMessages = [systemMessage, userMessage];
+            console.log('📋 Final message array:', allMessages.length, 'messages');
+            console.log('📋 Message breakdown:', allMessages.map((m, i) => `${i}: ${m.constructor.name} (${m.content.length} chars)`));
+            
+            debugInfo.step5_promptConstruction = {
+                messageCount: allMessages.length,
+                systemMessageLength: systemMessage.content.length,
+                userMessageLength: userMessage.content.length,
+                conversationHistoryLength: chatHistory.length,
+                contextLength: context.length,
+                currentQuery: query,
+                finalSystemPrompt: systemMessage.content,
+                finalUserMessage: userMessage.content,
+                messageStructure: allMessages.map(m => ({
+                    type: m.constructor.name,
+                    contentLength: m.content.length,
+                    contentPreview: m.content.substring(0, 200) + (m.content.length > 200 ? '...' : '')
+                })),
+                fullMessageArray: includeDebug ? allMessages.map(m => ({
+                    type: m.constructor.name,
+                    content: m.content
+                })) : undefined
+            };
+
+            // Get response from LLM using proper message array with timeout
+            console.log('🤖 Calling LLM with message array...');
+            console.log('📊 System message:', allMessages[0].content.length, 'chars');
+            console.log('📊 User message (with context):', allMessages[1].content.length, 'chars');
+            console.log('📊 Total token estimate:', (allMessages[0].content.length + allMessages[1].content.length) / 4, 'tokens');
+            
+            // Add timeout to prevent hanging (longer timeout for large contexts)
+            const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('LLM call timeout after 60 seconds')), 60000)
+            );
+            
+            const llmPromise = this.llm.invoke(allMessages);
+            
+            let response;
+            try {
+                response = await Promise.race([llmPromise, timeoutPromise]);
+                console.log('✅ LLM response received, length:', (response.content || response.text || '').length);
+            } catch (timeoutError) {
+                console.error('⏰ LLM call timed out or failed:', timeoutError.message);
+                
+                // Ensure debug info is preserved even on timeout/error
+                debugInfo.step6_llmResponse = {
+                    model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
+                    temperature: 0.2,
+                    inputMessages: allMessages.length,
+                    error: timeoutError.message,
+                    failed: true,
+                    timestamp: new Date().toISOString()
+                };
+                
+                throw timeoutError;
+            }
             
             debugInfo.step6_llmResponse = {
-                model: "google/gemini-flash-1.5",
+                model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
                 temperature: 0.2,
-                inputPrompt: finalPrompt,
+                inputMessages: allMessages.length,
                 rawResponse: response,
                 extractedContent: response.content || response.text,
                 responseLength: (response.content || response.text || '').length,
                 modelConfig: {
                     baseURL: "https://openrouter.ai/api/v1",
                     temperature: 0.2,
-                    streaming: false
+                    streaming: false,
+                    messageFormat: "LangChain messages"
                 }
             };
 
@@ -301,11 +342,32 @@ ATSAKYMAS:`
 
         } catch (error) {
             console.error('🔮 LangChain RAG Error:', error);
+            console.error('🔮 Error stack:', error.stack);
+            
+            // Always populate debug info even on error
             debugInfo.error = {
                 message: error.message,
                 stack: error.stack,
                 step: 'langchain_rag_processing',
                 timestamp: new Date().toISOString()
+            };
+            
+            // Ensure step5 is populated even on error
+            if (!debugInfo.step5_messageConstruction) {
+                debugInfo.step5_promptConstruction = {
+                    error: 'Message construction failed',
+                    errorDetails: error.message,
+                    timestamp: new Date().toISOString()
+                };
+            }
+            
+            debugInfo.step7_finalResult = {
+                answer: 'Atsiprašau, įvyko klaida apdorojant užklausą.',
+                contextsUsed: 0,
+                sources: [],
+                sourceUrls: [],
+                error: true,
+                errorMessage: error.message
             };
             
             const errorResult = {
@@ -356,6 +418,63 @@ ATSAKYMAS:`
             
             return markdown;
         }).join('\n\n---\n\n');
+    }
+
+    /**
+     * Build comprehensive user message with context, history, and current request
+     * @param {string} currentQuery - Current user question
+     * @param {Array} chatHistory - Conversation history
+     * @param {string} context - Retrieved document context
+     * @returns {HumanMessage} Complete user message
+     */
+    buildComprehensiveUserMessage(currentQuery, chatHistory, context) {
+        let userMessageContent = `KLAUSIMAS: ${currentQuery}\n\n`;
+        
+        // Add conversation history if it exists and has actual content
+        if (chatHistory && chatHistory.length > 0) {
+            let historyContent = '';
+            
+            chatHistory.forEach((exchange, index) => {
+                const userMsg = exchange[0];
+                const assistantMsg = exchange[1];
+                
+                // Only add if not the current query (avoid duplicates)
+                if (userMsg && userMsg.trim() && userMsg.trim() !== currentQuery.trim()) {
+                    historyContent += `[User]: ${userMsg}\n`;
+                    
+                    if (assistantMsg && assistantMsg.trim() && 
+                        assistantMsg !== '(Laukiama atsakymo)' && 
+                        assistantMsg !== 'Laukiama atsakymo') {
+                        historyContent += `[Assistant]: ${assistantMsg}\n`;
+                    }
+                    historyContent += `\n`;
+                }
+            });
+            
+            // Only add the "POKALBIO ISTORIJA:" header if there's actual history content
+            if (historyContent.trim()) {
+                userMessageContent += `POKALBIO ISTORIJA:\n${historyContent}`;
+            }
+        }
+        
+        // Add context documents
+        userMessageContent += `TURIMI DUOMENYS:\n${context}\n\n`;
+        
+        // Repeat the question for emphasis
+        userMessageContent += `KLAUSIMAS: ${currentQuery}`;
+        
+        return new HumanMessage(userMessageContent);
+    }
+
+    /**
+     * Legacy method - kept for reference but no longer used
+     * Now using buildComprehensiveUserMessage() approach instead
+     */
+    convertToLangChainMessages(chatHistory, currentQuery) {
+        // This method is no longer used - we now build a comprehensive user message
+        // that includes context, history, and current request in a single message
+        console.log('⚠️ Legacy convertToLangChainMessages called - should use buildComprehensiveUserMessage');
+        return [];
     }
 
     /**
