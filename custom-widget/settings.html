@@ -3,21 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vilnius Assistant - Settings</title>
+    <title>System Settings - Vilnius Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        .system-hitl { background-color: #10b981; }
+        .system-autopilot { background-color: #3b82f6; }
+        .system-off { background-color: #ef4444; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">System Settings</h1>
+                    <p class="text-gray-600">Configure global system behavior for all agents</p>
+                </div>
+                <a href="/agent-login.html" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                    ← Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <!-- System Mode Settings -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <i class="fas fa-cogs text-indigo-600"></i>
+                Global System Mode
+            </h2>
+            
+            <div class="mb-4">
+                <p class="text-gray-600 mb-4">This setting affects how the system responds to all customer messages across all agents.</p>
+                
+                <div class="space-y-4">
+                    <div class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <input type="radio" id="mode-hitl" name="systemMode" value="hitl" class="mr-3">
+                        <div class="flex-1">
+                            <label for="mode-hitl" class="font-medium text-gray-900 cursor-pointer">
+                                HITL (Human in the Loop)
+                            </label>
+                            <p class="text-sm text-gray-600">AI generates suggestions that agents must review and approve before sending</p>
+                        </div>
+                        <div class="w-3 h-3 rounded-full system-hitl" title="HITL Mode"></div>
+                    </div>
+                    
+                    <div class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <input type="radio" id="mode-autopilot" name="systemMode" value="autopilot" class="mr-3">
+                        <div class="flex-1">
+                            <label for="mode-autopilot" class="font-medium text-gray-900 cursor-pointer">
+                                Autopilot Mode
+                            </label>
+                            <p class="text-sm text-gray-600">AI automatically responds to customers with disclaimer messages</p>
+                        </div>
+                        <div class="w-3 h-3 rounded-full system-autopilot" title="Autopilot Mode"></div>
+                    </div>
+                    
+                    <div class="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                        <input type="radio" id="mode-off" name="systemMode" value="off" class="mr-3">
+                        <div class="flex-1">
+                            <label for="mode-off" class="font-medium text-gray-900 cursor-pointer">
+                                OFF Mode
+                            </label>
+                            <p class="text-sm text-gray-600">System sends offline messages to customers when they write</p>
+                        </div>
+                        <div class="w-3 h-3 rounded-full system-off" title="OFF Mode"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-500">
+                    Current Mode: <span id="current-mode" class="font-medium">Loading...</span>
+                </div>
+                <button id="save-mode" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg disabled:opacity-50">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+
+        <!-- Connected Agents Status -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <i class="fas fa-users text-indigo-600"></i>
+                Connected Agents
+            </h2>
+            
+            <div id="agents-list" class="space-y-3">
+                <!-- Agents will be loaded here -->
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-gray-200">
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>Total Connected: <span id="total-connected">0</span></span>
+                    <span>Available: <span id="total-available">0</span></span>
+                    <span>AFK: <span id="total-afk">0</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="message" class="hidden fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50">
+        <div class="flex items-center gap-2">
+            <i id="message-icon" class="fas"></i>
+            <span id="message-text"></span>
+        </div>
+    </div>
+
+    <script>
+        const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+        let currentMode = null;
+
+        // Load current settings on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadSystemMode();
+            await loadConnectedAgents();
+            
+            // Refresh agents every 5 seconds
+            setInterval(loadConnectedAgents, 5000);
+        });
+
+        // Load current system mode
+        async function loadSystemMode() {
+            try {
+                const response = await fetch(`${apiUrl}/api/system/mode`);
+                const data = await response.json();
+                
+                currentMode = data.mode;
+                document.getElementById('current-mode').textContent = data.mode.toUpperCase();
+                document.querySelector(`input[value="${data.mode}"]`).checked = true;
+            } catch (error) {
+                console.error('Error loading system mode:', error);
+                showMessage('Failed to load system mode', 'error');
+            }
         }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
+        // Load connected agents
+        async function loadConnectedAgents() {
+            try {
+                const response = await fetch(`${apiUrl}/api/agents/connected`);
+                const data = await response.json();
+                
+                displayAgents(data.agents);
+                updateAgentStats(data.agents);
+            } catch (error) {
+                console.error('Error loading connected agents:', error);
+            }
         }
 
-        .header {
+        // Display agents list
+        function displayAgents(agents) {
+            const container = document.getElementById('agents-list');
+            
+            if (agents.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">No agents currently connected</p>';
+                return;
+            }
+            
+            container.innerHTML = agents.map(agent => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 h-3 rounded-full ${agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400'}"></div>
+                        <div>
+                            <div class="font-medium text-gray-900">${agent.id.substring(0, 12)}...</div>
+                            <div class="text-sm text-gray-500">
+                                ${agent.activeChats || 0} active chat${(agent.activeChats || 0) !== 1 ? 's' : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm font-medium text-gray-900 capitalize">
+                            ${agent.personalStatus || 'online'}
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            Last seen: ${formatTime(agent.lastSeen)}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update agent statistics
+        function updateAgentStats(agents) {
+            const total = agents.length;
+            const available = agents.filter(a => a.personalStatus !== 'afk').length;
+            const afk = agents.filter(a => a.personalStatus === 'afk').length;
+            
+            document.getElementById('total-connected').textContent = total;
+            document.getElementById('total-available').textContent = available;
+            document.getElementById('total-afk').textContent = afk;
+        }
+
+        // Save system mode
+        document.getElementById('save-mode').addEventListener('click', async () => {
+            const selectedMode = document.querySelector('input[name="systemMode"]:checked')?.value;
+            
+            if (!selectedMode) {
+                showMessage('Please select a system mode', 'error');
+                return;
+            }
+            
+            if (selectedMode === currentMode) {
+                showMessage('No changes to save', 'info');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${apiUrl}/api/system/mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: selectedMode })
+                });
+                
+                if (response.ok) {
+                    currentMode = selectedMode;
+                    document.getElementById('current-mode').textContent = selectedMode.toUpperCase();
+                    showMessage(`System mode changed to ${selectedMode.toUpperCase()}`, 'success');
+                } else {
+                    const error = await response.json();
+                    showMessage(error.error || 'Failed to update system mode', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating system mode:', error);
+                showMessage('Failed to update system mode', 'error');
+            }
+        });
+
+        // Utility functions
+        function formatTime(timestamp) {
+            return new Date(timestamp).toLocaleTimeString();
+        }
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            const messageIcon = document.getElementById('message-icon');
+            const messageText = document.getElementById('message-text');
+            
+            messageText.textContent = text;
+            
+            // Reset classes
+            messageDiv.className = 'fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50';
+            messageIcon.className = 'fas';
+            
+            // Set type-specific styles
+            if (type === 'success') {
+                messageDiv.className += ' bg-green-500 text-white';
+                messageIcon.className += ' fa-check-circle';
+            } else if (type === 'error') {
+                messageDiv.className += ' bg-red-500 text-white';
+                messageIcon.className += ' fa-exclamation-circle';
+            } else {
+                messageDiv.className += ' bg-blue-500 text-white';
+                messageIcon.className += ' fa-info-circle';
+            }
+            
+            messageDiv.classList.remove('hidden');
+            
+            // Auto hide after 3 seconds
+            setTimeout(() => {
+                messageDiv.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
             background: linear-gradient(135deg, #2c5530 0%, #1a3d1f 100%);
             color: white;
             padding: 20px;

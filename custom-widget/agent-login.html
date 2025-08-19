@@ -403,6 +403,13 @@
             document.getElementById('adminBar').classList.add('hidden');
             document.getElementById('agentFrame').src = '';
         };
+        
+        // Listen for logout messages from iframe
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.action === 'logout') {
+                window.logout();
+            }
+        });
     </script>
 </body>
 </html>

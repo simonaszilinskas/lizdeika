@@ -290,7 +290,12 @@
             // Listen for agent messages
             this.socket.on('agent-message', (data) => {
                 console.log('Received agent message:', data);
-                this.addMessage(data.message.content, 'agent', data.message.id);
+                // Check for autopilot disclaimer
+                let content = data.message.content;
+                if (data.message.metadata && data.message.metadata.displayDisclaimer) {
+                    content = `🤖 *Atsako robotas - galimos klaidos*\n\n${content}`;
+                }
+                this.addMessage(content, 'agent', data.message.id);
             });
             
             // Listen for agent typing status
@@ -540,7 +545,7 @@
                 if (data.aiMessage) {
                     // Only show non-system messages to customer
                     if (data.aiMessage.sender !== 'system') {
-                        this.addMessage(data.aiMessage.content, 'ai', data.aiMessage.id);
+                        this.addMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.id, data.aiMessage.metadata);
                     } else {
                         // For system messages, show a friendly waiting message
                         this.addMessage('Jūsų pranešimas gautas. Agentas netrukus atsakys.', 'system', 'system-' + Date.now());
@@ -581,7 +586,7 @@
             return visitorId;
         },
 
-        addMessage(text, sender, messageId = null) {
+        addMessage(text, sender, messageId = null, messageMetadata = null) {
             const messagesContainer = document.getElementById('vilnius-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `vilnius-message vilnius-${sender}`;
@@ -607,6 +612,9 @@
             // Handle system messages specially
             if (sender === 'system' && text.includes('[Message pending agent response')) {
                 text = 'Jūsų pranešimas gautas. Agentas netrukus atsakys.';
+            } else if (sender === 'agent' && messageMetadata && messageMetadata.displayDisclaimer) {
+                // Add robot disclaimer for autopilot responses
+                text = `🤖 *Atsako robotas - galimos klaidos*\n\n${text}`;
             }
 
             // Convert markdown to HTML for AI/agent messages

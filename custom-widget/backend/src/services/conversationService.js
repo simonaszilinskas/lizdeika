@@ -177,20 +177,18 @@ class ConversationService {
     getAvailableAgent(agentService) {
         if (!agentService) return null;
         
-        const activeAgents = agentService.getActiveAgents();
+        // Use the new load-balanced assignment from agent service
+        const bestAgent = agentService.getBestAvailableAgent();
         
-        if (activeAgents.length === 0) return null;
+        if (!bestAgent) return null;
         
-        // Find agent with least active chats
-        const agentLoads = activeAgents.map(agent => ({
-            ...agent,
-            activeChats: Array.from(conversations.values()).filter(c => c.assignedAgent === agent.id).length
-        }));
+        // Update the agent's active chat count for consistency
+        const currentActiveChats = Array.from(conversations.values())
+            .filter(c => c.assignedAgent === bestAgent.id).length;
         
-        // Sort by least busy agent
-        agentLoads.sort((a, b) => a.activeChats - b.activeChats);
+        bestAgent.activeChats = currentActiveChats;
         
-        return agentLoads[0];
+        return bestAgent;
     }
 
     /**
@@ -260,6 +258,123 @@ class ConversationService {
         };
         
         return stats;
+    }
+
+    /**
+     * Assign conversation to specific agent
+     */
+    assignConversation(conversationId, agentId) {
+        const conversation = conversations.get(conversationId);
+        if (!conversation) return null;
+        
+        // Track original agent for reclaim logic
+        if (!conversation.originalAgent) {
+            conversation.originalAgent = agentId;
+        }
+        
+        conversation.assignedAgent = agentId;
+        conversation.lastActivity = new Date();
+        conversations.set(conversationId, conversation);
+        
+        return conversation;
+    }
+
+    /**
+     * Close conversation (set status to resolved)
+     */
+    closeConversation(conversationId, agentId = null) {
+        const conversation = conversations.get(conversationId);
+        if (!conversation) return null;
+        
+        // Only allow closing if agent is assigned to this conversation or no agent specified
+        if (agentId && conversation.assignedAgent !== agentId) {
+            throw new Error('Agent not authorized to close this conversation');
+        }
+        
+        conversation.status = 'resolved';
+        conversation.resolvedAt = new Date();
+        conversation.resolvedBy = agentId;
+        conversation.lastActivity = new Date();
+        conversations.set(conversationId, conversation);
+        
+        return conversation;
+    }
+
+    /**
+     * Reopen conversation (set status back to active)
+     */
+    reopenConversation(conversationId, agentId = null) {
+        const conversation = conversations.get(conversationId);
+        if (!conversation) return null;
+        
+        conversation.status = 'active';
+        conversation.reopenedAt = new Date();
+        conversation.reopenedBy = agentId;
+        conversation.lastActivity = new Date();
+        
+        // Remove resolved metadata
+        delete conversation.resolvedAt;
+        delete conversation.resolvedBy;
+        
+        conversations.set(conversationId, conversation);
+        
+        return conversation;
+    }
+
+    /**
+     * Auto-close conversations that have been inactive for too long
+     */
+    autoCloseInactiveConversations() {
+        const inactivityHours = parseInt(process.env.AUTO_CLOSE_HOURS) || 24; // Default 24 hours
+        const cutoffTime = new Date(Date.now() - inactivityHours * 60 * 60 * 1000);
+        
+        let closedCount = 0;
+        
+        for (const [conversationId, conversation] of conversations) {
+            if (conversation.status === 'active' && 
+                conversation.lastActivity && 
+                new Date(conversation.lastActivity) < cutoffTime) {
+                
+                // Close the conversation
+                conversation.status = 'resolved';
+                conversation.resolvedAt = new Date();
+                conversation.resolvedBy = 'system';
+                conversation.lastActivity = new Date();
+                
+                // Add system message
+                this.addMessage(conversationId, {
+                    id: require('uuid').v4(),
+                    conversationId,
+                    content: `Conversation automatically closed due to inactivity (${inactivityHours} hours)`,
+                    sender: 'system',
+                    timestamp: new Date(),
+                    metadata: { systemMessage: true, autoClose: true, inactivityHours }
+                });
+                
+                conversations.set(conversationId, conversation);
+                closedCount++;
+                
+                console.log(`Auto-closed conversation ${conversationId} due to ${inactivityHours}h inactivity`);
+            }
+        }
+        
+        return closedCount;
+    }
+
+    /**
+     * Get orphaned conversations (unassigned or assigned to offline agents)
+     */
+    getOrphanedConversations() {
+        return Array.from(conversations.values()).filter(conv => 
+            conv.status === 'active' && !conv.assignedAgent
+        );
+    }
+
+    /**
+     * Get all conversations
+     */
+    getAllConversations() {
+        return Array.from(conversations.values());
     }
 }
 

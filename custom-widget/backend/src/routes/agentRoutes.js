@@ -51,6 +51,25 @@ function createAgentRoutes(io) {
         agentController.getActiveAgents(req, res);
     });
 
+    // NEW: Update personal agent status (online/afk)
+    router.post('/agent/personal-status', (req, res) => {
+        agentController.updatePersonalStatus(req, res);
+    });
+
+    // NEW: Get/Set global system mode
+    router.get('/system/mode', (req, res) => {
+        agentController.getSystemMode(req, res);
+    });
+
+    router.post('/system/mode', (req, res) => {
+        agentController.setSystemMode(req, res);
+    });
+
+    // NEW: Get connected agents
+    router.get('/agents/connected', (req, res) => {
+        agentController.getConnectedAgents(req, res);
+    });
+
     return router;
 }
 

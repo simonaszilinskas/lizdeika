@@ -190,6 +190,116 @@ class AgentController {
             res.status(500).json({ error: 'Failed to get active agents' });
         }
     }
+
+    /**
+     * Update personal agent status (online/afk) with ticket reassignment
+     */
+    async updatePersonalStatus(req, res) {
+        try {
+            const { agentId, personalStatus } = req.body;
+            
+            if (!agentId || !personalStatus) {
+                return res.status(400).json({ error: 'Agent ID and personal status are required' });
+            }
+
+            if (!['online', 'afk'].includes(personalStatus)) {
+                return res.status(400).json({ error: 'Personal status must be online or afk' });
+            }
+
+            const previousStatus = agentService.getAgent(agentId)?.personalStatus;
+            const updatedAgent = agentService.updateAgentPersonalStatus(agentId, personalStatus, conversationService);
+            
+            let reassignments = [];
+            
+            // Handle status changes with ticket management
+            if (personalStatus === 'afk' && previousStatus !== 'afk') {
+                // Agent going AFK - reassign their tickets
+                reassignments = agentService.handleAgentAFK(agentId, conversationService);
+                console.log(`Agent ${agentId} went AFK, reassigned ${reassignments.length} tickets`);
+                
+            } else if (personalStatus === 'online' && previousStatus === 'afk') {
+                // Agent coming back online - reclaim appropriate tickets
+                const reclaims = agentService.handleAgentBackOnline(agentId, conversationService);
+                const redistributions = agentService.redistributeOrphanedTickets(conversationService, 2);
+                reassignments = [...reclaims, ...redistributions];
+                console.log(`Agent ${agentId} back online, reclaimed/redistributed ${reassignments.length} tickets`);
+            }
+            
+            // Broadcast updates
+            const connectedAgents = agentService.getConnectedAgents();
+            this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
+            
+            // Notify all agents about ticket reassignments
+            if (reassignments.length > 0) {
+                this.io.to('agents').emit('tickets-reassigned', { 
+                    reassignments,
+                    reason: personalStatus === 'afk' ? 'agent_afk' : 'agent_online'
+                });
+            }
+            
+            res.json({ 
+                success: true, 
+                agent: updatedAgent,
+                reassignments: reassignments.length
+            });
+        } catch (error) {
+            console.error('Error updating personal status:', error);
+            res.status(500).json({ error: 'Failed to update personal status' });
+        }
+    }
+
+    /**
+     * Get global system mode
+     */
+    async getSystemMode(req, res) {
+        try {
+            const mode = agentService.getSystemMode();
+            res.json({ mode });
+        } catch (error) {
+            console.error('Error getting system mode:', error);
+            res.status(500).json({ error: 'Failed to get system mode' });
+        }
+    }
+
+    /**
+     * Set global system mode
+     */
+    async setSystemMode(req, res) {
+        try {
+            const { mode } = req.body;
+            
+            if (!mode) {
+                return res.status(400).json({ error: 'Mode is required' });
+            }
+
+            const success = agentService.setSystemMode(mode);
+            
+            if (!success) {
+                return res.status(400).json({ error: 'Invalid mode. Must be hitl, autopilot, or off' });
+            }
+            
+            // Broadcast system mode update to all agents
+            this.io.to('agents').emit('system-mode-update', { mode });
+            
+            res.json({ success: true, mode });
+        } catch (error) {
+            console.error('Error setting system mode:', error);
+            res.status(500).json({ error: 'Failed to set system mode' });
+        }
+    }
+
+    /**
+     * Get connected agents
+     */
+    async getConnectedAgents(req, res) {
+        try {
+            const connectedAgents = agentService.getConnectedAgents();
+            res.json({ agents: connectedAgents, systemMode: agentService.getSystemMode() });
+        } catch (error) {
+            console.error('Error getting connected agents:', error);
+            res.status(500).json({ error: 'Failed to get connected agents' });
+        }
+    }
 }
 
 module.exports = AgentController;

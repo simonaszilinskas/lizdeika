@@ -31,12 +31,22 @@ class WebSocketService {
                 
                 console.log(`Agent ${agentId} connected with socket ${socket.id}`);
                 
-                // Broadcast agent status to all agents
-                this.io.to('agents').emit('agent-status-update', {
-                    agentId,
-                    status: 'online',
-                    timestamp: new Date()
-                });
+                // Send current system mode and connected agents to the joining agent
+                socket.emit('system-mode-update', { mode: agentService.getSystemMode() });
+                
+                // Handle gradual ticket redistribution when agents join
+                const redistributions = agentService.redistributeOrphanedTickets(conversationService, 2);
+                if (redistributions.length > 0) {
+                    console.log(`Redistributed ${redistributions.length} tickets to new agent ${agentId}`);
+                    this.io.to('agents').emit('tickets-reassigned', { 
+                        reassignments: redistributions,
+                        reason: 'agent_joined'
+                    });
+                }
+                
+                // Broadcast connected agents update to all agents
+                const connectedAgents = agentService.getConnectedAgents();
+                this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
             });
             
             // Handle agent typing
@@ -65,12 +75,9 @@ class WebSocketService {
                 if (socket.agentId) {
                     agentService.setAgentOffline(socket.agentId);
                     
-                    // Broadcast agent status to all agents
-                    this.io.to('agents').emit('agent-status-update', {
-                        agentId: socket.agentId,
-                        status: 'offline',
-                        timestamp: new Date()
-                    });
+                    // Broadcast updated connected agents list
+                    const connectedAgents = agentService.getConnectedAgents();
+                    this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
                 }
             });
         });

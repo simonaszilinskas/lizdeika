@@ -6,23 +6,37 @@
 // In-memory storage (use PostgreSQL/Redis in production)
 const agents = new Map();
 
+// Global system state
+let systemMode = 'hitl'; // hitl, autopilot, off
+
 class AgentService {
     /**
-     * Update agent status
+     * Update agent personal status (online/afk)
      */
-    updateAgentStatus(agentId, status, conversationService = null) {
+    updateAgentPersonalStatus(agentId, personalStatus, conversationService = null) {
         const activeChats = conversationService 
             ? conversationService.getAgentConversations(agentId).length 
             : 0;
         
+        const existingAgent = agents.get(agentId) || {};
+        
         agents.set(agentId, {
+            ...existingAgent,
             id: agentId,
-            status: status, // online, busy, offline
+            personalStatus: personalStatus, // online, afk
             lastSeen: new Date(),
-            activeChats: activeChats
+            activeChats: activeChats,
+            connected: true
         });
         
         return agents.get(agentId);
+    }
+
+    /**
+     * Legacy method for backward compatibility
+     */
+    updateAgentStatus(agentId, status, conversationService = null) {
+        return this.updateAgentPersonalStatus(agentId, status, conversationService);
     }
 
     /**
@@ -40,13 +54,22 @@ class AgentService {
     }
 
     /**
-     * Get active agents (HITL and Autopilot modes only, not OFF)
+     * Get available agents (connected and not AFK)
+     */
+    getAvailableAgents() {
+        const now = new Date();
+        return Array.from(agents.values()).filter(agent => 
+            agent.connected &&
+            agent.personalStatus !== 'afk' && 
+            (now - agent.lastSeen) < 60000 // Active in last minute
+        );
+    }
+
+    /**
+     * Get active agents (legacy - for backward compatibility)
      */
     getActiveAgents() {
-        return Array.from(agents.values()).filter(agent => 
-            agent.status !== 'offline' && agent.status !== 'off' && 
-            (new Date() - agent.lastSeen) < 60000 // Active in last minute
-        );
+        return this.getAvailableAgents();
     }
 
     /**
@@ -80,16 +103,173 @@ class AgentService {
     }
 
     /**
-     * Set agent as offline
+     * Set agent as offline (cleanup)
      */
     setAgentOffline(agentId) {
         const agent = agents.get(agentId);
         if (agent) {
-            agent.status = 'offline';
+            agent.connected = false;
+            agent.personalStatus = 'offline';
             agent.lastSeen = new Date();
             agents.set(agentId, agent);
         }
         return agent;
+    }
+
+    /**
+     * Get best available agent for new conversation (load balancing)
+     * Returns agent with least active conversations
+     */
+    getBestAvailableAgent() {
+        const availableAgents = this.getAvailableAgents();
+        
+        if (availableAgents.length === 0) {
+            return null;
+        }
+        
+        // Sort by least active chats, then by last seen (oldest first for fairness)
+        return availableAgents.sort((a, b) => {
+            if (a.activeChats !== b.activeChats) {
+                return a.activeChats - b.activeChats; // Least active chats first
+            }
+            return new Date(a.lastSeen) - new Date(b.lastSeen); // Oldest first
+        })[0];
+    }
+
+    /**
+     * Get/Set global system mode
+     */
+    getSystemMode() {
+        return systemMode;
+    }
+
+    setSystemMode(mode) {
+        if (['hitl', 'autopilot', 'off'].includes(mode)) {
+            systemMode = mode;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get connected agents (for display)
+     */
+    getConnectedAgents() {
+        const now = new Date();
+        return Array.from(agents.values()).filter(agent => 
+            agent.connected && (now - agent.lastSeen) < 60000
+        );
+    }
+
+    /**
+     * Handle agent going AFK - reassign their tickets
+     */
+    handleAgentAFK(agentId, conversationService) {
+        if (!conversationService) return [];
+        
+        const agentConversations = conversationService.getAgentConversations(agentId);
+        const availableAgents = this.getAvailableAgents().filter(a => a.id !== agentId);
+        
+        if (availableAgents.length === 0) {
+            // No one available, keep tickets assigned but mark as orphaned
+            return agentConversations.map(conv => ({
+                conversationId: conv.id,
+                action: 'orphaned',
+                reason: 'No available agents'
+            }));
+        }
+
+        const reassignments = [];
+        
+        agentConversations.forEach(conv => {
+            // Use load balancing to find best agent
+            const bestAgent = this.getBestAvailableAgent();
+            if (bestAgent) {
+                conversationService.assignConversation(conv.id, bestAgent.id);
+                reassignments.push({
+                    conversationId: conv.id,
+                    fromAgent: agentId,
+                    toAgent: bestAgent.id,
+                    action: 'reassigned'
+                });
+            }
+        });
+
+        return reassignments;
+    }
+
+    /**
+     * Handle agent coming back online - reclaim their tickets if appropriate
+     */
+    handleAgentBackOnline(agentId, conversationService) {
+        if (!conversationService) return [];
+        
+        // Find conversations that were originally this agent's
+        const allConversations = conversationService.getAllConversations();
+        const reclaimable = allConversations.filter(conv => 
+            conv.originalAgent === agentId && 
+            conv.assignedAgent !== agentId &&
+            !this.conversationHasRecentActivity(conv, 300000) // No activity in last 5 minutes
+        );
+
+        const reclaims = [];
+        
+        reclaimable.forEach(conv => {
+            conversationService.assignConversation(conv.id, agentId);
+            reclaims.push({
+                conversationId: conv.id,
+                fromAgent: conv.assignedAgent,
+                toAgent: agentId,
+                action: 'reclaimed'
+            });
+        });
+
+        return reclaims;
+    }
+
+    /**
+     * Distribute orphaned tickets gradually when agents come online
+     */
+    redistributeOrphanedTickets(conversationService, maxTicketsPerAgent = 3) {
+        if (!conversationService) return [];
+        
+        const availableAgents = this.getAvailableAgents();
+        const orphanedConversations = conversationService.getOrphanedConversations();
+        
+        if (availableAgents.length === 0 || orphanedConversations.length === 0) return [];
+
+        const redistributions = [];
+        let ticketIndex = 0;
+
+        // Distribute tickets gradually - max N tickets per agent at a time
+        availableAgents.forEach(agent => {
+            const currentLoad = agent.activeChats || 0;
+            const canTake = Math.min(maxTicketsPerAgent, orphanedConversations.length - ticketIndex);
+            
+            for (let i = 0; i < canTake && ticketIndex < orphanedConversations.length; i++) {
+                const conv = orphanedConversations[ticketIndex];
+                conversationService.assignConversation(conv.id, agent.id);
+                
+                redistributions.push({
+                    conversationId: conv.id,
+                    toAgent: agent.id,
+                    action: 'redistributed',
+                    previousLoad: currentLoad
+                });
+                
+                ticketIndex++;
+            }
+        });
+
+        return redistributions;
+    }
+
+    /**
+     * Check if conversation has recent activity
+     */
+    conversationHasRecentActivity(conversation, thresholdMs) {
+        if (!conversation.lastActivity) return false;
+        return (new Date() - new Date(conversation.lastActivity)) < thresholdMs;
     }
 
     /**

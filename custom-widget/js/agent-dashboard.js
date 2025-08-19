@@ -16,7 +16,9 @@ class AgentDashboard {
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || 3000;
         this.socket = null;
-        this.currentStatus = 'hitl'; // Default to HITL mode
+        this.personalStatus = 'online'; // Personal agent status (online/afk)
+        this.systemMode = 'hitl'; // Global system mode (hitl/autopilot/off)
+        this.connectedAgents = new Map(); // Track other connected agents
         
         console.log(`Agent Dashboard initialized with API URL: ${this.apiUrl}`);
         this.init();
@@ -33,11 +35,11 @@ class AgentDashboard {
      * Setup all event listeners
      */
     initializeEventListeners() {
-        // Agent status change
-        const statusSelect = document.getElementById('agent-status');
-        if (statusSelect) {
-            statusSelect.addEventListener('change', (e) => {
-                this.updateAgentStatus(e.target.value);
+        // Personal status change
+        const personalStatusSelect = document.getElementById('personal-status');
+        if (personalStatusSelect) {
+            personalStatusSelect.addEventListener('change', (e) => {
+                this.updatePersonalStatus(e.target.value);
             });
         }
 
@@ -171,53 +173,217 @@ class AgentDashboard {
 
 
     /**
-     * Update agent status and notify backend
-     * @param {string} status - Agent status (hitl, autopilot, off)
+     * Update personal agent status (online/afk)
+     * @param {string} status - Personal status (online, afk)
      */
-    async updateAgentStatus(status) {
+    async updatePersonalStatus(status) {
         const dot = document.getElementById('agent-status-dot');
         if (dot) {
             dot.className = `w-3 h-3 rounded-full agent-${status}`;
         }
         
-        // Store current status for behavioral changes
-        this.currentStatus = status;
+        // Store personal status
+        this.personalStatus = status;
         
         try {
-            await fetch(`${this.apiUrl}/api/agent/status`, {
+            await fetch(`${this.apiUrl}/api/agent/personal-status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId, status })
+                body: JSON.stringify({ agentId: this.agentId, personalStatus: status })
             });
-            
-            // Handle status-specific behaviors
-            this.handleStatusBehavior(status);
         } catch (error) {
-            console.error('Error updating agent status:', error);
+            console.error('Error updating personal status:', error);
         }
     }
 
     /**
-     * Handle different behaviors based on agent status
-     * @param {string} status - Agent status (hitl, autopilot, off)
+     * Register initial agent status on page load/connection
      */
-    handleStatusBehavior(status) {
-        switch(status) {
+    async registerInitialStatus() {
+        // Get current status from dropdown or default to 'online'
+        const statusSelect = document.getElementById('personal-status');
+        const currentStatus = statusSelect ? statusSelect.value : 'online';
+        
+        // Update the personal status to register the agent
+        await this.updatePersonalStatus(currentStatus);
+        
+        console.log(`Agent ${this.agentId} registered with initial status: ${currentStatus}`);
+    }
+
+    /**
+     * Handle different behaviors based on system mode
+     * @param {string} mode - System mode (hitl, autopilot, off)
+     */
+    handleSystemMode(mode) {
+        switch(mode) {
             case 'hitl':
                 // HITL: Human in the Loop - show AI suggestions for validation
-                console.log('Agent status: HITL - Human in the Loop mode activated');
+                console.log('System Mode: HITL - Human in the Loop mode activated');
                 break;
             case 'autopilot':
                 // Autopilot: Backend automatically sends AI responses with disclaimer
-                console.log('Agent status: Autopilot - Automatic AI responses activated');
+                console.log('System Mode: Autopilot - Automatic AI responses activated');
                 this.hideAISuggestion(); // Hide any pending suggestions since backend handles responses
                 break;
             case 'off':
                 // OFF: Backend sends offline messages for new messages
-                console.log('Agent status: OFF - Customer support offline mode activated');
+                console.log('System Mode: OFF - Customer support offline mode activated');
                 this.hideAISuggestion(); // Hide any pending suggestions
                 break;
         }
+    }
+
+    /**
+     * Update connected agents display
+     * @param {Array} agents - Array of connected agents
+     */
+    updateConnectedAgents(agents) {
+        this.connectedAgents.clear();
+        agents.forEach(agent => this.connectedAgents.set(agent.id, agent));
+        
+        const container = document.getElementById('connected-agents');
+        const totalAgents = document.getElementById('total-agents');
+        
+        if (container && totalAgents) {
+            totalAgents.textContent = agents.length;
+            
+            container.innerHTML = agents.map(agent => `
+                <div class="flex items-center justify-between py-1 px-2 bg-white rounded text-xs">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full ${agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400'}"></div>
+                        <span class="text-gray-700">${this.getAgentDisplayName(agent)}</span>
+                    </div>
+                    <span class="text-gray-500 capitalize">${agent.personalStatus || 'online'}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    /**
+     * Get agent display name
+     * @param {Object} agent - Agent object
+     * @returns {string} Display name
+     */
+    getAgentDisplayName(agent) {
+        // If agent has a name property, use it
+        if (agent.name) {
+            return agent.name;
+        }
+        
+        // Extract a readable part from agent ID
+        const idParts = agent.id.split('-');
+        if (idParts.length > 1) {
+            const suffix = idParts[1];
+            // Create a more readable name from the suffix
+            return `Agent ${suffix.substring(0, 4).toUpperCase()}`;
+        }
+        
+        // Fallback to truncated ID
+        return `Agent ${agent.id.substring(6, 12)}`;
+    }
+
+    /**
+     * Update system mode display
+     * @param {string} mode - System mode (hitl, autopilot, off)
+     */
+    updateSystemMode(mode) {
+        this.systemMode = mode;
+        
+        const systemModeElement = document.getElementById('system-mode');
+        const systemStatusDot = document.getElementById('system-status-dot');
+        
+        if (systemModeElement) {
+            systemModeElement.textContent = mode.toUpperCase();
+        }
+        
+        if (systemStatusDot) {
+            systemStatusDot.className = `w-2 h-2 rounded-full system-${mode}`;
+        }
+        
+        this.handleSystemMode(mode);
+    }
+
+    /**
+     * Handle ticket reassignments notification
+     * @param {Object} data - Reassignment data
+     */
+    handleTicketReassignments(data) {
+        const { reassignments, reason } = data;
+        
+        let message = '';
+        const myReassignments = reassignments.filter(r => r.toAgent === this.agentId);
+        const myLosses = reassignments.filter(r => r.fromAgent === this.agentId);
+        
+        if (reason === 'agent_afk') {
+            if (myLosses.length > 0) {
+                message = `${myLosses.length} of your tickets were reassigned while you're AFK`;
+            } else if (myReassignments.length > 0) {
+                message = `You received ${myReassignments.length} tickets from an AFK agent`;
+            }
+        } else if (reason === 'agent_online') {
+            if (myReassignments.length > 0) {
+                message = `You received ${myReassignments.length} tickets (agent back online + redistribution)`;
+            }
+        } else if (reason === 'agent_joined') {
+            if (myReassignments.length > 0) {
+                message = `You received ${myReassignments.length} tickets from the queue`;
+            }
+        }
+        
+        if (message) {
+            this.showNotification(message, 'info');
+        }
+    }
+
+    /**
+     * Show notification to user
+     * @param {string} message - Notification message
+     * @param {string} type - Notification type (info, warning, success, error)
+     */
+    showNotification(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('agent-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'agent-notification';
+            notification.className = 'fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm';
+            document.body.appendChild(notification);
+        }
+        
+        // Set content and styling
+        const iconMap = {
+            info: 'fa-info-circle text-blue-600',
+            warning: 'fa-exclamation-triangle text-yellow-600',
+            success: 'fa-check-circle text-green-600',
+            error: 'fa-times-circle text-red-600'
+        };
+        
+        const bgMap = {
+            info: 'bg-blue-50 border-blue-200 text-blue-800',
+            warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+            success: 'bg-green-50 border-green-200 text-green-800',
+            error: 'bg-red-50 border-red-200 text-red-800'
+        };
+        
+        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm border ${bgMap[type]}`;
+        notification.innerHTML = `
+            <div class="flex items-start gap-3">
+                <i class="fas ${iconMap[type]} mt-0.5"></i>
+                <div class="flex-1">
+                    <p class="text-sm font-medium">${message}</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+        `;
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (notification && notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
     }
 
 
@@ -280,7 +446,7 @@ class AgentDashboard {
     }
 
     /**
-     * Sort conversations by priority (needing response first, then assigned, then others)
+     * Sort conversations by priority - MY tickets first, then by urgency and time
      * @param {Array} conversations - Array of conversation objects
      * @returns {Array} Sorted conversations
      */
@@ -288,13 +454,22 @@ class AgentDashboard {
         return conversations.sort((a, b) => {
             const aNeedsResponse = this.conversationNeedsResponse(a);
             const bNeedsResponse = this.conversationNeedsResponse(b);
+            const aIsMine = a.assignedAgent === this.agentId;
+            const bIsMine = b.assignedAgent === this.agentId;
             
+            // Priority 1: My tickets with responses needed
+            if (aIsMine && aNeedsResponse && (!bIsMine || !bNeedsResponse)) return -1;
+            if (bIsMine && bNeedsResponse && (!aIsMine || !aNeedsResponse)) return 1;
+            
+            // Priority 2: My tickets (even without response needed)
+            if (aIsMine && !bIsMine) return -1;
+            if (bIsMine && !aIsMine) return 1;
+            
+            // Priority 3: Other tickets needing response
             if (aNeedsResponse && !bNeedsResponse) return -1;
-            if (!aNeedsResponse && bNeedsResponse) return 1;
+            if (bNeedsResponse && !aNeedsResponse) return 1;
             
-            if (a.assignedAgent === this.agentId && b.assignedAgent !== this.agentId) return -1;
-            if (a.assignedAgent !== this.agentId && b.assignedAgent === this.agentId) return 1;
-            
+            // Priority 4: Sort by time (newest first for visibility)
             return new Date(b.startedAt) - new Date(a.startedAt);
         });
     }
@@ -322,7 +497,7 @@ class AgentDashboard {
         const needsResponse = this.conversationNeedsResponse(conv);
         
         const cssClass = this.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned);
-        const statusLabel = this.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned);
+        const statusLabel = this.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, conv);
         const statusCss = this.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned);
         
         return `
@@ -363,31 +538,53 @@ class AgentDashboard {
      * Get CSS classes for queue item based on status
      */
     getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned) {
-        if (isActive) return 'active-chat border-indigo-200';
-        if (needsResponse) return 'bg-red-50 border-red-200 hover:bg-red-100';
-        if (isAssignedToMe) return 'bg-blue-50 border-blue-100 hover:bg-blue-100';
-        if (isUnassigned) return 'bg-white border-gray-200 hover:bg-gray-50';
-        return 'bg-gray-50 border-gray-100 opacity-75';
+        if (isActive) return 'active-chat border-indigo-300 bg-indigo-50';
+        
+        // MY TICKETS - Strong visual differentiation
+        if (isAssignedToMe) {
+            if (needsResponse) return 'bg-blue-100 border-blue-300 hover:bg-blue-150 border-l-4 border-l-blue-500';
+            return 'bg-blue-50 border-blue-200 hover:bg-blue-100 border-l-4 border-l-blue-400';
+        }
+        
+        // OTHER TICKETS
+        if (needsResponse) return 'bg-red-50 border-red-200 hover:bg-red-100 border-l-2 border-l-red-300';
+        if (isUnassigned) return 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100';
+        
+        // Other agents' tickets
+        return 'bg-gray-50 border-gray-200 hover:bg-gray-100 opacity-80';
     }
 
     /**
      * Get status label for queue item
      */
-    getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned) {
-        if (needsResponse) return 'Needs Response';
-        if (isAssignedToMe) return 'You';
-        if (isUnassigned) return 'Unassigned';
-        return 'Other Agent';
+    getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, conv) {
+        if (needsResponse && isAssignedToMe) return 'YOUR TURN';
+        if (needsResponse) return 'URGENT';
+        if (isAssignedToMe) return 'MINE';
+        if (isUnassigned) return 'UNASSIGNED';
+        
+        // Show which agent has it
+        if (conv && conv.assignedAgent) {
+            // Try to find the agent in our connected agents list
+            const agent = this.connectedAgents.get(conv.assignedAgent);
+            if (agent) {
+                return this.getAgentDisplayName(agent).replace('Agent ', '');
+            }
+            // Fallback to shortened ID
+            return conv.assignedAgent.substring(0, 6);
+        }
+        return 'OTHER';
     }
 
     /**
      * Get status CSS classes for queue item
      */
     getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned) {
-        if (needsResponse) return 'bg-red-100 text-red-700';
-        if (isAssignedToMe) return 'bg-blue-100 text-blue-700';
-        if (isUnassigned) return 'bg-yellow-100 text-yellow-700';
-        return 'bg-gray-100 text-gray-600';
+        if (needsResponse && isAssignedToMe) return 'bg-blue-600 text-white font-bold';
+        if (needsResponse) return 'bg-red-100 text-red-800 font-semibold';
+        if (isAssignedToMe) return 'bg-blue-100 text-blue-800 font-medium';
+        if (isUnassigned) return 'bg-yellow-100 text-yellow-800';
+        return 'bg-gray-100 text-gray-600 text-xs';
     }
 
     /**
@@ -434,6 +631,9 @@ class AgentDashboard {
         if (conv && conv.visitorId) {
             this.updateElementText('customer-name', conv.visitorId.substring(0, 16) + '...');
             this.updateElementText('customer-info', `Started ${new Date(conv.startedAt).toLocaleString()}`);
+            
+            // Update close/reopen buttons based on conversation status
+            this.updateConversationButtons(conv);
         } else {
             this.updateElementText('customer-name', '');
             this.updateElementText('customer-info', '');
@@ -1105,6 +1305,9 @@ class AgentDashboard {
         this.socket.on('connect', () => {
             console.log('Connected to WebSocket server');
             this.socket.emit('join-agent-dashboard', this.agentId);
+            
+            // Register initial agent status on connection
+            this.registerInitialStatus();
         });
         
         this.socket.on('disconnect', () => {
@@ -1121,16 +1324,30 @@ class AgentDashboard {
                 this.loadChatMessages(this.currentChatId);
                 
                 // Only check for pending suggestions in HITL mode
-                if (this.currentStatus === 'hitl') {
+                if (this.systemMode === 'hitl') {
                     this.checkForPendingSuggestion(this.currentChatId);
                 }
             }
         });
         
-        // Listen for agent status updates
-        this.socket.on('agent-status-update', (data) => {
-            console.log('Agent status update:', data);
-            // Update UI to show other agents' status if needed
+        // Listen for connected agents updates
+        this.socket.on('connected-agents-update', (data) => {
+            console.log('Connected agents update:', data);
+            this.updateConnectedAgents(data.agents);
+        });
+        
+        // Listen for system mode updates
+        this.socket.on('system-mode-update', (data) => {
+            console.log('System mode update:', data);
+            this.updateSystemMode(data.mode);
+        });
+        
+        // Listen for ticket reassignments
+        this.socket.on('tickets-reassigned', (data) => {
+            console.log('Tickets reassigned:', data);
+            this.handleTicketReassignments(data);
+            // Refresh conversations to show updated assignments
+            setTimeout(() => this.loadConversations(), 500);
         });
         
         // Listen for customer typing status
@@ -1204,6 +1421,9 @@ class AgentDashboard {
         if (this.socket && this.socket.connected) {
             this.socket.emit('join-agent-dashboard', this.agentId);
             
+            // Re-register agent status
+            this.registerInitialStatus();
+            
             // Rejoin current conversation if any
             if (this.currentChatId) {
                 this.socket.emit('join-conversation', this.currentChatId);
@@ -1243,6 +1463,83 @@ class AgentDashboard {
         }, this.pollInterval);
     }
 
+
+    /**
+     * Update conversation close/reopen buttons based on status
+     * @param {Object} conversation - Conversation object
+     */
+    updateConversationButtons(conversation) {
+        const closeBtn = document.getElementById('close-conversation-btn');
+        const reopenBtn = document.getElementById('reopen-conversation-btn');
+        
+        if (conversation.status === 'resolved') {
+            // Show reopen button, hide close button
+            if (closeBtn) closeBtn.classList.add('hidden');
+            if (reopenBtn) reopenBtn.classList.remove('hidden');
+        } else {
+            // Show close button, hide reopen button
+            if (closeBtn) closeBtn.classList.remove('hidden');
+            if (reopenBtn) reopenBtn.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Close current conversation
+     */
+    async closeConversation() {
+        if (!this.currentChatId) return;
+        
+        if (!confirm('Are you sure you want to close this conversation?')) return;
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${this.currentChatId}/close`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                // Reload messages and queue
+                await this.loadChatMessages(this.currentChatId);
+                this.loadConversations();
+                this.showNotification('Conversation closed successfully', 'success');
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Failed to close conversation', 'error');
+            }
+        } catch (error) {
+            console.error('Error closing conversation:', error);
+            this.showNotification('Failed to close conversation', 'error');
+        }
+    }
+
+    /**
+     * Reopen current conversation
+     */
+    async reopenConversation() {
+        if (!this.currentChatId) return;
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${this.currentChatId}/reopen`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                // Reload messages and queue
+                await this.loadChatMessages(this.currentChatId);
+                this.loadConversations();
+                this.showNotification('Conversation reopened successfully', 'success');
+            } else {
+                const error = await response.json();
+                this.showNotification(error.error || 'Failed to reopen conversation', 'error');
+            }
+        } catch (error) {
+            console.error('Error reopening conversation:', error);
+            this.showNotification('Failed to reopen conversation', 'error');
+        }
+    }
 
     /**
      * Utility method to show element
@@ -1302,13 +1599,34 @@ class AgentDashboard {
 // Logout function for agent dashboard
 function logoutAgent() {
     if (confirm('Ar tikrai norite atsijungti?')) {
-        // Call parent window logout if embedded in iframe
-        if (window.parent && window.parent.logout) {
-            window.parent.logout();
-        } else {
-            // Redirect to login page
-            window.location.href = '/agent-login.html';
+        // Try multiple approaches for iframe communication
+        try {
+            // Method 1: Call parent window logout
+            if (window.parent && window.parent !== window && typeof window.parent.logout === 'function') {
+                window.parent.logout();
+                return;
+            }
+        } catch (e) {
+            console.log('Parent logout failed:', e.message);
         }
+        
+        try {
+            // Method 2: PostMessage to parent
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ action: 'logout' }, '*');
+                
+                // Wait a moment then fallback
+                setTimeout(() => {
+                    window.location.href = '/agent-login.html';
+                }, 500);
+                return;
+            }
+        } catch (e) {
+            console.log('PostMessage failed:', e.message);
+        }
+        
+        // Method 3: Direct redirect
+        window.location.href = '/agent-login.html';
     }
 }
 

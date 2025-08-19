@@ -84,6 +84,7 @@ server.listen(PORT, () => {
     console.log('Configuration:');
     console.log(`- AI Provider: ${process.env.AI_PROVIDER || 'flowise'}`);
     console.log(`- Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`- Auto-close conversations after: ${process.env.AUTO_CLOSE_HOURS || 24} hours`);
     
     if (process.env.AI_PROVIDER === 'openrouter') {
         console.log(`- OpenRouter Model: ${process.env.OPENROUTER_MODEL || 'not set'}`);
@@ -110,6 +111,22 @@ server.listen(PORT, () => {
     // Initialize services after server starts
     initializeDatabase();
     initializeKnowledgeBase();
+    
+    // Set up periodic auto-close of inactive conversations
+    const autoCloseInterval = parseInt(process.env.AUTO_CLOSE_CHECK_INTERVAL_MINUTES) || 60; // Default 1 hour
+    setInterval(() => {
+        try {
+            const conversationService = require('./src/services/conversationService');
+            const closedCount = conversationService.autoCloseInactiveConversations();
+            if (closedCount > 0) {
+                console.log(`Auto-closed ${closedCount} inactive conversations`);
+            }
+        } catch (error) {
+            console.error('Error during auto-close check:', error);
+        }
+    }, autoCloseInterval * 60 * 1000);
+    
+    console.log(`Auto-close check interval: ${autoCloseInterval} minutes`);
 });
 
 // Graceful shutdown

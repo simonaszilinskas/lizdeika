@@ -75,6 +75,16 @@ function createConversationRoutes(io) {
         conversationController.endConversation(req, res);
     });
 
+    // Close conversation
+    router.post('/conversations/:conversationId/close', (req, res) => {
+        conversationController.closeConversation(req, res);
+    });
+
+    // Reopen conversation
+    router.post('/conversations/:conversationId/reopen', (req, res) => {
+        conversationController.reopenConversation(req, res);
+    });
+
     return router;
 }
 
