@@ -1,0 +1,380 @@
+/**
+ * Authentication Controller
+ * Handles authentication endpoints: register, login, refresh, logout, password reset
+ */
+
+const authService = require('../services/authService');
+
+class AuthController {
+  /**
+   * Register a new user
+   * POST /api/auth/register
+   */
+  async register(req, res) {
+    try {
+      const result = await authService.registerUser(req.body);
+      
+      res.status(201).json({
+        success: true,
+        message: 'User registered successfully',
+        data: {
+          user: result.user,
+          tokens: result.tokens,
+          emailVerificationRequired: result.emailVerificationRequired,
+        },
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'REGISTRATION_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Login user
+   * POST /api/auth/login
+   */
+  async login(req, res) {
+    try {
+      const result = await authService.loginUser(req.body);
+      
+      res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          user: result.user,
+          tokens: result.tokens,
+        },
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      const statusCode = error.message.includes('Invalid email or password') ? 401 : 400;
+      
+      res.status(statusCode).json({
+        success: false,
+        error: error.message,
+        code: 'LOGIN_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Refresh access token
+   * POST /api/auth/refresh
+   */
+  async refreshToken(req, res) {
+    try {
+      const { refreshToken } = req.body;
+      const result = await authService.refreshAccessToken(refreshToken);
+      
+      res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        data: result,
+      });
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      
+      res.status(401).json({
+        success: false,
+        error: error.message,
+        code: 'TOKEN_REFRESH_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Logout user
+   * POST /api/auth/logout
+   */
+  async logout(req, res) {
+    try {
+      const { refreshToken } = req.body;
+      await authService.logoutUser(refreshToken);
+      
+      res.json({
+        success: true,
+        message: 'Logout successful',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      
+      // Even if logout fails, return success to avoid confusion
+      res.json({
+        success: true,
+        message: 'Logout completed',
+      });
+    }
+  }
+
+  /**
+   * Request password reset
+   * POST /api/auth/forgot-password
+   */
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      const result = await authService.requestPasswordReset(email);
+      
+      // In production, you would send an email here with the reset token
+      // For now, we'll return the token in the response (not recommended for production)
+      if (process.env.NODE_ENV === 'development') {
+        res.json({
+          success: true,
+          message: result.message,
+          resetToken: result.resetToken, // Only in development
+        });
+      } else {
+        res.json({
+          success: true,
+          message: 'If an account with that email exists, a password reset link has been sent.',
+        });
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'PASSWORD_RESET_REQUEST_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Reset password with token
+   * POST /api/auth/reset-password
+   */
+  async resetPassword(req, res) {
+    try {
+      const { token, newPassword } = req.body;
+      const result = await authService.resetPassword(token, newPassword);
+      
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      console.error('Password reset error:', error);
+      
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'PASSWORD_RESET_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Change password (authenticated)
+   * POST /api/auth/change-password
+   */
+  async changePassword(req, res) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const result = await authService.changePassword(
+        req.user.id,
+        currentPassword,
+        newPassword
+      );
+      
+      res.json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      console.error('Change password error:', error);
+      
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'PASSWORD_CHANGE_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Get current user profile
+   * GET /api/auth/profile
+   */
+  async getProfile(req, res) {
+    try {
+      const user = await authService.getUserProfile(req.user.id);
+      
+      res.json({
+        success: true,
+        data: user,
+      });
+    } catch (error) {
+      console.error('Get profile error:', error);
+      
+      res.status(404).json({
+        success: false,
+        error: error.message,
+        code: 'PROFILE_NOT_FOUND',
+      });
+    }
+  }
+
+  /**
+   * Verify token validity
+   * GET /api/auth/verify
+   */
+  async verifyToken(req, res) {
+    try {
+      // If we reach here, the token is valid (due to middleware)
+      res.json({
+        success: true,
+        message: 'Token is valid',
+        data: {
+          user: {
+            id: req.user.id,
+            email: req.user.email,
+            role: req.user.role,
+            emailVerified: req.user.emailVerified,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Token verification error:', error);
+      
+      res.status(401).json({
+        success: false,
+        error: 'Invalid token',
+        code: 'TOKEN_INVALID',
+      });
+    }
+  }
+
+  /**
+   * Get authentication status
+   * GET /api/auth/status
+   */
+  async getAuthStatus(req, res) {
+    try {
+      const isAuthenticated = !!req.user;
+      
+      res.json({
+        success: true,
+        data: {
+          isAuthenticated,
+          user: isAuthenticated ? {
+            id: req.user.id,
+            email: req.user.email,
+            firstName: req.user.firstName,
+            lastName: req.user.lastName,
+            role: req.user.role,
+            emailVerified: req.user.emailVerified,
+            agentStatus: req.user.agentStatus,
+          } : null,
+        },
+      });
+    } catch (error) {
+      console.error('Auth status error:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get authentication status',
+        code: 'AUTH_STATUS_ERROR',
+      });
+    }
+  }
+
+  /**
+   * Clean up expired tokens (admin only)
+   * POST /api/auth/cleanup-tokens
+   */
+  async cleanupTokens(req, res) {
+    try {
+      const deletedCount = await authService.cleanupExpiredTokens();
+      
+      res.json({
+        success: true,
+        message: 'Token cleanup completed',
+        data: {
+          deletedTokens: deletedCount,
+        },
+      });
+    } catch (error) {
+      console.error('Token cleanup error:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'Token cleanup failed',
+        code: 'CLEANUP_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Development endpoint to generate test users
+   * POST /api/auth/create-test-user (development only)
+   */
+  async createTestUser(req, res) {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({
+        success: false,
+        error: 'Endpoint not available in production',
+        code: 'NOT_AVAILABLE',
+      });
+    }
+
+    try {
+      const testUsers = [
+        {
+          email: 'admin@test.com',
+          password: 'AdminTest123!',
+          firstName: 'Admin',
+          lastName: 'User',
+          role: 'admin',
+        },
+        {
+          email: 'agent@test.com',
+          password: 'AgentTest123!',
+          firstName: 'Agent',
+          lastName: 'User',
+          role: 'agent',
+        },
+        {
+          email: 'user@test.com',
+          password: 'UserTest123!',
+          firstName: 'Regular',
+          lastName: 'User',
+          role: 'user',
+        },
+      ];
+
+      const { userType = 'user' } = req.body;
+      const userData = testUsers.find(u => u.role === userType) || testUsers[2];
+
+      const result = await authService.registerUser(userData);
+      
+      res.status(201).json({
+        success: true,
+        message: `Test ${userType} created successfully`,
+        data: {
+          user: result.user,
+          credentials: {
+            email: userData.email,
+            password: userData.password,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Create test user error:', error);
+      
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'TEST_USER_CREATION_FAILED',
+      });
+    }
+  }
+}
+
+module.exports = new AuthController();
