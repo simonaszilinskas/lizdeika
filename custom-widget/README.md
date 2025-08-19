@@ -1,6 +1,6 @@
-# Vilnius Assistant - AI-Powered Chat Widget
+# Vilnius Assistant - AI-Powered Customer Support Platform
 
-> An advanced customer support chat widget with RAG (Retrieval-Augmented Generation) capabilities, real-time agent assistance, and multi-provider AI support.
+> A comprehensive customer support platform with AI chat capabilities, ticketing system, user management, and RAG (Retrieval-Augmented Generation) for 20 concurrent agents supporting 16,000+ conversations annually.
 
 ## 🚀 Quick Start
 
@@ -20,7 +20,8 @@
 3. **Access Interfaces**:
    - **Customer Chat**: `http://localhost:3002/embed-widget.html`
    - **Agent Dashboard**: `http://localhost:3002/agent-dashboard.html`
-   - **Admin Settings**: `http://localhost:3002/admin-settings.html`
+   - **Knowledge Base**: `http://localhost:3002/knowledge-base.html`
+   - **Settings**: `http://localhost:3002/settings.html`
 
 ## 🏗️ System Architecture
 
@@ -38,8 +39,9 @@
 
 ### 👥 **Multi-Channel Interface**
 - **Customer Widget** - Embeddable chat widget for websites
-- **Agent Dashboard** - Real-time agent interface with AI suggestions
-- **Admin Panel** - System configuration and knowledge management
+- **Agent Dashboard** - Real-time agent interface with AI suggestions and ticket management
+- **Knowledge Base** - Document upload and vector database management
+- **Settings** - Widget customization and system configuration
 
 ### 🔍 **Knowledge Management**
 - **Document Upload** - Support for .txt and .docx files
@@ -56,6 +58,8 @@
 
 | Document | Description |
 |----------|-------------|
+| **[PHASE_3_SPECIFICATION.md](./PHASE_3_SPECIFICATION.md)** | 🚀 Phase 3: User Management & Ticketing System |
+| **[PHASE_2_1_SPECIFICATION.md](./PHASE_2_1_SPECIFICATION.md)** | 📈 Phase 2: Enhanced RAG Pipeline |
 | **[SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md)** | 🏗️ Complete system diagrams with Mermaid charts |
 | **[FILE_GUIDE.md](./FILE_GUIDE.md)** | 📋 Comprehensive file structure overview |
 | **[backend/ARCHITECTURE.md](./backend/ARCHITECTURE.md)** | 🔧 Technical architecture details |
@@ -105,22 +109,45 @@ CHROMA_AUTH_TOKEN=your-auth-token
 ## 🛠️ Technology Stack
 
 - **Backend**: Node.js, Express, WebSocket
+- **Database**: PostgreSQL (Phase 3) + Chroma DB Cloud (Vector)
 - **AI**: OpenRouter (Gemini), Flowise, LangChain
-- **Vector DB**: Chroma DB Cloud with Mistral embeddings
+- **Authentication**: JWT with refresh tokens
 - **Frontend**: Vanilla JavaScript, TailwindCSS
 - **Real-time**: Socket.IO WebSocket communication
 
-## 📊 System Stats
+## 📊 System Capabilities
 
-- **25+ documented files** with comprehensive headers
+- **20 concurrent agents** with automatic ticket assignment
+- **16,000+ conversations/year** capacity
 - **Multi-provider AI** support (OpenRouter + Flowise)
 - **Advanced RAG** with query rephrasing and context awareness
 - **Real-time communication** with WebSocket architecture
+- **User management** with role-based access control
+- **6-month data retention** with automated cleanup
 - **Bilingual support** (Lithuanian/English)
-- **Production-ready** with error handling and logging
+- **Production-ready** with comprehensive error handling
+
+## 🚀 Development Phases
+
+### ✅ **Phase 1: Core Chat System**
+- Basic chat widget and agent dashboard
+- AI integration with OpenRouter and Flowise
+- Real-time WebSocket communication
+
+### ✅ **Phase 2: Enhanced RAG Pipeline**
+- Advanced document chunking (25,000+ characters)
+- Structured markdown output for AI consumption
+- Flexible API with duplicate detection
+- Separated admin interfaces
+
+### 🔄 **Phase 3: User Management & Ticketing (Current)**
+- PostgreSQL database with user authentication
+- Automatic ticket assignment for 20 agents
+- Message tracking with 6-month retention
+- Complete customer support platform
 
 ---
 
-**🎯 Perfect for**: Customer support, municipal services, documentation-based assistance, multi-language support
+**🎯 Perfect for**: Municipal customer support, enterprise ticketing systems, documentation-based assistance
 
-**🚀 Ready for**: Production deployment, scaling, and customization
+**🚀 Ready for**: Production deployment with up to 20 agents and 16,000+ annual conversations

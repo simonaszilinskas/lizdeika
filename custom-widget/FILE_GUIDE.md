@@ -6,15 +6,17 @@ This document provides a comprehensive overview of all files in the Vilnius Assi
 
 ### HTML Interface Files
 - **`embed-widget.html`** - Demonstration page showing chat widget integration
-- **`admin.html`** - Chat widget admin dashboard for conversation monitoring
-- **`agent-dashboard.html`** - Real-time agent interface for managing customer conversations
-- **`admin-settings.html`** - Administrative configuration interface for AI providers and knowledge base
-- **`test-dashboard.html`** - Diagnostic utility for testing backend connectivity
+- **`agent-dashboard.html`** - Real-time agent interface for managing customer conversations and tickets
+- **`knowledge-base.html`** - Dedicated interface for document upload and knowledge management
+- **`settings.html`** - Widget customization and system configuration interface
+- **`admin-settings.html`** - Legacy admin interface (being phased out)
 
 ### JavaScript Files
 - **`widget.js`** - Embeddable customer chat widget with WebSocket communication
 - **`js/agent-dashboard.js`** - Agent dashboard controller for real-time conversation management
-- **`js/admin-settings.js`** - Admin interface controller for configuration and knowledge management
+- **`js/knowledge-base.js`** - Knowledge base interface controller for document management
+- **`js/settings.js`** - Settings interface controller for widget customization
+- **`js/admin-settings.js`** - Legacy admin interface controller (being phased out)
 
 ## 🚀 Backend Files
 
@@ -28,12 +30,14 @@ This document provides a comprehensive overview of all files in the Vilnius Assi
 - **`backend/src/controllers/conversationController.js`** - Customer conversations and AI integration with RAG technology
 - **`backend/src/controllers/knowledgeController.js`** - Document upload, processing, and RAG knowledge base management
 - **`backend/src/controllers/systemController.js`** - System administration, health monitoring, and RAG testing
+- **`backend/src/controllers/widgetController.js`** - Widget configuration and integration code generation
 
 ### Routes
 - **`backend/src/routes/agentRoutes.js`** - HTTP route definitions for agent management
 - **`backend/src/routes/conversationRoutes.js`** - Route definitions for conversations and messaging
 - **`backend/src/routes/knowledgeRoutes.js`** - Route definitions for document and knowledge base operations
 - **`backend/src/routes/systemRoutes.js`** - Route definitions for system administration and configuration
+- **`backend/src/routes/widgetRoutes.js`** - Route definitions for widget configuration and integration
 
 ### Core Services
 - **`backend/src/services/aiService.js`** - AI provider management with RAG integration and multi-provider support
