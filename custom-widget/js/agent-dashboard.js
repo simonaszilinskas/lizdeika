@@ -1299,6 +1299,19 @@ class AgentDashboard {
     }
 }
 
+// Logout function for agent dashboard
+function logoutAgent() {
+    if (confirm('Ar tikrai norite atsijungti?')) {
+        // Call parent window logout if embedded in iframe
+        if (window.parent && window.parent.logout) {
+            window.parent.logout();
+        } else {
+            // Redirect to login page
+            window.location.href = '/agent-login.html';
+        }
+    }
+}
+
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.dashboard = new AgentDashboard();

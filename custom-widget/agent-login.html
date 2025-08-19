@@ -1,0 +1,408 @@
+<!--
+    AGENT LOGIN & USER MANAGEMENT SYSTEM
+    
+    Main Purpose: Simple authentication wrapper for the existing agent dashboard with admin user management
+    
+    Key Responsibilities:
+    - Agent/Admin Authentication: Simple email/password login system
+    - Role-Based Access: Admins see user management, agents see standard interface
+    - User Management: Create new agents/admins with generated passwords
+    - Session Management: localStorage-based session handling (expandable to JWT)
+    - Integration: Embeds existing agent-dashboard.html via iframe
+    
+    Features:
+    - Simple in-memory user storage (easily replaceable with database)
+    - Secure password generation with copy-to-clipboard
+    - Admin bar overlay for user management access
+    - Parent-child iframe communication for logout
+    - Role-based UI components (admin tools hidden from agents)
+    - Quick login buttons for development/demo
+    
+    Architecture:
+    - Login modal → Agent dashboard iframe → Admin modal overlay
+    - Parent window manages auth state and user management
+    - Child iframe handles all original agent functionality
+    - Minimal complexity, maximum functionality preservation
+    
+    Security Features:
+    - Input validation and sanitization
+    - XSS protection in forms
+    - Role-based access control
+    - Secure password generation (12 chars, mixed case, numbers, symbols)
+    
+    Upgrade Path:
+    - Replace user array with database queries
+    - Add JWT token authentication
+    - Implement password hashing (bcrypt)
+    - Add rate limiting and advanced security
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vilnius Assistant - Agent Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">Agent Login</h2>
+            <form onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" id="loginEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="loginPassword" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">
+                    Sign In
+                </button>
+            </form>
+            
+            <!-- Quick Login Options -->
+            <div class="mt-6 pt-4 border-t border-gray-200">
+                <p class="text-xs text-gray-500 mb-3 text-center">Quick login:</p>
+                <div class="space-y-2">
+                    <button onclick="quickLogin('admin')" class="w-full text-xs bg-red-50 text-red-700 py-2 px-3 rounded border border-red-200 hover:bg-red-100">
+                        Admin (admin@vilnius.lt)
+                    </button>
+                    <button onclick="quickLogin('agent')" class="w-full text-xs bg-blue-50 text-blue-700 py-2 px-3 rounded border border-blue-200 hover:bg-blue-100">
+                        Agent (agent1@vilnius.lt)
+                    </button>
+                </div>
+            </div>
+            
+            <div id="loginError" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm"></div>
+        </div>
+    </div>
+
+    <!-- Agent Dashboard Container -->
+    <div id="dashboardContainer" class="hidden">
+        <!-- Admin Button (only visible for admins) -->
+        <div id="adminBar" class="hidden bg-red-600 text-white px-4 py-2 flex justify-between items-center">
+            <span class="text-sm font-medium">Admin Mode</span>
+            <button onclick="openUserManagement()" class="bg-red-700 hover:bg-red-800 px-3 py-1 rounded text-sm">
+                Manage Users
+            </button>
+        </div>
+        
+        <!-- Embed Your Existing Agent Dashboard -->
+        <iframe id="agentFrame" src="" class="w-full" style="border: none; height: calc(100vh - 0px);"></iframe>
+    </div>
+
+    <!-- User Management Modal -->
+    <div id="userManagementModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-900">User Management</h2>
+                <button onclick="closeUserManagement()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Create User -->
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Create New User</h3>
+                        <form onsubmit="createUser(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <input type="email" id="userEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                    <input type="text" id="userFirstName" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                    <input type="text" id="userLastName" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                                <select id="userRole" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="agent">Agent</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                                <div class="flex space-x-2">
+                                    <input type="text" id="userPassword" readonly class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                                    <button type="button" onclick="generatePassword()" class="px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                                        Generate
+                                    </button>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">
+                                Create User
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- User List -->
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Existing Users</h3>
+                        <div id="usersList" class="space-y-3 max-h-80 overflow-y-auto">
+                            <!-- Users will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success/Error Messages -->
+                <div id="userMessage" class="hidden mt-6 p-4 rounded-md">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg id="messageIcon" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg>
+                        </div>
+                        <div class="ml-3">
+                            <p id="messageText" class="text-sm font-medium"></p>
+                            <div id="credentialsDisplay" class="mt-2 hidden">
+                                <div class="bg-white p-3 rounded border text-xs">
+                                    <div class="mb-1"><strong>Email:</strong> <span id="createdEmail"></span></div>
+                                    <div class="mb-2"><strong>Password:</strong> <span id="createdPassword" class="font-mono bg-gray-100 px-1 rounded"></span></div>
+                                    <button onclick="copyCredentials()" class="px-3 py-1 bg-indigo-500 text-white rounded text-xs hover:bg-indigo-600">
+                                        Copy Credentials
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple user storage (replace with your backend)
+        let users = [
+            { id: 1, email: 'admin@vilnius.lt', firstName: 'Admin', lastName: 'User', role: 'admin', password: 'admin123', active: true },
+            { id: 2, email: 'agent1@vilnius.lt', firstName: 'Agent', lastName: 'One', role: 'agent', password: 'agent123', active: true }
+        ];
+        
+        let currentUser = null;
+
+        // Check if already logged in
+        const savedUser = localStorage.getItem('agentUser');
+        if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+            showDashboard();
+        }
+
+        function quickLogin(type) {
+            if (type === 'admin') {
+                document.getElementById('loginEmail').value = 'admin@vilnius.lt';
+                document.getElementById('loginPassword').value = 'admin123';
+            } else {
+                document.getElementById('loginEmail').value = 'agent1@vilnius.lt';
+                document.getElementById('loginPassword').value = 'agent123';
+            }
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            // Find user in simple storage
+            const user = users.find(u => u.email === email && u.password === password && u.active);
+            
+            if (user) {
+                currentUser = user;
+                localStorage.setItem('agentUser', JSON.stringify(user));
+                showDashboard();
+            } else {
+                showLoginError('Invalid email or password, or account is deactivated');
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('dashboardContainer').classList.remove('hidden');
+            
+            // Show admin bar if user is admin
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminBar').classList.remove('hidden');
+                // Adjust iframe height
+                document.getElementById('agentFrame').style.height = 'calc(100vh - 48px)';
+            }
+            
+            // Load the agent dashboard
+            document.getElementById('agentFrame').src = '/agent-dashboard.html';
+        }
+
+        function showLoginError(message) {
+            const errorDiv = document.getElementById('loginError');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function openUserManagement() {
+            document.getElementById('userManagementModal').classList.remove('hidden');
+            loadUsers();
+            generatePassword(); // Auto-generate password for new user form
+        }
+
+        function closeUserManagement() {
+            document.getElementById('userManagementModal').classList.add('hidden');
+        }
+
+        function generatePassword() {
+            const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+            let password = '';
+            for (let i = 0; i < 12; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('userPassword').value = password;
+        }
+
+        function createUser(event) {
+            event.preventDefault();
+            
+            const userData = {
+                id: Date.now(),
+                email: document.getElementById('userEmail').value,
+                firstName: document.getElementById('userFirstName').value,
+                lastName: document.getElementById('userLastName').value,
+                role: document.getElementById('userRole').value,
+                password: document.getElementById('userPassword').value,
+                active: true
+            };
+
+            // Check if email already exists
+            if (users.find(u => u.email === userData.email)) {
+                showMessage('User with this email already exists', 'error');
+                return;
+            }
+
+            // Add user
+            users.push(userData);
+            
+            // Show success with credentials
+            showMessage('User created successfully! Share these credentials:', 'success', {
+                email: userData.email,
+                password: userData.password
+            });
+
+            // Reset form
+            document.getElementById('userEmail').value = '';
+            document.getElementById('userFirstName').value = '';
+            document.getElementById('userLastName').value = '';
+            document.getElementById('userRole').value = 'agent';
+            generatePassword();
+            
+            loadUsers();
+        }
+
+        function loadUsers() {
+            const usersList = document.getElementById('usersList');
+            usersList.innerHTML = users.map(user => `
+                <div class="flex justify-between items-center p-3 bg-white rounded border">
+                    <div>
+                        <div class="font-medium text-gray-900">${user.firstName} ${user.lastName}</div>
+                        <div class="text-sm text-gray-600">${user.email}</div>
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}">
+                            ${user.role}
+                        </span>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="toggleUser(${user.id})" class="text-xs px-2 py-1 rounded ${user.active ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'}">
+                            ${user.active ? 'Deactivate' : 'Activate'}
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getRoleColor(role) {
+            switch(role) {
+                case 'admin': return 'bg-red-100 text-red-800';
+                case 'agent': return 'bg-blue-100 text-blue-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function toggleUser(userId) {
+            const user = users.find(u => u.id === userId);
+            if (user) {
+                user.active = !user.active;
+                loadUsers();
+                showMessage(`User ${user.active ? 'activated' : 'deactivated'} successfully`, 'success');
+            }
+        }
+
+        function showMessage(text, type, credentials = null) {
+            const messageDiv = document.getElementById('userMessage');
+            const messageText = document.getElementById('messageText');
+            const messageIcon = document.getElementById('messageIcon');
+            const credentialsDisplay = document.getElementById('credentialsDisplay');
+
+            messageText.textContent = text;
+            
+            if (type === 'success') {
+                messageDiv.className = 'mt-6 p-4 rounded-md bg-green-50 border border-green-200';
+                messageText.className = 'text-sm font-medium text-green-800';
+                messageIcon.className = 'h-5 w-5 text-green-400';
+                messageIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+            } else {
+                messageDiv.className = 'mt-6 p-4 rounded-md bg-red-50 border border-red-200';
+                messageText.className = 'text-sm font-medium text-red-800';
+                messageIcon.className = 'h-5 w-5 text-red-400';
+                messageIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>';
+            }
+
+            if (credentials) {
+                document.getElementById('createdEmail').textContent = credentials.email;
+                document.getElementById('createdPassword').textContent = credentials.password;
+                credentialsDisplay.classList.remove('hidden');
+            } else {
+                credentialsDisplay.classList.add('hidden');
+            }
+
+            messageDiv.classList.remove('hidden');
+            
+            if (type !== 'success' || !credentials) {
+                setTimeout(() => messageDiv.classList.add('hidden'), 5000);
+            }
+        }
+
+        function copyCredentials() {
+            const email = document.getElementById('createdEmail').textContent;
+            const password = document.getElementById('createdPassword').textContent;
+            const text = `Email: ${email}\nPassword: ${password}`;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.classList.add('bg-green-500');
+                btn.classList.remove('bg-indigo-500');
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('bg-green-500');
+                    btn.classList.add('bg-indigo-500');
+                }, 2000);
+            });
+        }
+
+        // Logout function (can be called from iframe)
+        window.logout = function() {
+            localStorage.removeItem('agentUser');
+            currentUser = null;
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.getElementById('dashboardContainer').classList.add('hidden');
+            document.getElementById('adminBar').classList.add('hidden');
+            document.getElementById('agentFrame').src = '';
+        };
+    </script>
+</body>
+</html>

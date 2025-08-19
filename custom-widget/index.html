@@ -1,0 +1,51 @@
+<!--
+    VILNIUS ASSISTANT - MAIN ENTRY POINT
+    
+    Purpose: Simple navigation page to access different parts of the system
+    
+    Available Interfaces:
+    - Agent Dashboard: Login system for agents and administrators
+    - Customer Chat: Public chat interface for citizens
+    - Live Monitoring: Real-time conversation monitoring (legacy)
+    
+    This serves as a simple directory for the different user interfaces
+    in the Vilnius Assistant system, making it easy for users to find
+    the appropriate entry point for their role.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vilnius Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="text-center">
+        <div class="mx-auto h-16 w-16 bg-indigo-600 rounded-full flex items-center justify-center mb-4">
+            <svg class="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+            </svg>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">Vilnius Assistant</h1>
+        <p class="text-gray-600 mb-8">Choose your interface:</p>
+        
+        <div class="space-y-4 max-w-sm mx-auto">
+            <a href="/agent-login.html" class="block bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-lg transition duration-200">
+                Agent Dashboard
+                <p class="text-sm text-indigo-200">For agents and administrators</p>
+            </a>
+            
+            <a href="/widget.html" class="block bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg transition duration-200">
+                Customer Chat
+                <p class="text-sm text-green-200">For customers to chat with AI</p>
+            </a>
+            
+            <a href="/admin.html" class="block bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 rounded-lg transition duration-200">
+                Live Monitoring
+                <p class="text-sm text-gray-200">Monitor conversations (legacy)</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
