@@ -595,25 +595,10 @@ class AgentDashboard {
         this.currentChatId = conversationId;
         
         try {
-            // Check conversation status before attempting assignment
+            // Get conversation data 
             const conversation = this.conversations.get(conversationId);
             
-            // Only assign if conversation is active and unassigned
-            if (conversation && conversation.status === 'active' && !conversation.assignedAgent) {
-                const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ agentId: this.agentId })
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    console.warn('Assignment failed:', error.error);
-                    // Continue to load conversation even if assignment failed
-                }
-            }
-
-            // Load messages and check for suggestions
+            // Load messages (no assignment logic - that's handled automatically by backend in HITL mode)
             await this.loadChatMessages(conversationId);
             
             // Only check for pending suggestions if conversation is active

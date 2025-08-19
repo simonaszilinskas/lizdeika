@@ -312,6 +312,12 @@ class ConversationService {
         conversation.reopenedBy = agentId;
         conversation.lastActivity = new Date();
         
+        // Assign conversation to the agent who reopens it
+        if (agentId) {
+            conversation.assignedAgent = agentId;
+            conversation.assignedAt = new Date();
+        }
+        
         // Remove resolved metadata
         delete conversation.resolvedAt;
         delete conversation.resolvedBy;

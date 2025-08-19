@@ -198,9 +198,35 @@ class ConversationController {
                 }
                 
             } else {
-                // HITL MODE: Create AI suggestion for agent review
+                // HITL MODE: Create AI suggestion for agent review AND automatically assign
                 // Remove any existing pending messages to avoid duplicates
                 conversationService.removePendingMessages(conversationId);
+                
+                // Try to automatically assign to an available agent
+                const conversation = conversationService.getConversation(conversationId);
+                let assignedAgent = null;
+                
+                if (conversation && !conversation.assignedAgent) {
+                    const availableAgent = conversationService.getAvailableAgent(agentService);
+                    if (availableAgent) {
+                        conversationService.assignConversation(conversationId, availableAgent.id);
+                        assignedAgent = availableAgent.id;
+                        console.log(`Auto-assigned conversation ${conversationId} to agent ${availableAgent.id} in HITL mode`);
+                        
+                        // Add system message about assignment
+                        const assignmentMessage = {
+                            id: uuidv4(),
+                            conversationId,
+                            content: 'Agent has joined the conversation',
+                            sender: 'system',
+                            timestamp: new Date(),
+                            metadata: { systemMessage: true }
+                        };
+                        conversationService.addMessage(conversationId, assignmentMessage);
+                    } else {
+                        console.log(`No available agents for conversation ${conversationId}, will assign when agent comes online`);
+                    }
+                }
                 
                 aiMessage = {
                     id: uuidv4(),
@@ -214,7 +240,8 @@ class ConversationController {
                         confidence: 0.85,
                         customerMessage: message,
                         messageCount: customerMessageCount,
-                        conversationContext: conversationContext.substring(0, 200) + '...'
+                        conversationContext: conversationContext.substring(0, 200) + '...',
+                        assignedAgent: assignedAgent
                     }
                 };
                 
