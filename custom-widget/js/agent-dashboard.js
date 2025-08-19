@@ -595,16 +595,31 @@ class AgentDashboard {
         this.currentChatId = conversationId;
         
         try {
-            // Take ownership if unassigned
-            await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId })
-            });
+            // Check conversation status before attempting assignment
+            const conversation = this.conversations.get(conversationId);
+            
+            // Only assign if conversation is active and unassigned
+            if (conversation && conversation.status === 'active' && !conversation.assignedAgent) {
+                const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agentId: this.agentId })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.warn('Assignment failed:', error.error);
+                    // Continue to load conversation even if assignment failed
+                }
+            }
 
             // Load messages and check for suggestions
             await this.loadChatMessages(conversationId);
-            await this.checkForPendingSuggestion(conversationId);
+            
+            // Only check for pending suggestions if conversation is active
+            if (conversation && conversation.status === 'active') {
+                await this.checkForPendingSuggestion(conversationId);
+            }
             
             // Show chat interface
             this.showChatInterface(conversationId);
@@ -634,6 +649,9 @@ class AgentDashboard {
             
             // Update close/reopen buttons based on conversation status
             this.updateConversationButtons(conv);
+            
+            // Disable message input for resolved conversations
+            this.updateMessageInputState(conv);
         } else {
             this.updateElementText('customer-name', '');
             this.updateElementText('customer-info', '');
@@ -1484,6 +1502,66 @@ class AgentDashboard {
     }
 
     /**
+     * Update message input state based on conversation status
+     * @param {Object} conversation - Conversation object
+     */
+    updateMessageInputState(conversation) {
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.querySelector('#message-input-area button');
+        
+        if (conversation.status === 'resolved') {
+            // Disable input for resolved conversations
+            if (messageInput) {
+                messageInput.disabled = true;
+                messageInput.placeholder = 'Conversation is closed - reopen to send messages';
+                messageInput.classList.add('bg-gray-100', 'text-gray-500');
+            }
+            if (sendButton) {
+                sendButton.disabled = true;
+                sendButton.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        } else {
+            // Enable input for active conversations
+            if (messageInput) {
+                messageInput.disabled = false;
+                messageInput.placeholder = 'Type your message...';
+                messageInput.classList.remove('bg-gray-100', 'text-gray-500');
+            }
+            if (sendButton) {
+                sendButton.disabled = false;
+                sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+    }
+
+    /**
+     * Refresh a single conversation data from server
+     * @param {string} conversationId - Conversation ID to refresh
+     */
+    async refreshConversation(conversationId) {
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations`);
+            if (response.ok) {
+                const data = await response.json();
+                const updatedConv = data.conversations.find(c => c.id === conversationId);
+                
+                if (updatedConv) {
+                    // Update the conversation in our local Map
+                    this.conversations.set(conversationId, updatedConv);
+                    
+                    // Update UI if this is the current conversation
+                    if (this.currentChatId === conversationId) {
+                        this.updateConversationButtons(updatedConv);
+                        this.updateMessageInputState(updatedConv);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error refreshing conversation:', error);
+        }
+    }
+
+    /**
      * Close current conversation
      */
     async closeConversation() {
@@ -1499,9 +1577,13 @@ class AgentDashboard {
             });
             
             if (response.ok) {
-                // Reload messages and queue
+                // Reload messages, queue and update UI
                 await this.loadChatMessages(this.currentChatId);
                 this.loadConversations();
+                
+                // Refresh conversation data and update UI
+                await this.refreshConversation(this.currentChatId);
+                
                 this.showNotification('Conversation closed successfully', 'success');
             } else {
                 const error = await response.json();
@@ -1527,9 +1609,13 @@ class AgentDashboard {
             });
             
             if (response.ok) {
-                // Reload messages and queue
+                // Reload messages, queue and update UI
                 await this.loadChatMessages(this.currentChatId);
                 this.loadConversations();
+                
+                // Refresh conversation data and update UI
+                await this.refreshConversation(this.currentChatId);
+                
                 this.showNotification('Conversation reopened successfully', 'success');
             } else {
                 const error = await response.json();
