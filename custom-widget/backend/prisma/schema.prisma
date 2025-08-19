@@ -1,0 +1,227 @@
+// Vilnius Assistant - Database Schema
+// Phase 3: User Management & Ticketing System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// ENUMS
+// ================================
+
+enum UserRole {
+  admin
+  agent
+  user
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  waiting_user
+  resolved
+  closed
+  archived
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TicketSource {
+  widget
+  admin_panel
+  email
+}
+
+enum SenderType {
+  user
+  agent
+  system
+  ai
+}
+
+enum MessageType {
+  text
+  file
+  system_action
+  ai_response
+}
+
+enum ActionType {
+  created
+  assigned
+  status_changed
+  priority_changed
+  resolved
+  closed
+  reopened
+  message_added
+}
+
+enum AgentStatusEnum {
+  online
+  busy
+  offline
+}
+
+// ================================
+// USER MANAGEMENT
+// ================================
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String   @map("password_hash")
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  role           UserRole @default(user)
+  isActive       Boolean  @default(true) @map("is_active")
+  emailVerified  Boolean  @default(false) @map("email_verified")
+  lastLogin      DateTime? @map("last_login")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  assignedTickets    Ticket[] @relation("TicketAgent")
+  userTickets        Ticket[] @relation("TicketUser")
+  sentMessages       Message[]
+  performedActions   TicketAction[]
+  refreshTokens      RefreshToken[]
+  agentStatus        AgentStatus?
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ================================
+// AGENT MANAGEMENT
+// ================================
+
+model AgentStatus {
+  id        String              @id @default(cuid())
+  userId    String              @unique @map("user_id")
+  status    AgentStatusEnum     @default(offline)
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("agent_status")
+}
+
+// ================================
+// TICKETING SYSTEM
+// ================================
+
+model Ticket {
+  id               String         @id @default(cuid())
+  ticketNumber     String         @unique @map("ticket_number")
+  userId           String?        @map("user_id")
+  assignedAgentId  String?        @map("assigned_agent_id")
+  status           TicketStatus   @default(open)
+  priority         TicketPriority @default(medium)
+  category         String?
+  subject          String
+  description      String?        @db.Text
+  source           TicketSource   @default(widget)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  resolvedAt       DateTime?      @map("resolved_at")
+  closedAt         DateTime?      @map("closed_at")
+
+  // Relations
+  user            User?          @relation("TicketUser", fields: [userId], references: [id])
+  assignedAgent   User?          @relation("TicketAgent", fields: [assignedAgentId], references: [id])
+  messages        Message[]
+  actions         TicketAction[]
+
+  @@index([status])
+  @@index([assignedAgentId])
+  @@index([createdAt])
+  @@index([status, assignedAgentId])
+  @@map("tickets")
+}
+
+model Message {
+  id         String      @id @default(cuid())
+  ticketId   String      @map("ticket_id")
+  senderId   String?     @map("sender_id")
+  senderType SenderType
+  content    String      @db.Text
+  messageType MessageType @default(text) @map("message_type")
+  metadata   Json?
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender User?  @relation(fields: [senderId], references: [id])
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model TicketAction {
+  id            String     @id @default(cuid())
+  ticketId      String     @map("ticket_id")
+  performedBy   String     @map("performed_by")
+  action        ActionType
+  previousValue String?    @map("previous_value")
+  newValue      String?    @map("new_value")
+  reason        String?    @db.Text
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  // Relations
+  ticket      Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  performer   User   @relation(fields: [performedBy], references: [id])
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("ticket_actions")
+}
+
+// ================================
+// SYSTEM CONFIGURATION
+// ================================
+
+model SystemSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String   @map("updated_by")
+
+  @@map("system_settings")
+}
+
+model SystemLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("system_logs")
+}
