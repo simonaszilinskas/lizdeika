@@ -598,16 +598,9 @@ class AgentDashboard {
             // Load messages first (this also updates conversation data)
             await this.loadChatMessages(conversationId);
             
-            // Now get conversation data after loading
-            const conversation = this.conversations.get(conversationId);
-            console.log('🔍 selectChat - conversation data after loadMessages:', conversation ? 'found' : 'not found');
-            console.log('🔍 selectChat - conversation status:', conversation?.status);
-            console.log('🔍 selectChat - system mode:', this.systemMode);
-            
             // Always check for pending suggestions in HITL mode 
             // The API will return 404 if no suggestion exists, which is fine
             if (this.systemMode === 'hitl') {
-                console.log('🔍 selectChat - calling checkForPendingSuggestion (HITL mode)');
                 await this.checkForPendingSuggestion(conversationId);
             }
             
@@ -822,25 +815,17 @@ class AgentDashboard {
      * @param {string} conversationId - ID of conversation
      */
     async checkForPendingSuggestion(conversationId) {
-        console.log('🔍 checkForPendingSuggestion called for:', conversationId);
         try {
             const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/pending-suggestion`);
-            console.log('🔍 API response status:', response.status);
-            
             if (response.ok) {
                 const data = await response.json();
-                console.log('🔍 API response data:', data);
                 
                 // HITL mode: Show suggestion for human validation
                 if (!this.currentSuggestion || this.currentSuggestion !== data.suggestion) {
-                    console.log('🔍 Calling showAISuggestion...');
                     this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
-                } else {
-                    console.log('🔍 Suggestion already shown, skipping');
                 }
             } else if (response.status === 404) {
                 // No pending suggestion - this is normal
-                console.log('🔍 No pending suggestion (404)');
                 this.hideAISuggestion();
             } else {
                 console.error('Unexpected error checking suggestion:', response.status);
