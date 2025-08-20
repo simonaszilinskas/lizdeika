@@ -1320,15 +1320,22 @@ class AgentDashboard {
         // Listen for new messages from customers
         this.socket.on('new-message', (data) => {
             console.log('New message received:', data);
-            this.loadConversations();
+            
+            // Add small delay to ensure auto-assignment completes on backend before loading conversations
+            setTimeout(() => {
+                this.loadConversations();
+            }, 100);
             
             // If this is the current chat, update messages and check for suggestion
             if (data.conversationId === this.currentChatId) {
                 this.loadChatMessages(this.currentChatId);
                 
                 // Only check for pending suggestions in HITL mode
+                // Add delay to ensure auto-assignment completes on backend
                 if (this.systemMode === 'hitl') {
-                    this.checkForPendingSuggestion(this.currentChatId);
+                    setTimeout(() => {
+                        this.checkForPendingSuggestion(this.currentChatId);
+                    }, 300);
                 }
             }
         });
