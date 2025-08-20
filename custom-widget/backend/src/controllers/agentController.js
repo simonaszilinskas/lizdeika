@@ -37,6 +37,7 @@
 const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
+const { asyncHandler } = require('../utils/errors');
 
 class AgentController {
     constructor(io) {
@@ -48,7 +49,7 @@ class AgentController {
      */
     async getStatus(req, res) {
         try {
-            const allAgents = agentService.getAllAgents();
+            const allAgents = await agentService.getAllAgents();
             const recentAgents = allAgents.filter(agent => 
                 (new Date() - agent.lastSeen) < 60000 // Active in last minute
             );
@@ -104,9 +105,15 @@ class AgentController {
         try {
             const { conversationId, message, agentId } = req.body;
             
-            const conversation = conversationService.getConversation(conversationId);
-            if (!conversation || conversation.assignedAgent !== agentId) {
-                return res.status(403).json({ error: 'Not authorized for this conversation' });
+            const conversation = await conversationService.getConversation(conversationId);
+            if (!conversation) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+            
+            // If conversation is assigned to a different agent, reassign it
+            if (conversation.assignedAgent !== agentId) {
+                console.log(`Reassigning conversation ${conversationId} from ${conversation.assignedAgent} to ${agentId}`);
+                await conversationService.assignConversation(conversationId, agentId);
             }
             
             // Store agent message
@@ -119,7 +126,7 @@ class AgentController {
                 agentId
             };
             
-            conversationService.addMessage(conversationId, agentMessage);
+            await conversationService.addMessage(conversationId, agentMessage);
             
             res.json({ success: true, message: agentMessage });
             
@@ -134,12 +141,22 @@ class AgentController {
      */
     async sendResponse(req, res) {
         try {
-            const { conversationId, message, agentId, usedSuggestion, suggestionAction } = req.body;
+            const { conversationId, message, agentId, usedSuggestion, suggestionAction, autoAssign } = req.body;
             // suggestionAction: 'as-is', 'edited', 'from-scratch'
+            // autoAssign: true to automatically assign conversation to responding agent
             
-            const conversation = conversationService.getConversation(conversationId);
-            if (!conversation || conversation.assignedAgent !== agentId) {
-                return res.status(403).json({ error: 'Not authorized for this conversation' });
+            const conversation = await conversationService.getConversation(conversationId);
+            if (!conversation) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+            
+            // Auto-assign conversation to responding agent if requested or if already assigned to different agent
+            if (autoAssign || (conversation.assignedAgent && conversation.assignedAgent !== agentId)) {
+                console.log(`Auto-assigning conversation ${conversationId} to agent ${agentId}`);
+                await conversationService.assignConversation(conversationId, agentId);
+            } else if (conversation.assignedAgent !== agentId) {
+                console.log(`Reassigning conversation ${conversationId} from ${conversation.assignedAgent} to ${agentId}`);
+                await conversationService.assignConversation(conversationId, agentId);
             }
             
             // Store agent message
@@ -157,10 +174,10 @@ class AgentController {
             };
             
             // Remove any pending system messages for this conversation
-            conversationService.removePendingMessages(conversationId);
+            await conversationService.removePendingMessages(conversationId);
             
             // Add agent message atomically
-            conversationService.addMessage(conversationId, agentMessage);
+            await conversationService.addMessage(conversationId, agentMessage);
             
             // Emit agent message to customer via WebSocket
             this.io.to(conversationId).emit('agent-message', {
@@ -183,7 +200,7 @@ class AgentController {
      */
     async getActiveAgents(req, res) {
         try {
-            const activeAgents = agentService.getActiveAgents();
+            const activeAgents = await agentService.getActiveAgents();
             res.json({ agents: activeAgents });
         } catch (error) {
             console.error('Error getting active agents:', error);
@@ -206,27 +223,28 @@ class AgentController {
                 return res.status(400).json({ error: 'Personal status must be online or afk' });
             }
 
-            const previousStatus = agentService.getAgent(agentId)?.personalStatus;
-            const updatedAgent = agentService.updateAgentPersonalStatus(agentId, personalStatus, conversationService);
+            const previousAgent = await agentService.getAgent(agentId);
+            const previousStatus = previousAgent?.personalStatus;
+            const updatedAgent = await agentService.updateAgentPersonalStatus(agentId, personalStatus, conversationService);
             
             let reassignments = [];
             
             // Handle status changes with ticket management
             if (personalStatus === 'afk' && previousStatus !== 'afk') {
                 // Agent going AFK - reassign their tickets
-                reassignments = agentService.handleAgentAFK(agentId, conversationService);
+                reassignments = await agentService.handleAgentAFK(agentId, conversationService);
                 console.log(`Agent ${agentId} went AFK, reassigned ${reassignments.length} tickets`);
                 
             } else if (personalStatus === 'online' && previousStatus === 'afk') {
                 // Agent coming back online - reclaim appropriate tickets
-                const reclaims = agentService.handleAgentBackOnline(agentId, conversationService);
-                const redistributions = agentService.redistributeOrphanedTickets(conversationService, 2);
+                const reclaims = await agentService.handleAgentBackOnline(agentId, conversationService);
+                const redistributions = await agentService.redistributeOrphanedTickets(conversationService, 2);
                 reassignments = [...reclaims, ...redistributions];
                 console.log(`Agent ${agentId} back online, reclaimed/redistributed ${reassignments.length} tickets`);
             }
             
             // Broadcast updates
-            const connectedAgents = agentService.getConnectedAgents();
+            const connectedAgents = await agentService.getConnectedAgents();
             this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
             
             // Notify all agents about ticket reassignments
@@ -251,50 +269,39 @@ class AgentController {
     /**
      * Get global system mode
      */
-    async getSystemMode(req, res) {
-        try {
-            const mode = agentService.getSystemMode();
-            res.json({ mode });
-        } catch (error) {
-            console.error('Error getting system mode:', error);
-            res.status(500).json({ error: 'Failed to get system mode' });
-        }
-    }
+    getSystemMode = asyncHandler(async (req, res) => {
+        const mode = await agentService.getSystemMode();
+        res.json({ mode });
+    })
 
     /**
      * Set global system mode
      */
-    async setSystemMode(req, res) {
-        try {
-            const { mode } = req.body;
-            
-            if (!mode) {
-                return res.status(400).json({ error: 'Mode is required' });
-            }
-
-            const success = agentService.setSystemMode(mode);
-            
-            if (!success) {
-                return res.status(400).json({ error: 'Invalid mode. Must be hitl, autopilot, or off' });
-            }
-            
-            // Broadcast system mode update to all agents
-            this.io.to('agents').emit('system-mode-update', { mode });
-            
-            res.json({ success: true, mode });
-        } catch (error) {
-            console.error('Error setting system mode:', error);
-            res.status(500).json({ error: 'Failed to set system mode' });
+    setSystemMode = asyncHandler(async (req, res) => {
+        const { mode } = req.body;
+        
+        if (!mode) {
+            return res.status(400).json({ error: 'Mode is required' });
         }
-    }
+
+        await agentService.setSystemMode(mode);
+        
+        // Broadcast system mode update to all agents
+        this.io.to('agents').emit('system-mode-update', { mode });
+        
+        res.json({ success: true, mode });
+    })
 
     /**
      * Get connected agents
      */
     async getConnectedAgents(req, res) {
         try {
-            const connectedAgents = agentService.getConnectedAgents();
-            res.json({ agents: connectedAgents, systemMode: agentService.getSystemMode() });
+            const [connectedAgents, systemMode] = await Promise.all([
+                agentService.getConnectedAgents(),
+                agentService.getSystemMode()
+            ]);
+            res.json({ agents: connectedAgents, systemMode });
         } catch (error) {
             console.error('Error getting connected agents:', error);
             res.status(500).json({ error: 'Failed to get connected agents' });

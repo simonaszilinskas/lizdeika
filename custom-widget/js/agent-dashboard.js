@@ -11,7 +11,7 @@ class AgentDashboard {
         
         this.apiUrl = apiUrl;
         this.currentChatId = null;
-        this.agentId = 'agent-' + Math.random().toString(36).substring(2, 11);
+        this.agentId = this.getAuthenticatedAgentId();
         this.conversations = new Map();
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || 3000;
@@ -19,12 +19,54 @@ class AgentDashboard {
         this.personalStatus = 'online'; // Personal agent status (online/afk)
         this.systemMode = 'hitl'; // Global system mode (hitl/autopilot/off)
         this.connectedAgents = new Map(); // Track other connected agents
+        this.currentFilter = 'mine'; // Current conversation filter (mine, unassigned, others, all)
+        this.allConversations = []; // Store all conversations for filtering
         
         console.log(`Agent Dashboard initialized with API URL: ${this.apiUrl}`);
         this.init();
     }
 
+    /**
+     * Get agent ID from authenticated user
+     */
+    getAuthenticatedAgentId() {
+        try {
+            // Try to get authenticated user from localStorage
+            const agentUser = localStorage.getItem('agentUser');
+            if (agentUser) {
+                const user = JSON.parse(agentUser);
+                // Use email without domain as agent ID (e.g. agent1@vilnius.lt -> agent1)
+                if (user.email) {
+                    return user.email.split('@')[0];
+                }
+            }
+        } catch (error) {
+            console.warn('Could not get authenticated agent ID:', error);
+        }
+        
+        // Fallback: check if running in iframe and try to communicate with parent
+        try {
+            if (window.parent && window.parent !== window) {
+                // We're in an iframe, try to get user from parent
+                const parentAgentUser = window.parent.localStorage?.getItem('agentUser');
+                if (parentAgentUser) {
+                    const user = JSON.parse(parentAgentUser);
+                    if (user.email) {
+                        return user.email.split('@')[0];
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Could not access parent window for agent ID:', error);
+        }
+        
+        // Final fallback: generate random ID (for development/standalone use)
+        console.warn('No authenticated user found, generating random agent ID');
+        return 'agent-' + Math.random().toString(36).substring(2, 11);
+    }
+
     async init() {
+        console.log(`Agent Dashboard initialized for agent: ${this.agentId}`);
         this.initializeEventListeners();
         this.initializeWebSocket();
         await this.loadConversations();
@@ -398,26 +440,19 @@ class AgentDashboard {
             }
             const data = await response.json();
             
-            this.updateQueueStats(data.conversations);
-            this.renderQueue(data.conversations);
+            // Store all conversations for filtering
+            this.allConversations = data.conversations;
+            
+            // Apply current filter and render
+            this.applyFilter();
+            
+            // Update filter button styles in case this is the initial load
+            this.updateFilterButtons();
         } catch (error) {
             console.error('Error loading conversations:', error);
         }
     }
 
-    /**
-     * Update queue statistics display
-     * @param {Array} conversations - Array of conversation objects
-     */
-    updateQueueStats(conversations) {
-        const queue = conversations.filter(c => c.status === 'active' && !c.assignedAgent).length;
-        const active = conversations.filter(c => c.assignedAgent === this.agentId).length;
-        const resolved = conversations.filter(c => c.status === 'resolved').length;
-
-        this.updateElementText('queue-count', queue);
-        this.updateElementText('active-count', active);
-        this.updateElementText('resolved-count', resolved);
-    }
 
     /**
      * Utility method to safely update element text content
@@ -446,7 +481,7 @@ class AgentDashboard {
     }
 
     /**
-     * Sort conversations by priority - MY tickets first, then by urgency and time
+     * Sort conversations by priority - Closed at bottom, MY tickets first, then by recent activity
      * @param {Array} conversations - Array of conversation objects
      * @returns {Array} Sorted conversations
      */
@@ -469,8 +504,10 @@ class AgentDashboard {
             if (aNeedsResponse && !bNeedsResponse) return -1;
             if (bNeedsResponse && !aNeedsResponse) return 1;
             
-            // Priority 4: Sort by time (newest first for visibility)
-            return new Date(b.startedAt) - new Date(a.startedAt);
+            // Priority 4: Sort by most recent activity (updatedAt or startedAt)
+            const aTime = new Date(a.updatedAt || a.startedAt);
+            const bTime = new Date(b.updatedAt || b.startedAt);
+            return bTime - aTime;
         });
     }
 
@@ -509,26 +546,27 @@ class AgentDashboard {
                             <i class="fas fa-user text-gray-600 text-sm"></i>
                         </div>
                         <div>
-                            <div class="font-medium text-sm">${this.escapeHtml(conv.visitorId.substring(0, 12))}...</div>
+                            <div class="font-medium text-sm">User #${conv.userNumber || 'Unknown'}</div>
                             <div class="text-xs text-gray-500">
                                 ${new Date(conv.startedAt).toLocaleTimeString()}
                             </div>
                         </div>
                     </div>
                     <div class="flex flex-col items-end gap-1">
-                        ${needsResponse ? '<div class="w-2 h-2 bg-red-500 rounded-full notification-ping"></div>' : ''}
                         <span class="text-xs px-2 py-1 rounded ${statusCss}">
                             ${statusLabel}
                         </span>
                     </div>
                 </div>
-                <div class="text-sm text-gray-600 truncate">
-                    ${needsResponse ? 'Customer message waiting for response' :
-                    conv.lastMessage ? this.escapeHtml(conv.lastMessage.content) : 'No messages yet'}
+                <div class="text-sm truncate text-gray-600">
+                    ${conv.lastMessage ? this.escapeHtml(conv.lastMessage.content) : 'No messages yet'}
                 </div>
-                <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
-                    <span>${conv.messageCount} messages</span>
-                    <span class="capitalize">${conv.status}</span>
+                <div class="flex justify-between items-center mt-2 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-500">${conv.messageCount} messages</span>
+                        ${this.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id)}
+                    </div>
+                    <span class="text-gray-500">${new Date(conv.updatedAt || conv.startedAt).toLocaleDateString()}</span>
                 </div>
             </div>
         `;
@@ -540,37 +578,30 @@ class AgentDashboard {
     getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned) {
         if (isActive) return 'active-chat border-indigo-300 bg-indigo-50';
         
-        // MY TICKETS - Strong visual differentiation
         if (isAssignedToMe) {
-            if (needsResponse) return 'bg-blue-100 border-blue-300 hover:bg-blue-150 border-l-4 border-l-blue-500';
-            return 'bg-blue-50 border-blue-200 hover:bg-blue-100 border-l-4 border-l-blue-400';
+            return 'bg-blue-50 border-blue-200 hover:bg-blue-100';
         }
         
-        // OTHER TICKETS
-        if (needsResponse) return 'bg-red-50 border-red-200 hover:bg-red-100 border-l-2 border-l-red-300';
+        if (needsResponse) return 'bg-orange-50 border-orange-200 hover:bg-orange-100';
         if (isUnassigned) return 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100';
         
-        // Other agents' tickets
-        return 'bg-gray-50 border-gray-200 hover:bg-gray-100 opacity-80';
+        return 'bg-gray-50 border-gray-200 hover:bg-gray-100';
     }
 
     /**
      * Get status label for queue item
      */
     getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, conv) {
-        if (needsResponse && isAssignedToMe) return 'YOUR TURN';
-        if (needsResponse) return 'URGENT';
+        if (needsResponse && isAssignedToMe) return 'NEEDS REPLY';
+        if (needsResponse) return 'NEW MESSAGE';
         if (isAssignedToMe) return 'MINE';
         if (isUnassigned) return 'UNASSIGNED';
         
-        // Show which agent has it
         if (conv && conv.assignedAgent) {
-            // Try to find the agent in our connected agents list
             const agent = this.connectedAgents.get(conv.assignedAgent);
             if (agent) {
                 return this.getAgentDisplayName(agent).replace('Agent ', '');
             }
-            // Fallback to shortened ID
             return conv.assignedAgent.substring(0, 6);
         }
         return 'OTHER';
@@ -580,11 +611,150 @@ class AgentDashboard {
      * Get status CSS classes for queue item
      */
     getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned) {
-        if (needsResponse && isAssignedToMe) return 'bg-blue-600 text-white font-bold';
-        if (needsResponse) return 'bg-red-100 text-red-800 font-semibold';
-        if (isAssignedToMe) return 'bg-blue-100 text-blue-800 font-medium';
+        if (needsResponse && isAssignedToMe) return 'bg-red-100 text-red-800';
+        if (needsResponse) return 'bg-orange-100 text-orange-800';
+        if (isAssignedToMe) return 'bg-blue-100 text-blue-700';
         if (isUnassigned) return 'bg-yellow-100 text-yellow-800';
-        return 'bg-gray-100 text-gray-600 text-xs';
+        return 'bg-gray-100 text-gray-600';
+    }
+
+    /**
+     * Render assignment buttons for conversation card
+     */
+    renderAssignmentButtons(isAssignedToMe, isUnassigned, conversationId) {
+        if (isAssignedToMe) {
+            return `<button onclick="dashboard.unassignConversation('${conversationId}', event)" 
+                           class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs rounded">
+                        Unassign
+                    </button>`;
+        } else {
+            return `<button onclick="dashboard.assignConversation('${conversationId}', event)" 
+                           class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded">
+                        Assign to me
+                    </button>`;
+        }
+    }
+
+    /**
+     * Assign conversation to current agent
+     * @param {string} conversationId - ID of conversation to assign
+     * @param {Event} event - Click event to prevent propagation
+     */
+    async assignConversation(conversationId, event) {
+        if (event) {
+            event.stopPropagation(); // Prevent selecting the chat
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                await this.loadConversations();
+            } else {
+                console.error('Failed to assign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error assigning conversation:', error);
+        }
+    }
+
+    /**
+     * Unassign conversation from current agent
+     * @param {string} conversationId - ID of conversation to unassign
+     * @param {Event} event - Click event to prevent propagation
+     */
+    async unassignConversation(conversationId, event) {
+        if (event) {
+            event.stopPropagation(); // Prevent selecting the chat
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/unassign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                // If we're unassigning the current chat, reset the view
+                if (conversationId === this.currentChatId) {
+                    this.resetChatView();
+                }
+                await this.loadConversations();
+            } else {
+                console.error('Failed to unassign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error unassigning conversation:', error);
+        }
+    }
+
+    /**
+     * Set conversation filter
+     * @param {string} filter - Filter type: 'mine', 'unassigned', 'others', 'all'
+     */
+    setFilter(filter) {
+        this.currentFilter = filter;
+        this.updateFilterButtons();
+        this.applyFilter();
+    }
+
+    /**
+     * Update filter button styles
+     */
+    updateFilterButtons() {
+        const buttons = ['filter-mine', 'filter-unassigned', 'filter-others', 'filter-all'];
+        const filterMap = {
+            'mine': 'filter-mine',
+            'unassigned': 'filter-unassigned',
+            'others': 'filter-others',
+            'all': 'filter-all'
+        };
+
+        buttons.forEach(buttonId => {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                if (buttonId === filterMap[this.currentFilter]) {
+                    // Active button styling
+                    button.className = 'flex-1 text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-800 font-medium transition hover:bg-blue-200';
+                } else {
+                    // Inactive button styling
+                    button.className = 'flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200';
+                }
+            }
+        });
+    }
+
+    /**
+     * Apply current filter to conversations
+     */
+    applyFilter() {
+        const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
+        this.renderQueue(filteredConversations);
+    }
+
+    /**
+     * Filter conversations based on assignment status
+     * @param {Array} conversations - Array of conversation objects
+     * @param {string} filter - Filter type
+     * @returns {Array} Filtered conversations
+     */
+    filterConversations(conversations, filter) {
+        switch (filter) {
+            case 'mine':
+                return conversations.filter(conv => conv.assignedAgent === this.agentId);
+            case 'unassigned':
+                return conversations.filter(conv => !conv.assignedAgent);
+            case 'others':
+                return conversations.filter(conv => conv.assignedAgent && conv.assignedAgent !== this.agentId);
+            case 'all':
+            default:
+                return conversations;
+        }
     }
 
     /**
@@ -630,11 +800,6 @@ class AgentDashboard {
             this.updateElementText('customer-name', conv.visitorId.substring(0, 16) + '...');
             this.updateElementText('customer-info', `Started ${new Date(conv.startedAt).toLocaleString()}`);
             
-            // Update close/reopen buttons based on conversation status
-            this.updateConversationButtons(conv);
-            
-            // Disable message input for resolved conversations
-            this.updateMessageInputState(conv);
         } else {
             this.updateElementText('customer-name', '');
             this.updateElementText('customer-info', '');
@@ -943,7 +1108,8 @@ class AgentDashboard {
                     message: message,
                     agentId: this.agentId,
                     usedSuggestion: this.currentSuggestion,
-                    suggestionAction: suggestionAction
+                    suggestionAction: suggestionAction,
+                    autoAssign: true  // Auto-assign to this agent when responding
                 })
             });
             
@@ -1322,6 +1488,8 @@ class AgentDashboard {
             
             // If this is the current chat, update messages and check for suggestion
             if (data.conversationId === this.currentChatId) {
+                // Refresh conversation status (handles reopening cases)
+                this.refreshConversation(this.currentChatId);
                 this.loadChatMessages(this.currentChatId);
                 
                 // Only check for pending suggestions in HITL mode
@@ -1465,57 +1633,7 @@ class AgentDashboard {
     }
 
 
-    /**
-     * Update conversation close/reopen buttons based on status
-     * @param {Object} conversation - Conversation object
-     */
-    updateConversationButtons(conversation) {
-        const closeBtn = document.getElementById('close-conversation-btn');
-        const reopenBtn = document.getElementById('reopen-conversation-btn');
-        
-        if (conversation.status === 'resolved') {
-            // Show reopen button, hide close button
-            if (closeBtn) closeBtn.classList.add('hidden');
-            if (reopenBtn) reopenBtn.classList.remove('hidden');
-        } else {
-            // Show close button, hide reopen button
-            if (closeBtn) closeBtn.classList.remove('hidden');
-            if (reopenBtn) reopenBtn.classList.add('hidden');
-        }
-    }
 
-    /**
-     * Update message input state based on conversation status
-     * @param {Object} conversation - Conversation object
-     */
-    updateMessageInputState(conversation) {
-        const messageInput = document.getElementById('message-input');
-        const sendButton = document.querySelector('#message-input-area button');
-        
-        if (conversation.status === 'resolved') {
-            // Disable input for resolved conversations
-            if (messageInput) {
-                messageInput.disabled = true;
-                messageInput.placeholder = 'Conversation is closed - reopen to send messages';
-                messageInput.classList.add('bg-gray-100', 'text-gray-500');
-            }
-            if (sendButton) {
-                sendButton.disabled = true;
-                sendButton.classList.add('opacity-50', 'cursor-not-allowed');
-            }
-        } else {
-            // Enable input for active conversations
-            if (messageInput) {
-                messageInput.disabled = false;
-                messageInput.placeholder = 'Type your message...';
-                messageInput.classList.remove('bg-gray-100', 'text-gray-500');
-            }
-            if (sendButton) {
-                sendButton.disabled = false;
-                sendButton.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-    }
 
     /**
      * Refresh a single conversation data from server
@@ -1534,8 +1652,6 @@ class AgentDashboard {
                     
                     // Update UI if this is the current conversation
                     if (this.currentChatId === conversationId) {
-                        this.updateConversationButtons(updatedConv);
-                        this.updateMessageInputState(updatedConv);
                     }
                 }
             }
@@ -1544,71 +1660,7 @@ class AgentDashboard {
         }
     }
 
-    /**
-     * Close current conversation
-     */
-    async closeConversation() {
-        if (!this.currentChatId) return;
-        
-        if (!confirm('Are you sure you want to close this conversation?')) return;
-        
-        try {
-            const response = await fetch(`${this.apiUrl}/api/conversations/${this.currentChatId}/close`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId })
-            });
-            
-            if (response.ok) {
-                // Reload messages, queue and update UI
-                await this.loadChatMessages(this.currentChatId);
-                this.loadConversations();
-                
-                // Refresh conversation data and update UI
-                await this.refreshConversation(this.currentChatId);
-                
-                this.showNotification('Conversation closed successfully', 'success');
-            } else {
-                const error = await response.json();
-                this.showNotification(error.error || 'Failed to close conversation', 'error');
-            }
-        } catch (error) {
-            console.error('Error closing conversation:', error);
-            this.showNotification('Failed to close conversation', 'error');
-        }
-    }
 
-    /**
-     * Reopen current conversation
-     */
-    async reopenConversation() {
-        if (!this.currentChatId) return;
-        
-        try {
-            const response = await fetch(`${this.apiUrl}/api/conversations/${this.currentChatId}/reopen`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId })
-            });
-            
-            if (response.ok) {
-                // Reload messages, queue and update UI
-                await this.loadChatMessages(this.currentChatId);
-                this.loadConversations();
-                
-                // Refresh conversation data and update UI
-                await this.refreshConversation(this.currentChatId);
-                
-                this.showNotification('Conversation reopened successfully', 'success');
-            } else {
-                const error = await response.json();
-                this.showNotification(error.error || 'Failed to reopen conversation', 'error');
-            }
-        } catch (error) {
-            console.error('Error reopening conversation:', error);
-            this.showNotification('Failed to reopen conversation', 'error');
-        }
-    }
 
     /**
      * Utility method to show element

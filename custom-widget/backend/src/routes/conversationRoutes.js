@@ -70,20 +70,16 @@ function createConversationRoutes(io) {
         conversationController.assignConversation(req, res);
     });
 
+    // Unassign conversation from agent
+    router.post('/conversations/:conversationId/unassign', (req, res) => {
+        conversationController.unassignConversation(req, res);
+    });
+
     // End conversation
     router.post('/conversations/:conversationId/end', (req, res) => {
         conversationController.endConversation(req, res);
     });
 
-    // Close conversation
-    router.post('/conversations/:conversationId/close', (req, res) => {
-        conversationController.closeConversation(req, res);
-    });
-
-    // Reopen conversation
-    router.post('/conversations/:conversationId/reopen', (req, res) => {
-        conversationController.reopenConversation(req, res);
-    });
 
     return router;
 }

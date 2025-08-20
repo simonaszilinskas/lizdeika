@@ -1,439 +1,665 @@
 /**
- * Agent Service
- * Handles agent data management and business logic
+ * AGENT SERVICE - PostgreSQL-Only Implementation
+ * Handles agent data management and business logic using PostgreSQL
  */
 
-// In-memory storage (use PostgreSQL/Redis in production)
-const agents = new Map();
+const { PrismaClient } = require('@prisma/client');
+const { v4: uuidv4 } = require('uuid');
+const { handleServiceError, createError } = require('../utils/errors');
 
-// Global system state
-let systemMode = 'hitl'; // hitl, autopilot, off
+const prisma = new PrismaClient();
 
-// Simple agent name mapping for demo purposes
-const agentNameCounter = { agent: 0, admin: 0 };
-const agentNames = new Map(); // agentId -> display name
+// System mode is now stored in database
 
 class AgentService {
     /**
-     * Generate a friendly display name for an agent
-     */
-    generateAgentDisplayName(agentId) {
-        // Check if we already have a name for this agent
-        if (agentNames.has(agentId)) {
-            return agentNames.get(agentId);
-        }
-        
-        // Determine role based on agent ID pattern
-        const isAdmin = agentId.includes('admin') || agentId.includes('Admin');
-        const role = isAdmin ? 'admin' : 'agent';
-        
-        // Generate next sequential name
-        agentNameCounter[role]++;
-        const name = role === 'admin' ? `Admin ${this.numberToWord(agentNameCounter[role])}` : `Agent ${this.numberToWord(agentNameCounter[role])}`;
-        
-        // Store the mapping
-        agentNames.set(agentId, name);
-        
-        return name;
-    }
-    
-    /**
-     * Convert number to word (for first few numbers)
-     */
-    numberToWord(num) {
-        const words = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
-        return words[num - 1] || num.toString();
-    }
-    
-    /**
-     * Get agent display name
+     * Generate a simple display name for an agent (simplified approach)
      */
     getAgentDisplayName(agentId) {
-        return agentNames.get(agentId) || this.generateAgentDisplayName(agentId);
+        // Simple approach: extract meaningful name from agentId
+        if (agentId.includes('admin') || agentId.includes('Admin')) {
+            return 'Admin User';
+        }
+        
+        // For agent IDs, try to extract a readable name
+        if (agentId.includes('agent') || agentId.includes('Agent')) {
+            return 'Agent User';
+        }
+        
+        // For email-like IDs, extract the local part
+        if (agentId.includes('@')) {
+            const localPart = agentId.split('@')[0];
+            // Capitalize first letter and replace underscores/dots with spaces
+            return localPart.charAt(0).toUpperCase() + localPart.slice(1).replace(/[_.-]/g, ' ');
+        }
+        
+        // Default: capitalize and clean up the ID
+        return agentId.charAt(0).toUpperCase() + agentId.slice(1).replace(/[_.-]/g, ' ');
     }
 
     /**
-     * Update agent personal status (online/afk)
+     * Update agent personal status (online/afk) with database persistence
      */
-    updateAgentPersonalStatus(agentId, personalStatus, conversationService = null) {
-        const activeChats = conversationService 
-            ? conversationService.getAgentConversations(agentId).length 
-            : 0;
-        
-        const existingAgent = agents.get(agentId) || {};
-        
-        agents.set(agentId, {
-            ...existingAgent,
-            id: agentId,
-            name: this.getAgentDisplayName(agentId),
-            personalStatus: personalStatus, // online, afk
-            lastSeen: new Date(),
-            activeChats: activeChats,
-            connected: true
-        });
-        
-        return agents.get(agentId);
+    async updateAgentPersonalStatus(agentId, personalStatus, includeActiveChats = false) {
+        try {
+            // Get or create user for this agent
+            const user = await this.getOrCreateAgentUser(agentId);
+            
+            // Count active chats for this agent if requested
+            const activeChats = includeActiveChats ? await this.getAgentActiveChatsCount(agentId) : 0;
+            
+            // Update agent status in database
+            const agentStatus = await prisma.agentStatus.upsert({
+                where: { userId: user.id },
+                update: {
+                    status: personalStatus === 'online' ? 'online' : personalStatus === 'afk' ? 'busy' : 'offline',
+                    updatedAt: new Date()
+                },
+                create: {
+                    userId: user.id,
+                    status: personalStatus === 'online' ? 'online' : personalStatus === 'afk' ? 'busy' : 'offline'
+                },
+                include: {
+                    user: true
+                }
+            });
+            
+            // Return agent data in expected format
+            const agent = {
+                id: agentId,
+                name: this.getAgentDisplayName(agentId),
+                status: this.mapStatusToLegacy(agentStatus.status),
+                personalStatus: personalStatus,
+                lastSeen: agentStatus.updatedAt,
+                activeChats: activeChats,
+                connected: personalStatus !== 'offline',
+                userId: user.id
+            };
+            
+            return agent;
+        } catch (error) {
+            console.error('Failed to update agent personal status:', error);
+            // Return a basic agent object for compatibility
+            return {
+                id: agentId,
+                name: this.getAgentDisplayName(agentId),
+                status: personalStatus === 'online' ? 'online' : 'offline',
+                personalStatus: personalStatus,
+                lastSeen: new Date(),
+                activeChats: 0,
+                connected: personalStatus !== 'offline'
+            };
+        }
     }
 
     /**
      * Legacy method for backward compatibility
      */
-    updateAgentStatus(agentId, status, conversationService = null) {
-        return this.updateAgentPersonalStatus(agentId, status, conversationService);
+    async updateAgentStatus(agentId, status, includeActiveChats = false) {
+        return this.updateAgentPersonalStatus(agentId, status, includeActiveChats);
     }
 
     /**
-     * Get agent by ID
+     * Get agent by ID from database
      */
-    getAgent(agentId) {
-        return agents.get(agentId);
+    async getAgent(agentId) {
+        try {
+            const user = await this.findAgentUser(agentId, true);
+            
+            if (!user) return null;
+            
+            return await this.mapUserToAgent(user);
+        } catch (error) {
+            console.error('Failed to get agent:', error);
+            return null;
+        }
     }
 
     /**
-     * Get all agents
+     * Get all agents from database
      */
-    getAllAgents() {
-        return Array.from(agents.values());
+    async getAllAgents() {
+        try {
+            const users = await prisma.user.findMany({
+                where: {
+                    role: { in: ['agent', 'admin'] }
+                },
+                include: {
+                    agentStatus: true
+                },
+                orderBy: { createdAt: 'asc' }
+            });
+            
+            return Promise.all(users.map(user => this.mapUserToAgent(user)));
+        } catch (error) {
+            console.error('Failed to get all agents:', error);
+            return [];
+        }
     }
 
     /**
      * Get available agents (connected and not AFK)
      */
-    getAvailableAgents() {
-        const now = new Date();
-        return Array.from(agents.values()).filter(agent => 
-            agent.connected &&
-            agent.personalStatus !== 'afk' && 
-            (now - agent.lastSeen) < 60000 // Active in last minute
-        );
+    async getAvailableAgents() {
+        try {
+            const users = await this.findActiveAgents(['online']);
+            
+            return Promise.all(users.map(user => this.mapUserToAgent(user)));
+        } catch (error) {
+            console.error('Failed to get available agents:', error);
+            return [];
+        }
     }
 
     /**
      * Get active agents (legacy - for backward compatibility)
      */
-    getActiveAgents() {
+    async getActiveAgents() {
         return this.getAvailableAgents();
     }
 
     /**
      * Get online agents (HITL and Autopilot modes)
      */
-    getOnlineAgents() {
-        return Array.from(agents.values()).filter(agent => 
-            (agent.status === 'online' || agent.status === 'hitl' || agent.status === 'autopilot') && 
-            (new Date() - agent.lastSeen) < 60000 // Active in last minute
-        );
+    async getOnlineAgents() {
+        try {
+            const users = await this.findActiveAgents(['online', 'busy']);
+            
+            return Promise.all(users.map(user => this.mapUserToAgent(user)));
+        } catch (error) {
+            console.error('Failed to get online agents:', error);
+            return [];
+        }
     }
 
     /**
      * Set agent as online with socket info
      */
-    setAgentOnline(agentId, socketId = null, conversationService = null) {
-        const activeChats = conversationService 
-            ? conversationService.getAgentConversations(agentId).length 
-            : 0;
-        
-        const agent = {
-            id: agentId,
-            name: this.getAgentDisplayName(agentId),
-            status: 'online',
-            lastSeen: new Date(),
-            socketId: socketId,
-            activeChats: activeChats
-        };
-        
-        agents.set(agentId, agent);
-        return agent;
+    async setAgentOnline(agentId, socketId = null, includeActiveChats = false) {
+        try {
+            const agent = await this.updateAgentPersonalStatus(agentId, 'online', includeActiveChats);
+            agent.socketId = socketId;
+            return agent;
+        } catch (error) {
+            console.error('Failed to set agent online:', error);
+            return {
+                id: agentId,
+                name: this.getAgentDisplayName(agentId),
+                status: 'online',
+                lastSeen: new Date(),
+                socketId: socketId,
+                activeChats: 0
+            };
+        }
     }
 
     /**
      * Set agent as offline (cleanup)
      */
-    setAgentOffline(agentId) {
-        const agent = agents.get(agentId);
-        if (agent) {
-            agent.connected = false;
-            agent.personalStatus = 'offline';
-            agent.lastSeen = new Date();
-            agents.set(agentId, agent);
+    async setAgentOffline(agentId) {
+        try {
+            const user = await this.getOrCreateAgentUser(agentId);
+            
+            const agentStatus = await prisma.agentStatus.upsert({
+                where: { userId: user.id },
+                update: {
+                    status: 'offline',
+                    updatedAt: new Date()
+                },
+                create: {
+                    userId: user.id,
+                    status: 'offline'
+                }
+            });
+            
+            return {
+                id: agentId,
+                name: this.getAgentDisplayName(agentId),
+                connected: false,
+                personalStatus: 'offline',
+                status: 'offline',
+                lastSeen: agentStatus.updatedAt,
+                userId: user.id
+            };
+        } catch (error) {
+            console.error('Failed to set agent offline:', error);
+            return {
+                id: agentId,
+                name: this.getAgentDisplayName(agentId),
+                connected: false,
+                personalStatus: 'offline',
+                status: 'offline',
+                lastSeen: new Date()
+            };
         }
-        return agent;
     }
 
     /**
-     * Get best available agent for new conversation (load balancing)
-     * Returns agent with least active conversations
+     * Get best available agent for new conversation (simplified)
      */
-    getBestAvailableAgent() {
-        const availableAgents = this.getAvailableAgents();
-        
-        if (availableAgents.length === 0) {
+    async getBestAvailableAgent() {
+        try {
+            const availableAgents = await this.getAvailableAgents();
+            
+            if (availableAgents.length === 0) {
+                return null;
+            }
+            
+            // Simple: return first available agent
+            return availableAgents[0];
+        } catch (error) {
+            console.error('Failed to get best available agent:', error);
             return null;
         }
-        
-        // Sort by least active chats, then by last seen (oldest first for fairness)
-        return availableAgents.sort((a, b) => {
-            if (a.activeChats !== b.activeChats) {
-                return a.activeChats - b.activeChats; // Least active chats first
-            }
-            return new Date(a.lastSeen) - new Date(b.lastSeen); // Oldest first
-        })[0];
     }
 
     /**
-     * Get/Set global system mode
+     * Get global system mode from database
      */
-    getSystemMode() {
-        return systemMode;
+    async getSystemMode() {
+        try {
+            const setting = await prisma.systemSetting.findUnique({
+                where: { key: 'system_mode' }
+            });
+            return setting?.value || 'hitl';
+        } catch (error) {
+            throw handleServiceError(error, 'getSystemMode');
+        }
     }
 
-    setSystemMode(mode) {
-        if (['hitl', 'autopilot', 'off'].includes(mode)) {
-            systemMode = mode;
-            return true;
+    /**
+     * Set global system mode in database
+     */
+    async setSystemMode(mode) {
+        if (!['hitl', 'autopilot', 'off'].includes(mode)) {
+            throw createError.validation(`Invalid system mode: ${mode}. Must be 'hitl', 'autopilot', or 'off'`);
         }
-        return false;
+        
+        try {
+            await prisma.systemSetting.upsert({
+                where: { key: 'system_mode' },
+                update: { 
+                    value: mode,
+                    updatedBy: 'system' // Could be replaced with actual user ID
+                },
+                create: {
+                    key: 'system_mode',
+                    value: mode,
+                    updatedBy: 'system'
+                }
+            });
+            return true;
+        } catch (error) {
+            throw handleServiceError(error, 'setSystemMode');
+        }
     }
 
     /**
      * Get connected agents (for display)
      */
-    getConnectedAgents() {
-        const now = new Date();
-        return Array.from(agents.values()).filter(agent => 
-            agent.connected && (now - agent.lastSeen) < 60000
-        );
-    }
-
-    /**
-     * Handle agent going AFK - reassign their tickets
-     */
-    handleAgentAFK(agentId, conversationService) {
-        if (!conversationService) return [];
-        
-        const agentConversations = conversationService.getAgentConversations(agentId);
-        const availableAgents = this.getAvailableAgents().filter(a => a.id !== agentId);
-        
-        if (availableAgents.length === 0) {
-            // No one available, keep tickets assigned but mark as orphaned
-            return agentConversations.map(conv => ({
-                conversationId: conv.id,
-                action: 'orphaned',
-                reason: 'No available agents'
-            }));
-        }
-
-        const reassignments = [];
-        
-        agentConversations.forEach(conv => {
-            // Use load balancing to find best agent
-            const bestAgent = this.getBestAvailableAgent();
-            if (bestAgent) {
-                conversationService.assignConversation(conv.id, bestAgent.id);
-                reassignments.push({
-                    conversationId: conv.id,
-                    fromAgent: agentId,
-                    toAgent: bestAgent.id,
-                    action: 'reassigned'
-                });
-            }
-        });
-
-        return reassignments;
-    }
-
-    /**
-     * Handle agent coming back online - reclaim their tickets if appropriate
-     */
-    handleAgentBackOnline(agentId, conversationService) {
-        if (!conversationService) return [];
-        
-        // Find conversations that were originally this agent's
-        const allConversations = conversationService.getAllConversations();
-        const reclaimable = allConversations.filter(conv => 
-            conv.originalAgent === agentId && 
-            conv.assignedAgent !== agentId &&
-            !this.conversationHasRecentActivity(conv, 300000) // No activity in last 5 minutes
-        );
-
-        const reclaims = [];
-        
-        reclaimable.forEach(conv => {
-            conversationService.assignConversation(conv.id, agentId);
-            reclaims.push({
-                conversationId: conv.id,
-                fromAgent: conv.assignedAgent,
-                toAgent: agentId,
-                action: 'reclaimed'
-            });
-        });
-
-        return reclaims;
-    }
-
-    /**
-     * Distribute orphaned tickets gradually when agents come online
-     */
-    redistributeOrphanedTickets(conversationService, maxTicketsPerAgent = 3) {
-        if (!conversationService) return [];
-        
-        const availableAgents = this.getAvailableAgents();
-        const orphanedConversations = conversationService.getOrphanedConversations();
-        
-        if (availableAgents.length === 0 || orphanedConversations.length === 0) return [];
-
-        const redistributions = [];
-        let ticketIndex = 0;
-
-        // Distribute tickets gradually - max N tickets per agent at a time
-        availableAgents.forEach(agent => {
-            const currentLoad = agent.activeChats || 0;
-            const canTake = Math.min(maxTicketsPerAgent, orphanedConversations.length - ticketIndex);
+    async getConnectedAgents() {
+        try {
+            const users = await this.findActiveAgents(['online', 'busy']);
             
-            for (let i = 0; i < canTake && ticketIndex < orphanedConversations.length; i++) {
-                const conv = orphanedConversations[ticketIndex];
-                conversationService.assignConversation(conv.id, agent.id);
-                
-                redistributions.push({
-                    conversationId: conv.id,
-                    toAgent: agent.id,
-                    action: 'redistributed',
-                    previousLoad: currentLoad
-                });
-                
-                ticketIndex++;
-            }
-        });
-
-        return redistributions;
+            return Promise.all(users.map(user => this.mapUserToAgent(user)));
+        } catch (error) {
+            console.error('Failed to get connected agents:', error);
+            return [];
+        }
     }
 
     /**
-     * Check if conversation has recent activity
+     * Handle agent going AFK - simplified (no automatic reassignment)
      */
-    conversationHasRecentActivity(conversation, thresholdMs) {
-        if (!conversation.lastActivity) return false;
-        return (new Date() - new Date(conversation.lastActivity)) < thresholdMs;
+    async handleAgentAFK(agentId, conversationService) {
+        // Simplified: just return empty array, no automatic reassignment
+        return [];
     }
+
+    /**
+     * Handle agent coming back online - simplified (no automatic reclaiming)
+     */
+    async handleAgentBackOnline(agentId, conversationService) {
+        // Simplified: just return empty array, no automatic reclaiming
+        return [];
+    }
+
+    /**
+     * Redistribute orphaned tickets - simplified (disabled)
+     */
+    async redistributeOrphanedTickets(conversationService, maxTicketsPerAgent = 3) {
+        // Simplified: disabled automatic redistribution
+        return [];
+    }
+
 
     /**
      * Update agent's last seen timestamp
      */
-    updateLastSeen(agentId) {
-        const agent = agents.get(agentId);
-        if (agent) {
-            agent.lastSeen = new Date();
-            agents.set(agentId, agent);
+    async updateLastSeen(agentId) {
+        try {
+            const user = await this.getOrCreateAgentUser(agentId);
+            
+            const agentStatus = await prisma.agentStatus.upsert({
+                where: { userId: user.id },
+                update: { updatedAt: new Date() },
+                create: {
+                    userId: user.id,
+                    status: 'offline'
+                }
+            });
+            
+            return {
+                id: agentId,
+                name: this.getAgentDisplayName(agentId),
+                lastSeen: agentStatus.updatedAt,
+                userId: user.id
+            };
+        } catch (error) {
+            console.error('Failed to update last seen:', error);
+            return null;
         }
-        return agent;
     }
 
     /**
      * Get agent count
      */
-    getAgentCount() {
-        return agents.size;
+    async getAgentCount() {
+        try {
+            return await prisma.user.count({
+                where: {
+                    role: { in: ['agent', 'admin'] }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to get agent count:', error);
+            return 0;
+        }
     }
 
     /**
      * Clear all agent data (for testing)
      */
-    clearAllData() {
-        agents.clear();
-        agentNames.clear();
-        agentNameCounter.agent = 0;
-        agentNameCounter.admin = 0;
+    async clearAllData() {
+        if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
+            throw new Error('clearAllData can only be used in test/development environment');
+        }
+        
+        try {
+            // Clear agent status data
+            await prisma.agentStatus.deleteMany();
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to clear all agent data:', error);
+            return false;
+        }
     }
 
     /**
      * Get agent statistics
      */
-    getAgentStats() {
-        const allAgents = Array.from(agents.values());
-        const now = new Date();
-        
-        const stats = {
-            total: allAgents.length,
-            online: allAgents.filter(a => a.status === 'online' && (now - a.lastSeen) < 60000).length,
-            busy: allAgents.filter(a => a.status === 'busy' && (now - a.lastSeen) < 60000).length,
-            offline: allAgents.filter(a => a.status === 'offline' || (now - a.lastSeen) >= 60000).length,
-            totalActiveChats: allAgents.reduce((sum, agent) => sum + (agent.activeChats || 0), 0)
-        };
-        
-        return stats;
+    async getAgentStats() {
+        try {
+            const cutoffTime = new Date(Date.now() - 60000); // Active in last minute
+            
+            const [total, onlineCount, busyCount] = await Promise.all([
+                prisma.user.count({ where: { role: { in: ['agent', 'admin'] } } }),
+                prisma.agentStatus.count({ 
+                    where: { 
+                        status: 'online',
+                        updatedAt: { gte: cutoffTime }
+                    }
+                }),
+                prisma.agentStatus.count({ 
+                    where: { 
+                        status: 'busy',
+                        updatedAt: { gte: cutoffTime }
+                    }
+                })
+            ]);
+            
+            const stats = {
+                total,
+                online: onlineCount,
+                busy: busyCount,
+                offline: total - onlineCount - busyCount,
+                totalActiveChats: 0 // Would need conversation service to calculate this
+            };
+            
+            return stats;
+        } catch (error) {
+            console.error('Failed to get agent stats:', error);
+            return {
+                total: 0,
+                online: 0,
+                busy: 0,
+                offline: 0,
+                totalActiveChats: 0
+            };
+        }
     }
 
     /**
      * Get agent performance metrics
      */
-    getAgentPerformance(agentId, conversationService = null) {
-        const agent = agents.get(agentId);
-        
-        if (!agent) return null;
-        
-        if (!conversationService) {
+    async getAgentPerformance(agentId, conversationService = null) {
+        try {
+            const user = await this.getOrCreateAgentUser(agentId);
+            
+            if (!conversationService) {
+                return {
+                    agentId: agentId,
+                    totalConversations: 0,
+                    resolvedConversations: 0,
+                    activeConversations: 0,
+                    resolutionRate: 0,
+                    averageResolutionTime: 0,
+                    currentStatus: 'offline',
+                    lastActive: new Date()
+                };
+            }
+            
+            const agentConversations = await conversationService.getAgentConversations(agentId);
+            
             return {
                 agentId: agentId,
-                totalConversations: 0,
-                resolvedConversations: 0,
-                activeConversations: 0,
-                resolutionRate: 0,
-                averageResolutionTime: 0,
-                currentStatus: agent.status,
-                lastActive: agent.lastSeen
+                totalConversations: agentConversations.length,
+                currentStatus: 'online', // Would get from database in real implementation
+                lastActive: new Date()
             };
+        } catch (error) {
+            console.error('Failed to get agent performance:', error);
+            return null;
         }
-        
-        const agentConversations = conversationService.getAgentConversations(agentId);
-        const resolvedConversations = agentConversations.filter(c => c.status === 'resolved');
-        
-        return {
-            agentId: agentId,
-            totalConversations: agentConversations.length,
-            resolvedConversations: resolvedConversations.length,
-            activeConversations: agentConversations.filter(c => c.status === 'active').length,
-            resolutionRate: agentConversations.length > 0 
-                ? ((resolvedConversations.length / agentConversations.length) * 100).toFixed(2)
-                : 0,
-            averageResolutionTime: this.calculateAverageResolutionTime(resolvedConversations),
-            currentStatus: agent.status,
-            lastActive: agent.lastSeen
-        };
     }
 
     /**
      * Calculate average resolution time for conversations
      */
     calculateAverageResolutionTime(conversations) {
-        if (conversations.length === 0) return 0;
-        
-        const resolutionTimes = conversations
-            .filter(c => c.startedAt && c.endedAt)
-            .map(c => new Date(c.endedAt) - new Date(c.startedAt));
-        
-        if (resolutionTimes.length === 0) return 0;
-        
-        const averageMs = resolutionTimes.reduce((sum, time) => sum + time, 0) / resolutionTimes.length;
-        return Math.round(averageMs / (1000 * 60)); // Return in minutes
+        // Resolution time tracking removed with status system
+        return 0;
     }
 
     /**
      * Find best available agent for assignment
      */
-    findBestAvailableAgent() {
-        const onlineAgents = this.getOnlineAgents();
+    async findBestAvailableAgent() {
+        try {
+            const onlineAgents = await this.getOnlineAgents();
+            
+            if (onlineAgents.length === 0) return null;
+            
+            // Sort by least active chats, then by last seen (most recent first)
+            onlineAgents.sort((a, b) => {
+                if (a.activeChats !== b.activeChats) {
+                    return a.activeChats - b.activeChats;
+                }
+                return new Date(b.lastSeen) - new Date(a.lastSeen);
+            });
+            
+            return onlineAgents[0];
+        } catch (error) {
+            console.error('Failed to find best available agent:', error);
+            return null;
+        }
+    }
+
+    // HELPER METHODS
+
+    /**
+     * Common user lookup pattern for agents - optimized query
+     */
+    async findAgentUser(agentId, includeAgentStatus = false) {
+        const include = includeAgentStatus ? { agentStatus: true } : undefined;
         
-        if (onlineAgents.length === 0) return null;
-        
-        // Sort by least active chats, then by last seen (most recent first)
-        onlineAgents.sort((a, b) => {
-            if (a.activeChats !== b.activeChats) {
-                return a.activeChats - b.activeChats;
-            }
-            return new Date(b.lastSeen) - new Date(a.lastSeen);
+        return await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { id: agentId },
+                    { email: { contains: agentId } }
+                ],
+                role: { in: ['agent', 'admin'] }
+            },
+            include
         });
+    }
+
+    /**
+     * Common query for active agents with status filtering - optimized
+     */
+    async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = 1) {
+        const cutoffTime = new Date(Date.now() - (minutesAgo * 60000));
         
-        return onlineAgents[0];
+        return await prisma.user.findMany({
+            where: {
+                role: { in: ['agent', 'admin'] },
+                agentStatus: {
+                    status: { in: statusFilter },
+                    updatedAt: { gte: cutoffTime }
+                }
+            },
+            include: {
+                agentStatus: true
+            },
+            orderBy: { updatedAt: 'desc' }
+        });
+    }
+
+    /**
+     * Get active conversation count for agent directly from database
+     */
+    async getAgentActiveChatsCount(agentId) {
+        try {
+            return await prisma.ticket.count({
+                where: {
+                    assignedAgentId: agentId
+                }
+            });
+        } catch (error) {
+            console.error('Failed to get agent active chats count:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Map user database object to agent response format - reduces duplication
+     */
+    async mapUserToAgent(user, includeActiveChats = false) {
+        const agentId = this.getUserAgentId(user);
+        let activeChats = 0;
+        
+        if (includeActiveChats) {
+            activeChats = await this.getAgentActiveChatsCount(agentId);
+        }
+        
+        return {
+            id: agentId,
+            name: this.getAgentDisplayName(agentId),
+            status: user.agentStatus ? this.mapStatusToLegacy(user.agentStatus.status) : 'offline',
+            personalStatus: user.agentStatus ? this.mapStatusToPersonal(user.agentStatus.status) : 'offline',
+            lastSeen: user.agentStatus?.updatedAt || user.updatedAt,
+            activeChats,
+            connected: user.agentStatus ? user.agentStatus.status !== 'offline' : false,
+            userId: user.id
+        };
+    }
+
+    /**
+     * Get or create agent user in database
+     */
+    async getOrCreateAgentUser(agentId) {
+        try {
+            // First try to find existing user by agent pattern
+            let user = await this.findAgentUser(agentId);
+            
+            if (!user) {
+                // Create new agent user using upsert to avoid duplicates
+                const isAdmin = agentId.includes('admin') || agentId.includes('Admin');
+                const email = `${agentId}@vilnius.lt`;
+                
+                const displayName = this.getAgentDisplayName(agentId);
+                const nameParts = displayName.split(' ');
+                
+                user = await prisma.user.upsert({
+                    where: { email: email },
+                    update: {
+                        // Update existing user if found
+                        firstName: nameParts[0],
+                        lastName: nameParts.slice(1).join(' ') || '',
+                        role: isAdmin ? 'admin' : 'agent'
+                    },
+                    create: {
+                        email: email,
+                        firstName: nameParts[0],
+                        lastName: nameParts.slice(1).join(' ') || '',
+                        passwordHash: 'temp', // Should be set by admin
+                        role: isAdmin ? 'admin' : 'agent'
+                    }
+                });
+            }
+            
+            return user;
+        } catch (error) {
+            console.error('Failed to get or create agent user:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get agent ID from user object
+     */
+    getUserAgentId(user) {
+        // Extract agent ID from email or use user ID
+        if (user.email.includes('@vilnius.lt')) {
+            return user.email.split('@')[0];
+        }
+        return user.id;
+    }
+
+    /**
+     * Map database status enum to legacy status
+     */
+    mapStatusToLegacy(dbStatus) {
+        const mapping = {
+            'online': 'online',
+            'busy': 'busy',
+            'offline': 'offline'
+        };
+        return mapping[dbStatus] || 'offline';
+    }
+
+    /**
+     * Map database status to personal status
+     */
+    mapStatusToPersonal(dbStatus) {
+        const mapping = {
+            'online': 'online',
+            'busy': 'afk',
+            'offline': 'offline'
+        };
+        return mapping[dbStatus] || 'offline';
     }
 }
 
