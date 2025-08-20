@@ -51,6 +51,11 @@ function createAgentRoutes(io) {
         agentController.getActiveAgents(req, res);
     });
 
+    // Get all agents (including offline ones)
+    router.get('/agents/all', (req, res) => {
+        agentController.getAllAgents(req, res);
+    });
+
     // NEW: Update personal agent status (online/afk)
     router.post('/agent/personal-status', (req, res) => {
         agentController.updatePersonalStatus(req, res);

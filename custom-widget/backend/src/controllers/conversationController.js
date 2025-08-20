@@ -177,16 +177,44 @@ class ConversationController {
                 }
                 
             } else {
-                // HITL MODE: Create AI suggestion for agent review (no automatic assignment)
+                // HITL MODE: Create AI suggestion for agent review with auto-assignment to online agents
                 // Remove any existing pending messages to avoid duplicates
                 conversationService.removePendingMessages(conversationId);
                 
-                // No automatic assignment - agents must manually assign themselves
+                // Try to automatically assign to an available online agent
+                const conversation = await conversationService.getConversation(conversationId);
+                let assignedAgent = null;
+                let shouldMarkAsUnseen = false;
+                
+                if (conversation && !conversation.assignedAgent) {
+                    const availableAgent = await agentService.getBestAvailableAgent();
+                    if (availableAgent) {
+                        await conversationService.assignConversation(conversationId, availableAgent.id);
+                        assignedAgent = availableAgent.id;
+                        console.log(`Auto-assigned conversation ${conversationId} to online agent ${availableAgent.id}`);
+                        
+                        // Add system message about assignment
+                        const assignmentMessage = {
+                            id: uuidv4(),
+                            conversationId,
+                            content: 'Agent has been assigned to help you',
+                            sender: 'system',
+                            timestamp: new Date(),
+                            metadata: { systemMessage: true }
+                        };
+                        await conversationService.addMessage(conversationId, assignmentMessage);
+                    } else {
+                        console.log(`No online agents available for conversation ${conversationId}, marking as unseen`);
+                        shouldMarkAsUnseen = true;
+                    }
+                }
                 
                 aiMessage = {
                     id: uuidv4(),
                     conversationId,
-                    content: '[Message pending agent response - AI suggestion available]',
+                    content: shouldMarkAsUnseen ? 
+                        '[No agents online - Message awaiting assignment]' : 
+                        '[Message pending agent response - AI suggestion available]',
                     sender: 'system',
                     timestamp: new Date(),
                     metadata: { 
@@ -195,7 +223,10 @@ class ConversationController {
                         confidence: 0.85,
                         customerMessage: message,
                         messageCount: customerMessageCount,
-                        conversationContext: conversationContext.substring(0, 200) + '...'
+                        conversationContext: conversationContext.substring(0, 200) + '...',
+                        assignedAgent: assignedAgent,
+                        unseenByAgents: shouldMarkAsUnseen,
+                        needsManualAssignment: shouldMarkAsUnseen
                     }
                 };
                 

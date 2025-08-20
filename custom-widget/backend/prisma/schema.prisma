@@ -20,14 +20,6 @@ enum UserRole {
   user
 }
 
-enum TicketStatus {
-  open
-  in_progress
-  waiting_user
-  resolved
-  closed
-  archived
-}
 
 enum TicketPriority {
   low
@@ -59,11 +51,7 @@ enum MessageType {
 enum ActionType {
   created
   assigned
-  status_changed
   priority_changed
-  resolved
-  closed
-  reopened
   message_added
 }
 
@@ -84,6 +72,7 @@ model User {
   firstName      String   @map("first_name")
   lastName       String   @map("last_name")
   role           UserRole @default(user)
+  userNumber     Int?     @unique @map("user_number")
   isActive       Boolean  @default(true) @map("is_active")
   emailVerified  Boolean  @default(false) @map("email_verified")
   lastLogin      DateTime? @map("last_login")
@@ -98,6 +87,9 @@ model User {
   refreshTokens      RefreshToken[]
   agentStatus        AgentStatus?
 
+  @@index([role])
+  @@index([isActive])
+  @@index([lastLogin])
   @@map("users")
 }
 
@@ -140,7 +132,6 @@ model Ticket {
   ticketNumber     String         @unique @map("ticket_number")
   userId           String?        @map("user_id")
   assignedAgentId  String?        @map("assigned_agent_id")
-  status           TicketStatus   @default(open)
   priority         TicketPriority @default(medium)
   category         String?
   subject          String
@@ -148,8 +139,6 @@ model Ticket {
   source           TicketSource   @default(widget)
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
-  resolvedAt       DateTime?      @map("resolved_at")
-  closedAt         DateTime?      @map("closed_at")
 
   // Relations
   user            User?          @relation("TicketUser", fields: [userId], references: [id])
@@ -157,10 +146,8 @@ model Ticket {
   messages        Message[]
   actions         TicketAction[]
 
-  @@index([status])
   @@index([assignedAgentId])
   @@index([createdAt])
-  @@index([status, assignedAgentId])
   @@map("tickets")
 }
 
@@ -180,6 +167,8 @@ model Message {
 
   @@index([ticketId])
   @@index([createdAt])
+  @@index([senderType])
+  @@index([ticketId, createdAt])
   @@map("messages")
 }
 

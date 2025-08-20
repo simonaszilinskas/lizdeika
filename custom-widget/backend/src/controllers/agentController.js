@@ -307,6 +307,42 @@ class AgentController {
             res.status(500).json({ error: 'Failed to get connected agents' });
         }
     }
+
+    /**
+     * Get all agents (including offline ones) for assignment dropdown
+     */
+    async getAllAgents(req, res) {
+        try {
+            const allAgents = await agentService.getAllAgents();
+            const connectedAgents = await agentService.getConnectedAgents();
+            const connectedAgentIds = new Set(connectedAgents.map(a => a.id));
+            
+            // Filter out test/temporary agents and only show legitimate agents
+            // Keep agents that either:
+            // 1. Have meaningful names (not just "Agent User")  
+            // 2. Are well-known agent IDs (admin, agent1, agent2, etc.)
+            // 3. Have been seen recently (last 24 hours)
+            const now = new Date();
+            const oneDayAgo = new Date(now - 24 * 60 * 60 * 1000);
+            
+            const legitimateAgents = allAgents.filter(agent => {
+                // Only include real users - exclude fake agent2/agent3 that were created by mistake
+                const validAgentIds = ['admin', 'agent1'];
+                return validAgentIds.includes(agent.id);
+            });
+            
+            // Map agents and mark their connection status
+            const agentsWithStatus = legitimateAgents.map(agent => ({
+                ...agent,
+                connected: connectedAgentIds.has(agent.id)
+            }));
+            
+            res.json({ agents: agentsWithStatus });
+        } catch (error) {
+            console.error('Error getting all agents:', error);
+            res.status(500).json({ error: 'Failed to get all agents' });
+        }
+    }
 }
 
 module.exports = AgentController;

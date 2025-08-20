@@ -11,6 +11,16 @@ A customer support chat system for Vilnius city with AI-powered assistance, evol
 - **[Migration Plan](./project/migration-plan.md)** - Phased approach to reach full Lizdeika vision
 - **[Lizdeika Specification](./project/moonshot_spec.md)** - Complete vision for the ultimate system
 
+## 🗂️ Docs Index
+
+- **Backend Dev Guide**: `custom-widget/backend/DEVELOPER_GUIDE.md`
+- **API Docs**: `custom-widget/API_DOCUMENTATION.md`, `custom-widget/CONVERSATION_API.md` (OpenAPI WIP at `custom-widget/backend/openapi.yaml`, served at `/docs`)
+- **Embedding + Widget**: `custom-widget/embed-widget.html`, `custom-widget/widget.js`
+- **Architecture**: `custom-widget/backend/ARCHITECTURE.md`, `custom-widget/SYSTEM_ARCHITECTURE.md`
+- **Testing**: `custom-widget/backend/tests/*`, how-to in backend dev guide
+- **Troubleshooting**: `TROUBLESHOOTING.md`
+- **Security**: `SECURITY.md`
+
 ## ⚡ Quick Start
 
 1. Install dependencies:
@@ -36,6 +46,10 @@ npm start
 - **Agent Dashboard**: http://localhost:3002/agent-dashboard.html
 - **Customer Widget Demo**: http://localhost:3002/embed-widget.html
 - **System Test**: http://localhost:3002/test-dashboard.html
+
+Notes on hosting:
+- Preferred: run only the backend on port 3002 — it serves the UI pages above.
+- Alternative: serve static UI from root on port 3000 using `npm run dev` if you need it. Backend still runs on 3002.
 
 ## 🧪 Testing the System
 

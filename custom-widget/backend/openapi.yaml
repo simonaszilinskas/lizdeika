@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Vilnius Chat Widget API
+  version: 0.1.0
+  description: Minimal spec covering core conversation and system endpoints.
+servers:
+  - url: http://localhost:3002
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/conversations:
+    post:
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source:
+                  type: string
+              required: [source]
+      responses:
+        '201': { description: Created }
+  /api/messages:
+    post:
+      summary: Send a customer message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conversationId:
+                  type: string
+                text:
+                  type: string
+              required: [conversationId, text]
+      responses:
+        '200': { description: Accepted }
+  /api/admin/conversations:
+    get:
+      summary: List conversations (agent view)
+      responses:
+        '200': { description: OK }
+  /api/conversations/{id}/messages:
+    get:
+      summary: Get conversation messages
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/conversations/{id}/pending-suggestion:
+    get:
+      summary: Get pending AI suggestion
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+  /api/agent/respond:
+    post:
+      summary: Send agent response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conversationId: { type: string }
+                text: { type: string }
+              required: [conversationId, text]
+      responses:
+        '200': { description: OK }

@@ -108,6 +108,15 @@ class AgentDashboard {
         // Auto-resize textarea
         this.setupTextareaAutoResize();
 
+        // Close assignment dropdowns when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('[id^="assign-dropdown-"]') && !e.target.closest('button[onclick*="toggleAssignDropdown"]')) {
+                document.querySelectorAll('[id^="assign-dropdown-"]').forEach(dropdown => {
+                    dropdown.classList.add('hidden');
+                });
+            }
+        });
+
     }
 
     /**
@@ -523,6 +532,27 @@ class AgentDashboard {
     }
 
     /**
+     * Check if conversation is unseen by current agent
+     * @param {Object} conv - Conversation object
+     * @returns {boolean} True if unseen
+     */
+    conversationIsUnseen(conv) {
+        if (!conv.lastMessage || !conv.lastMessage.metadata) return false;
+        
+        // Check if explicitly marked as unseen when no agents were online
+        if (conv.lastMessage.metadata.unseenByAgents) return true;
+        
+        // Check if last message is from customer and needs response
+        if (conv.lastMessage.sender === 'user' && 
+            conv.lastMessage.metadata.pendingAgent &&
+            !conv.lastMessage.metadata.seenByAgent) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
      * Render individual queue item
      * @param {Object} conv - Conversation object
      * @returns {string} HTML string for queue item
@@ -532,10 +562,11 @@ class AgentDashboard {
         const isUnassigned = !conv.assignedAgent;
         const isActive = conv.id === this.currentChatId;
         const needsResponse = this.conversationNeedsResponse(conv);
+        const isUnseen = this.conversationIsUnseen(conv);
         
-        const cssClass = this.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned);
-        const statusLabel = this.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, conv);
-        const statusCss = this.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned);
+        const cssClass = this.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+        const statusLabel = this.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv);
+        const statusCss = this.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
         
         return `
             <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass}" 
@@ -575,24 +606,44 @@ class AgentDashboard {
     /**
      * Get CSS classes for queue item based on status
      */
-    getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned) {
+    getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
         if (isActive) return 'active-chat border-indigo-300 bg-indigo-50';
         
+        // UNSEEN + MINE: Clearest/most prominent (bright red with thick border)
+        if (isUnseen && isAssignedToMe) {
+            return 'bg-red-100 border-red-400 hover:bg-red-200 border-l-4 border-l-red-600 shadow-lg ring-2 ring-red-200';
+        }
+        
+        // MINE: Blue
         if (isAssignedToMe) {
             return 'bg-blue-50 border-blue-200 hover:bg-blue-100';
         }
         
-        if (needsResponse) return 'bg-orange-50 border-orange-200 hover:bg-orange-100';
-        if (isUnassigned) return 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100';
+        // UNSEEN + NOBODY'S: Red accent on white
+        if (isUnseen && isUnassigned) {
+            return 'bg-white border-red-300 hover:bg-red-50 border-l-4 border-l-red-500 shadow-md';
+        }
         
-        return 'bg-gray-50 border-gray-200 hover:bg-gray-100';
+        // NOBODY'S: Classic white
+        if (isUnassigned) {
+            return 'bg-white border-gray-200 hover:bg-gray-50';
+        }
+        
+        // UNSEEN + SOMEBODY'S: Red accent on light grey
+        if (isUnseen) {
+            return 'bg-gray-100 border-red-300 hover:bg-gray-200 border-l-2 border-l-red-400';
+        }
+        
+        // SOMEBODY'S: Light grey
+        return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
     }
 
     /**
      * Get status label for queue item
      */
-    getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, conv) {
+    getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv) {
         if (needsResponse && isAssignedToMe) return 'NEEDS REPLY';
+        if (isUnseen && isUnassigned) return 'UNSEEN';
         if (needsResponse) return 'NEW MESSAGE';
         if (isAssignedToMe) return 'MINE';
         if (isUnassigned) return 'UNASSIGNED';
@@ -610,12 +661,19 @@ class AgentDashboard {
     /**
      * Get status CSS classes for queue item
      */
-    getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned) {
-        if (needsResponse && isAssignedToMe) return 'bg-red-100 text-red-800';
-        if (needsResponse) return 'bg-orange-100 text-orange-800';
+    getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
+        // UNSEEN states get red badges with bold text
+        if (isUnseen && isAssignedToMe) return 'bg-red-600 text-white font-bold animate-pulse';
+        if (isUnseen && isUnassigned) return 'bg-red-600 text-white font-bold';
+        if (isUnseen) return 'bg-red-500 text-white font-medium';
+        
+        // Regular states
+        if (needsResponse && isAssignedToMe) return 'bg-blue-600 text-white font-medium';
         if (isAssignedToMe) return 'bg-blue-100 text-blue-700';
-        if (isUnassigned) return 'bg-yellow-100 text-yellow-800';
-        return 'bg-gray-100 text-gray-600';
+        if (isUnassigned) return 'bg-gray-600 text-white text-xs';
+        
+        // SOMEBODY'S (other agents)
+        return 'bg-gray-400 text-white text-xs';
     }
 
     /**
@@ -623,15 +681,150 @@ class AgentDashboard {
      */
     renderAssignmentButtons(isAssignedToMe, isUnassigned, conversationId) {
         if (isAssignedToMe) {
-            return `<button onclick="dashboard.unassignConversation('${conversationId}', event)" 
-                           class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs rounded">
+            return `
+                <div class="flex gap-1">
+                    <button onclick="dashboard.unassignConversation('${conversationId}', event)" 
+                            class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs rounded">
                         Unassign
-                    </button>`;
+                    </button>
+                    <div class="relative">
+                        <button onclick="dashboard.toggleAssignDropdown('${conversationId}', event)" 
+                                class="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 text-xs rounded">
+                            Reassign
+                        </button>
+                        <div id="assign-dropdown-${conversationId}" 
+                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-32">
+                            ${this.renderAgentOptions(conversationId)}
+                        </div>
+                    </div>
+                </div>`;
         } else {
-            return `<button onclick="dashboard.assignConversation('${conversationId}', event)" 
-                           class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded">
+            return `
+                <div class="flex gap-1">
+                    <button onclick="dashboard.assignConversation('${conversationId}', event)" 
+                            class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded">
                         Assign to me
-                    </button>`;
+                    </button>
+                    <div class="relative">
+                        <button onclick="dashboard.toggleAssignDropdown('${conversationId}', event)" 
+                                class="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 text-xs rounded">
+                            Assign to...
+                        </button>
+                        <div id="assign-dropdown-${conversationId}" 
+                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-32">
+                            ${this.renderAgentOptions(conversationId)}
+                        </div>
+                    </div>
+                </div>`;
+        }
+    }
+
+    /**
+     * Render dropdown options for all agents (online and offline)
+     */
+    async renderAgentOptions(conversationId) {
+        try {
+            // Fetch all agents from server
+            const response = await fetch(`${this.apiUrl}/api/agents/all`);
+            if (!response.ok) {
+                console.error('Failed to fetch agents:', response.status);
+                return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
+            }
+            
+            const data = await response.json();
+            const allAgents = data.agents.filter(agent => agent.id !== this.agentId);
+            
+            if (allAgents.length === 0) {
+                return `<div class="px-3 py-2 text-xs text-gray-500">No other agents available</div>`;
+            }
+            
+            // Sort: online agents first, then offline
+            allAgents.sort((a, b) => {
+                const aOnline = a.connected === true;
+                const bOnline = b.connected === true;
+                if (aOnline && !bOnline) return -1;
+                if (!aOnline && bOnline) return 1;
+                return (a.name || a.id).localeCompare(b.name || b.id);
+            });
+            
+            return allAgents.map(agent => {
+                const isOnline = agent.connected === true;
+                const statusDot = isOnline ? 
+                    `<span class="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>` : 
+                    `<span class="w-2 h-2 bg-gray-400 rounded-full inline-block mr-2"></span>`;
+                const textColor = isOnline ? 'text-gray-900' : 'text-gray-500';
+                const displayName = agent.name || this.getAgentDisplayName(agent);
+                
+                return `
+                    <button onclick="dashboard.assignToAgent('${conversationId}', '${agent.id}', event)" 
+                            class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center ${textColor}">
+                        ${statusDot}${displayName}${isOnline ? '' : ' (offline)'}
+                    </button>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error fetching agents for dropdown:', error);
+            return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
+        }
+    }
+
+    /**
+     * Toggle assignment dropdown visibility
+     */
+    async toggleAssignDropdown(conversationId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        // Close all other dropdowns first
+        document.querySelectorAll('[id^="assign-dropdown-"]').forEach(dropdown => {
+            if (dropdown.id !== `assign-dropdown-${conversationId}`) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        
+        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
+        if (dropdown) {
+            const wasHidden = dropdown.classList.contains('hidden');
+            dropdown.classList.toggle('hidden');
+            
+            // Only fetch and update content when opening dropdown
+            if (wasHidden && !dropdown.classList.contains('hidden')) {
+                dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500">Loading...</div>';
+                const agentOptions = await this.renderAgentOptions(conversationId);
+                dropdown.innerHTML = agentOptions;
+            }
+        }
+    }
+
+    /**
+     * Assign conversation to specific agent
+     */
+    async assignToAgent(conversationId, agentId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        // Close dropdown
+        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: agentId })
+            });
+            
+            if (response.ok) {
+                await this.loadConversations();
+            } else {
+                console.error('Failed to assign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error assigning conversation to agent:', error);
         }
     }
 

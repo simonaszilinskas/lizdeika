@@ -11,7 +11,7 @@
  * - Development Support: Provide detailed error information in development environment
  * 
  * Error Types Handled:
- * - MongoDB/Mongoose errors (CastError, ValidationError, duplicate keys)
+ * - Prisma/PostgreSQL errors (connection, constraint violations, validation)
  * - JWT authentication errors (invalid token, expired token)
  * - Generic application errors with custom status codes
  * - Unhandled exceptions and promise rejections
@@ -47,21 +47,36 @@ const errorHandler = (err, req, res, next) => {
     // Log error for debugging
     console.error(err.stack);
 
-    // Mongoose bad ObjectId
-    if (err.name === 'CastError') {
-        const message = 'Resource not found';
-        error = { message, statusCode: 404 };
+    // Prisma Client Errors
+    if (err.name === 'PrismaClientKnownRequestError') {
+        switch (err.code) {
+            case 'P2002':
+                const message = 'Duplicate field value entered';
+                error = { message, statusCode: 400 };
+                break;
+            case 'P2025':
+                const notFoundMessage = 'Resource not found';
+                error = { message: notFoundMessage, statusCode: 404 };
+                break;
+            case 'P2003':
+                const foreignKeyMessage = 'Foreign key constraint failed';
+                error = { message: foreignKeyMessage, statusCode: 400 };
+                break;
+            default:
+                const genericMessage = 'Database operation failed';
+                error = { message: genericMessage, statusCode: 400 };
+        }
     }
 
-    // Mongoose duplicate key
-    if (err.code === 11000) {
-        const message = 'Duplicate field value entered';
-        error = { message, statusCode: 400 };
+    // Prisma Client Connection Errors
+    if (err.name === 'PrismaClientUnknownRequestError') {
+        const message = 'Database connection error';
+        error = { message, statusCode: 500 };
     }
 
-    // Mongoose validation error
-    if (err.name === 'ValidationError') {
-        const message = Object.values(err.errors).map(val => val.message).join(', ');
+    // Prisma Client Validation Errors
+    if (err.name === 'PrismaClientValidationError') {
+        const message = 'Invalid data provided';
         error = { message, statusCode: 400 };
     }
 
