@@ -411,7 +411,17 @@
             
             // Only add new messages that haven't been displayed yet
             visibleMessages.forEach(msg => {
-                if (!existingMessageIds.has(msg.id)) {
+                // Check both ID and content to prevent duplicates
+                const isDuplicate = existingMessageIds.has(msg.id) || 
+                    existingMessages.some(el => {
+                        const elContent = el.textContent?.trim();
+                        const elSender = el.classList.contains('vilnius-user') ? 'visitor' : 
+                                        el.classList.contains('vilnius-ai') ? 'ai' : 'agent';
+                        // Check if same content and sender (and not system messages)
+                        return elContent === msg.content && elSender === msg.sender && msg.content.length > 0;
+                    });
+                    
+                if (!isDuplicate) {
                     const messageEl = this.createMessageElement(msg);
                     messagesContainer.appendChild(messageEl);
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
