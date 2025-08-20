@@ -526,18 +526,15 @@
                 // Remove typing indicator
                 this.removeTypingIndicator(typingId);
                 
-                // Replace temp message with the real one from server FIRST
+                // Replace temp message with the real one from server
                 const tempMsg = document.querySelector(`[data-message-id="${tempMessageId}"]`);
                 if (tempMsg && data.userMessage) {
                     tempMsg.setAttribute('data-message-id', data.userMessage.id);
                 }
                 
-                // Start polling if this was a new conversation (with slight delay to avoid duplication)
+                // Start polling if this was a new conversation
                 if (isNewConversation) {
-                    // Small delay to ensure ID update is processed
-                    setTimeout(() => {
-                        this.startPolling();
-                    }, 100);
+                    this.startPolling();
                     
                     // Join WebSocket room for this conversation
                     if (this.socket && this.socket.connected) {

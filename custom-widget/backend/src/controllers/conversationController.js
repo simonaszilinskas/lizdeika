@@ -135,8 +135,8 @@ class ConversationController {
             
             console.log(`Processing message in mode: ${currentMode}`);
             
-            // Get conversation context for AI
-            const conversationContext = this.buildConversationContext(conversationMessages, message);
+            // Get conversation context for AI (don't pass currentMessage since it's already added)
+            const conversationContext = this.buildConversationContext(conversationService.getMessages(conversationId));
             
             // Generate AI response/suggestion based on mode
             const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, enableRAG !== false);
@@ -526,17 +526,11 @@ class ConversationController {
     /**
      * Build conversation context for AI from message history
      */
-    buildConversationContext(conversationMessages, currentMessage) {
+    buildConversationContext(conversationMessages) {
         // Get only customer and agent messages (exclude system messages)
-        const relevantMessages = conversationMessages.filter(msg => 
+        const allMessages = conversationMessages.filter(msg => 
             msg.sender === 'visitor' || msg.sender === 'agent'
         );
-        
-        // Add current message to context
-        const allMessages = [
-            ...relevantMessages,
-            { sender: 'visitor', content: currentMessage, timestamp: new Date() }
-        ];
         
         // Format messages as conversation
         const conversationHistory = allMessages
