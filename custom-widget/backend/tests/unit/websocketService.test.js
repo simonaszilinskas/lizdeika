@@ -1,7 +1,14 @@
 /**
  * Unit tests for WebSocket Service
  */
+
+// Mock dependencies before requiring the service
+jest.mock('../../src/services/agentService');
+jest.mock('../../src/services/conversationService');
+
 const WebSocketService = require('../../src/services/websocketService');
+const agentService = require('../../src/services/agentService');
+const conversationService = require('../../src/services/conversationService');
 
 // Mock socket.io
 const mockSocket = {
@@ -9,6 +16,7 @@ const mockSocket = {
     join: jest.fn(),
     to: jest.fn(() => ({ emit: jest.fn() })),
     on: jest.fn(),
+    emit: jest.fn(),
     agentId: null,
     rooms: new Set()
 };
@@ -31,6 +39,16 @@ describe('WebSocketService', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        
+        // Setup mock implementations
+        agentService.setAgentOnline = jest.fn().mockResolvedValue(undefined);
+        agentService.setAgentOffline = jest.fn().mockResolvedValue(undefined);
+        agentService.getSystemMode = jest.fn().mockResolvedValue('hitl');
+        agentService.getConnectedAgents = jest.fn().mockResolvedValue([]);
+        agentService.redistributeOrphanedTickets = jest.fn().mockResolvedValue([]);
+        
+        conversationService.someMethod = jest.fn().mockResolvedValue(undefined);
+        
         websocketService = new WebSocketService(mockIO);
     });
 
@@ -198,14 +216,14 @@ describe('WebSocketService', () => {
             expect(mockIO.to).not.toHaveBeenCalled();
         });
 
-        it('should handle disconnect event for agent socket', () => {
+        it('should handle disconnect event for agent socket', async () => {
             mockSocket.agentId = 'agent-123';
             connectionHandler(mockSocket);
             
             const disconnectHandler = mockSocket.on.mock.calls
                 .find(call => call[0] === 'disconnect')[1];
             
-            disconnectHandler();
+            await disconnectHandler();
             
             expect(mockIO.to).toHaveBeenCalledWith('agents');
         });

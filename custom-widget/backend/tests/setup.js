@@ -4,6 +4,44 @@ require('dotenv').config({ path: '.env.test' });
 // Set test environment
 process.env.NODE_ENV = 'test';
 
+// Mock Prisma Client globally
+jest.mock('@prisma/client', () => {
+  return {
+    PrismaClient: jest.fn().mockImplementation(() => ({
+      user: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        upsert: jest.fn(),
+      },
+      ticket: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      message: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      agent_status: {
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+      },
+      $disconnect: jest.fn(),
+    })),
+  };
+});
+
 // Mock console methods to reduce noise during testing
 // Comment out these lines if you need to see console output during debugging
 global.console = {
