@@ -175,10 +175,7 @@
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         
-        /* Better avatar styling */
-        .avatar {
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
+        /* Avatar styling removed - no longer used */
 
         /* Debug panel styles */
         #debug-panel {
@@ -256,7 +253,7 @@
                         <h1 class="text-lg font-semibold">Agento skelbimų lenta</h1>
                         <p class="text-sm text-indigo-100">Klientų palaikymas</p>
                     </div>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-4">
                         <!-- Personal Agent Status -->
                         <div class="flex items-center gap-2">
                             <div id="agent-status-dot" class="w-3 h-3 rounded-full agent-online"></div>
@@ -265,33 +262,19 @@
                                 <option value="afk">AFK</option>
                             </select>
                         </div>
+                        
+                        <!-- Connected Agents - Compact -->
+                        <div class="flex items-center gap-1">
+                            <i class="fas fa-users text-xs text-indigo-200"></i>
+                            <span id="total-agents-compact" class="text-xs bg-indigo-500 text-white px-1 py-0.5 rounded">0</span>
+                            <div id="connected-agents-compact" class="flex gap-1">
+                                <!-- Connected agents will be populated here as small dots -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- System Status -->
-            <div class="p-3 bg-yellow-50 border-b">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <div id="system-status-dot" class="w-2 h-2 rounded-full bg-green-500"></div>
-                        <span class="text-sm font-medium text-yellow-900">System Mode:</span>
-                        <span id="system-mode" class="text-sm font-bold text-yellow-800">HITL</span>
-                    </div>
-                    <a href="settings.html" class="text-xs text-yellow-700 hover:text-yellow-900">Settings</a>
-                </div>
-            </div>
-
-
-            <!-- Connected Agents -->
-            <div class="p-3 bg-blue-50 border-b">
-                <div class="flex items-center justify-between mb-2">
-                    <h3 class="text-sm font-medium text-blue-900">Connected Agents</h3>
-                    <span id="total-agents" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">0</span>
-                </div>
-                <div id="connected-agents" class="space-y-1 max-h-24 overflow-y-auto">
-                    <!-- Connected agents will be populated here -->
-                </div>
-            </div>
 
             <!-- Conversation Filters -->
             <div class="p-3 bg-gray-50 border-b">
@@ -323,39 +306,25 @@
                 </div>
             </div>
 
-            <!-- Navigation Buttons -->
-            <div class="p-4 border-t border-gray-200 space-y-2">
-                <a href="knowledge-base.html" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition no-underline">
-                    <i class="fas fa-book text-sm"></i>
-                    <span class="text-sm font-medium">Žinių bazė</span>
-                </a>
-                <a href="settings.html" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition no-underline">
-                    <i class="fas fa-cog text-sm"></i>
-                    <span class="text-sm font-medium">Nustatymai</span>
-                </a>
-                <button onclick="logoutAgent()" class="w-full bg-red-100 hover:bg-red-200 text-red-700 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition">
-                    <i class="fas fa-sign-out-alt text-sm"></i>
-                    <span class="text-sm font-medium">Atsijungti</span>
-                </button>
+            <!-- Navigation Buttons - Full Width -->
+            <div class="p-2 border-t border-gray-200">
+                <div class="flex gap-2">
+                    <a href="knowledge-base.html" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition no-underline text-center text-sm font-medium" title="Žinių bazė">
+                        <i class="fas fa-book mr-2"></i>Žinių bazė
+                    </a>
+                    <a href="settings.html" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition no-underline text-center text-sm font-medium" title="Nustatymai">
+                        <i class="fas fa-cog mr-2"></i>Nustatymai
+                    </a>
+                    <button onclick="logoutAgent()" class="flex-1 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-md transition text-sm font-medium" title="Atsijungti">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Atsijungti
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- Main Chat Area -->
         <div class="flex-1 flex flex-col">
-            <!-- Chat Header -->
-            <div id="chat-header" class="p-4 border-b border-gray-200 bg-white hidden">
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <div class="avatar w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                            <i class="fas fa-user text-gray-600"></i>
-                        </div>
-                        <div>
-                            <h2 class="font-semibold" id="customer-name"></h2>
-                            <p class="text-sm text-gray-500" id="customer-info"></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <!-- Chat Header - removed as not needed -->
 
             <!-- Messages Area -->
             <div class="flex-1 overflow-y-auto bg-gray-50" id="messages-area">

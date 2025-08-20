@@ -67,6 +67,10 @@ class AgentDashboard {
 
     async init() {
         console.log(`Agent Dashboard initialized for agent: ${this.agentId}`);
+        
+        // Load saved personal status before initializing other components
+        await this.loadSavedPersonalStatus();
+        
         this.initializeEventListeners();
         this.initializeWebSocket();
         await this.loadConversations();
@@ -84,6 +88,7 @@ class AgentDashboard {
                 this.updatePersonalStatus(e.target.value);
             });
         }
+
 
         // Message form submission
         const messageForm = document.getElementById('message-form');
@@ -224,6 +229,38 @@ class AgentDashboard {
 
 
     /**
+     * Load saved personal status from localStorage
+     */
+    async loadSavedPersonalStatus() {
+        try {
+            const savedStatus = localStorage.getItem(`agentStatus_${this.agentId}`);
+            if (savedStatus && ['online', 'afk'].includes(savedStatus)) {
+                this.personalStatus = savedStatus;
+                
+                // Update the dropdown to reflect saved status
+                const personalStatusSelect = document.getElementById('personal-status');
+                if (personalStatusSelect) {
+                    personalStatusSelect.value = savedStatus;
+                }
+                
+                // Update the status dot
+                const dot = document.getElementById('agent-status-dot');
+                if (dot) {
+                    dot.className = `w-3 h-3 rounded-full agent-${savedStatus}`;
+                }
+                
+                console.log(`Loaded saved personal status: ${savedStatus} for agent ${this.agentId}`);
+            } else {
+                // Default to online if no saved status
+                this.personalStatus = 'online';
+            }
+        } catch (error) {
+            console.error('Error loading saved personal status:', error);
+            this.personalStatus = 'online';
+        }
+    }
+
+    /**
      * Update personal agent status (online/afk)
      * @param {string} status - Personal status (online, afk)
      */
@@ -233,8 +270,9 @@ class AgentDashboard {
             dot.className = `w-3 h-3 rounded-full agent-${status}`;
         }
         
-        // Store personal status
+        // Store personal status locally and in localStorage
         this.personalStatus = status;
+        localStorage.setItem(`agentStatus_${this.agentId}`, status);
         
         try {
             await fetch(`${this.apiUrl}/api/agent/personal-status`, {
@@ -242,6 +280,8 @@ class AgentDashboard {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agentId: this.agentId, personalStatus: status })
             });
+            
+            console.log(`Updated personal status to: ${status} for agent ${this.agentId}`);
         } catch (error) {
             console.error('Error updating personal status:', error);
         }
@@ -251,14 +291,21 @@ class AgentDashboard {
      * Register initial agent status on page load/connection
      */
     async registerInitialStatus() {
-        // Get current status from dropdown or default to 'online'
-        const statusSelect = document.getElementById('personal-status');
-        const currentStatus = statusSelect ? statusSelect.value : 'online';
+        // Use the already loaded personal status (from loadSavedPersonalStatus)
+        const currentStatus = this.personalStatus || 'online';
         
-        // Update the personal status to register the agent
-        await this.updatePersonalStatus(currentStatus);
-        
-        console.log(`Agent ${this.agentId} registered with initial status: ${currentStatus}`);
+        // Update the personal status to register the agent with server (but don't save to localStorage again)
+        try {
+            await fetch(`${this.apiUrl}/api/agent/personal-status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId, personalStatus: currentStatus })
+            });
+            
+            console.log(`Agent ${this.agentId} registered with initial status: ${currentStatus}`);
+        } catch (error) {
+            console.error('Error registering initial status:', error);
+        }
     }
 
     /**
@@ -292,6 +339,45 @@ class AgentDashboard {
         this.connectedAgents.clear();
         agents.forEach(agent => this.connectedAgents.set(agent.id, agent));
         
+        // Update compact format in header
+        const compactContainer = document.getElementById('connected-agents-compact');
+        const totalAgentsCompact = document.getElementById('total-agents-compact');
+        
+        if (compactContainer && totalAgentsCompact) {
+            totalAgentsCompact.textContent = agents.length;
+            
+            // Create tooltip content with agent names grouped by status
+            const onlineAgents = agents.filter(agent => agent.personalStatus !== 'afk');
+            const afkAgents = agents.filter(agent => agent.personalStatus === 'afk');
+            
+            let tooltipContent = '';
+            if (onlineAgents.length > 0) {
+                tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
+            }
+            if (afkAgents.length > 0) {
+                if (tooltipContent) tooltipContent += '\n';
+                tooltipContent += `AFK (${afkAgents.length}): ${afkAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
+            }
+            if (!tooltipContent) {
+                tooltipContent = 'No agents connected';
+            }
+            
+            // Add tooltip to the agent count element
+            totalAgentsCompact.title = tooltipContent;
+            
+            // Show agents as small colored dots with individual tooltips
+            compactContainer.innerHTML = agents.map(agent => {
+                const statusColor = agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400';
+                const displayName = this.getAgentDisplayName(agent);
+                return `
+                    <div class="w-2 h-2 rounded-full ${statusColor}" 
+                         title="${displayName} (${agent.personalStatus || 'online'})">
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Update old format (for compatibility if it exists elsewhere)
         const container = document.getElementById('connected-agents');
         const totalAgents = document.getElementById('total-agents');
         
@@ -338,8 +424,10 @@ class AgentDashboard {
      * @param {string} mode - System mode (hitl, autopilot, off)
      */
     updateSystemMode(mode) {
+        // Update local state
         this.systemMode = mode;
         
+        // Update old system mode display (for compatibility)
         const systemModeElement = document.getElementById('system-mode');
         const systemStatusDot = document.getElementById('system-status-dot');
         
@@ -573,13 +661,10 @@ class AgentDashboard {
                  onclick="dashboard.selectChat('${conv.id}')">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center gap-2">
-                        <div class="avatar w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                            <i class="fas fa-user text-gray-600 text-sm"></i>
-                        </div>
                         <div>
                             <div class="font-medium text-sm">User #${conv.userNumber || 'Unknown'}</div>
                             <div class="text-xs text-gray-500">
-                                ${new Date(conv.startedAt).toLocaleTimeString()}
+                                ${this.formatConversationDate(conv.startedAt)}
                             </div>
                         </div>
                     </div>
@@ -597,7 +682,7 @@ class AgentDashboard {
                         <span class="text-gray-500">${conv.messageCount} messages</span>
                         ${this.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id)}
                     </div>
-                    <span class="text-gray-500">${new Date(conv.updatedAt || conv.startedAt).toLocaleDateString()}</span>
+                    <span class="text-gray-500">${this.formatConversationDate(conv.updatedAt || conv.startedAt)}</span>
                 </div>
             </div>
         `;
@@ -1109,51 +1194,19 @@ class AgentDashboard {
         
         return `
             <div class="flex ${isCustomer ? '' : 'justify-end'} mb-4">
-                <div class="flex items-start gap-3 max-w-[70%]">
-                    ${isCustomer ? this.renderCustomerAvatar() : ''}
-                    <div class="flex-1">
-                        <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem, msg)}" style="line-height: 1.6;">
-                            ${formattedContent}
-                        </div>
-                        <div class="text-xs text-gray-500 mt-1 ${isCustomer ? '' : 'text-right'}">
-                            ${this.getMessageSenderLabel(isAI, isAgent, isSystem, msg)} • 
-                            ${new Date(msg.timestamp).toLocaleTimeString()}
-                        </div>
+                <div class="max-w-[70%]">
+                    <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem, msg)}" style="line-height: 1.6;">
+                        ${formattedContent}
                     </div>
-                    ${!isCustomer ? this.renderAgentAvatar(isAI, isSystem) : ''}
+                    <div class="text-xs text-gray-500 mt-1 ${isCustomer ? '' : 'text-right'}">
+                        ${this.getMessageSenderLabel(isAI, isAgent, isSystem, msg)} • 
+                        ${new Date(msg.timestamp).toLocaleTimeString()}
+                    </div>
                 </div>
             </div>
         `;
     }
 
-    /**
-     * Render customer avatar
-     * @returns {string} HTML for customer avatar
-     */
-    renderCustomerAvatar() {
-        return `
-            <div class="avatar w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                <i class="fas fa-user text-gray-600 text-sm"></i>
-            </div>
-        `;
-    }
-
-    /**
-     * Render agent/AI avatar
-     * @param {boolean} isAI - Is AI message
-     * @param {boolean} isSystem - Is system message
-     * @returns {string} HTML for agent avatar
-     */
-    renderAgentAvatar(isAI, isSystem) {
-        const bgClass = isAI ? 'bg-purple-500' : isSystem ? 'bg-yellow-500' : 'bg-indigo-600';
-        const iconClass = isAI ? 'fa-robot' : isSystem ? 'fa-info' : 'fa-headset';
-        
-        return `
-            <div class="avatar w-8 h-8 ${bgClass} rounded-full flex items-center justify-center flex-shrink-0">
-                <i class="fas ${iconClass} text-white text-sm"></i>
-            </div>
-        `;
-    }
 
     /**
      * Get CSS classes for message bubble
@@ -1959,6 +2012,31 @@ class AgentDashboard {
             .replace(/^### (.*$)/gm, '<h3 style="margin: 8px 0; font-size: 16px; font-weight: bold;">$1</h3>')
             .replace(/^## (.*$)/gm, '<h2 style="margin: 8px 0; font-size: 18px; font-weight: bold;">$1</h2>')
             .replace(/^# (.*$)/gm, '<h1 style="margin: 8px 0; font-size: 20px; font-weight: bold;">$1</h1>');
+    }
+
+    /**
+     * Format date for conversation display
+     * Today: show time, yesterday/few days: "X days ago", older: full date
+     */
+    formatConversationDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            // Today - show time
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays === 1) {
+            // Yesterday
+            return 'Yesterday';
+        } else if (diffDays <= 7) {
+            // Few days ago
+            return `${diffDays} days ago`;
+        } else {
+            // Older - show date in current format
+            return date.toLocaleDateString();
+        }
     }
 
     /**
