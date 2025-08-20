@@ -138,7 +138,14 @@ class ConversationController {
                         isAutopilotResponse: true,
                         displayDisclaimer: true,
                         originalSuggestion: aiSuggestion,
-                        messageCount: customerMessageCount
+                        messageCount: customerMessageCount,
+                        // Response attribution for admin interface
+                        responseAttribution: {
+                            respondedBy: 'Autopilot',
+                            responseType: 'autopilot',
+                            systemMode: 'autopilot',
+                            timestamp: new Date()
+                        }
                     }
                 };
                 
@@ -369,20 +376,8 @@ class ConversationController {
             const { conversationId } = req.params;
             const { agentId } = req.body;
             
-            // Check if system is in autopilot or off mode - prevent assignment
-            const currentMode = agentService ? await agentService.getSystemMode() : 'hitl';
-            if (currentMode === 'autopilot') {
-                return res.status(403).json({ 
-                    error: 'Cannot assign conversations in autopilot mode',
-                    mode: currentMode
-                });
-            }
-            if (currentMode === 'off') {
-                return res.status(403).json({ 
-                    error: 'Cannot assign conversations when system is offline',
-                    mode: currentMode
-                });
-            }
+            // Allow manual assignment in all system modes (HITL, autopilot, off)
+            // Agents can always assign conversations to themselves regardless of system mode
             
             const conversation = await conversationService.getConversation(conversationId);
             if (conversation) {

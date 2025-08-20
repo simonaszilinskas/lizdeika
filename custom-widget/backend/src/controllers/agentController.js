@@ -159,7 +159,11 @@ class AgentController {
                 await conversationService.assignConversation(conversationId, agentId);
             }
             
-            // Store agent message
+            // Get agent details for attribution
+            const agent = await agentService.getAgent(agentId);
+            const agentName = agent ? (agent.name || agentId) : agentId;
+            
+            // Store agent message with detailed attribution
             const agentMessage = {
                 id: uuidv4(),
                 conversationId,
@@ -169,7 +173,14 @@ class AgentController {
                 agentId,
                 metadata: {
                     suggestionAction: suggestionAction,
-                    usedSuggestion: usedSuggestion
+                    usedSuggestion: usedSuggestion,
+                    // Response attribution for admin interface
+                    responseAttribution: {
+                        respondedBy: agentName, // Agent username/display name
+                        responseType: suggestionAction || 'custom', // 'as-is', 'edited', 'custom'
+                        systemMode: await agentService.getSystemMode(),
+                        timestamp: new Date()
+                    }
                 }
             };
             

@@ -734,10 +734,6 @@ class AgentDashboard {
             const data = await response.json();
             const allAgents = data.agents.filter(agent => agent.id !== this.agentId);
             
-            if (allAgents.length === 0) {
-                return `<div class="px-3 py-2 text-xs text-gray-500">No other agents available</div>`;
-            }
-            
             // Sort: online agents first, then offline
             allAgents.sort((a, b) => {
                 const aOnline = a.connected === true;
@@ -747,7 +743,21 @@ class AgentDashboard {
                 return (a.name || a.id).localeCompare(b.name || b.id);
             });
             
-            return allAgents.map(agent => {
+            // Create dropdown options - start with "Assign to nobody" option
+            let dropdownHtml = `
+                <button onclick="dashboard.unassignConversation('${conversationId}', event)" 
+                        class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center text-red-600">
+                    <span class="w-2 h-2 bg-gray-400 rounded-full inline-block mr-2"></span>Nobody (unassign)
+                </button>
+            `;
+            
+            // Add separator if there are agents
+            if (allAgents.length > 0) {
+                dropdownHtml += `<div class="border-t border-gray-200 my-1"></div>`;
+            }
+            
+            // Add agent options
+            dropdownHtml += allAgents.map(agent => {
                 const isOnline = agent.connected === true;
                 const statusDot = isOnline ? 
                     `<span class="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>` : 
@@ -762,6 +772,8 @@ class AgentDashboard {
                     </button>
                 `;
             }).join('');
+            
+            return dropdownHtml;
         } catch (error) {
             console.error('Error fetching agents for dropdown:', error);
             return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
@@ -825,6 +837,38 @@ class AgentDashboard {
             }
         } catch (error) {
             console.error('Error assigning conversation to agent:', error);
+        }
+    }
+
+    /**
+     * Unassign conversation (assign to nobody)
+     */
+    async unassignConversation(conversationId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        // Close dropdown
+        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/unassign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                console.log(`Unassigned conversation ${conversationId}`);
+                await this.loadConversations();
+            } else {
+                console.error('Failed to unassign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error unassigning conversation:', error);
         }
     }
 
@@ -1068,11 +1112,11 @@ class AgentDashboard {
                 <div class="flex items-start gap-3 max-w-[70%]">
                     ${isCustomer ? this.renderCustomerAvatar() : ''}
                     <div class="flex-1">
-                        <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem)}" style="line-height: 1.6;">
+                        <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem, msg)}" style="line-height: 1.6;">
                             ${formattedContent}
                         </div>
                         <div class="text-xs text-gray-500 mt-1 ${isCustomer ? '' : 'text-right'}">
-                            ${this.getMessageSenderLabel(isAI, isAgent, isSystem)} • 
+                            ${this.getMessageSenderLabel(isAI, isAgent, isSystem, msg)} • 
                             ${new Date(msg.timestamp).toLocaleTimeString()}
                         </div>
                     </div>
@@ -1114,22 +1158,41 @@ class AgentDashboard {
     /**
      * Get CSS classes for message bubble
      */
-    getMessageBubbleCss(isCustomer, isAI, isSystem) {
+    getMessageBubbleCss(isCustomer, isAI, isSystem, msg = null) {
         const baseClass = 'px-4 py-3 rounded-2xl shadow-sm max-w-full break-words';
         
         if (isCustomer) return `${baseClass} bg-white border border-gray-200 text-gray-800`;
         if (isAI) return `${baseClass} bg-purple-50 border border-purple-200 text-purple-900`;
         if (isSystem) return `${baseClass} bg-yellow-50 border border-yellow-200 text-yellow-900`;
+        
+        // Standard styling for all agent messages - no special color coding needed
         return `${baseClass} bg-indigo-600 text-white`;
     }
 
     /**
      * Get sender label for message
      */
-    getMessageSenderLabel(isAI, isAgent, isSystem) {
+    getMessageSenderLabel(isAI, isAgent, isSystem, msg = null) {
         if (isAI) return 'AI Assistant';
-        if (isAgent) return 'You';
         if (isSystem) return 'System';
+        if (isAgent && msg && msg.metadata && msg.metadata.responseAttribution) {
+            const attr = msg.metadata.responseAttribution;
+            let label = attr.respondedBy || 'Agent';
+            
+            // Add response type annotation
+            if (attr.responseType === 'autopilot') {
+                return label; // Just "Autopilot" without redundant (autopilot)
+            } else if (attr.responseType === 'as-is') {
+                return `${label} (as-is)`;
+            } else if (attr.responseType === 'edited') {
+                return `${label} (edited)`;
+            } else if (attr.responseType === 'from-scratch' || attr.responseType === 'custom') {
+                return `${label} (custom)`;
+            }
+            
+            return label;
+        }
+        if (isAgent) return 'You';
         return 'Customer';
     }
 
