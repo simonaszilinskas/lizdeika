@@ -9,7 +9,49 @@ const agents = new Map();
 // Global system state
 let systemMode = 'hitl'; // hitl, autopilot, off
 
+// Simple agent name mapping for demo purposes
+const agentNameCounter = { agent: 0, admin: 0 };
+const agentNames = new Map(); // agentId -> display name
+
 class AgentService {
+    /**
+     * Generate a friendly display name for an agent
+     */
+    generateAgentDisplayName(agentId) {
+        // Check if we already have a name for this agent
+        if (agentNames.has(agentId)) {
+            return agentNames.get(agentId);
+        }
+        
+        // Determine role based on agent ID pattern
+        const isAdmin = agentId.includes('admin') || agentId.includes('Admin');
+        const role = isAdmin ? 'admin' : 'agent';
+        
+        // Generate next sequential name
+        agentNameCounter[role]++;
+        const name = role === 'admin' ? `Admin ${this.numberToWord(agentNameCounter[role])}` : `Agent ${this.numberToWord(agentNameCounter[role])}`;
+        
+        // Store the mapping
+        agentNames.set(agentId, name);
+        
+        return name;
+    }
+    
+    /**
+     * Convert number to word (for first few numbers)
+     */
+    numberToWord(num) {
+        const words = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+        return words[num - 1] || num.toString();
+    }
+    
+    /**
+     * Get agent display name
+     */
+    getAgentDisplayName(agentId) {
+        return agentNames.get(agentId) || this.generateAgentDisplayName(agentId);
+    }
+
     /**
      * Update agent personal status (online/afk)
      */
@@ -23,6 +65,7 @@ class AgentService {
         agents.set(agentId, {
             ...existingAgent,
             id: agentId,
+            name: this.getAgentDisplayName(agentId),
             personalStatus: personalStatus, // online, afk
             lastSeen: new Date(),
             activeChats: activeChats,
@@ -92,6 +135,7 @@ class AgentService {
         
         const agent = {
             id: agentId,
+            name: this.getAgentDisplayName(agentId),
             status: 'online',
             lastSeen: new Date(),
             socketId: socketId,
@@ -296,6 +340,9 @@ class AgentService {
      */
     clearAllData() {
         agents.clear();
+        agentNames.clear();
+        agentNameCounter.agent = 0;
+        agentNameCounter.admin = 0;
     }
 
     /**
