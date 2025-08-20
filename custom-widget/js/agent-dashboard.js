@@ -817,25 +817,17 @@ class AgentDashboard {
      * @param {string} conversationId - ID of conversation
      */
     async checkForPendingSuggestion(conversationId) {
-        console.log('🔍 checkForPendingSuggestion called for:', conversationId);
         try {
             const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/pending-suggestion`);
-            console.log('🔍 API response status:', response.status);
-            
             if (response.ok) {
                 const data = await response.json();
-                console.log('🔍 API response data:', data);
                 
                 // HITL mode: Show suggestion for human validation
                 if (!this.currentSuggestion || this.currentSuggestion !== data.suggestion) {
-                    console.log('🔍 Calling showAISuggestion...');
                     this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
-                } else {
-                    console.log('🔍 Suggestion already shown, skipping');
                 }
             } else if (response.status === 404) {
                 // No pending suggestion - this is normal
-                console.log('🔍 No pending suggestion (404)');
                 this.hideAISuggestion();
             } else {
                 console.error('Unexpected error checking suggestion:', response.status);
@@ -854,22 +846,11 @@ class AgentDashboard {
      * @param {Object} metadata - Additional metadata
      */
     showAISuggestion(suggestion, _confidence, metadata = {}) {
-        console.log('🤖 showAISuggestion called with:', { suggestion: suggestion.substring(0, 50) + '...', metadata });
-        
         const suggestionText = document.getElementById('ai-suggestion-text');
         const panel = document.getElementById('ai-suggestion-panel');
         
-        console.log('🤖 DOM elements found:', { 
-            suggestionText: !!suggestionText, 
-            panel: !!panel,
-            panelHidden: panel ? panel.classList.contains('hidden') : 'no panel'
-        });
-        
         if (suggestionText) {
             suggestionText.innerHTML = this.markdownToHtml(suggestion);
-            console.log('🤖 Suggestion text updated');
-        } else {
-            console.error('🚨 ai-suggestion-text element not found!');
         }
         
         // Update header based on metadata
@@ -884,13 +865,9 @@ class AgentDashboard {
         
         if (panel) {
             panel.classList.remove('hidden');
-            console.log('🤖 Panel shown (hidden class removed)');
-        } else {
-            console.error('🚨 ai-suggestion-panel element not found!');
         }
         
         this.currentSuggestion = suggestion;
-        console.log('🤖 showAISuggestion completed');
     }
 
     /**
@@ -1343,30 +1320,16 @@ class AgentDashboard {
         // Listen for new messages from customers
         this.socket.on('new-message', (data) => {
             console.log('New message received:', data);
-            
-            // Add small delay to ensure auto-assignment completes on backend before loading conversations
-            setTimeout(() => {
-                this.loadConversations();
-            }, 100);
+            this.loadConversations();
             
             // If this is the current chat, update messages and check for suggestion
             if (data.conversationId === this.currentChatId) {
                 this.loadChatMessages(this.currentChatId);
-            }
-            
-            // In HITL mode, auto-select conversations with new messages so agent can see AI suggestions
-            if (this.systemMode === 'hitl') {
-                setTimeout(() => {
-                    // Auto-select the conversation if no conversation is currently selected
-                    // or if this is a new conversation that needs attention
-                    if (!this.currentChatId || data.conversationId !== this.currentChatId) {
-                        console.log('🔄 Auto-selecting conversation with new message:', data.conversationId);
-                        this.selectChat(data.conversationId);
-                    } else {
-                        // Just check for suggestions if already selected
-                        this.checkForPendingSuggestion(data.conversationId);
-                    }
-                }, 300);
+                
+                // Only check for pending suggestions in HITL mode
+                if (this.systemMode === 'hitl') {
+                    this.checkForPendingSuggestion(this.currentChatId);
+                }
             }
         });
         
