@@ -200,16 +200,7 @@ class ConversationController {
                         assignedAgent = availableAgent.id;
                         console.log(`Auto-assigned conversation ${conversationId} to online agent ${availableAgent.id}`);
                         
-                        // Add system message about assignment
-                        const assignmentMessage = {
-                            id: uuidv4(),
-                            conversationId,
-                            content: 'Agent has been assigned to help you',
-                            sender: 'system',
-                            timestamp: new Date(),
-                            metadata: { systemMessage: true }
-                        };
-                        await conversationService.addMessage(conversationId, assignmentMessage);
+                        // No system message needed for assignment
                     } else {
                         console.log(`No online agents available for conversation ${conversationId}, marking as unseen`);
                         shouldMarkAsUnseen = true;
@@ -384,15 +375,7 @@ class ConversationController {
                 // Use the proper assignConversation method which handles agent ID to user ID conversion
                 await conversationService.assignConversation(conversationId, agentId);
                 
-                // Add system message about assignment
-                await conversationService.addMessage(conversationId, {
-                    id: uuidv4(),
-                    conversationId,
-                    content: `Agent has joined the conversation`,
-                    sender: 'system',
-                    timestamp: new Date(),
-                    metadata: { systemMessage: true }
-                });
+                // No system message needed for assignment
                 
                 // Get updated conversation for response
                 const updatedConversation = await conversationService.getConversation(conversationId);
@@ -419,25 +402,14 @@ class ConversationController {
                 return res.status(404).json({ error: 'Conversation not found' });
             }
             
-            // Check if agent is authorized to unassign (must be assigned to them)
-            if (conversation.assignedAgent !== agentId) {
-                return res.status(403).json({ error: 'Not authorized - conversation not assigned to you' });
-            }
+            // Allow any agent to unassign any conversation (same as assignment policy)
             
             // Unassign the conversation
             conversation.assignedAgent = null;
             conversation.assignedAt = null;
             await conversationService.updateConversation(conversationId, conversation);
             
-            // Add system message about unassignment
-            await conversationService.addMessage(conversationId, {
-                id: uuidv4(),
-                conversationId,
-                content: `Agent has left the conversation`,
-                sender: 'system',
-                timestamp: new Date(),
-                metadata: { systemMessage: true }
-            });
+            // No system message needed for unassignment
             
             res.json({ success: true, conversation });
         } catch (error) {
@@ -459,15 +431,7 @@ class ConversationController {
                 conversation.endedAt = new Date();
                 await conversationService.updateConversation(conversationId, conversation);
                 
-                // Add system message
-                await conversationService.addMessage(conversationId, {
-                    id: uuidv4(),
-                    conversationId,
-                    content: `Conversation ended by agent`,
-                    sender: 'system',
-                    timestamp: new Date(),
-                    metadata: { systemMessage: true }
-                });
+                // No system message needed for conversation end
                 
                 res.json({ success: true });
             } else {
