@@ -242,8 +242,18 @@
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden" data-api-url="http://localhost:3002">
+    <!-- Admin Bar (only visible for admins) -->
+    <div id="adminBar" class="hidden bg-red-600 text-white px-4 py-2 flex justify-between items-center shadow-lg z-50">
+        <span class="text-sm font-medium">
+            <i class="fas fa-crown mr-2"></i>Admin Mode
+        </span>
+        <button onclick="openUserManagement()" class="bg-red-700 hover:bg-red-800 px-3 py-1 rounded text-sm transition-colors">
+            <i class="fas fa-users mr-1"></i>Manage Users
+        </button>
+    </div>
+    
     <!-- Main Container -->
-    <div class="flex h-full">
+    <div class="flex" id="mainContainer" style="height: calc(100vh - 0px);">
         <!-- Sidebar - Chat Queue -->
         <div class="w-1/3 bg-white border-r border-gray-200 flex flex-col">
             <!-- Header -->
@@ -278,7 +288,13 @@
 
             <!-- Conversation Filters -->
             <div class="p-3 bg-gray-50 border-b">
-                <h3 class="text-sm font-medium text-gray-900 mb-2">Filter Conversations</h3>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-sm font-medium text-gray-900">Filter Conversations</h3>
+                    <button id="archive-toggle" title="Toggle Archive View" 
+                            class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i class="fas fa-archive text-sm"></i>
+                    </button>
+                </div>
                 <div class="flex gap-1">
                     <button id="filter-mine" onclick="dashboard.setFilter('mine')" 
                             class="flex-1 text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-800 font-medium transition hover:bg-blue-200">
@@ -296,6 +312,38 @@
                             class="flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200">
                         ALL
                     </button>
+                </div>
+            </div>
+
+            <!-- Bulk Actions Panel -->
+            <div id="bulk-actions-panel" class="hidden bg-orange-50 border-b border-orange-200 p-3">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="select-all" class="mr-2">
+                            <span class="text-sm font-medium text-orange-800">Select All</span>
+                        </label>
+                        <span class="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded-full">
+                            <span id="selected-count">0</span> selected
+                        </span>
+                    </div>
+                    <button id="clear-selection" class="text-xs text-orange-600 hover:text-orange-800 font-medium">
+                        Clear
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <button id="bulk-archive" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded font-medium">
+                        <i class="fas fa-archive mr-1"></i>Archive
+                    </button>
+                    <button id="bulk-unarchive" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded font-medium">
+                        <i class="fas fa-box-open mr-1"></i>Unarchive
+                    </button>
+                    <button id="bulk-assign-me" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded font-medium">
+                        <i class="fas fa-user mr-1"></i>Assign to Me
+                    </button>
+                    <select id="bulk-assign-agent" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded font-medium cursor-pointer">
+                        <option value="">Assign to...</option>
+                    </select>
                 </div>
             </div>
 
@@ -416,6 +464,67 @@
         </div>
     </div>
 
-    <script src="js/agent-dashboard.js"></script>
+    <!-- Authentication Check -->
+    <script>
+        // Check authentication before loading dashboard
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🔐 Starting authentication check...');
+            const token = localStorage.getItem('agent_token');
+            console.log('🔑 Token found:', !!token);
+            
+            if (!token) {
+                console.log('❌ No token found, redirecting to login');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            try {
+                console.log('🌐 Verifying token with server...');
+                // Verify token is valid
+                const response = await fetch(`${window.location.protocol}//${window.location.hostname}:3002/api/auth/verify`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                console.log('📡 Token verification response:', response.status);
+                
+                if (!response.ok) {
+                    console.log('❌ Token invalid, redirecting to login');
+                    localStorage.removeItem('agent_token');
+                    localStorage.removeItem('refresh_token');
+                    localStorage.removeItem('user_data');
+                    window.location.href = 'login.html';
+                    return;
+                }
+                
+                console.log('✅ Token is valid!');
+                
+                // Token is valid, check user role and load the dashboard
+                const userData = JSON.parse(localStorage.getItem('user_data'));
+                console.log('👤 User data:', userData);
+                
+                if (userData && userData.role === 'admin') {
+                    console.log('🔧 Setting up admin UI...');
+                    document.getElementById('adminBar').classList.remove('hidden');
+                    document.getElementById('mainContainer').style.height = 'calc(100vh - 44px)';
+                }
+                
+                console.log('📜 Loading dashboard JavaScript...');
+                const script = document.createElement('script');
+                script.src = 'js/agent-dashboard.js';
+                script.onload = () => console.log('✅ Dashboard JavaScript loaded successfully');
+                script.onerror = () => console.error('❌ Failed to load dashboard JavaScript');
+                document.body.appendChild(script);
+                
+            } catch (error) {
+                console.error('❌ Authentication check failed:', error);
+                window.location.href = 'login.html';
+            }
+        });
+
+        // Admin user management functions
+        function openUserManagement() {
+            window.open('settings.html#users', '_blank');
+        }
+    </script>
 </body>
 </html>
