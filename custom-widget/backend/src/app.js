@@ -52,6 +52,7 @@ const createSystemRoutes = require('./routes/systemRoutes');
 const createKnowledgeRoutes = require('./routes/knowledgeRoutes');
 const createWidgetRoutes = require('./routes/widgetRoutes');
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
 const createDocsRoutes = require('./routes/docsRoutes');
 
 // Import services
@@ -83,6 +84,7 @@ function createApp() {
 
     // Routes
     app.use('/api/auth', authRoutes); // Authentication routes
+    app.use('/api/users', userRoutes); // User management routes (admin only)
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));
     app.use('/api/knowledge', createKnowledgeRoutes()); // Knowledge management routes

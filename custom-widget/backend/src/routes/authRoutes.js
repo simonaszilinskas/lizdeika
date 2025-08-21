@@ -11,10 +11,10 @@ const { validate, authSchemas } = require('../utils/validators');
 
 const router = express.Router();
 
-// Rate limiting for authentication endpoints
+// Rate limiting for authentication endpoints (relaxed for development)
 const strictRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per window
+  windowMs: 5 * 60 * 1000, // 5 minutes (reduced from 15)
+  max: 100, // 100 requests per window (increased from 5)
   message: {
     success: false,
     error: 'Too many authentication attempts. Please try again later.',
@@ -145,6 +145,23 @@ if (process.env.NODE_ENV === 'development') {
     authController.createTestUser
   );
 }
+
+/**
+ * Emergency Recovery Routes
+ * These routes are always available for admin recovery scenarios
+ */
+
+// POST /api/auth/emergency-admin-recovery
+router.post('/emergency-admin-recovery',
+  strictRateLimit, // Very strict rate limiting
+  authController.emergencyAdminRecovery
+);
+
+// POST /api/auth/emergency-create-admin
+router.post('/emergency-create-admin',
+  strictRateLimit, // Very strict rate limiting
+  authController.emergencyCreateAdmin
+);
 
 /**
  * Health check endpoint

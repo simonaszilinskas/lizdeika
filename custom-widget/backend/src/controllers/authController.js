@@ -375,6 +375,84 @@ class AuthController {
       });
     }
   }
+
+  /**
+   * Emergency admin recovery endpoint
+   * POST /api/auth/emergency-admin-recovery
+   * Requires ADMIN_RECOVERY_KEY environment variable
+   */
+  async emergencyAdminRecovery(req, res) {
+    try {
+      const { recoveryKey, adminEmail, newPassword } = req.body;
+
+      if (!recoveryKey || !adminEmail || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          error: 'Recovery key, admin email, and new password are required',
+          code: 'MISSING_PARAMETERS',
+        });
+      }
+
+      const result = await authService.emergencyAdminRecovery(recoveryKey, adminEmail, newPassword);
+      
+      res.json({
+        success: true,
+        message: result.message,
+        data: {
+          adminId: result.adminId,
+          adminEmail: result.adminEmail,
+        },
+      });
+    } catch (error) {
+      console.error('Emergency admin recovery error:', error);
+      
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'EMERGENCY_RECOVERY_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Create emergency admin account
+   * POST /api/auth/emergency-create-admin
+   * Only works if no admin exists. Requires ADMIN_RECOVERY_KEY environment variable
+   */
+  async emergencyCreateAdmin(req, res) {
+    try {
+      const { recoveryKey, email, password, firstName, lastName } = req.body;
+
+      if (!recoveryKey || !email || !password || !firstName || !lastName) {
+        return res.status(400).json({
+          success: false,
+          error: 'All fields are required: recoveryKey, email, password, firstName, lastName',
+          code: 'MISSING_PARAMETERS',
+        });
+      }
+
+      const result = await authService.createEmergencyAdmin(recoveryKey, {
+        email,
+        password,
+        firstName,
+        lastName,
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: result.message,
+        data: result.admin,
+      });
+    } catch (error) {
+      console.error('Emergency admin creation error:', error);
+      
+      res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'EMERGENCY_ADMIN_CREATION_FAILED',
+      });
+    }
+  }
 }
 
 module.exports = new AuthController();

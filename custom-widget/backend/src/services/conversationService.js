@@ -51,20 +51,23 @@ class ConversationService {
             // Generate a user-friendly ticket number
             const ticketNumber = await this.generateTicketNumber();
             
-            const ticket = await prisma.ticket.create({
+            // NO USER CREATION - All conversations are anonymous and session-based
+            const ticket = await prisma.tickets.create({
                 data: {
                     id: conversationId,
-                    ticketNumber: ticketNumber,
-                    userId: conversation.visitorId ? await this.getOrCreateUser(conversation.visitorId) : null,
-                    subject: conversation.subject || 'Customer Support Request',
+                    ticket_number: ticketNumber,
+                    user_id: null, // Always null - no user accounts for website visitors
+                    subject: conversation.subject || 'Website Support Request',
                     description: conversation.description || '',
                     source: 'widget',
                     priority: 'medium',
-                    category: conversation.category || 'general'
+                    category: conversation.category || 'general',
+                    created_at: new Date(),
+                    updated_at: new Date()
                 },
                 include: {
-                    user: true,
-                    assignedAgent: true,
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true,
                     messages: true
                 }
             });
@@ -72,11 +75,11 @@ class ConversationService {
             // Return in the expected format for backward compatibility
             return {
                 id: ticket.id,
-                visitorId: conversation.visitorId,
-                assignedAgent: ticket.assignedAgentId,
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                visitorId: conversation.visitorId || 'anonymous',
+                assignedAgent: ticket.assigned_agent_id,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 category: ticket.category
             };
@@ -91,7 +94,7 @@ class ConversationService {
      */
     async conversationExists(conversationId) {
         try {
-            const ticket = await prisma.ticket.findUnique({
+            const ticket = await prisma.tickets.findUnique({
                 where: { id: conversationId }
             });
             return !!ticket;
@@ -106,11 +109,11 @@ class ConversationService {
      */
     async getConversation(conversationId) {
         try {
-            const ticket = await prisma.ticket.findUnique({
+            const ticket = await prisma.tickets.findUnique({
                 where: { id: conversationId },
                 include: {
-                    user: true,
-                    assignedAgent: true,
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true,
                     _count: {
                         select: { messages: true }
                     }
@@ -121,20 +124,20 @@ class ConversationService {
             
             // Convert user ID back to agent ID if assigned
             let assignedAgentId = null;
-            if (ticket.assignedAgent) {
+            if (ticket.users_tickets_assigned_agent_idTousers) {
                 const agentService = require('./agentService');
-                assignedAgentId = agentService.getUserAgentId(ticket.assignedAgent);
+                assignedAgentId = agentService.getUserAgentId(ticket.users_tickets_assigned_agent_idTousers);
             }
             
             // Return in expected format
             return {
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
                 assignedAgent: assignedAgentId,
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 category: ticket.category,
                 messageCount: ticket._count.messages
@@ -150,39 +153,39 @@ class ConversationService {
      */
     async updateConversation(conversationId, updates) {
         try {
-            const updateData = {};
+            const updateData = { updated_at: new Date() };
             
             // Map fields
-            if (updates.assignedAgent !== undefined) updateData.assignedAgentId = updates.assignedAgent;
+            if (updates.assignedAgent !== undefined) updateData.assigned_agent_id = updates.assignedAgent;
             if (updates.subject) updateData.subject = updates.subject;
             if (updates.category) updateData.category = updates.category;
             if (updates.priority) updateData.priority = updates.priority;
             
-            const ticket = await prisma.ticket.update({
+            const ticket = await prisma.tickets.update({
                 where: { id: conversationId },
                 data: updateData,
                 include: {
-                    user: true,
-                    assignedAgent: true
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true
                 }
             });
             
             // Convert user ID back to agent ID if assigned
             let assignedAgentId = null;
-            if (ticket.assignedAgent) {
+            if (ticket.users_tickets_assigned_agent_idTousers) {
                 const agentService = require('./agentService');
-                assignedAgentId = agentService.getUserAgentId(ticket.assignedAgent);
+                assignedAgentId = agentService.getUserAgentId(ticket.users_tickets_assigned_agent_idTousers);
             }
             
             // Return in expected format
             return {
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
                 assignedAgent: assignedAgentId,
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 category: ticket.category
             };
@@ -197,23 +200,23 @@ class ConversationService {
      */
     async getMessages(conversationId) {
         try {
-            const messages = await prisma.message.findMany({
-                where: { ticketId: conversationId },
-                orderBy: { createdAt: 'asc' },
+            const messages = await prisma.messages.findMany({
+                where: { ticket_id: conversationId },
+                orderBy: { created_at: 'asc' },
                 include: {
-                    sender: true
+                    users: true
                 }
             });
             
             return messages.map(msg => ({
                 id: msg.id,
-                conversationId: msg.ticketId,
+                conversationId: msg.ticket_id,
                 content: msg.content,
                 sender: this.mapSenderType(msg.senderType),
-                timestamp: msg.createdAt,
+                timestamp: msg.created_at,
                 metadata: msg.metadata,
-                senderId: msg.senderId,
-                messageType: msg.messageType
+                senderId: msg.sender_id,
+                messageType: msg.message_type
             }));
         } catch (error) {
             console.error('Failed to get messages:', error);
@@ -227,23 +230,23 @@ class ConversationService {
     async setMessages(conversationId, messageList) {
         try {
             // Delete existing messages and recreate (for testing)
-            await prisma.message.deleteMany({
-                where: { ticketId: conversationId }
+            await prisma.messages.deleteMany({
+                where: { ticket_id: conversationId }
             });
             
             if (messageList.length === 0) return [];
             
             const createData = messageList.map(msg => ({
                 id: msg.id || uuidv4(),
-                ticketId: conversationId,
-                senderId: msg.senderId || null,
+                ticket_id: conversationId,
+                sender_id: msg.senderId || null,
                 senderType: this.mapSenderTypeToEnum(msg.sender),
                 content: msg.content,
-                messageType: msg.messageType || 'text',
+                message_type: msg.messageType || 'text',
                 metadata: msg.metadata || null
             }));
             
-            await prisma.message.createMany({
+            await prisma.messages.createMany({
                 data: createData
             });
             
@@ -262,36 +265,36 @@ class ConversationService {
             // Ensure conversation exists
             await this.ensureConversationExists(conversationId, message);
             
-            const newMessage = await prisma.message.create({
+            const newMessage = await prisma.messages.create({
                 data: {
                     id: message.id || uuidv4(),
-                    ticketId: conversationId,
-                    senderId: message.senderId || null,
+                    ticket_id: conversationId,
+                    sender_id: message.senderId || null,
                     senderType: this.mapSenderTypeToEnum(message.sender),
                     content: message.content || '',
-                    messageType: message.messageType || 'text',
+                    message_type: message.messageType || 'text',
                     metadata: message.metadata || null
                 },
                 include: {
-                    sender: true
+                    users: true
                 }
             });
             
             // Update ticket timestamp
-            await prisma.ticket.update({
+            await prisma.tickets.update({
                 where: { id: conversationId },
-                data: { updatedAt: new Date() }
+                data: { updated_at: new Date() }
             });
             
             return {
                 id: newMessage.id,
-                conversationId: newMessage.ticketId,
+                conversationId: newMessage.ticket_id,
                 content: newMessage.content,
                 sender: this.mapSenderType(newMessage.senderType),
-                timestamp: newMessage.createdAt,
+                timestamp: newMessage.created_at,
                 metadata: newMessage.metadata,
-                senderId: newMessage.senderId,
-                messageType: newMessage.messageType
+                senderId: newMessage.sender_id,
+                messageType: newMessage.message_type
             };
         } catch (error) {
             console.error('Failed to add message:', error);
@@ -305,33 +308,33 @@ class ConversationService {
     async replaceLastMessage(conversationId, newMessage) {
         try {
             // Get the last message
-            const lastMessage = await prisma.message.findFirst({
-                where: { ticketId: conversationId },
-                orderBy: { createdAt: 'desc' }
+            const lastMessage = await prisma.messages.findFirst({
+                where: { ticket_id: conversationId },
+                orderBy: { created_at: 'desc' }
             });
             
             if (lastMessage) {
                 // Update the existing message
-                const updatedMessage = await prisma.message.update({
+                const updatedMessage = await prisma.messages.update({
                     where: { id: lastMessage.id },
                     data: {
                         content: newMessage.content,
                         metadata: newMessage.metadata || lastMessage.metadata
                     },
                     include: {
-                        sender: true
+                        users: true
                     }
                 });
                 
                 return {
                     id: updatedMessage.id,
-                    conversationId: updatedMessage.ticketId,
+                    conversationId: updatedMessage.ticket_id,
                     content: updatedMessage.content,
                     sender: this.mapSenderType(updatedMessage.senderType),
-                    timestamp: updatedMessage.createdAt,
+                    timestamp: updatedMessage.created_at,
                     metadata: updatedMessage.metadata,
-                    senderId: updatedMessage.senderId,
-                    messageType: updatedMessage.messageType
+                    senderId: updatedMessage.sender_id,
+                    messageType: updatedMessage.message_type
                 };
             } else {
                 // Add as new message if no messages exist
@@ -348,9 +351,9 @@ class ConversationService {
      */
     async removePendingMessages(conversationId) {
         try {
-            const deleted = await prisma.message.deleteMany({
+            const deleted = await prisma.messages.deleteMany({
                 where: {
-                    ticketId: conversationId,
+                    ticket_id: conversationId,
                     OR: [
                         {
                             metadata: {
@@ -379,18 +382,18 @@ class ConversationService {
      */
     async getAllConversationsWithStats() {
         try {
-            const tickets = await prisma.ticket.findMany({
-                orderBy: { createdAt: 'desc' },
+            const tickets = await prisma.tickets.findMany({
+                orderBy: { created_at: 'desc' },
                 include: {
-                    user: true,
-                    assignedAgent: true,
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true,
                     messages: {
                         where: {
                             senderType: {
                                 in: ['user', 'agent']
                             }
                         },
-                        orderBy: { createdAt: 'desc' },
+                        orderBy: { created_at: 'desc' },
                         take: 1
                     },
                     _count: {
@@ -409,20 +412,19 @@ class ConversationService {
             
             return tickets.map(ticket => ({
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
-                userNumber: ticket.user?.userNumber,
-                assignedAgent: ticket.assignedAgent ? this.mapUserIdToAgentId(ticket.assignedAgent) : null,
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
+                assignedAgent: ticket.users_tickets_assigned_agent_idTousers ? this.mapUserIdToAgentId(ticket.users_tickets_assigned_agent_idTousers) : null,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 messageCount: ticket._count.messages,
                 lastMessage: ticket.messages[0] ? {
                     id: ticket.messages[0].id,
                     content: ticket.messages[0].content,
                     sender: this.mapSenderType(ticket.messages[0].senderType),
-                    timestamp: ticket.messages[0].createdAt
+                    timestamp: ticket.messages[0].created_at
                 } : null
             }));
         } catch (error) {
@@ -436,7 +438,7 @@ class ConversationService {
      */
     async getConversationCount() {
         try {
-            return await prisma.ticket.count();
+            return await prisma.tickets.count();
         } catch (error) {
             console.error('Failed to get conversation count:', error);
             return 0;
@@ -448,7 +450,7 @@ class ConversationService {
      */
     async getTotalMessageCount() {
         try {
-            return await prisma.message.count({
+            return await prisma.messages.count({
                 where: {
                     senderType: {
                         in: ['user', 'agent']
@@ -479,9 +481,9 @@ class ConversationService {
         
         try {
             // Delete in proper order due to foreign key constraints
-            await prisma.message.deleteMany();
-            await prisma.ticketAction.deleteMany();
-            await prisma.ticket.deleteMany();
+            await prisma.messages.deleteMany();
+            await prisma.ticket_actions.deleteMany();
+            await prisma.tickets.deleteMany();
             
             return true;
         } catch (error) {
@@ -500,28 +502,28 @@ class ConversationService {
             const agentUser = await agentService.getOrCreateAgentUser(agentId);
             const userId = agentUser.id;
             
-            const tickets = await prisma.ticket.findMany({
+            const tickets = await prisma.tickets.findMany({
                 where: { 
-                    assignedAgentId: userId  // Use the database user ID
+                    assigned_agent_id: userId  // Use the database user ID
                 },
                 include: {
-                    user: true,
-                    assignedAgent: true,
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true,
                     _count: {
                         select: { messages: true }
                     }
                 },
-                orderBy: { updatedAt: 'desc' }
+                orderBy: { updated_at: 'desc' }
             });
             
             return tickets.map(ticket => ({
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
                 assignedAgent: agentId,  // Return the original agent ID for compatibility
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 messageCount: ticket._count.messages
             }));
@@ -536,22 +538,22 @@ class ConversationService {
      */
     async getActiveConversations() {
         try {
-            const tickets = await prisma.ticket.findMany({
+            const tickets = await prisma.tickets.findMany({
                 include: {
-                    user: true,
-                    assignedAgent: true
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true
                 },
-                orderBy: { updatedAt: 'desc' }
+                orderBy: { updated_at: 'desc' }
             });
             
             return tickets.map(ticket => ({
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
-                assignedAgent: ticket.assignedAgentId,
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
+                assignedAgent: ticket.assigned_agent_id,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             }));
         } catch (error) {
@@ -568,39 +570,39 @@ class ConversationService {
             const where = {};
             
             if (criteria.agentId) {
-                where.assignedAgentId = criteria.agentId;
+                where.assigned_agent_id = criteria.agentId;
             }
             
             if (criteria.startDate) {
-                where.createdAt = {
+                where.created_at = {
                     gte: new Date(criteria.startDate)
                 };
             }
             
             if (criteria.endDate) {
-                where.createdAt = {
-                    ...where.createdAt,
+                where.created_at = {
+                    ...where.created_at,
                     lte: new Date(criteria.endDate)
                 };
             }
             
-            const tickets = await prisma.ticket.findMany({
+            const tickets = await prisma.tickets.findMany({
                 where,
                 include: {
-                    user: true,
-                    assignedAgent: true
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true
                 },
-                orderBy: { createdAt: 'desc' }
+                orderBy: { created_at: 'desc' }
             });
             
             return tickets.map(ticket => ({
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
-                assignedAgent: ticket.assignedAgentId,
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
+                assignedAgent: ticket.assigned_agent_id,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             }));
         } catch (error) {
@@ -620,26 +622,28 @@ class ConversationService {
             const agentUser = await agentService.getOrCreateAgentUser(agentId);
             const userId = agentUser.id;
             
-            const ticket = await prisma.ticket.update({
+            const ticket = await prisma.tickets.update({
                 where: { id: conversationId },
                 data: { 
-                    assignedAgentId: userId  // Use the database user ID
+                    assigned_agent_id: userId,  // Use the database user ID
+                    updated_at: new Date()
                 },
                 include: {
-                    user: true,
-                    assignedAgent: true
+                    users_tickets_user_idTousers: true,
+                    users_tickets_assigned_agent_idTousers: true
                 }
             });
             
             // Log the assignment action only if we have a valid agent
             if (userId) {
                 try {
-                    await prisma.ticketAction.create({
+                    await prisma.ticket_actions.create({
                         data: {
-                            ticketId: conversationId,
-                            performedBy: userId,  // Use the database user ID
+                            id: uuidv4(),
+                            ticket_id: conversationId,
+                            performed_by: userId,  // Use the database user ID
                             action: 'assigned',
-                            newValue: agentId,    // Store the original agent ID as the value
+                            new_value: agentId,    // Store the original agent ID as the value
                             reason: 'Auto-assigned by system'
                         }
                     });
@@ -651,12 +655,12 @@ class ConversationService {
             
             return {
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
                 assignedAgent: agentId,  // Return the original agent ID for compatibility
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             };
         } catch (error) {
@@ -672,24 +676,24 @@ class ConversationService {
      */
     async getOrphanedConversations() {
         try {
-            const tickets = await prisma.ticket.findMany({
+            const tickets = await prisma.tickets.findMany({
                 where: {
-                    assignedAgentId: null
+                    assigned_agent_id: null
                 },
                 include: {
-                    user: true
+                    users_tickets_user_idTousers: true
                 },
-                orderBy: { createdAt: 'asc' }
+                orderBy: { created_at: 'asc' }
             });
             
             return tickets.map(ticket => ({
                 id: ticket.id,
-                visitorId: ticket.user?.email || ticket.userId,
-                userNumber: ticket.user?.userNumber,
-                assignedAgent: ticket.assignedAgentId,
-                startedAt: ticket.createdAt,
-                updatedAt: ticket.updatedAt,
-                ticketNumber: ticket.ticketNumber,
+                visitorId: 'anonymous-session', // All website visitors are session-based
+                userNumber: null, // No user numbers for anonymous sessions,
+                assignedAgent: ticket.assigned_agent_id,
+                startedAt: ticket.created_at,
+                updatedAt: ticket.updated_at,
+                ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             }));
         } catch (error) {
@@ -713,9 +717,9 @@ class ConversationService {
     mapUserIdToAgentId(user) {
         if (!user) return null;
         
-        // Extract agent ID from email or use fallback logic
+        // Use full email as agent ID for consistency
         if (user.email && user.email.includes('@vilnius.lt')) {
-            return user.email.split('@')[0];
+            return user.email; // Return full email instead of truncated
         }
         
         // Fallback: if it's an agent/admin user, use their user ID as agent ID
@@ -739,9 +743,9 @@ class ConversationService {
         const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
         
-        const dailyCount = await prisma.ticket.count({
+        const dailyCount = await prisma.tickets.count({
             where: {
-                createdAt: {
+                created_at: {
                     gte: startOfDay,
                     lt: endOfDay
                 }
@@ -752,83 +756,20 @@ class ConversationService {
         return `VIL-${dateStr}-${sequence}`;
     }
 
-    /**
-     * Get next available user number
-     */
-    async getNextUserNumber() {
-        try {
-            const lastUser = await prisma.user.findFirst({
-                where: {
-                    userNumber: { not: null },
-                    role: 'user'
-                },
-                orderBy: { userNumber: 'desc' },
-                select: { userNumber: true }
-            });
-            
-            return (lastUser?.userNumber || 0) + 1;
-        } catch (error) {
-            console.error('Failed to get next user number:', error);
-            return 1; // Default to 1 if there's an error
-        }
-    }
+    // REMOVED: No user creation methods needed
+    // All website visitors are purely session-based with no database user records
 
     /**
-     * Get or create user for visitor ID
-     */
-    async getOrCreateUser(visitorId) {
-        try {
-            // For now, treat visitorId as email or create anonymous user
-            const isEmail = visitorId.includes('@');
-            
-            if (isEmail) {
-                const user = await prisma.user.upsert({
-                    where: { email: visitorId },
-                    update: {},
-                    create: {
-                        email: visitorId,
-                        firstName: 'Anonymous',
-                        lastName: 'User',
-                        passwordHash: 'anonymous',
-                        role: 'user',
-                        userNumber: await this.getNextUserNumber()
-                    }
-                });
-                return user.id;
-            } else {
-                // Create anonymous user with unique email
-                const anonymousEmail = `anonymous+${visitorId}@vilnius.lt`;
-                const user = await prisma.user.upsert({
-                    where: { email: anonymousEmail },
-                    update: {},
-                    create: {
-                        email: anonymousEmail,
-                        firstName: 'Anonymous',
-                        lastName: 'Visitor',
-                        passwordHash: 'anonymous',
-                        role: 'user',
-                        userNumber: await this.getNextUserNumber()
-                    }
-                });
-                return user.id;
-            }
-        } catch (error) {
-            console.error('Failed to get or create user:', error);
-            return null;
-        }
-    }
-
-    /**
-     * Ensure conversation exists, create if not
+     * Ensure conversation exists, create if not - Pure session-based
      */
     async ensureConversationExists(conversationId, message) {
         const exists = await this.conversationExists(conversationId);
         if (!exists) {
-            // Create conversation from message context
+            // Create conversation from message context - Always anonymous session
             await this.createConversation(conversationId, {
-                visitorId: message.senderId || 'anonymous',
-                subject: 'Customer Support Request',
+                subject: 'Website Support Request',
                 category: 'general'
+                // No visitorId needed - all are anonymous sessions
             });
         }
     }

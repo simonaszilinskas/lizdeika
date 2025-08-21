@@ -39,20 +39,20 @@ const authenticateToken = async (req, res, next) => {
 
     // Get user from database
     const db = databaseClient.getClient();
-    const user = await db.user.findUnique({
+    const user = await db.users.findUnique({
       where: { id: decoded.sub },
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
+        first_name: true,
+        last_name: true,
         role: true,
-        isActive: true,
-        emailVerified: true,
-        agentStatus: {
+        is_active: true,
+        email_verified: true,
+        agent_status: {
           select: {
             status: true,
-            updatedAt: true,
+            updated_at: true,
           },
         },
       },
@@ -66,7 +66,7 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    if (!user.isActive) {
+    if (!user.is_active) {
       return res.status(401).json({
         success: false,
         error: 'Account deactivated',
@@ -161,7 +161,7 @@ const requireVerified = (req, res, next) => {
     });
   }
 
-  if (!req.user.emailVerified) {
+  if (!req.user.email_verified) {
     return res.status(403).json({
       success: false,
       error: 'Email verification required',
@@ -284,7 +284,7 @@ const requireOnlineAgent = (req, res, next) => {
     });
   }
 
-  if (req.user.role === 'agent' && (!req.user.agentStatus || req.user.agentStatus.status === 'offline')) {
+  if (req.user.role === 'agent' && (!req.user.agent_status || req.user.agent_status.status === 'offline')) {
     return res.status(403).json({
       success: false,
       error: 'Agent must be online to perform this action',

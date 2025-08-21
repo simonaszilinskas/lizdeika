@@ -49,18 +49,20 @@ class AgentService {
             const activeChats = includeActiveChats ? await this.getAgentActiveChatsCount(agentId) : 0;
             
             // Update agent status in database
-            const agentStatus = await prisma.agentStatus.upsert({
-                where: { userId: user.id },
+            const agentStatus = await prisma.agent_status.upsert({
+                where: { user_id: user.id },
                 update: {
                     status: personalStatus === 'online' ? 'online' : personalStatus === 'afk' ? 'busy' : 'offline',
-                    updatedAt: new Date()
+                    updated_at: new Date()
                 },
                 create: {
-                    userId: user.id,
-                    status: personalStatus === 'online' ? 'online' : personalStatus === 'afk' ? 'busy' : 'offline'
+                    id: uuidv4(),
+                    user_id: user.id,
+                    status: personalStatus === 'online' ? 'online' : personalStatus === 'afk' ? 'busy' : 'offline',
+                    updated_at: new Date()
                 },
                 include: {
-                    user: true
+                    users: true
                 }
             });
             
@@ -70,10 +72,10 @@ class AgentService {
                 name: this.getAgentDisplayName(agentId),
                 status: this.mapStatusToLegacy(agentStatus.status),
                 personalStatus: personalStatus,
-                lastSeen: agentStatus.updatedAt,
+                lastSeen: agentStatus.updated_at,
                 activeChats: activeChats,
                 connected: personalStatus !== 'offline',
-                userId: user.id
+                user_id: user.id
             };
             
             return agent;
@@ -120,14 +122,14 @@ class AgentService {
      */
     async getAllAgents() {
         try {
-            const users = await prisma.user.findMany({
+            const users = await prisma.users.findMany({
                 where: {
                     role: { in: ['agent', 'admin'] }
                 },
                 include: {
-                    agentStatus: true
+                    agent_status: true
                 },
-                orderBy: { createdAt: 'asc' }
+                orderBy: { created_at: 'asc' }
             });
             
             return Promise.all(users.map(user => this.mapUserToAgent(user)));
@@ -200,15 +202,17 @@ class AgentService {
         try {
             const user = await this.getOrCreateAgentUser(agentId);
             
-            const agentStatus = await prisma.agentStatus.upsert({
-                where: { userId: user.id },
+            const agentStatus = await prisma.agent_status.upsert({
+                where: { user_id: user.id },
                 update: {
                     status: 'offline',
-                    updatedAt: new Date()
+                    updated_at: new Date()
                 },
                 create: {
-                    userId: user.id,
-                    status: 'offline'
+                    id: uuidv4(),
+                    user_id: user.id,
+                    status: 'offline',
+                    updated_at: new Date()
                 }
             });
             
@@ -218,8 +222,8 @@ class AgentService {
                 connected: false,
                 personalStatus: 'offline',
                 status: 'offline',
-                lastSeen: agentStatus.updatedAt,
-                userId: user.id
+                lastSeen: agentStatus.updated_at,
+                user_id: user.id
             };
         } catch (error) {
             console.error('Failed to set agent offline:', error);
@@ -258,7 +262,7 @@ class AgentService {
      */
     async getSystemMode() {
         try {
-            const setting = await prisma.systemSetting.findUnique({
+            const setting = await prisma.system_settings.findUnique({
                 where: { key: 'system_mode' }
             });
             return setting?.value || 'hitl';
@@ -276,16 +280,19 @@ class AgentService {
         }
         
         try {
-            await prisma.systemSetting.upsert({
+            await prisma.system_settings.upsert({
                 where: { key: 'system_mode' },
                 update: { 
                     value: mode,
-                    updatedBy: 'system' // Could be replaced with actual user ID
+                    updated_by: 'system', // Could be replaced with actual user ID
+                    updated_at: new Date()
                 },
                 create: {
+                    id: uuidv4(),
                     key: 'system_mode',
                     value: mode,
-                    updatedBy: 'system'
+                    updated_by: 'system',
+                    updated_at: new Date()
                 }
             });
             return true;
@@ -340,20 +347,22 @@ class AgentService {
         try {
             const user = await this.getOrCreateAgentUser(agentId);
             
-            const agentStatus = await prisma.agentStatus.upsert({
-                where: { userId: user.id },
-                update: { updatedAt: new Date() },
+            const agentStatus = await prisma.agent_status.upsert({
+                where: { user_id: user.id },
+                update: { updated_at: new Date() },
                 create: {
-                    userId: user.id,
-                    status: 'offline'
+                    id: uuidv4(),
+                    user_id: user.id,
+                    status: 'offline',
+                    updated_at: new Date()
                 }
             });
             
             return {
                 id: agentId,
                 name: this.getAgentDisplayName(agentId),
-                lastSeen: agentStatus.updatedAt,
-                userId: user.id
+                lastSeen: agentStatus.updated_at,
+                user_id: user.id
             };
         } catch (error) {
             console.error('Failed to update last seen:', error);
@@ -366,7 +375,7 @@ class AgentService {
      */
     async getAgentCount() {
         try {
-            return await prisma.user.count({
+            return await prisma.users.count({
                 where: {
                     role: { in: ['agent', 'admin'] }
                 }
@@ -387,7 +396,7 @@ class AgentService {
         
         try {
             // Clear agent status data
-            await prisma.agentStatus.deleteMany();
+            await prisma.agent_status.deleteMany();
             
             return true;
         } catch (error) {
@@ -404,17 +413,17 @@ class AgentService {
             const cutoffTime = new Date(Date.now() - 60000); // Active in last minute
             
             const [total, onlineCount, busyCount] = await Promise.all([
-                prisma.user.count({ where: { role: { in: ['agent', 'admin'] } } }),
-                prisma.agentStatus.count({ 
+                prisma.users.count({ where: { role: { in: ['agent', 'admin'] } } }),
+                prisma.agent_status.count({ 
                     where: { 
                         status: 'online',
-                        updatedAt: { gte: cutoffTime }
+                        updated_at: { gte: cutoffTime }
                     }
                 }),
-                prisma.agentStatus.count({ 
+                prisma.agent_status.count({ 
                     where: { 
                         status: 'busy',
-                        updatedAt: { gte: cutoffTime }
+                        updated_at: { gte: cutoffTime }
                     }
                 })
             ]);
@@ -512,13 +521,14 @@ class AgentService {
      * Common user lookup pattern for agents - optimized query
      */
     async findAgentUser(agentId, includeAgentStatus = false) {
-        const include = includeAgentStatus ? { agentStatus: true } : undefined;
+        const include = includeAgentStatus ? { agent_status: true } : undefined;
         
-        return await prisma.user.findFirst({
+        return await prisma.users.findFirst({
             where: {
                 OR: [
                     { id: agentId },
-                    { email: { contains: agentId } }
+                    { email: agentId }, // Exact email match first
+                    { email: { contains: agentId } } // Partial match fallback
                 ],
                 role: { in: ['agent', 'admin'] }
             },
@@ -532,18 +542,18 @@ class AgentService {
     async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = 1) {
         const cutoffTime = new Date(Date.now() - (minutesAgo * 60000));
         
-        return await prisma.user.findMany({
+        return await prisma.users.findMany({
             where: {
                 role: { in: ['agent', 'admin'] },
-                agentStatus: {
+                agent_status: {
                     status: { in: statusFilter },
-                    updatedAt: { gte: cutoffTime }
+                    updated_at: { gte: cutoffTime }
                 }
             },
             include: {
-                agentStatus: true
+                agent_status: true
             },
-            orderBy: { updatedAt: 'desc' }
+            orderBy: { updated_at: 'desc' }
         });
     }
 
@@ -552,9 +562,9 @@ class AgentService {
      */
     async getAgentActiveChatsCount(agentId) {
         try {
-            return await prisma.ticket.count({
+            return await prisma.tickets.count({
                 where: {
-                    assignedAgentId: agentId
+                    assigned_agent_id: agentId
                 }
             });
         } catch (error) {
@@ -577,11 +587,11 @@ class AgentService {
         return {
             id: agentId,
             name: this.getAgentDisplayName(agentId),
-            status: user.agentStatus ? this.mapStatusToLegacy(user.agentStatus.status) : 'offline',
-            personalStatus: user.agentStatus ? this.mapStatusToPersonal(user.agentStatus.status) : 'offline',
-            lastSeen: user.agentStatus?.updatedAt || user.updatedAt,
+            status: user.agent_status ? this.mapStatusToLegacy(user.agent_status.status) : 'offline',
+            personalStatus: user.agent_status ? this.mapStatusToPersonal(user.agent_status.status) : 'offline',
+            lastSeen: user.agent_status?.updated_at || user.updated_at,
             activeChats,
-            connected: user.agentStatus ? user.agentStatus.status !== 'offline' : false,
+            connected: user.agent_status ? user.agent_status.status !== 'offline' : false,
             userId: user.id
         };
     }
@@ -597,24 +607,24 @@ class AgentService {
             if (!user) {
                 // Create new agent user using upsert to avoid duplicates
                 const isAdmin = agentId.includes('admin') || agentId.includes('Admin');
-                const email = `${agentId}@vilnius.lt`;
+                const email = agentId.includes('@') ? agentId : `${agentId}@vilnius.lt`;
                 
                 const displayName = this.getAgentDisplayName(agentId);
                 const nameParts = displayName.split(' ');
                 
-                user = await prisma.user.upsert({
+                user = await prisma.users.upsert({
                     where: { email: email },
                     update: {
                         // Update existing user if found
-                        firstName: nameParts[0],
-                        lastName: nameParts.slice(1).join(' ') || '',
+                        first_name: nameParts[0],
+                        last_name: nameParts.slice(1).join(' ') || '',
                         role: isAdmin ? 'admin' : 'agent'
                     },
                     create: {
                         email: email,
-                        firstName: nameParts[0],
-                        lastName: nameParts.slice(1).join(' ') || '',
-                        passwordHash: 'temp', // Should be set by admin
+                        first_name: nameParts[0],
+                        last_name: nameParts.slice(1).join(' ') || '',
+                        password_hash: 'temp', // Should be set by admin
                         role: isAdmin ? 'admin' : 'agent'
                     }
                 });
@@ -631,9 +641,9 @@ class AgentService {
      * Get agent ID from user object
      */
     getUserAgentId(user) {
-        // Extract agent ID from email or use user ID
+        // Use full email as agent ID for consistency
         if (user.email.includes('@vilnius.lt')) {
-            return user.email.split('@')[0];
+            return user.email; // Return full email instead of truncated
         }
         return user.id;
     }
