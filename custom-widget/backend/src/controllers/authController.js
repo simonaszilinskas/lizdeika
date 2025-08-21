@@ -4,6 +4,7 @@
  */
 
 const authService = require('../services/authService');
+const activityService = require('../services/activityService');
 
 class AuthController {
   /**
@@ -11,8 +12,23 @@ class AuthController {
    * POST /api/auth/register
    */
   async register(req, res) {
+    const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+    
     try {
       const result = await authService.registerUser(req.body);
+      
+      // Log successful registration
+      await activityService.logAuth(
+        result.user.id, 
+        'registration_success', 
+        true, 
+        ipAddress, 
+        userAgent,
+        { 
+          role: result.user.role,
+          email: result.user.email 
+        }
+      );
       
       res.status(201).json({
         success: true,
@@ -25,6 +41,19 @@ class AuthController {
       });
     } catch (error) {
       console.error('Registration error:', error);
+      
+      // Log failed registration attempt
+      await activityService.logAuth(
+        null, 
+        'registration_failed', 
+        false, 
+        ipAddress, 
+        userAgent,
+        { 
+          email: req.body.email,
+          error: error.message 
+        }
+      );
       
       res.status(400).json({
         success: false,
@@ -39,8 +68,20 @@ class AuthController {
    * POST /api/auth/login
    */
   async login(req, res) {
+    const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+    
     try {
       const result = await authService.loginUser(req.body);
+      
+      // Log successful login
+      await activityService.logAuth(
+        result.user.id, 
+        'login_success', 
+        true, 
+        ipAddress, 
+        userAgent,
+        { role: result.user.role }
+      );
       
       res.json({
         success: true,
@@ -52,6 +93,19 @@ class AuthController {
       });
     } catch (error) {
       console.error('Login error:', error);
+      
+      // Log failed login attempt
+      await activityService.logAuth(
+        null, 
+        'login_failed', 
+        false, 
+        ipAddress, 
+        userAgent,
+        { 
+          email: req.body.email,
+          error: error.message 
+        }
+      );
       
       const statusCode = error.message.includes('Invalid email or password') ? 401 : 400;
       
@@ -93,9 +147,20 @@ class AuthController {
    * POST /api/auth/logout
    */
   async logout(req, res) {
+    const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+    
     try {
       const { refreshToken } = req.body;
       await authService.logoutUser(refreshToken);
+      
+      // Log successful logout
+      await activityService.logAuth(
+        req.user?.id || null, 
+        'logout_success', 
+        true, 
+        ipAddress, 
+        userAgent
+      );
       
       res.json({
         success: true,
@@ -103,6 +168,16 @@ class AuthController {
       });
     } catch (error) {
       console.error('Logout error:', error);
+      
+      // Log logout attempt (even if failed, we still consider it a logout)
+      await activityService.logAuth(
+        req.user?.id || null, 
+        'logout_completed', 
+        true, 
+        ipAddress, 
+        userAgent,
+        { note: 'Logout completed despite technical error' }
+      );
       
       // Even if logout fails, return success to avoid confusion
       res.json({
@@ -117,9 +192,21 @@ class AuthController {
    * POST /api/auth/forgot-password
    */
   async forgotPassword(req, res) {
+    const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+    
     try {
       const { email } = req.body;
       const result = await authService.requestPasswordReset(email);
+      
+      // Log password reset request
+      await activityService.logSecurity(
+        null, 
+        'password_reset_requested', 
+        true, 
+        ipAddress, 
+        userAgent,
+        { email }
+      );
       
       // In production, you would send an email here with the reset token
       // For now, we'll return the token in the response (not recommended for production)
@@ -138,6 +225,19 @@ class AuthController {
     } catch (error) {
       console.error('Forgot password error:', error);
       
+      // Log failed password reset request
+      await activityService.logSecurity(
+        null, 
+        'password_reset_request_failed', 
+        false, 
+        ipAddress, 
+        userAgent,
+        { 
+          email: req.body.email,
+          error: error.message 
+        }
+      );
+      
       res.status(400).json({
         success: false,
         error: error.message,
@@ -151,9 +251,20 @@ class AuthController {
    * POST /api/auth/reset-password
    */
   async resetPassword(req, res) {
+    const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+    
     try {
       const { token, newPassword } = req.body;
       const result = await authService.resetPassword(token, newPassword);
+      
+      // Log successful password reset
+      await activityService.logSecurity(
+        result.userId || null, 
+        'password_reset_completed', 
+        true, 
+        ipAddress, 
+        userAgent
+      );
       
       res.json({
         success: true,
@@ -161,6 +272,16 @@ class AuthController {
       });
     } catch (error) {
       console.error('Password reset error:', error);
+      
+      // Log failed password reset
+      await activityService.logSecurity(
+        null, 
+        'password_reset_failed', 
+        false, 
+        ipAddress, 
+        userAgent,
+        { error: error.message }
+      );
       
       res.status(400).json({
         success: false,
@@ -175,6 +296,8 @@ class AuthController {
    * POST /api/auth/change-password
    */
   async changePassword(req, res) {
+    const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+    
     try {
       const { currentPassword, newPassword } = req.body;
       const result = await authService.changePassword(
@@ -183,12 +306,31 @@ class AuthController {
         newPassword
       );
       
+      // Log successful password change
+      await activityService.logSecurity(
+        req.user.id, 
+        'password_changed', 
+        true, 
+        ipAddress, 
+        userAgent
+      );
+      
       res.json({
         success: true,
         message: result.message,
       });
     } catch (error) {
       console.error('Change password error:', error);
+      
+      // Log failed password change attempt
+      await activityService.logSecurity(
+        req.user.id, 
+        'password_change_failed', 
+        false, 
+        ipAddress, 
+        userAgent,
+        { error: error.message }
+      );
       
       res.status(400).json({
         success: false,

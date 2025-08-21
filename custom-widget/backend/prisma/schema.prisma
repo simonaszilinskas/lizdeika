@@ -60,6 +60,26 @@ model system_settings {
   updated_by String
 }
 
+model user_activities {
+  id          String              @id
+  user_id     String?
+  action_type UserActivityType
+  action      String
+  resource    String?
+  resource_id String?
+  ip_address  String?
+  user_agent  String?
+  details     Json?
+  success     Boolean             @default(true)
+  created_at  DateTime            @default(now())
+  users       users?              @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([action_type])
+  @@index([created_at])
+  @@index([success])
+}
+
 model ticket_actions {
   id             String     @id
   ticket_id      String
@@ -116,6 +136,7 @@ model users {
   ticket_actions                           ticket_actions[]
   tickets_tickets_assigned_agent_idTousers tickets[]        @relation("tickets_assigned_agent_idTousers")
   tickets_tickets_user_idTousers           tickets[]        @relation("tickets_user_idTousers")
+  user_activities                          user_activities[]
 
   @@index([is_active])
   @@index([last_login])
@@ -166,4 +187,13 @@ enum UserRole {
   admin
   agent
   user
+}
+
+enum UserActivityType {
+  auth
+  user_management
+  conversation
+  system
+  profile
+  security
 }
