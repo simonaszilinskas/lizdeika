@@ -51,6 +51,10 @@ const createAgentRoutes = require('./routes/agentRoutes');
 const createSystemRoutes = require('./routes/systemRoutes');
 const createKnowledgeRoutes = require('./routes/knowledgeRoutes');
 const createWidgetRoutes = require('./routes/widgetRoutes');
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const createDocsRoutes = require('./routes/docsRoutes');
 
 // Import services
 const WebSocketService = require('./services/websocketService');
@@ -80,12 +84,16 @@ function createApp() {
     const websocketService = new WebSocketService(io);
 
     // Routes
+    app.use('/api/auth', authRoutes); // Authentication routes
+    app.use('/api/users', userRoutes); // User management routes (admin only)
+    app.use('/api/activities', activityRoutes); // Activity logging routes
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));
     app.use('/api/knowledge', createKnowledgeRoutes()); // Knowledge management routes
     app.use('/api/widget', createWidgetRoutes()); // Widget configuration routes
     app.use('/', createSystemRoutes()); // Health check at root level
     app.use('/api', createSystemRoutes()); // Config routes under /api
+    app.use('/docs', createDocsRoutes()); // OpenAPI and docs
 
     // Error handling middleware (must be last)
     app.use(errorHandler);

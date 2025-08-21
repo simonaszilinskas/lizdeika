@@ -22,21 +22,32 @@ class WebSocketService {
             });
             
             // Join agent dashboard
-            socket.on('join-agent-dashboard', (agentId) => {
+            socket.on('join-agent-dashboard', async (agentId) => {
                 socket.join('agents');
                 socket.agentId = agentId;
                 
                 // Update agent status to online
-                agentService.setAgentOnline(agentId, socket.id, conversationService);
+                await agentService.setAgentOnline(agentId, socket.id);
                 
                 console.log(`Agent ${agentId} connected with socket ${socket.id}`);
                 
-                // Broadcast agent status to all agents
-                this.io.to('agents').emit('agent-status-update', {
-                    agentId,
-                    status: 'online',
-                    timestamp: new Date()
-                });
+                // Send current system mode and connected agents to the joining agent
+                const systemMode = await agentService.getSystemMode();
+                socket.emit('system-mode-update', { mode: systemMode });
+                
+                // Handle gradual ticket redistribution when agents join  
+                const redistributions = await agentService.redistributeOrphanedTickets(conversationService, 2);
+                if (redistributions.length > 0) {
+                    console.log(`Redistributed ${redistributions.length} tickets to new agent ${agentId}`);
+                    this.io.to('agents').emit('tickets-reassigned', { 
+                        reassignments: redistributions,
+                        reason: 'agent_joined'
+                    });
+                }
+                
+                // Broadcast connected agents update to all agents
+                const connectedAgents = await agentService.getConnectedAgents();
+                this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
             });
             
             // Handle agent typing
@@ -58,19 +69,16 @@ class WebSocketService {
                 });
             });
             
-            socket.on('disconnect', () => {
+            socket.on('disconnect', async () => {
                 console.log('Client disconnected:', socket.id);
                 
                 // Update agent status if this was an agent
                 if (socket.agentId) {
-                    agentService.setAgentOffline(socket.agentId);
+                    await agentService.setAgentOffline(socket.agentId);
                     
-                    // Broadcast agent status to all agents
-                    this.io.to('agents').emit('agent-status-update', {
-                        agentId: socket.agentId,
-                        status: 'offline',
-                        timestamp: new Date()
-                    });
+                    // Broadcast updated connected agents list
+                    const connectedAgents = await agentService.getConnectedAgents();
+                    this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
                 }
             });
         });

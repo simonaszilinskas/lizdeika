@@ -11,18 +11,123 @@ class AgentDashboard {
         
         this.apiUrl = apiUrl;
         this.currentChatId = null;
-        this.agentId = 'agent-' + Math.random().toString(36).substring(2, 11);
+        this.agentId = this.getAuthenticatedAgentId();
         this.conversations = new Map();
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || 3000;
         this.socket = null;
-        this.currentStatus = 'hitl'; // Default to HITL mode
+        this.personalStatus = 'online'; // Personal agent status (online/afk)
+        this.systemMode = 'hitl'; // Global system mode (hitl/autopilot/off)
+        this.connectedAgents = new Map(); // Track other connected agents
+        this.currentFilter = 'unassigned'; // Current conversation filter (mine, unassigned, others, all)
+        this.allConversations = []; // Store all conversations for filtering
+        this.selectedConversations = new Set(); // Track selected conversations for bulk operations
+        this.archiveFilter = 'active'; // Archive filter (active, archived)
+        
+        // Make dashboard globally available immediately
+        window.dashboard = this;
         
         console.log(`Agent Dashboard initialized with API URL: ${this.apiUrl}`);
         this.init();
     }
 
+    /**
+     * Get agent ID from authenticated user
+     */
+    getAuthenticatedAgentId() {
+        try {
+            // First try the new user_data format
+            const userData = localStorage.getItem('user_data');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.email) {
+                    console.log(`Using agent ID from user_data: ${user.email}`);
+                    return user.email; // Use full email as agent ID
+                }
+            }
+            
+            // Try to get authenticated user from localStorage (old format)
+            const agentUser = localStorage.getItem('agentUser');
+            if (agentUser) {
+                const user = JSON.parse(agentUser);
+                // Use full email as agent ID
+                if (user.email) {
+                    console.log(`Using agent ID from agentUser: ${user.email}`);
+                    return user.email;
+                }
+            }
+        } catch (error) {
+            console.warn('Could not get authenticated agent ID:', error);
+        }
+        
+        // Fallback: check if running in iframe and try to communicate with parent
+        try {
+            if (window.parent && window.parent !== window) {
+                // We're in an iframe, try to get user from parent
+                const parentAgentUser = window.parent.localStorage?.getItem('agentUser');
+                if (parentAgentUser) {
+                    const user = JSON.parse(parentAgentUser);
+                    if (user.email) {
+                        console.log(`Using agent ID from parent: ${user.email.split('@')[0]}`);
+                        return user.email.split('@')[0];
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('Could not access parent window for agent ID:', error);
+        }
+        
+        // Final fallback: generate random ID (for development/standalone use)
+        console.warn('No authenticated user found, generating random agent ID');
+        return 'agent-' + Math.random().toString(36).substring(2, 11);
+    }
+
+    /**
+     * Check if current user is admin and show admin bar
+     */
+    async checkAdminStatus() {
+        try {
+            const token = localStorage.getItem('agent_token');
+            if (!token) {
+                return;
+            }
+
+            console.log('🔍 Checking admin status...');
+            const response = await fetch(`${this.apiUrl}/api/auth/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const user = data.data;
+                console.log('👤 User profile:', user);
+                
+                if (user && user.role === 'admin') {
+                    console.log('✅ User is admin, showing admin bar');
+                    const adminBar = document.getElementById('adminBar');
+                    if (adminBar) {
+                        adminBar.classList.remove('hidden');
+                    }
+                } else {
+                    console.log('❌ User is not admin, role:', user?.role);
+                }
+            } else {
+                console.log('❌ Failed to get user profile:', response.status);
+            }
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+        }
+    }
+
     async init() {
+        console.log(`Agent Dashboard initialized for agent: ${this.agentId}`);
+        
+        // Load saved personal status before initializing other components
+        await this.loadSavedPersonalStatus();
+        
+        // Check if user is admin and show admin bar
+        await this.checkAdminStatus();
+        
         this.initializeEventListeners();
         this.initializeWebSocket();
         await this.loadConversations();
@@ -33,13 +138,26 @@ class AgentDashboard {
      * Setup all event listeners
      */
     initializeEventListeners() {
-        // Agent status change
-        const statusSelect = document.getElementById('agent-status');
-        if (statusSelect) {
-            statusSelect.addEventListener('change', (e) => {
-                this.updateAgentStatus(e.target.value);
+        // Personal status change
+        const personalStatusSelect = document.getElementById('personal-status');
+        if (personalStatusSelect) {
+            personalStatusSelect.addEventListener('change', (e) => {
+                this.updatePersonalStatus(e.target.value);
             });
         }
+
+        // Filter buttons
+        const filterButtons = document.querySelectorAll('[data-filter]');
+        console.log(`🔘 Found ${filterButtons.length} filter buttons`);
+        filterButtons.forEach((button, index) => {
+            const filter = button.getAttribute('data-filter');
+            console.log(`🔘 Adding event listener to button ${index} with filter: ${filter}`);
+            button.addEventListener('click', (e) => {
+                const clickedFilter = e.target.getAttribute('data-filter');
+                console.log(`🔘 Filter button clicked: ${clickedFilter}`);
+                this.setFilter(clickedFilter);
+            });
+        });
 
         // Message form submission
         const messageForm = document.getElementById('message-form');
@@ -63,6 +181,58 @@ class AgentDashboard {
 
         // Auto-resize textarea
         this.setupTextareaAutoResize();
+
+        // Close assignment dropdowns when clicking elsewhere
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('[id^="assign-dropdown-"]') && !e.target.closest('button[onclick*="toggleAssignDropdown"]')) {
+                document.querySelectorAll('[id^="assign-dropdown-"]').forEach(dropdown => {
+                    dropdown.classList.add('hidden');
+                });
+            }
+        });
+
+        // Archive toggle icon
+        const archiveToggle = document.getElementById('archive-toggle');
+        if (archiveToggle) {
+            archiveToggle.addEventListener('click', () => this.toggleArchiveFilter());
+        }
+
+        // Bulk action buttons
+        const selectAllCheckbox = document.getElementById('select-all');
+        const clearSelectionBtn = document.getElementById('clear-selection');
+        const bulkArchiveBtn = document.getElementById('bulk-archive');
+        const bulkUnarchiveBtn = document.getElementById('bulk-unarchive');
+        const bulkAssignMeBtn = document.getElementById('bulk-assign-me');
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
+        }
+
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', () => this.clearAllSelections());
+        }
+        
+        if (bulkArchiveBtn) {
+            bulkArchiveBtn.addEventListener('click', () => this.bulkArchiveConversations());
+        }
+        
+        if (bulkUnarchiveBtn) {
+            bulkUnarchiveBtn.addEventListener('click', () => this.bulkUnarchiveConversations());
+        }
+        
+        if (bulkAssignMeBtn) {
+            bulkAssignMeBtn.addEventListener('click', () => this.bulkAssignToMe());
+        }
+        
+        const bulkAssignAgentDropdown = document.getElementById('bulk-assign-agent');
+        if (bulkAssignAgentDropdown) {
+            bulkAssignAgentDropdown.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    this.bulkAssignToAgent(e.target.value);
+                    e.target.value = ''; // Reset dropdown
+                }
+            });
+        }
 
     }
 
@@ -171,53 +341,322 @@ class AgentDashboard {
 
 
     /**
-     * Update agent status and notify backend
-     * @param {string} status - Agent status (hitl, autopilot, off)
+     * Load saved personal status from localStorage
      */
-    async updateAgentStatus(status) {
+    async loadSavedPersonalStatus() {
+        try {
+            // Try the new format first (with full email)
+            let savedStatus = localStorage.getItem(`agentStatus_${this.agentId}`);
+            
+            // If not found and agentId contains @, try the old format (username only)
+            if (!savedStatus && this.agentId.includes('@')) {
+                const usernameOnly = this.agentId.split('@')[0];
+                savedStatus = localStorage.getItem(`agentStatus_${usernameOnly}`);
+                
+                // If found in old format, migrate to new format and remove old
+                if (savedStatus) {
+                    localStorage.setItem(`agentStatus_${this.agentId}`, savedStatus);
+                    localStorage.removeItem(`agentStatus_${usernameOnly}`);
+                }
+            }
+            
+            if (savedStatus && ['online', 'afk'].includes(savedStatus)) {
+                this.personalStatus = savedStatus;
+                
+                // Update the dropdown to reflect saved status
+                const personalStatusSelect = document.getElementById('personal-status');
+                if (personalStatusSelect) {
+                    personalStatusSelect.value = savedStatus;
+                }
+                
+                // Update the status dot
+                const dot = document.getElementById('agent-status-dot');
+                if (dot) {
+                    dot.className = `w-3 h-3 rounded-full agent-${savedStatus}`;
+                }
+                
+                console.log(`Loaded saved personal status: ${savedStatus} for agent ${this.agentId}`);
+            } else {
+                // Default to online if no saved status
+                this.personalStatus = 'online';
+            }
+        } catch (error) {
+            console.error('Error loading saved personal status:', error);
+            this.personalStatus = 'online';
+        }
+    }
+
+    /**
+     * Update personal agent status (online/afk)
+     * @param {string} status - Personal status (online, afk)
+     */
+    async updatePersonalStatus(status) {
         const dot = document.getElementById('agent-status-dot');
         if (dot) {
             dot.className = `w-3 h-3 rounded-full agent-${status}`;
         }
         
-        // Store current status for behavioral changes
-        this.currentStatus = status;
+        // Store personal status locally and in localStorage
+        this.personalStatus = status;
+        localStorage.setItem(`agentStatus_${this.agentId}`, status);
         
         try {
-            await fetch(`${this.apiUrl}/api/agent/status`, {
+            await fetch(`${this.apiUrl}/api/agent/personal-status`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId, status })
+                body: JSON.stringify({ agentId: this.agentId, personalStatus: status })
             });
             
-            // Handle status-specific behaviors
-            this.handleStatusBehavior(status);
+            console.log(`Updated personal status to: ${status} for agent ${this.agentId}`);
         } catch (error) {
-            console.error('Error updating agent status:', error);
+            console.error('Error updating personal status:', error);
         }
     }
 
     /**
-     * Handle different behaviors based on agent status
-     * @param {string} status - Agent status (hitl, autopilot, off)
+     * Register initial agent status on page load/connection
      */
-    handleStatusBehavior(status) {
-        switch(status) {
+    async registerInitialStatus() {
+        // Use the already loaded personal status (from loadSavedPersonalStatus)
+        const currentStatus = this.personalStatus || 'online';
+        
+        // Update the personal status to register the agent with server (but don't save to localStorage again)
+        try {
+            await fetch(`${this.apiUrl}/api/agent/personal-status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId, personalStatus: currentStatus })
+            });
+            
+            console.log(`Agent ${this.agentId} registered with initial status: ${currentStatus}`);
+        } catch (error) {
+            console.error('Error registering initial status:', error);
+        }
+    }
+
+    /**
+     * Handle different behaviors based on system mode
+     * @param {string} mode - System mode (hitl, autopilot, off)
+     */
+    handleSystemMode(mode) {
+        switch(mode) {
             case 'hitl':
                 // HITL: Human in the Loop - show AI suggestions for validation
-                console.log('Agent status: HITL - Human in the Loop mode activated');
+                console.log('System Mode: HITL - Human in the Loop mode activated');
                 break;
             case 'autopilot':
                 // Autopilot: Backend automatically sends AI responses with disclaimer
-                console.log('Agent status: Autopilot - Automatic AI responses activated');
+                console.log('System Mode: Autopilot - Automatic AI responses activated');
                 this.hideAISuggestion(); // Hide any pending suggestions since backend handles responses
                 break;
             case 'off':
                 // OFF: Backend sends offline messages for new messages
-                console.log('Agent status: OFF - Customer support offline mode activated');
+                console.log('System Mode: OFF - Customer support offline mode activated');
                 this.hideAISuggestion(); // Hide any pending suggestions
                 break;
         }
+    }
+
+    /**
+     * Update connected agents display
+     * @param {Array} agents - Array of connected agents
+     */
+    updateConnectedAgents(agents) {
+        this.connectedAgents.clear();
+        agents.forEach(agent => this.connectedAgents.set(agent.id, agent));
+        
+        // Refresh the agents dropdown if it exists and is visible
+        const dropdown = document.getElementById('bulk-assign-agent');
+        if (dropdown && dropdown.style.display !== 'none') {
+            // Force refresh of dropdown options
+            dropdown.innerHTML = '';
+            this.populateAgentsDropdown();
+        }
+        
+        // Update compact format in header
+        const compactContainer = document.getElementById('connected-agents-compact');
+        const totalAgentsCompact = document.getElementById('total-agents-compact');
+        
+        if (compactContainer && totalAgentsCompact) {
+            totalAgentsCompact.textContent = agents.length;
+            
+            // Create tooltip content with agent names grouped by status
+            const onlineAgents = agents.filter(agent => agent.personalStatus !== 'afk');
+            const afkAgents = agents.filter(agent => agent.personalStatus === 'afk');
+            
+            let tooltipContent = '';
+            if (onlineAgents.length > 0) {
+                tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
+            }
+            if (afkAgents.length > 0) {
+                if (tooltipContent) tooltipContent += '\n';
+                tooltipContent += `AFK (${afkAgents.length}): ${afkAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
+            }
+            if (!tooltipContent) {
+                tooltipContent = 'No agents connected';
+            }
+            
+            // Add tooltip to the agent count element
+            totalAgentsCompact.title = tooltipContent;
+            
+            // Show agents as small colored dots with individual tooltips
+            compactContainer.innerHTML = agents.map(agent => {
+                const statusColor = agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400';
+                const displayName = this.getAgentDisplayName(agent);
+                return `
+                    <div class="w-2 h-2 rounded-full ${statusColor}" 
+                         title="${displayName} (${agent.personalStatus || 'online'})">
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Update old format (for compatibility if it exists elsewhere)
+        const container = document.getElementById('connected-agents');
+        const totalAgents = document.getElementById('total-agents');
+        
+        if (container && totalAgents) {
+            totalAgents.textContent = agents.length;
+            
+            container.innerHTML = agents.map(agent => `
+                <div class="flex items-center justify-between py-1 px-2 bg-white rounded text-xs">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full ${agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400'}"></div>
+                        <span class="text-gray-700">${this.getAgentDisplayName(agent)}</span>
+                    </div>
+                    <span class="text-gray-500 capitalize">${agent.personalStatus || 'online'}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    /**
+     * Get agent display name
+     * @param {Object} agent - Agent object
+     * @returns {string} Display name
+     */
+    getAgentDisplayName(agent) {
+        // If agent has a name property, use it
+        if (agent.name) {
+            return agent.name;
+        }
+        
+        // Extract a readable part from agent ID
+        const idParts = agent.id.split('-');
+        if (idParts.length > 1) {
+            const suffix = idParts[1];
+            // Create a more readable name from the suffix
+            return `Agent ${suffix.substring(0, 4).toUpperCase()}`;
+        }
+        
+        // Fallback to truncated ID
+        return `Agent ${agent.id.substring(6, 12)}`;
+    }
+
+    /**
+     * Update system mode display
+     * @param {string} mode - System mode (hitl, autopilot, off)
+     */
+    updateSystemMode(mode) {
+        // Update local state
+        this.systemMode = mode;
+        
+        // Update old system mode display (for compatibility)
+        const systemModeElement = document.getElementById('system-mode');
+        const systemStatusDot = document.getElementById('system-status-dot');
+        
+        if (systemModeElement) {
+            systemModeElement.textContent = mode.toUpperCase();
+        }
+        
+        if (systemStatusDot) {
+            systemStatusDot.className = `w-2 h-2 rounded-full system-${mode}`;
+        }
+        
+        this.handleSystemMode(mode);
+    }
+
+    /**
+     * Handle ticket reassignments notification
+     * @param {Object} data - Reassignment data
+     */
+    handleTicketReassignments(data) {
+        const { reassignments, reason } = data;
+        
+        let message = '';
+        const myReassignments = reassignments.filter(r => r.toAgent === this.agentId);
+        const myLosses = reassignments.filter(r => r.fromAgent === this.agentId);
+        
+        if (reason === 'agent_afk') {
+            if (myLosses.length > 0) {
+                message = `${myLosses.length} of your tickets were reassigned while you're AFK`;
+            } else if (myReassignments.length > 0) {
+                message = `You received ${myReassignments.length} tickets from an AFK agent`;
+            }
+        } else if (reason === 'agent_online') {
+            if (myReassignments.length > 0) {
+                message = `You received ${myReassignments.length} tickets (agent back online + redistribution)`;
+            }
+        } else if (reason === 'agent_joined') {
+            if (myReassignments.length > 0) {
+                message = `You received ${myReassignments.length} tickets from the queue`;
+            }
+        }
+        
+        if (message) {
+            this.showNotification(message, 'info');
+        }
+    }
+
+    /**
+     * Show notification to user
+     * @param {string} message - Notification message
+     * @param {string} type - Notification type (info, warning, success, error)
+     */
+    showNotification(message, type = 'info') {
+        // Create notification element if it doesn't exist
+        let notification = document.getElementById('agent-notification');
+        if (!notification) {
+            notification = document.createElement('div');
+            notification.id = 'agent-notification';
+            notification.className = 'fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm';
+            document.body.appendChild(notification);
+        }
+        
+        // Set content and styling
+        const iconMap = {
+            info: 'fa-info-circle text-blue-600',
+            warning: 'fa-exclamation-triangle text-yellow-600',
+            success: 'fa-check-circle text-green-600',
+            error: 'fa-times-circle text-red-600'
+        };
+        
+        const bgMap = {
+            info: 'bg-blue-50 border-blue-200 text-blue-800',
+            warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+            success: 'bg-green-50 border-green-200 text-green-800',
+            error: 'bg-red-50 border-red-200 text-red-800'
+        };
+        
+        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm border ${bgMap[type]}`;
+        notification.innerHTML = `
+            <div class="flex items-start gap-3">
+                <i class="fas ${iconMap[type]} mt-0.5"></i>
+                <div class="flex-1">
+                    <p class="text-sm font-medium">${message}</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+        `;
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (notification && notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
     }
 
 
@@ -226,32 +665,41 @@ class AgentDashboard {
      */
     async loadConversations() {
         try {
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations`);
+            console.log('📞 Loading conversations...');
+            const token = localStorage.getItem('agent_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+                console.log('🔑 Using auth token');
+            } else {
+                console.log('⚠️ No auth token found');
+            }
+            
+            console.log(`🌐 Making request to: ${this.apiUrl}/api/admin/conversations`);
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations`, { headers });
+            console.log(`📡 Response status: ${response.status}`);
             if (!response.ok) {
                 throw new Error(`Failed to load conversations: ${response.status}`);
             }
             const data = await response.json();
+            console.log(`📋 Loaded ${data.conversations.length} conversations:`, data.conversations);
             
-            this.updateQueueStats(data.conversations);
-            this.renderQueue(data.conversations);
+            // Store all conversations for filtering
+            this.allConversations = data.conversations;
+            console.log(`💾 Stored ${this.allConversations.length} conversations in allConversations`);
+            
+            // Apply current filter and render
+            console.log(`🔍 Applying filter: ${this.currentFilter}`);
+            this.applyFilter();
+            
+            // Update filter button styles in case this is the initial load
+            this.updateFilterButtons();
+            console.log('✅ LoadConversations completed successfully');
         } catch (error) {
-            console.error('Error loading conversations:', error);
+            console.error('❌ Error loading conversations:', error);
         }
     }
 
-    /**
-     * Update queue statistics display
-     * @param {Array} conversations - Array of conversation objects
-     */
-    updateQueueStats(conversations) {
-        const queue = conversations.filter(c => c.status === 'active' && !c.assignedAgent).length;
-        const active = conversations.filter(c => c.assignedAgent === this.agentId).length;
-        const resolved = conversations.filter(c => c.status === 'resolved').length;
-
-        this.updateElementText('queue-count', queue);
-        this.updateElementText('active-count', active);
-        this.updateElementText('resolved-count', resolved);
-    }
 
     /**
      * Utility method to safely update element text content
@@ -270,17 +718,23 @@ class AgentDashboard {
      * @param {Array} conversations - Array of conversation objects
      */
     renderQueue(conversations) {
+        console.log(`🎨 renderQueue called with ${conversations.length} conversations`);
         const queueContainer = document.getElementById('chat-queue');
-        if (!queueContainer) return;
+        if (!queueContainer) {
+            console.error('❌ chat-queue element not found!');
+            return;
+        }
         
         // Sort conversations by priority
         const sorted = this.sortConversationsByPriority(conversations);
+        console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
 
         queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
+        console.log('✅ Queue rendered successfully');
     }
 
     /**
-     * Sort conversations by priority (needing response first, then assigned, then others)
+     * Sort conversations by priority - Closed at bottom, MY tickets first, then by recent activity
      * @param {Array} conversations - Array of conversation objects
      * @returns {Array} Sorted conversations
      */
@@ -288,14 +742,25 @@ class AgentDashboard {
         return conversations.sort((a, b) => {
             const aNeedsResponse = this.conversationNeedsResponse(a);
             const bNeedsResponse = this.conversationNeedsResponse(b);
+            const aIsMine = a.assignedAgent === this.agentId;
+            const bIsMine = b.assignedAgent === this.agentId;
             
+            // Priority 1: My tickets with responses needed
+            if (aIsMine && aNeedsResponse && (!bIsMine || !bNeedsResponse)) return -1;
+            if (bIsMine && bNeedsResponse && (!aIsMine || !aNeedsResponse)) return 1;
+            
+            // Priority 2: My tickets (even without response needed)
+            if (aIsMine && !bIsMine) return -1;
+            if (bIsMine && !aIsMine) return 1;
+            
+            // Priority 3: Other tickets needing response
             if (aNeedsResponse && !bNeedsResponse) return -1;
-            if (!aNeedsResponse && bNeedsResponse) return 1;
+            if (bNeedsResponse && !aNeedsResponse) return 1;
             
-            if (a.assignedAgent === this.agentId && b.assignedAgent !== this.agentId) return -1;
-            if (a.assignedAgent !== this.agentId && b.assignedAgent === this.agentId) return 1;
-            
-            return new Date(b.startedAt) - new Date(a.startedAt);
+            // Priority 4: Sort by most recent activity (updatedAt or startedAt)
+            const aTime = new Date(a.updatedAt || a.startedAt);
+            const bTime = new Date(b.updatedAt || b.startedAt);
+            return bTime - aTime;
         });
     }
 
@@ -311,6 +776,27 @@ class AgentDashboard {
     }
 
     /**
+     * Check if conversation is unseen by current agent
+     * @param {Object} conv - Conversation object
+     * @returns {boolean} True if unseen
+     */
+    conversationIsUnseen(conv) {
+        if (!conv.lastMessage || !conv.lastMessage.metadata) return false;
+        
+        // Check if explicitly marked as unseen when no agents were online
+        if (conv.lastMessage.metadata.unseenByAgents) return true;
+        
+        // Check if last message is from customer and needs response
+        if (conv.lastMessage.sender === 'user' && 
+            conv.lastMessage.metadata.pendingAgent &&
+            !conv.lastMessage.metadata.seenByAgent) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
      * Render individual queue item
      * @param {Object} conv - Conversation object
      * @returns {string} HTML string for queue item
@@ -320,40 +806,51 @@ class AgentDashboard {
         const isUnassigned = !conv.assignedAgent;
         const isActive = conv.id === this.currentChatId;
         const needsResponse = this.conversationNeedsResponse(conv);
+        const isUnseen = this.conversationIsUnseen(conv);
         
-        const cssClass = this.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned);
-        const statusLabel = this.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned);
-        const statusCss = this.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned);
+        const cssClass = this.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+        const statusLabel = this.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv);
+        const statusCss = this.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+        
+        const isSelected = this.selectedConversations.has(conv.id);
+        const archivedClass = conv.archived ? 'opacity-75 bg-gray-50' : '';
         
         return `
-            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass}" 
+            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass}" 
                  onclick="dashboard.selectChat('${conv.id}')">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center gap-2">
-                        <div class="avatar w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                            <i class="fas fa-user text-gray-600 text-sm"></i>
-                        </div>
+                        <input type="checkbox" 
+                               class="conversation-checkbox" 
+                               data-conversation-id="${conv.id}"
+                               ${isSelected ? 'checked' : ''}
+                               onclick="event.stopPropagation(); dashboard.toggleConversationSelection('${conv.id}')"
+                               title="Select for bulk actions">
                         <div>
-                            <div class="font-medium text-sm">${this.escapeHtml(conv.visitorId.substring(0, 12))}...</div>
+                            <div class="font-medium text-sm flex items-center gap-1">
+                                User #${conv.userNumber || 'Unknown'}
+                                ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
+                            </div>
                             <div class="text-xs text-gray-500">
-                                ${new Date(conv.startedAt).toLocaleTimeString()}
+                                ${this.formatConversationDate(conv.startedAt)}
                             </div>
                         </div>
                     </div>
                     <div class="flex flex-col items-end gap-1">
-                        ${needsResponse ? '<div class="w-2 h-2 bg-red-500 rounded-full notification-ping"></div>' : ''}
                         <span class="text-xs px-2 py-1 rounded ${statusCss}">
                             ${statusLabel}
                         </span>
                     </div>
                 </div>
-                <div class="text-sm text-gray-600 truncate">
-                    ${needsResponse ? 'Customer message waiting for response' :
-                    conv.lastMessage ? this.escapeHtml(conv.lastMessage.content) : 'No messages yet'}
+                <div class="text-sm truncate text-gray-600">
+                    ${conv.lastMessage ? this.escapeHtml(conv.lastMessage.content) : 'No messages yet'}
                 </div>
-                <div class="flex justify-between items-center mt-2 text-xs text-gray-500">
-                    <span>${conv.messageCount} messages</span>
-                    <span class="capitalize">${conv.status}</span>
+                <div class="flex justify-between items-center mt-2 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-500">${conv.messageCount} messages</span>
+                        ${this.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id)}
+                    </div>
+                    <span class="text-gray-500">${this.formatConversationDate(conv.updatedAt || conv.startedAt)}</span>
                 </div>
             </div>
         `;
@@ -362,32 +859,406 @@ class AgentDashboard {
     /**
      * Get CSS classes for queue item based on status
      */
-    getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned) {
-        if (isActive) return 'active-chat border-indigo-200';
-        if (needsResponse) return 'bg-red-50 border-red-200 hover:bg-red-100';
-        if (isAssignedToMe) return 'bg-blue-50 border-blue-100 hover:bg-blue-100';
-        if (isUnassigned) return 'bg-white border-gray-200 hover:bg-gray-50';
-        return 'bg-gray-50 border-gray-100 opacity-75';
+    getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
+        if (isActive) return 'active-chat border-indigo-300 bg-indigo-50';
+        
+        // UNSEEN + MINE: Clearest/most prominent (bright red with thick border)
+        if (isUnseen && isAssignedToMe) {
+            return 'bg-red-100 border-red-400 hover:bg-red-200 border-l-4 border-l-red-600 shadow-lg ring-2 ring-red-200';
+        }
+        
+        // MINE: Blue
+        if (isAssignedToMe) {
+            return 'bg-blue-50 border-blue-200 hover:bg-blue-100';
+        }
+        
+        // UNSEEN + NOBODY'S: Red accent on white
+        if (isUnseen && isUnassigned) {
+            return 'bg-white border-red-300 hover:bg-red-50 border-l-4 border-l-red-500 shadow-md';
+        }
+        
+        // NOBODY'S: Classic white
+        if (isUnassigned) {
+            return 'bg-white border-gray-200 hover:bg-gray-50';
+        }
+        
+        // UNSEEN + SOMEBODY'S: Red accent on light grey
+        if (isUnseen) {
+            return 'bg-gray-100 border-red-300 hover:bg-gray-200 border-l-2 border-l-red-400';
+        }
+        
+        // SOMEBODY'S: Light grey
+        return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
     }
 
     /**
      * Get status label for queue item
      */
-    getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned) {
-        if (needsResponse) return 'Needs Response';
-        if (isAssignedToMe) return 'You';
-        if (isUnassigned) return 'Unassigned';
-        return 'Other Agent';
+    getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv) {
+        if (needsResponse && isAssignedToMe) return 'NEEDS REPLY';
+        if (isUnseen && isUnassigned) return 'UNSEEN';
+        if (needsResponse) return 'NEW MESSAGE';
+        if (isAssignedToMe) return 'MINE';
+        if (isUnassigned) return 'UNASSIGNED';
+        
+        if (conv && conv.assignedAgent) {
+            const agent = this.connectedAgents.get(conv.assignedAgent);
+            if (agent) {
+                return this.getAgentDisplayName(agent).replace('Agent ', '');
+            }
+            return conv.assignedAgent.substring(0, 6);
+        }
+        return 'OTHER';
     }
 
     /**
      * Get status CSS classes for queue item
      */
-    getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned) {
-        if (needsResponse) return 'bg-red-100 text-red-700';
+    getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
+        // UNSEEN states get red badges with bold text
+        if (isUnseen && isAssignedToMe) return 'bg-red-600 text-white font-bold animate-pulse';
+        if (isUnseen && isUnassigned) return 'bg-red-600 text-white font-bold';
+        if (isUnseen) return 'bg-red-500 text-white font-medium';
+        
+        // Regular states
+        if (needsResponse && isAssignedToMe) return 'bg-blue-600 text-white font-medium';
         if (isAssignedToMe) return 'bg-blue-100 text-blue-700';
-        if (isUnassigned) return 'bg-yellow-100 text-yellow-700';
-        return 'bg-gray-100 text-gray-600';
+        if (isUnassigned) return 'bg-gray-600 text-white text-xs';
+        
+        // SOMEBODY'S (other agents)
+        return 'bg-gray-400 text-white text-xs';
+    }
+
+    /**
+     * Render assignment buttons for conversation card
+     */
+    renderAssignmentButtons(isAssignedToMe, isUnassigned, conversationId) {
+        if (isAssignedToMe) {
+            return `
+                <div class="flex gap-1">
+                    <button onclick="dashboard.unassignConversation('${conversationId}', event)" 
+                            class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs rounded">
+                        Unassign
+                    </button>
+                    <div class="relative">
+                        <button onclick="dashboard.toggleAssignDropdown('${conversationId}', event)" 
+                                class="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 text-xs rounded">
+                            Reassign
+                        </button>
+                        <div id="assign-dropdown-${conversationId}" 
+                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-32">
+                            ${this.renderAgentOptions(conversationId)}
+                        </div>
+                    </div>
+                </div>`;
+        } else {
+            return `
+                <div class="flex gap-1">
+                    <button onclick="dashboard.assignConversation('${conversationId}', event)" 
+                            class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs rounded">
+                        Assign to me
+                    </button>
+                    <div class="relative">
+                        <button onclick="dashboard.toggleAssignDropdown('${conversationId}', event)" 
+                                class="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 text-xs rounded">
+                            Assign to...
+                        </button>
+                        <div id="assign-dropdown-${conversationId}" 
+                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-32">
+                            ${this.renderAgentOptions(conversationId)}
+                        </div>
+                    </div>
+                </div>`;
+        }
+    }
+
+    /**
+     * Render dropdown options for all agents (online and offline)
+     */
+    async renderAgentOptions(conversationId) {
+        try {
+            // Fetch all agents from server
+            const response = await fetch(`${this.apiUrl}/api/agents/all`);
+            if (!response.ok) {
+                console.error('Failed to fetch agents:', response.status);
+                return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
+            }
+            
+            const data = await response.json();
+            const allAgents = data.agents.filter(agent => agent.id !== this.agentId);
+            
+            // Sort: online agents first, then offline
+            allAgents.sort((a, b) => {
+                const aOnline = a.connected === true;
+                const bOnline = b.connected === true;
+                if (aOnline && !bOnline) return -1;
+                if (!aOnline && bOnline) return 1;
+                return (a.name || a.id).localeCompare(b.name || b.id);
+            });
+            
+            // Create dropdown options - start with "Assign to nobody" option
+            let dropdownHtml = `
+                <button onclick="dashboard.unassignConversation('${conversationId}', event)" 
+                        class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center text-red-600">
+                    <span class="w-2 h-2 bg-gray-400 rounded-full inline-block mr-2"></span>Nobody (unassign)
+                </button>
+            `;
+            
+            // Add separator if there are agents
+            if (allAgents.length > 0) {
+                dropdownHtml += `<div class="border-t border-gray-200 my-1"></div>`;
+            }
+            
+            // Add agent options
+            dropdownHtml += allAgents.map(agent => {
+                const isOnline = agent.connected === true;
+                const statusDot = isOnline ? 
+                    `<span class="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>` : 
+                    `<span class="w-2 h-2 bg-gray-400 rounded-full inline-block mr-2"></span>`;
+                const textColor = isOnline ? 'text-gray-900' : 'text-gray-500';
+                const displayName = agent.name || this.getAgentDisplayName(agent);
+                
+                return `
+                    <button onclick="dashboard.assignToAgent('${conversationId}', '${agent.id}', event)" 
+                            class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center ${textColor}">
+                        ${statusDot}${displayName}${isOnline ? '' : ' (offline)'}
+                    </button>
+                `;
+            }).join('');
+            
+            return dropdownHtml;
+        } catch (error) {
+            console.error('Error fetching agents for dropdown:', error);
+            return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
+        }
+    }
+
+    /**
+     * Toggle assignment dropdown visibility
+     */
+    async toggleAssignDropdown(conversationId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        // Close all other dropdowns first
+        document.querySelectorAll('[id^="assign-dropdown-"]').forEach(dropdown => {
+            if (dropdown.id !== `assign-dropdown-${conversationId}`) {
+                dropdown.classList.add('hidden');
+            }
+        });
+        
+        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
+        if (dropdown) {
+            const wasHidden = dropdown.classList.contains('hidden');
+            dropdown.classList.toggle('hidden');
+            
+            // Only fetch and update content when opening dropdown
+            if (wasHidden && !dropdown.classList.contains('hidden')) {
+                dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500">Loading...</div>';
+                const agentOptions = await this.renderAgentOptions(conversationId);
+                dropdown.innerHTML = agentOptions;
+            }
+        }
+    }
+
+    /**
+     * Assign conversation to specific agent
+     */
+    async assignToAgent(conversationId, agentId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        // Close dropdown
+        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: agentId })
+            });
+            
+            if (response.ok) {
+                await this.loadConversations();
+            } else {
+                console.error('Failed to assign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error assigning conversation to agent:', error);
+        }
+    }
+
+    /**
+     * Unassign conversation (assign to nobody)
+     */
+    async unassignConversation(conversationId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        // Close dropdown
+        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/unassign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                console.log(`Unassigned conversation ${conversationId}`);
+                await this.loadConversations();
+            } else {
+                console.error('Failed to unassign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error unassigning conversation:', error);
+        }
+    }
+
+    /**
+     * Assign conversation to current agent
+     * @param {string} conversationId - ID of conversation to assign
+     * @param {Event} event - Click event to prevent propagation
+     */
+    async assignConversation(conversationId, event) {
+        if (event) {
+            event.stopPropagation(); // Prevent selecting the chat
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                await this.loadConversations();
+            } else {
+                console.error('Failed to assign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error assigning conversation:', error);
+        }
+    }
+
+    /**
+     * Unassign conversation from current agent
+     * @param {string} conversationId - ID of conversation to unassign
+     * @param {Event} event - Click event to prevent propagation
+     */
+    async unassignConversation(conversationId, event) {
+        if (event) {
+            event.stopPropagation(); // Prevent selecting the chat
+        }
+        
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/unassign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId: this.agentId })
+            });
+            
+            if (response.ok) {
+                // If we're unassigning the current chat, reset the view
+                if (conversationId === this.currentChatId) {
+                    this.resetChatView();
+                }
+                await this.loadConversations();
+            } else {
+                console.error('Failed to unassign conversation:', response.status);
+            }
+        } catch (error) {
+            console.error('Error unassigning conversation:', error);
+        }
+    }
+
+    /**
+     * Set conversation filter
+     * @param {string} filter - Filter type: 'mine', 'unassigned', 'others', 'all'
+     */
+    setFilter(filter) {
+        console.log(`🔽 setFilter called with filter: ${filter}`);
+        this.currentFilter = filter;
+        this.updateFilterButtons();
+        this.applyFilter();
+    }
+
+    /**
+     * Update filter button styles
+     */
+    updateFilterButtons() {
+        const buttons = ['filter-mine', 'filter-unassigned', 'filter-others', 'filter-all'];
+        const filterMap = {
+            'mine': 'filter-mine',
+            'unassigned': 'filter-unassigned',
+            'others': 'filter-others',
+            'all': 'filter-all'
+        };
+
+        buttons.forEach(buttonId => {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                if (buttonId === filterMap[this.currentFilter]) {
+                    // Active button styling
+                    button.className = 'flex-1 text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-800 font-medium transition hover:bg-blue-200';
+                } else {
+                    // Inactive button styling
+                    button.className = 'flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200';
+                }
+            }
+        });
+    }
+
+    /**
+     * Apply current filter to conversations
+     */
+    applyFilter() {
+        console.log(`🔍 applyFilter called - current filter: ${this.currentFilter}, total conversations: ${this.allConversations.length}`);
+        const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
+        console.log(`📊 Filtered to ${filteredConversations.length} conversations`);
+        this.renderQueue(filteredConversations);
+    }
+
+    /**
+     * Filter conversations based on assignment status
+     * @param {Array} conversations - Array of conversation objects
+     * @param {string} filter - Filter type
+     * @returns {Array} Filtered conversations
+     */
+    filterConversations(conversations, filter) {
+        // First apply archive filter
+        let filtered = conversations;
+        if (this.archiveFilter === 'active') {
+            filtered = conversations.filter(conv => !conv.archived);
+        } else if (this.archiveFilter === 'archived') {
+            filtered = conversations.filter(conv => conv.archived);
+            // Archived conversations don't use assignment filters
+            return filtered;
+        }
+        
+        // Then apply assignment filter (only for active conversations)
+        switch (filter) {
+            case 'mine':
+                return filtered.filter(conv => conv.assignedAgent === this.agentId);
+            case 'unassigned':
+                return filtered.filter(conv => !conv.assignedAgent);
+            case 'others':
+                return filtered.filter(conv => conv.assignedAgent && conv.assignedAgent !== this.agentId);
+            case 'all':
+            default:
+                return filtered;
+        }
     }
 
     /**
@@ -398,16 +1269,14 @@ class AgentDashboard {
         this.currentChatId = conversationId;
         
         try {
-            // Take ownership if unassigned
-            await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId })
-            });
-
-            // Load messages and check for suggestions
+            // Load messages first (this also updates conversation data)
             await this.loadChatMessages(conversationId);
-            await this.checkForPendingSuggestion(conversationId);
+            
+            // Always check for pending suggestions in HITL mode 
+            // The API will return 404 if no suggestion exists, which is fine
+            if (this.systemMode === 'hitl') {
+                await this.checkForPendingSuggestion(conversationId);
+            }
             
             // Show chat interface
             this.showChatInterface(conversationId);
@@ -434,6 +1303,7 @@ class AgentDashboard {
         if (conv && conv.visitorId) {
             this.updateElementText('customer-name', conv.visitorId.substring(0, 16) + '...');
             this.updateElementText('customer-info', `Started ${new Date(conv.startedAt).toLocaleString()}`);
+            
         } else {
             this.updateElementText('customer-name', '');
             this.updateElementText('customer-info', '');
@@ -506,71 +1376,58 @@ class AgentDashboard {
         
         return `
             <div class="flex ${isCustomer ? '' : 'justify-end'} mb-4">
-                <div class="flex items-start gap-3 max-w-[70%]">
-                    ${isCustomer ? this.renderCustomerAvatar() : ''}
-                    <div class="flex-1">
-                        <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem)}" style="line-height: 1.6;">
-                            ${formattedContent}
-                        </div>
-                        <div class="text-xs text-gray-500 mt-1 ${isCustomer ? '' : 'text-right'}">
-                            ${this.getMessageSenderLabel(isAI, isAgent, isSystem)} • 
-                            ${new Date(msg.timestamp).toLocaleTimeString()}
-                        </div>
+                <div class="max-w-[70%]">
+                    <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem, msg)}" style="line-height: 1.6;">
+                        ${formattedContent}
                     </div>
-                    ${!isCustomer ? this.renderAgentAvatar(isAI, isSystem) : ''}
+                    <div class="text-xs text-gray-500 mt-1 ${isCustomer ? '' : 'text-right'}">
+                        ${this.getMessageSenderLabel(isAI, isAgent, isSystem, msg)} • 
+                        ${new Date(msg.timestamp).toLocaleTimeString()}
+                    </div>
                 </div>
             </div>
         `;
     }
 
-    /**
-     * Render customer avatar
-     * @returns {string} HTML for customer avatar
-     */
-    renderCustomerAvatar() {
-        return `
-            <div class="avatar w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
-                <i class="fas fa-user text-gray-600 text-sm"></i>
-            </div>
-        `;
-    }
-
-    /**
-     * Render agent/AI avatar
-     * @param {boolean} isAI - Is AI message
-     * @param {boolean} isSystem - Is system message
-     * @returns {string} HTML for agent avatar
-     */
-    renderAgentAvatar(isAI, isSystem) {
-        const bgClass = isAI ? 'bg-purple-500' : isSystem ? 'bg-yellow-500' : 'bg-indigo-600';
-        const iconClass = isAI ? 'fa-robot' : isSystem ? 'fa-info' : 'fa-headset';
-        
-        return `
-            <div class="avatar w-8 h-8 ${bgClass} rounded-full flex items-center justify-center flex-shrink-0">
-                <i class="fas ${iconClass} text-white text-sm"></i>
-            </div>
-        `;
-    }
 
     /**
      * Get CSS classes for message bubble
      */
-    getMessageBubbleCss(isCustomer, isAI, isSystem) {
+    getMessageBubbleCss(isCustomer, isAI, isSystem, msg = null) {
         const baseClass = 'px-4 py-3 rounded-2xl shadow-sm max-w-full break-words';
         
         if (isCustomer) return `${baseClass} bg-white border border-gray-200 text-gray-800`;
         if (isAI) return `${baseClass} bg-purple-50 border border-purple-200 text-purple-900`;
         if (isSystem) return `${baseClass} bg-yellow-50 border border-yellow-200 text-yellow-900`;
+        
+        // Standard styling for all agent messages - no special color coding needed
         return `${baseClass} bg-indigo-600 text-white`;
     }
 
     /**
      * Get sender label for message
      */
-    getMessageSenderLabel(isAI, isAgent, isSystem) {
+    getMessageSenderLabel(isAI, isAgent, isSystem, msg = null) {
         if (isAI) return 'AI Assistant';
-        if (isAgent) return 'You';
         if (isSystem) return 'System';
+        if (isAgent && msg && msg.metadata && msg.metadata.responseAttribution) {
+            const attr = msg.metadata.responseAttribution;
+            let label = attr.respondedBy || 'Agent';
+            
+            // Add response type annotation
+            if (attr.responseType === 'autopilot') {
+                return label; // Just "Autopilot" without redundant (autopilot)
+            } else if (attr.responseType === 'as-is') {
+                return `${label} (as-is)`;
+            } else if (attr.responseType === 'edited') {
+                return `${label} (edited)`;
+            } else if (attr.responseType === 'from-scratch' || attr.responseType === 'custom') {
+                return `${label} (custom)`;
+            }
+            
+            return label;
+        }
+        if (isAgent) return 'You';
         return 'Customer';
     }
 
@@ -742,7 +1599,8 @@ class AgentDashboard {
                     message: message,
                     agentId: this.agentId,
                     usedSuggestion: this.currentSuggestion,
-                    suggestionAction: suggestionAction
+                    suggestionAction: suggestionAction,
+                    autoAssign: true  // Auto-assign to this agent when responding
                 })
             });
             
@@ -1105,6 +1963,9 @@ class AgentDashboard {
         this.socket.on('connect', () => {
             console.log('Connected to WebSocket server');
             this.socket.emit('join-agent-dashboard', this.agentId);
+            
+            // Register initial agent status on connection
+            this.registerInitialStatus();
         });
         
         this.socket.on('disconnect', () => {
@@ -1118,19 +1979,35 @@ class AgentDashboard {
             
             // If this is the current chat, update messages and check for suggestion
             if (data.conversationId === this.currentChatId) {
+                // Refresh conversation status (handles reopening cases)
+                this.refreshConversation(this.currentChatId);
                 this.loadChatMessages(this.currentChatId);
                 
                 // Only check for pending suggestions in HITL mode
-                if (this.currentStatus === 'hitl') {
+                if (this.systemMode === 'hitl') {
                     this.checkForPendingSuggestion(this.currentChatId);
                 }
             }
         });
         
-        // Listen for agent status updates
-        this.socket.on('agent-status-update', (data) => {
-            console.log('Agent status update:', data);
-            // Update UI to show other agents' status if needed
+        // Listen for connected agents updates
+        this.socket.on('connected-agents-update', (data) => {
+            console.log('Connected agents update:', data);
+            this.updateConnectedAgents(data.agents);
+        });
+        
+        // Listen for system mode updates
+        this.socket.on('system-mode-update', (data) => {
+            console.log('System mode update:', data);
+            this.updateSystemMode(data.mode);
+        });
+        
+        // Listen for ticket reassignments
+        this.socket.on('tickets-reassigned', (data) => {
+            console.log('Tickets reassigned:', data);
+            this.handleTicketReassignments(data);
+            // Refresh conversations to show updated assignments
+            setTimeout(() => this.loadConversations(), 500);
         });
         
         // Listen for customer typing status
@@ -1204,6 +2081,9 @@ class AgentDashboard {
         if (this.socket && this.socket.connected) {
             this.socket.emit('join-agent-dashboard', this.agentId);
             
+            // Re-register agent status
+            this.registerInitialStatus();
+            
             // Rejoin current conversation if any
             if (this.currentChatId) {
                 this.socket.emit('join-conversation', this.currentChatId);
@@ -1242,6 +2122,35 @@ class AgentDashboard {
             }
         }, this.pollInterval);
     }
+
+
+
+
+    /**
+     * Refresh a single conversation data from server
+     * @param {string} conversationId - Conversation ID to refresh
+     */
+    async refreshConversation(conversationId) {
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations`);
+            if (response.ok) {
+                const data = await response.json();
+                const updatedConv = data.conversations.find(c => c.id === conversationId);
+                
+                if (updatedConv) {
+                    // Update the conversation in our local Map
+                    this.conversations.set(conversationId, updatedConv);
+                    
+                    // Update UI if this is the current conversation
+                    if (this.currentChatId === conversationId) {
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error refreshing conversation:', error);
+        }
+    }
+
 
 
     /**
@@ -1288,6 +2197,31 @@ class AgentDashboard {
     }
 
     /**
+     * Format date for conversation display
+     * Today: show time, yesterday/few days: "X days ago", older: full date
+     */
+    formatConversationDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffTime = Math.abs(now - date);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+            // Today - show time
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays === 1) {
+            // Yesterday
+            return 'Yesterday';
+        } else if (diffDays <= 7) {
+            // Few days ago
+            return `${diffDays} days ago`;
+        } else {
+            // Older - show date in current format
+            return date.toLocaleDateString();
+        }
+    }
+
+    /**
      * Escape HTML to prevent XSS attacks
      */
     escapeHtml(text) {
@@ -1297,12 +2231,348 @@ class AgentDashboard {
         div.textContent = text;
         return div.innerHTML;
     }
+
+    /**
+     * Toggle conversation selection for bulk operations
+     */
+    toggleConversationSelection(conversationId) {
+        if (this.selectedConversations.has(conversationId)) {
+            this.selectedConversations.delete(conversationId);
+        } else {
+            this.selectedConversations.add(conversationId);
+        }
+        
+        // Update Select All checkbox state based on current selection
+        const selectAllCheckbox = document.getElementById('select-all');
+        if (selectAllCheckbox) {
+            // Get all filtered conversations
+            const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
+            const filteredIds = new Set(filteredConversations.map(conv => conv.id));
+            
+            // Check if all filtered conversations are selected
+            const allSelected = filteredConversations.length > 0 && 
+                filteredConversations.every(conv => this.selectedConversations.has(conv.id));
+            selectAllCheckbox.checked = allSelected;
+            
+            // Set indeterminate state if some but not all filtered conversations are selected
+            const selectedFromFilter = Array.from(this.selectedConversations).filter(id => filteredIds.has(id));
+            const someSelected = selectedFromFilter.length > 0 && selectedFromFilter.length < filteredConversations.length;
+            selectAllCheckbox.indeterminate = someSelected;
+        }
+        
+        this.updateBulkActionsPanel();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * Toggle select/deselect all filtered conversations
+     */
+    toggleSelectAll(selectAll) {
+        if (selectAll) {
+            // Get all conversations that match current filters
+            const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
+            
+            // Select all filtered conversations (not just visible in DOM)
+            filteredConversations.forEach(conv => {
+                this.selectedConversations.add(conv.id);
+            });
+        } else {
+            // Deselect all
+            this.selectedConversations.clear();
+        }
+        
+        this.updateBulkActionsPanel();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * Clear all conversation selections
+     */
+    clearAllSelections() {
+        this.selectedConversations.clear();
+        
+        // Also uncheck the Select All checkbox if it exists
+        const selectAllCheckbox = document.getElementById('select-all');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
+        
+        this.updateBulkActionsPanel();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * Update the bulk actions panel visibility and content
+     */
+    updateBulkActionsPanel() {
+        const panel = document.getElementById('bulk-actions-panel');
+        const selectedCount = this.selectedConversations.size;
+        
+        if (selectedCount > 0) {
+            panel.classList.remove('hidden');
+            document.getElementById('selected-count').textContent = selectedCount;
+            // Update buttons when panel becomes visible
+            this.updateBulkActionButtons();
+        } else {
+            panel.classList.add('hidden');
+        }
+    }
+    
+    /**
+     * Update bulk action buttons based on archive filter
+     */
+    updateBulkActionButtons() {
+        const archiveBtn = document.getElementById('bulk-archive');
+        const unarchiveBtn = document.getElementById('bulk-unarchive');
+        const assignMeBtn = document.getElementById('bulk-assign-me');
+        const assignAgentDropdown = document.getElementById('bulk-assign-agent');
+        
+        if (this.archiveFilter === 'archived') {
+            // In archive view - only show unarchive button
+            if (archiveBtn) archiveBtn.style.display = 'none';
+            if (unarchiveBtn) unarchiveBtn.style.display = 'block';
+            if (assignMeBtn) assignMeBtn.style.display = 'none';
+            if (assignAgentDropdown) assignAgentDropdown.style.display = 'none';
+        } else {
+            // In active view - show archive and assign buttons
+            if (archiveBtn) archiveBtn.style.display = 'block';
+            if (unarchiveBtn) unarchiveBtn.style.display = 'none';
+            if (assignMeBtn) assignMeBtn.style.display = 'block';
+            if (assignAgentDropdown) {
+                assignAgentDropdown.style.display = 'block';
+                // Populate agents dropdown if not already populated
+                this.populateAgentsDropdown();
+            }
+        }
+    }
+    
+    /**
+     * Populate the agents dropdown with available agents
+     */
+    populateAgentsDropdown() {
+        const dropdown = document.getElementById('bulk-assign-agent');
+        if (!dropdown || dropdown.options.length > 1) return; // Already populated
+        
+        // Clear and add default option
+        dropdown.innerHTML = '<option value="">Assign to...</option>';
+        
+        // Add connected agents from our tracking
+        this.connectedAgents.forEach((status, agentEmail) => {
+            if (agentEmail !== this.agentId) { // Don't include self
+                const option = document.createElement('option');
+                option.value = agentEmail;
+                option.textContent = agentEmail.split('@')[0]; // Show just the username part
+                dropdown.appendChild(option);
+            }
+        });
+        
+        // If no other agents, add a disabled message
+        if (dropdown.options.length === 1) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No other agents online';
+            option.disabled = true;
+            dropdown.appendChild(option);
+        }
+    }
+
+    /**
+     * Update selection UI (checkboxes)
+     */
+    updateSelectionUI() {
+        document.querySelectorAll('.conversation-checkbox').forEach(checkbox => {
+            const conversationId = checkbox.dataset.conversationId;
+            checkbox.checked = this.selectedConversations.has(conversationId);
+        });
+    }
+
+    /**
+     * Toggle between active and archived conversations
+     */
+    toggleArchiveFilter() {
+        this.archiveFilter = this.archiveFilter === 'active' ? 'archived' : 'active';
+        
+        // Update archive icon style
+        const archiveToggle = document.getElementById('archive-toggle');
+        if (archiveToggle) {
+            if (this.archiveFilter === 'archived') {
+                archiveToggle.className = 'text-orange-600 hover:text-orange-800 transition-colors';
+                archiveToggle.title = 'Switch to Active View';
+            } else {
+                archiveToggle.className = 'text-gray-400 hover:text-gray-600 transition-colors';
+                archiveToggle.title = 'Toggle Archive View';
+            }
+        }
+        
+        // Disable/enable assignment filter buttons based on archive mode
+        const assignmentButtons = ['filter-mine', 'filter-unassigned', 'filter-others', 'filter-all'];
+        assignmentButtons.forEach(buttonId => {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                if (this.archiveFilter === 'archived') {
+                    button.disabled = true;
+                    button.className = button.className.replace(/bg-\w+-\d+/g, 'bg-gray-200').replace(/text-\w+-\d+/g, 'text-gray-500');
+                } else {
+                    button.disabled = false;
+                    // Restore button styles - will be handled by updateFilterButtons()
+                }
+            }
+        });
+        
+        // Update bulk action buttons based on archive mode
+        this.updateBulkActionButtons();
+        
+        // Update filter button styles if we're switching back to active
+        if (this.archiveFilter === 'active') {
+            this.updateFilterButtons();
+        }
+        
+        this.applyFilter();
+    }
+
+    /**
+     * Bulk archive selected conversations
+     */
+    async bulkArchiveConversations() {
+        const selectedIds = Array.from(this.selectedConversations);
+        if (selectedIds.length === 0) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-archive`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                },
+                body: JSON.stringify({ conversationIds: selectedIds })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`✅ Archived ${result.data.archivedCount} conversations`);
+                this.clearAllSelections();
+                this.loadConversations(); // Refresh the list
+            } else {
+                throw new Error('Failed to archive conversations');
+            }
+        } catch (error) {
+            console.error('❌ Bulk archive failed:', error);
+            alert('Failed to archive conversations. Please try again.');
+        }
+    }
+
+    /**
+     * Bulk unarchive selected conversations
+     */
+    async bulkUnarchiveConversations() {
+        const selectedIds = Array.from(this.selectedConversations);
+        if (selectedIds.length === 0) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-unarchive`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                },
+                body: JSON.stringify({ conversationIds: selectedIds })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`✅ Unarchived ${result.data.unarchivedCount} conversations`);
+                this.clearAllSelections();
+                this.loadConversations(); // Refresh the list
+            } else {
+                throw new Error('Failed to unarchive conversations');
+            }
+        } catch (error) {
+            console.error('❌ Bulk unarchive failed:', error);
+            alert('Failed to unarchive conversations. Please try again.');
+        }
+    }
+
+    /**
+     * Bulk assign selected conversations to current agent
+     */
+    async bulkAssignToMe() {
+        await this.bulkAssignToAgent(this.agentId);
+    }
+    
+    /**
+     * Bulk assign selected conversations to specific agent
+     */
+    async bulkAssignToAgent(agentId) {
+        const selectedIds = Array.from(this.selectedConversations);
+        if (selectedIds.length === 0) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-assign`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                },
+                body: JSON.stringify({ 
+                    conversationIds: selectedIds,
+                    agentId: agentId
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                const assignedTo = agentId === this.agentId ? 'me' : agentId.split('@')[0];
+                console.log(`✅ Assigned ${result.data.assignedCount} conversations to ${assignedTo}`);
+                this.clearAllSelections();
+                this.loadConversations(); // Refresh the list
+            } else {
+                throw new Error('Failed to assign conversations');
+            }
+        } catch (error) {
+            console.error('❌ Bulk assign failed:', error);
+            alert('Failed to assign conversations. Please try again.');
+        }
+    }
 }
 
-// Initialize dashboard when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.dashboard = new AgentDashboard();
-});
+// Logout function for agent dashboard
+async function logoutAgent() {
+    if (confirm('Ar tikrai norite atsijungti?')) {
+        try {
+            // Call backend logout endpoint to invalidate refresh token
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (refreshToken) {
+                await fetch('http://localhost:3002/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ refreshToken })
+                });
+            }
+        } catch (error) {
+            console.error('Logout API call failed:', error);
+        }
+        
+        // Clear all stored authentication data
+        localStorage.removeItem('agent_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('agentUser'); // Clear old system data too
+        
+        // Clear any agent status data
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('agentStatus_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        
+        // Redirect to login page
+        window.location.href = 'login.html';
+    }
+}
 
-// Global function for onclick handlers (backward compatibility)
-window.dashboard = null;
+// Initialize dashboard immediately when script loads (DOM is already ready at this point)
+console.log('🚀 Initializing Agent Dashboard...');
+new AgentDashboard();
+console.log('✅ Dashboard initialized');

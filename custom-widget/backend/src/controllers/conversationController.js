@@ -51,6 +51,7 @@ const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
+const activityService = require('../services/activityService');
 
 class ConversationController {
     constructor(io) {
@@ -67,7 +68,6 @@ class ConversationController {
                 id: conversationId,
                 visitorId: req.body.visitorId || uuidv4(),
                 startedAt: new Date(),
-                status: 'active',
                 metadata: req.body.metadata || {}
             };
             
@@ -88,12 +88,11 @@ class ConversationController {
         
         try {
             // Create conversation if doesn't exist
-            if (!conversationService.conversationExists(conversationId)) {
+            if (!(await conversationService.conversationExists(conversationId))) {
                 const conversation = {
                     id: conversationId,
                     visitorId: visitorId || uuidv4(),
                     startedAt: new Date(),
-                    status: 'active'
                 };
                 await conversationService.createConversation(conversationId, conversation);
             }
@@ -107,74 +106,56 @@ class ConversationController {
                 timestamp: new Date()
             };
             
-            const conversationMessages = conversationService.getMessages(conversationId);
-            
-            // Get conversation context for AI
-            const conversationContext = this.buildConversationContext(conversationMessages, message);
-            
-            // Generate AI suggestion with full conversation context and RAG
-            const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, enableRAG !== false);
-            
             // First, add the user message atomically
-            conversationService.addMessage(conversationId, userMessage);
+            await await conversationService.addMessage(conversationId, userMessage);
             
-            // Remove any existing pending messages to avoid duplicates
-            conversationService.removePendingMessages(conversationId);
-            
-            // Count customer messages for context (including current message)
-            const updatedMessages = conversationService.getMessages(conversationId);
-            const customerMessageCount = updatedMessages.filter(msg => msg.sender === 'visitor').length;
-            
-            // Create new pending message with AI suggestion
-            let aiMessage = {
-                id: uuidv4(),
-                conversationId,
-                content: '[Message pending agent response - AI suggestion available]',
-                sender: 'system',
-                timestamp: new Date(),
-                metadata: { 
-                    pendingAgent: true,
-                    aiSuggestion: aiSuggestion,
-                    confidence: 0.85,
-                    customerMessage: message,
-                    messageCount: customerMessageCount,
-                    conversationContext: conversationContext.substring(0, 200) + '...' // Store summary for debugging
-                }
-            };
-            
-            // Add AI suggestion message atomically
-            conversationService.addMessage(conversationId, aiMessage);
-            
-            console.log(`Generated AI suggestion for conversation ${conversationId} with ${customerMessageCount} customer messages`);
-            
-            // Check if any active agent is in a specific mode
-            const allAgents = agentService ? agentService.getAllAgents() : [];
-            const recentAgents = allAgents.filter(agent => 
-                (new Date() - agent.lastSeen) < 60000 // Active in last minute
-            );
-            
-            // Determine the current operational mode
-            let currentMode = 'hitl'; // default
-            if (recentAgents.length > 0) {
-                // Check for OFF mode first (highest priority)
-                const offAgents = recentAgents.filter(agent => agent.status === 'off');
-                if (offAgents.length > 0) {
-                    currentMode = 'off';
-                } else {
-                    // Check for autopilot mode
-                    const autopilotAgents = recentAgents.filter(agent => agent.status === 'autopilot');
-                    if (autopilotAgents.length > 0) {
-                        currentMode = 'autopilot';
-                    }
-                    // Otherwise stay in HITL mode
-                }
-            }
+            // Get global system mode from agent service
+            const currentMode = agentService ? await agentService.getSystemMode() : 'hitl';
             
             console.log(`Processing message in mode: ${currentMode}`);
             
-            if (currentMode === 'off') {
+            // Get conversation context for AI (don't pass currentMessage since it's already added)
+            const conversationMessages = await await conversationService.getMessages(conversationId);
+            const conversationContext = this.buildConversationContext(conversationMessages);
+            
+            // Generate AI response/suggestion based on mode
+            const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, enableRAG !== false);
+            
+            // Count customer messages for context (including current message)
+            const updatedMessages = await conversationService.getMessages(conversationId);
+            const customerMessageCount = updatedMessages.filter(msg => msg.sender === 'visitor').length;
+            
+            let aiMessage;
+            
+            if (currentMode === 'autopilot') {
+                // AUTOPILOT MODE: Send AI response directly, NO agent assignment
+                aiMessage = {
+                    id: uuidv4(),
+                    conversationId,
+                    content: aiSuggestion,
+                    sender: 'agent',
+                    timestamp: new Date(),
+                    metadata: { 
+                        isAutopilotResponse: true,
+                        displayDisclaimer: true,
+                        originalSuggestion: aiSuggestion,
+                        messageCount: customerMessageCount,
+                        // Response attribution for admin interface
+                        responseAttribution: {
+                            respondedBy: 'Autopilot',
+                            responseType: 'autopilot',
+                            systemMode: 'autopilot',
+                            timestamp: new Date()
+                        }
+                    }
+                };
+                
+                await conversationService.addMessage(conversationId, aiMessage);
+                console.log(`Sent autopilot AI response for conversation ${conversationId}`);
+                
+            } else if (currentMode === 'off') {
                 // Check if we already sent an offline message to this conversation
-                const existingMessages = conversationService.getMessages(conversationId);
+                const existingMessages = await conversationService.getMessages(conversationId);
                 const hasOfflineMessage = existingMessages.some(msg => 
                     msg.metadata && msg.metadata.messageType === 'offline_notification'
                 );
@@ -203,35 +184,65 @@ class ConversationController {
                     console.log(`Sent offline message to conversation ${conversationId}`);
                 }
                 
-            } else if (currentMode === 'autopilot') {
-                // Agent is in AUTOPILOT - send AI response directly with disclaimer
-                const autopilotMessage = {
+            } else {
+                // HITL MODE: Create AI suggestion for agent review with auto-assignment to online agents
+                // Remove any existing pending messages to avoid duplicates
+                conversationService.removePendingMessages(conversationId);
+                
+                // Try to automatically assign to an available online agent
+                const conversation = await conversationService.getConversation(conversationId);
+                let assignedAgent = null;
+                let shouldMarkAsUnseen = false;
+                
+                if (conversation && !conversation.assignedAgent) {
+                    const availableAgent = await agentService.getBestAvailableAgent();
+                    if (availableAgent) {
+                        await conversationService.assignConversation(conversationId, availableAgent.id);
+                        assignedAgent = availableAgent.id;
+                        console.log(`Auto-assigned conversation ${conversationId} to online agent ${availableAgent.id}`);
+                        
+                        // No system message needed for assignment
+                    } else {
+                        console.log(`No online agents available for conversation ${conversationId}, marking as unseen`);
+                        shouldMarkAsUnseen = true;
+                    }
+                }
+                
+                aiMessage = {
                     id: uuidv4(),
                     conversationId,
-                    content: aiSuggestion, // Store clean content for conversation history
-                    sender: 'agent',
+                    content: shouldMarkAsUnseen ? 
+                        '[No agents online - Message awaiting assignment]' : 
+                        '[Message pending agent response - AI suggestion available]',
+                    sender: 'system',
                     timestamp: new Date(),
                     metadata: { 
-                        isAutopilotResponse: true,
-                        originalSuggestion: aiSuggestion,
-                        displayDisclaimer: true // Flag to show disclaimer in UI only
+                        pendingAgent: true,
+                        aiSuggestion: aiSuggestion,
+                        confidence: 0.85,
+                        customerMessage: message,
+                        messageCount: customerMessageCount,
+                        conversationContext: conversationContext.substring(0, 200) + '...',
+                        assignedAgent: assignedAgent,
+                        unseenByAgents: shouldMarkAsUnseen,
+                        needsManualAssignment: shouldMarkAsUnseen
                     }
                 };
                 
-                // Replace the AI suggestion with direct response
-                conversationService.replaceLastMessage(conversationId, autopilotMessage);
-                aiMessage = autopilotMessage;
-                
-            } 
-            // For HITL mode, keep the original AI suggestion for human review
+                await conversationService.addMessage(conversationId, aiMessage);
+                console.log(`Generated AI suggestion for conversation ${conversationId} (HITL mode)`);
+            }
             
-            // Emit new message to agents via WebSocket
-            this.io.to('agents').emit('new-message', {
-                conversationId,
-                message: userMessage,
-                aiSuggestion: aiMessage,
-                timestamp: new Date()
-            });
+            // Emit new message to agents via WebSocket (only for HITL mode)
+            if (currentMode === 'hitl') {
+                this.io.to('agents').emit('new-message', {
+                    conversationId,
+                    message: userMessage,
+                    aiSuggestion: aiMessage,
+                    timestamp: new Date()
+                });
+            }
+            // In autopilot and off modes, agents don't need to see these messages
             
             res.json({
                 userMessage,
@@ -254,7 +265,7 @@ class ConversationController {
     async getMessages(req, res) {
         try {
             const { conversationId } = req.params;
-            const conversationMessages = conversationService.getMessages(conversationId);
+            const conversationMessages = await conversationService.getMessages(conversationId);
             
             res.json({
                 conversationId,
@@ -271,7 +282,7 @@ class ConversationController {
      */
     async getAllConversations(req, res) {
         try {
-            const allConversations = conversationService.getAllConversationsWithStats();
+            const allConversations = await conversationService.getAllConversationsWithStats();
             
             res.json({
                 conversations: allConversations,
@@ -290,7 +301,7 @@ class ConversationController {
         try {
             const { conversationId } = req.params;
             
-            const conversationMessages = conversationService.getMessages(conversationId);
+            const conversationMessages = await conversationService.getMessages(conversationId);
             
             // Find the most recent message with debug metadata
             const debugMessage = conversationMessages
@@ -315,7 +326,7 @@ class ConversationController {
         try {
             const { conversationId } = req.params;
             
-            const conversationMessages = conversationService.getMessages(conversationId);
+            const conversationMessages = await conversationService.getMessages(conversationId);
             
             // Find the most recent message with AI suggestion
             const pendingMessages = conversationMessages
@@ -357,29 +368,54 @@ class ConversationController {
             const { conversationId } = req.params;
             const { agentId } = req.body;
             
-            const conversation = conversationService.getConversation(conversationId);
+            // Allow manual assignment in all system modes (HITL, autopilot, off)
+            // Agents can always assign conversations to themselves regardless of system mode
+            
+            const conversation = await conversationService.getConversation(conversationId);
             if (conversation) {
-                conversation.assignedAgent = agentId;
-                conversation.assignedAt = new Date();
-                conversationService.updateConversation(conversationId, conversation);
+                // Use the proper assignConversation method which handles agent ID to user ID conversion
+                await conversationService.assignConversation(conversationId, agentId);
                 
-                // Add system message about assignment
-                conversationService.addMessage(conversationId, {
-                    id: uuidv4(),
-                    conversationId,
-                    content: `Agent has joined the conversation`,
-                    sender: 'system',
-                    timestamp: new Date(),
-                    metadata: { systemMessage: true }
-                });
+                // No system message needed for assignment
                 
-                res.json({ success: true, conversation });
+                // Get updated conversation for response
+                const updatedConversation = await conversationService.getConversation(conversationId);
+                res.json({ success: true, conversation: updatedConversation });
             } else {
                 res.status(404).json({ error: 'Conversation not found' });
             }
         } catch (error) {
             console.error('Error assigning conversation:', error);
             res.status(500).json({ error: 'Failed to assign conversation' });
+        }
+    }
+
+    /**
+     * Unassign conversation from agent
+     */
+    async unassignConversation(req, res) {
+        try {
+            const { conversationId } = req.params;
+            const { agentId } = req.body;
+            
+            const conversation = await conversationService.getConversation(conversationId);
+            if (!conversation) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+            
+            // Allow any agent to unassign any conversation (same as assignment policy)
+            
+            // Unassign the conversation
+            conversation.assignedAgent = null;
+            conversation.assignedAt = null;
+            await conversationService.updateConversation(conversationId, conversation);
+            
+            // No system message needed for unassignment
+            
+            res.json({ success: true, conversation });
+        } catch (error) {
+            console.error('Error unassigning conversation:', error);
+            res.status(500).json({ error: 'Failed to unassign conversation' });
         }
     }
 
@@ -391,21 +427,12 @@ class ConversationController {
             const { conversationId } = req.params;
             const { agentId } = req.body;
             
-            const conversation = conversationService.getConversation(conversationId);
+            const conversation = await conversationService.getConversation(conversationId);
             if (conversation && conversation.assignedAgent === agentId) {
-                conversation.status = 'resolved';
                 conversation.endedAt = new Date();
-                conversationService.updateConversation(conversationId, conversation);
+                await conversationService.updateConversation(conversationId, conversation);
                 
-                // Add system message
-                conversationService.addMessage(conversationId, {
-                    id: uuidv4(),
-                    conversationId,
-                    content: `Conversation ended by agent`,
-                    sender: 'system',
-                    timestamp: new Date(),
-                    metadata: { systemMessage: true }
-                });
+                // No system message needed for conversation end
                 
                 res.json({ success: true });
             } else {
@@ -417,20 +444,16 @@ class ConversationController {
         }
     }
 
+
+
     /**
      * Build conversation context for AI from message history
      */
-    buildConversationContext(conversationMessages, currentMessage) {
+    buildConversationContext(conversationMessages) {
         // Get only customer and agent messages (exclude system messages)
-        const relevantMessages = conversationMessages.filter(msg => 
+        const allMessages = conversationMessages.filter(msg => 
             msg.sender === 'visitor' || msg.sender === 'agent'
         );
-        
-        // Add current message to context
-        const allMessages = [
-            ...relevantMessages,
-            { sender: 'visitor', content: currentMessage, timestamp: new Date() }
-        ];
         
         // Format messages as conversation
         const conversationHistory = allMessages
@@ -452,6 +475,132 @@ class ConversationController {
         }
         
         return conversationHistory;
+    }
+
+    /**
+     * Bulk archive conversations
+     */
+    async bulkArchiveConversations(req, res) {
+        try {
+            const { conversationIds } = req.body;
+            
+            if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+                return res.status(400).json({
+                    error: 'conversationIds must be a non-empty array'
+                });
+            }
+
+            const result = await conversationService.bulkArchiveConversations(conversationIds);
+            
+            // Log activity for each archived conversation
+            for (const conversationId of conversationIds) {
+                activityService.logActivity({
+                    userId: req.user?.id || null,
+                    actionType: 'conversation',
+                    action: 'archive',
+                    details: { conversationId },
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Archived ${result.count} conversations`,
+                data: { archivedCount: result.count }
+            });
+        } catch (error) {
+            console.error('Bulk archive error:', error);
+            res.status(500).json({
+                error: 'Failed to archive conversations'
+            });
+        }
+    }
+
+    /**
+     * Bulk assign conversations to agent
+     */
+    async bulkAssignConversations(req, res) {
+        try {
+            const { conversationIds, agentId } = req.body;
+            
+            if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+                return res.status(400).json({
+                    error: 'conversationIds must be a non-empty array'
+                });
+            }
+            
+            if (!agentId) {
+                return res.status(400).json({
+                    error: 'agentId is required'
+                });
+            }
+
+            const result = await conversationService.bulkAssignConversations(conversationIds, agentId);
+            
+            // Log activity for each assigned conversation
+            for (const conversationId of conversationIds) {
+                activityService.logActivity({
+                    userId: req.user?.id || null,
+                    actionType: 'conversation',
+                    action: 'assign',
+                    details: { conversationId, agentId },
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Assigned ${result.count} conversations to agent`,
+                data: { assignedCount: result.count }
+            });
+        } catch (error) {
+            console.error('Bulk assign error:', error);
+            res.status(500).json({
+                error: 'Failed to assign conversations'
+            });
+        }
+    }
+
+    /**
+     * Bulk unarchive conversations
+     */
+    async bulkUnarchiveConversations(req, res) {
+        try {
+            const { conversationIds } = req.body;
+            
+            if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+                return res.status(400).json({
+                    error: 'conversationIds must be a non-empty array'
+                });
+            }
+
+            const result = await conversationService.bulkUnarchiveConversations(conversationIds);
+            
+            // Log activity for each unarchived conversation
+            for (const conversationId of conversationIds) {
+                activityService.logActivity({
+                    userId: req.user?.id || null,
+                    actionType: 'conversation',
+                    action: 'unarchive',
+                    details: { conversationId },
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Unarchived ${result.count} conversations`,
+                data: { unarchivedCount: result.count }
+            });
+        } catch (error) {
+            console.error('Bulk unarchive error:', error);
+            res.status(500).json({
+                error: 'Failed to unarchive conversations'
+            });
+        }
     }
 }
 

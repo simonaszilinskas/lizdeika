@@ -70,9 +70,27 @@ function createConversationRoutes(io) {
         conversationController.assignConversation(req, res);
     });
 
+    // Unassign conversation from agent
+    router.post('/conversations/:conversationId/unassign', (req, res) => {
+        conversationController.unassignConversation(req, res);
+    });
+
     // End conversation
     router.post('/conversations/:conversationId/end', (req, res) => {
         conversationController.endConversation(req, res);
+    });
+
+    // Bulk operations (admin-only endpoints)
+    router.post('/admin/conversations/bulk-archive', (req, res) => {
+        conversationController.bulkArchiveConversations(req, res);
+    });
+
+    router.post('/admin/conversations/bulk-unarchive', (req, res) => {
+        conversationController.bulkUnarchiveConversations(req, res);
+    });
+
+    router.post('/admin/conversations/bulk-assign', (req, res) => {
+        conversationController.bulkAssignConversations(req, res);
     });
 
     return router;

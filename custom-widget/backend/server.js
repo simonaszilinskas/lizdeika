@@ -38,11 +38,28 @@
  */
 const createApp = require('./src/app');
 const knowledgeService = require('./src/services/knowledgeService');
+const databaseClient = require('./src/utils/database');
 
 const PORT = process.env.WIDGET_BACKEND_PORT || process.env.PORT || 3002;
 
 // Create and configure the application
 const { app, server, io, websocketService } = createApp();
+
+// Initialize database connection
+async function initializeDatabase() {
+    try {
+        console.log('🔌 Connecting to PostgreSQL database...');
+        await databaseClient.connect();
+        console.log('✅ Database connection established');
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        console.log('💡 Make sure PostgreSQL is running: docker-compose up postgres -d');
+        // Don't exit in development to allow for database startup
+        if (process.env.NODE_ENV === 'production') {
+            process.exit(1);
+        }
+    }
+}
 
 // Initialize knowledge base connection (no automatic sample data loading)
 async function initializeKnowledgeBase() {
@@ -67,6 +84,7 @@ server.listen(PORT, () => {
     console.log('Configuration:');
     console.log(`- AI Provider: ${process.env.AI_PROVIDER || 'flowise'}`);
     console.log(`- Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`- Auto-close conversations after: ${process.env.AUTO_CLOSE_HOURS || 24} hours`);
     
     if (process.env.AI_PROVIDER === 'openrouter') {
         console.log(`- OpenRouter Model: ${process.env.OPENROUTER_MODEL || 'not set'}`);
@@ -90,8 +108,25 @@ server.listen(PORT, () => {
     console.log('- agent-typing');
     console.log('- customer-typing');
     
-    // Initialize RAG knowledge base connection after server starts (no automatic embeddings)
+    // Initialize services after server starts
+    initializeDatabase();
     initializeKnowledgeBase();
+    
+    // Set up periodic auto-close of inactive conversations
+    const autoCloseInterval = parseInt(process.env.AUTO_CLOSE_CHECK_INTERVAL_MINUTES) || 60; // Default 1 hour
+    setInterval(() => {
+        try {
+            const conversationService = require('./src/services/conversationService');
+            const closedCount = conversationService.autoCloseInactiveConversations();
+            if (closedCount > 0) {
+                console.log(`Auto-closed ${closedCount} inactive conversations`);
+            }
+        } catch (error) {
+            console.error('Error during auto-close check:', error);
+        }
+    }, autoCloseInterval * 60 * 1000);
+    
+    console.log(`Auto-close check interval: ${autoCloseInterval} minutes`);
 });
 
 // Graceful shutdown
@@ -102,10 +137,15 @@ function gracefulShutdown(signal) {
     server.close(() => {
         console.log('HTTP server closed');
         
-        // Close all WebSocket connections
-        io.close(() => {
-            console.log('WebSocket server closed');
-            process.exit(0);
+        // Close database connection
+        databaseClient.disconnect().then(() => {
+            console.log('Database connection closed');
+            
+            // Close all WebSocket connections
+            io.close(() => {
+                console.log('WebSocket server closed');
+                process.exit(0);
+            });
         });
         
         // Force exit if WebSocket doesn't close in time

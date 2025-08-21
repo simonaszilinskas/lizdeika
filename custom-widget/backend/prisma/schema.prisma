@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model agent_status {
+  id         String          @id
+  user_id    String          @unique
+  status     AgentStatusEnum @default(offline)
+  updated_at DateTime
+  users      users           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model messages {
+  id           String      @id
+  ticket_id    String
+  sender_id    String?
+  senderType   SenderType
+  content      String
+  message_type MessageType @default(text)
+  metadata     Json?
+  created_at   DateTime    @default(now())
+  users        users?      @relation(fields: [sender_id], references: [id])
+  tickets      tickets     @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([created_at])
+  @@index([senderType])
+  @@index([ticket_id, created_at])
+  @@index([ticket_id])
+}
+
+model refresh_tokens {
+  id         String   @id
+  user_id    String
+  token      String   @unique
+  expires_at DateTime
+  is_revoked Boolean  @default(false)
+  created_at DateTime @default(now())
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model system_logs {
+  id         String   @id
+  action     String
+  details    Json?
+  created_at DateTime @default(now())
+
+  @@index([created_at])
+}
+
+model system_settings {
+  id         String   @id
+  key        String   @unique
+  value      String
+  updated_at DateTime
+  updated_by String
+}
+
+model user_activities {
+  id          String              @id
+  user_id     String?
+  action_type UserActivityType
+  action      String
+  resource    String?
+  resource_id String?
+  ip_address  String?
+  user_agent  String?
+  details     Json?
+  success     Boolean             @default(true)
+  created_at  DateTime            @default(now())
+  users       users?              @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([action_type])
+  @@index([created_at])
+  @@index([success])
+}
+
+model ticket_actions {
+  id             String     @id
+  ticket_id      String
+  performed_by   String
+  action         ActionType
+  previous_value String?
+  new_value      String?
+  reason         String?
+  created_at     DateTime   @default(now())
+  users          users      @relation(fields: [performed_by], references: [id])
+  tickets        tickets    @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([created_at])
+  @@index([ticket_id])
+}
+
+model tickets {
+  id                                     String           @id
+  ticket_number                          String           @unique
+  user_id                                String?
+  assigned_agent_id                      String?
+  user_number                            Int?             @unique
+  priority                               TicketPriority   @default(medium)
+  category                               String?
+  subject                                String
+  description                            String?
+  source                                 TicketSource     @default(widget)
+  archived                               Boolean          @default(false)
+  created_at                             DateTime         @default(now())
+  updated_at                             DateTime
+  messages                               messages[]
+  ticket_actions                         ticket_actions[]
+  users_tickets_assigned_agent_idTousers users?           @relation("tickets_assigned_agent_idTousers", fields: [assigned_agent_id], references: [id])
+  users_tickets_user_idTousers           users?           @relation("tickets_user_idTousers", fields: [user_id], references: [id])
+
+  @@index([assigned_agent_id])
+  @@index([created_at])
+  @@index([archived])
+}
+
+model users {
+  id                                       String           @id
+  email                                    String           @unique
+  password_hash                            String
+  first_name                               String
+  last_name                                String
+  role                                     UserRole         @default(user)
+  is_active                                Boolean          @default(true)
+  email_verified                           Boolean          @default(false)
+  last_login                               DateTime?
+  created_at                               DateTime         @default(now())
+  updated_at                               DateTime
+  user_number                              Int?             @unique
+  agent_status                             agent_status?
+  messages                                 messages[]
+  refresh_tokens                           refresh_tokens[]
+  ticket_actions                           ticket_actions[]
+  tickets_tickets_assigned_agent_idTousers tickets[]        @relation("tickets_assigned_agent_idTousers")
+  tickets_tickets_user_idTousers           tickets[]        @relation("tickets_user_idTousers")
+  user_activities                          user_activities[]
+
+  @@index([is_active])
+  @@index([last_login])
+  @@index([role])
+}
+
+enum ActionType {
+  created
+  assigned
+  priority_changed
+  message_added
+}
+
+enum AgentStatusEnum {
+  online
+  busy
+  offline
+}
+
+enum MessageType {
+  text
+  file
+  system_action
+  ai_response
+}
+
+enum SenderType {
+  user
+  agent
+  system
+  ai
+}
+
+enum TicketPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum TicketSource {
+  widget
+  admin_panel
+  email
+}
+
+enum UserRole {
+  admin
+  agent
+  user
+}
+
+enum UserActivityType {
+  auth
+  user_management
+  conversation
+  system
+  profile
+  security
+}
