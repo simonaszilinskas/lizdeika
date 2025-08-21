@@ -51,6 +51,7 @@ const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
+const activityService = require('../services/activityService');
 
 class ConversationController {
     constructor(io) {
@@ -474,6 +475,132 @@ class ConversationController {
         }
         
         return conversationHistory;
+    }
+
+    /**
+     * Bulk archive conversations
+     */
+    async bulkArchiveConversations(req, res) {
+        try {
+            const { conversationIds } = req.body;
+            
+            if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+                return res.status(400).json({
+                    error: 'conversationIds must be a non-empty array'
+                });
+            }
+
+            const result = await conversationService.bulkArchiveConversations(conversationIds);
+            
+            // Log activity for each archived conversation
+            for (const conversationId of conversationIds) {
+                activityService.logActivity({
+                    userId: req.user?.id || null,
+                    actionType: 'conversation',
+                    action: 'archive',
+                    details: { conversationId },
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Archived ${result.count} conversations`,
+                data: { archivedCount: result.count }
+            });
+        } catch (error) {
+            console.error('Bulk archive error:', error);
+            res.status(500).json({
+                error: 'Failed to archive conversations'
+            });
+        }
+    }
+
+    /**
+     * Bulk assign conversations to agent
+     */
+    async bulkAssignConversations(req, res) {
+        try {
+            const { conversationIds, agentId } = req.body;
+            
+            if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+                return res.status(400).json({
+                    error: 'conversationIds must be a non-empty array'
+                });
+            }
+            
+            if (!agentId) {
+                return res.status(400).json({
+                    error: 'agentId is required'
+                });
+            }
+
+            const result = await conversationService.bulkAssignConversations(conversationIds, agentId);
+            
+            // Log activity for each assigned conversation
+            for (const conversationId of conversationIds) {
+                activityService.logActivity({
+                    userId: req.user?.id || null,
+                    actionType: 'conversation',
+                    action: 'assign',
+                    details: { conversationId, agentId },
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Assigned ${result.count} conversations to agent`,
+                data: { assignedCount: result.count }
+            });
+        } catch (error) {
+            console.error('Bulk assign error:', error);
+            res.status(500).json({
+                error: 'Failed to assign conversations'
+            });
+        }
+    }
+
+    /**
+     * Bulk unarchive conversations
+     */
+    async bulkUnarchiveConversations(req, res) {
+        try {
+            const { conversationIds } = req.body;
+            
+            if (!Array.isArray(conversationIds) || conversationIds.length === 0) {
+                return res.status(400).json({
+                    error: 'conversationIds must be a non-empty array'
+                });
+            }
+
+            const result = await conversationService.bulkUnarchiveConversations(conversationIds);
+            
+            // Log activity for each unarchived conversation
+            for (const conversationId of conversationIds) {
+                activityService.logActivity({
+                    userId: req.user?.id || null,
+                    actionType: 'conversation',
+                    action: 'unarchive',
+                    details: { conversationId },
+                    ipAddress: req.ip,
+                    userAgent: req.get('User-Agent')
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Unarchived ${result.count} conversations`,
+                data: { unarchivedCount: result.count }
+            });
+        } catch (error) {
+            console.error('Bulk unarchive error:', error);
+            res.status(500).json({
+                error: 'Failed to unarchive conversations'
+            });
+        }
     }
 }
 

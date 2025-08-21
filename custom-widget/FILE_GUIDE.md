@@ -7,16 +7,14 @@ This document provides a comprehensive overview of all files in the Vilnius Assi
 ### HTML Interface Files
 - **`embed-widget.html`** - Demonstration page showing chat widget integration
 - **`agent-dashboard.html`** - Real-time agent interface for managing customer conversations and tickets
-- **`knowledge-base.html`** - Dedicated interface for document upload and knowledge management
-- **`settings.html`** - Widget customization and system configuration interface
-- **`admin-settings.html`** - Legacy admin interface (being phased out)
+- **`login.html`** - User authentication interface for agents and admins
+- **`settings.html`** - System configuration, user management, and knowledge base interface
+- **`user-management.html`** - Dedicated user management interface for admins
 
 ### JavaScript Files
 - **`widget.js`** - Embeddable customer chat widget with WebSocket communication
 - **`js/agent-dashboard.js`** - Agent dashboard controller for real-time conversation management
-- **`js/knowledge-base.js`** - Knowledge base interface controller for document management
-- **`js/settings.js`** - Settings interface controller for widget customization
-- **`js/admin-settings.js`** - Legacy admin interface controller (being phased out)
+- **`js/settings.js`** - Settings and user management interface controller
 
 ## 🚀 Backend Files
 
@@ -27,20 +25,26 @@ This document provides a comprehensive overview of all files in the Vilnius Assi
 
 ### Controllers
 - **`backend/src/controllers/agentController.js`** - Agent management and agent-customer communication endpoints
+- **`backend/src/controllers/authController.js`** - User authentication, login, logout, and JWT token management
 - **`backend/src/controllers/conversationController.js`** - Customer conversations and AI integration with RAG technology
 - **`backend/src/controllers/knowledgeController.js`** - Document upload, processing, and RAG knowledge base management
 - **`backend/src/controllers/systemController.js`** - System administration, health monitoring, and RAG testing
+- **`backend/src/controllers/userController.js`** - User management, creation, editing, and role administration
 - **`backend/src/controllers/widgetController.js`** - Widget configuration and integration code generation
 
 ### Routes
 - **`backend/src/routes/agentRoutes.js`** - HTTP route definitions for agent management
+- **`backend/src/routes/authRoutes.js`** - Route definitions for authentication and authorization
 - **`backend/src/routes/conversationRoutes.js`** - Route definitions for conversations and messaging
 - **`backend/src/routes/knowledgeRoutes.js`** - Route definitions for document and knowledge base operations
 - **`backend/src/routes/systemRoutes.js`** - Route definitions for system administration and configuration
+- **`backend/src/routes/userRoutes.js`** - Route definitions for user management operations
 - **`backend/src/routes/widgetRoutes.js`** - Route definitions for widget configuration and integration
 
 ### Core Services
 - **`backend/src/services/aiService.js`** - AI provider management with RAG integration and multi-provider support
+- **`backend/src/services/agentService.js`** - Agent status management and availability tracking
+- **`backend/src/services/authService.js`** - Authentication, password management, and JWT token handling
 - **`backend/src/services/conversationService.js`** - Conversation data persistence and message management
 - **`backend/src/services/langchainRAG.js`** - Advanced RAG implementation using LangChain with query rephrasing
 - **`backend/src/services/knowledgeService.js`** - Document management and semantic search interface
@@ -49,26 +53,36 @@ This document provides a comprehensive overview of all files in the Vilnius Assi
 - **`backend/src/services/knowledgeManagerService.js`** - High-level knowledge base management
 - **`backend/src/services/mistralEmbeddingFunction.js`** - Custom Mistral AI embedding provider
 - **`backend/src/services/websocketService.js`** - Real-time WebSocket communication management
-- **`backend/src/services/agentService.js`** - Agent status and assignment management
 
-### Middleware
+### Middleware & Utilities
+- **`backend/src/middleware/authMiddleware.js`** - JWT authentication and authorization middleware
 - **`backend/src/middleware/errorHandler.js`** - Centralized error handling and response formatting
 - **`backend/src/middleware/requestLogger.js`** - HTTP request/response logging with sanitization
+- **`backend/src/utils/database.js`** - Database connection and Prisma client management
+- **`backend/src/utils/passwordUtils.js`** - Password hashing and validation utilities
+- **`backend/src/utils/tokenUtils.js`** - JWT token generation and validation
+- **`backend/src/utils/validators.js`** - Input validation and sanitization
 
 ## 🔧 Configuration Files
 
 - **`backend/.env.example`** - Environment variables template with all required configuration
 - **`backend/package.json`** - Node.js dependencies and project metadata
 - **`backend/package-lock.json`** - Locked dependency versions for reproducible builds
+- **`backend/prisma/schema.prisma`** - Database schema definition with Prisma ORM
+- **`backend/prisma/seed.js`** - Database seeding script for initial data
 
 ## 📚 Documentation Files
 
-- **`backend/ARCHITECTURE.md`** - System architecture and design decisions
-- **`backend/CODE_QUALITY_SUMMARY.md`** - Code quality analysis and metrics
-- **`backend/TESTING_REPORT.md`** - Test coverage and validation results  
-- **`backend/MIGRATION_GUIDE.md`** - Upgrade and migration instructions
-- **`backend/SHUTDOWN.md`** - Graceful shutdown procedures
+- **`ARCHITECTURE.md`** - Complete system architecture and design documentation
+- **`API_GUIDE.md`** - Comprehensive API documentation for all endpoints
+- **`DEVELOPER_GUIDE.md`** - Development setup, configuration, and workflow guide
+- **`USER_MANAGEMENT_SYSTEM.md`** - Authentication and user management documentation
 - **`FILE_GUIDE.md`** - This file - comprehensive file structure guide
+- **`backend/ADMIN_RECOVERY_GUIDE.md`** - Emergency admin account recovery procedures
+- **`backend/DATABASE_SETUP.md`** - Database configuration and troubleshooting
+- **`backend/MIGRATION_GUIDE.md`** - Database migration and upgrade instructions
+- **`backend/SHUTDOWN.md`** - Graceful server shutdown procedures
+- **`backend/TESTING_GUIDE.md`** - Testing strategy, setup, and execution guide
 
 ## 🧪 Test Files
 

@@ -9,25 +9,32 @@
    cd backend
    npm install
    cp .env.example .env
-   # Configure your API keys in .env
+   # Configure your database and API keys in .env
    ```
 
-2. **Start the System**:
+2. **Setup Database**:
+   ```bash
+   createdb vilnius_support
+   npx prisma db push
+   ```
+
+3. **Start the System**:
    ```bash
    npm start
    ```
 
-3. **Access Interfaces**:
+4. **Access Interfaces**:
    - **Customer Chat**: `http://localhost:3002/embed-widget.html`
    - **Agent Dashboard**: `http://localhost:3002/agent-dashboard.html`
-   - **Knowledge Base**: `http://localhost:3002/knowledge-base.html`
-   - **Settings**: `http://localhost:3002/settings.html`
+   - **Settings/Admin**: `http://localhost:3002/settings.html`
+   - **Login**: `http://localhost:3002/login.html`
+   - **API Docs**: `http://localhost:3002/docs`
 
 ## 🏗️ System Architecture
 
 ![System Overview](https://mermaid.live/img/pako:eNqVVk1v2zAM_SsGexkQt_2Ic0uBYS2GYQOGFu2yS9CLIJOJhciSK1Fp2-C_H5Us27FjN8EQH2KTj-_H90hJuyBFZoWcWGWEHzHnJTYiNw6pQqcFbvIivGOZtKvmIIppS_D4f6eY1RJ_KH4vpJXCX8q0UWw3kX8vbeKODI3yZpQhbWi79IYR_FGZxOqQk2I3k0aJfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FGi3w_kUaLfD-RRot8P5FG)
 
-**📋 For detailed system diagrams and architecture, see: [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md)**
+**📋 For detailed system diagrams and architecture, see: [ARCHITECTURE.md](./ARCHITECTURE.md)**
 
 ## ✨ Key Features
 

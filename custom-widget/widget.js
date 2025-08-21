@@ -445,9 +445,7 @@
                 : 'background: white; color: #1f2937;';
 
             let content = msg.content;
-            if (msg.sender === 'system' && content.includes('[Message pending agent response')) {
-                content = 'Jūsų pranešimas gautas. Agentas netrukus atsakys.';
-            } else if (msg.sender === 'agent' && msg.metadata && msg.metadata.displayDisclaimer) {
+            if (msg.sender === 'agent' && msg.metadata && msg.metadata.displayDisclaimer) {
                 // Add robot disclaimer for autopilot responses (display only)
                 content = `🤖 *Atsako robotas - galimos klaidos*\n\n${content}`;
             }
@@ -556,10 +554,8 @@
                     // Only show non-system messages to customer
                     if (data.aiMessage.sender !== 'system') {
                         this.addMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.id, data.aiMessage.metadata);
-                    } else {
-                        // For system messages, show a friendly waiting message
-                        this.addMessage('Jūsų pranešimas gautas. Agentas netrukus atsakys.', 'system', 'system-' + Date.now());
                     }
+                    // Skip system messages - no need to show anything to customer
                 } else {
                     // Error handling
                     this.addMessage('Atsiprašau, bet įvyko klaida. Pabandykite dar kartą.', 'ai', 'error-' + Date.now());
@@ -615,14 +611,9 @@
 
             const bubbleStyle = sender === 'user' 
                 ? `background: ${this.config.theme.primaryColor}; color: white;`
-                : sender === 'system' 
-                ? 'background: #FEF3C7; color: #92400E; border: 1px solid #F59E0B;'
                 : 'background: white; color: #1f2937;';
 
-            // Handle system messages specially
-            if (sender === 'system' && text.includes('[Message pending agent response')) {
-                text = 'Jūsų pranešimas gautas. Agentas netrukus atsakys.';
-            } else if (sender === 'agent' && messageMetadata && messageMetadata.displayDisclaimer) {
+            if (sender === 'agent' && messageMetadata && messageMetadata.displayDisclaimer) {
                 // Add robot disclaimer for autopilot responses
                 text = `🤖 *Atsako robotas - galimos klaidos*\n\n${text}`;
             }

@@ -19,8 +19,13 @@ class AgentDashboard {
         this.personalStatus = 'online'; // Personal agent status (online/afk)
         this.systemMode = 'hitl'; // Global system mode (hitl/autopilot/off)
         this.connectedAgents = new Map(); // Track other connected agents
-        this.currentFilter = 'mine'; // Current conversation filter (mine, unassigned, others, all)
+        this.currentFilter = 'unassigned'; // Current conversation filter (mine, unassigned, others, all)
         this.allConversations = []; // Store all conversations for filtering
+        this.selectedConversations = new Set(); // Track selected conversations for bulk operations
+        this.archiveFilter = 'active'; // Archive filter (active, archived)
+        
+        // Make dashboard globally available immediately
+        window.dashboard = this;
         
         console.log(`Agent Dashboard initialized with API URL: ${this.apiUrl}`);
         this.init();
@@ -31,13 +36,24 @@ class AgentDashboard {
      */
     getAuthenticatedAgentId() {
         try {
-            // Try to get authenticated user from localStorage
+            // First try the new user_data format
+            const userData = localStorage.getItem('user_data');
+            if (userData) {
+                const user = JSON.parse(userData);
+                if (user.email) {
+                    console.log(`Using agent ID from user_data: ${user.email}`);
+                    return user.email; // Use full email as agent ID
+                }
+            }
+            
+            // Try to get authenticated user from localStorage (old format)
             const agentUser = localStorage.getItem('agentUser');
             if (agentUser) {
                 const user = JSON.parse(agentUser);
-                // Use email without domain as agent ID (e.g. agent1@vilnius.lt -> agent1)
+                // Use full email as agent ID
                 if (user.email) {
-                    return user.email.split('@')[0];
+                    console.log(`Using agent ID from agentUser: ${user.email}`);
+                    return user.email;
                 }
             }
         } catch (error) {
@@ -52,6 +68,7 @@ class AgentDashboard {
                 if (parentAgentUser) {
                     const user = JSON.parse(parentAgentUser);
                     if (user.email) {
+                        console.log(`Using agent ID from parent: ${user.email.split('@')[0]}`);
                         return user.email.split('@')[0];
                     }
                 }
@@ -65,11 +82,51 @@ class AgentDashboard {
         return 'agent-' + Math.random().toString(36).substring(2, 11);
     }
 
+    /**
+     * Check if current user is admin and show admin bar
+     */
+    async checkAdminStatus() {
+        try {
+            const token = localStorage.getItem('agent_token');
+            if (!token) {
+                return;
+            }
+
+            console.log('🔍 Checking admin status...');
+            const response = await fetch(`${this.apiUrl}/api/auth/profile`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const user = data.data;
+                console.log('👤 User profile:', user);
+                
+                if (user && user.role === 'admin') {
+                    console.log('✅ User is admin, showing admin bar');
+                    const adminBar = document.getElementById('adminBar');
+                    if (adminBar) {
+                        adminBar.classList.remove('hidden');
+                    }
+                } else {
+                    console.log('❌ User is not admin, role:', user?.role);
+                }
+            } else {
+                console.log('❌ Failed to get user profile:', response.status);
+            }
+        } catch (error) {
+            console.error('Error checking admin status:', error);
+        }
+    }
+
     async init() {
         console.log(`Agent Dashboard initialized for agent: ${this.agentId}`);
         
         // Load saved personal status before initializing other components
         await this.loadSavedPersonalStatus();
+        
+        // Check if user is admin and show admin bar
+        await this.checkAdminStatus();
         
         this.initializeEventListeners();
         this.initializeWebSocket();
@@ -89,6 +146,18 @@ class AgentDashboard {
             });
         }
 
+        // Filter buttons
+        const filterButtons = document.querySelectorAll('[data-filter]');
+        console.log(`🔘 Found ${filterButtons.length} filter buttons`);
+        filterButtons.forEach((button, index) => {
+            const filter = button.getAttribute('data-filter');
+            console.log(`🔘 Adding event listener to button ${index} with filter: ${filter}`);
+            button.addEventListener('click', (e) => {
+                const clickedFilter = e.target.getAttribute('data-filter');
+                console.log(`🔘 Filter button clicked: ${clickedFilter}`);
+                this.setFilter(clickedFilter);
+            });
+        });
 
         // Message form submission
         const messageForm = document.getElementById('message-form');
@@ -121,6 +190,49 @@ class AgentDashboard {
                 });
             }
         });
+
+        // Archive toggle icon
+        const archiveToggle = document.getElementById('archive-toggle');
+        if (archiveToggle) {
+            archiveToggle.addEventListener('click', () => this.toggleArchiveFilter());
+        }
+
+        // Bulk action buttons
+        const selectAllCheckbox = document.getElementById('select-all');
+        const clearSelectionBtn = document.getElementById('clear-selection');
+        const bulkArchiveBtn = document.getElementById('bulk-archive');
+        const bulkUnarchiveBtn = document.getElementById('bulk-unarchive');
+        const bulkAssignMeBtn = document.getElementById('bulk-assign-me');
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
+        }
+
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', () => this.clearAllSelections());
+        }
+        
+        if (bulkArchiveBtn) {
+            bulkArchiveBtn.addEventListener('click', () => this.bulkArchiveConversations());
+        }
+        
+        if (bulkUnarchiveBtn) {
+            bulkUnarchiveBtn.addEventListener('click', () => this.bulkUnarchiveConversations());
+        }
+        
+        if (bulkAssignMeBtn) {
+            bulkAssignMeBtn.addEventListener('click', () => this.bulkAssignToMe());
+        }
+        
+        const bulkAssignAgentDropdown = document.getElementById('bulk-assign-agent');
+        if (bulkAssignAgentDropdown) {
+            bulkAssignAgentDropdown.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    this.bulkAssignToAgent(e.target.value);
+                    e.target.value = ''; // Reset dropdown
+                }
+            });
+        }
 
     }
 
@@ -233,7 +345,21 @@ class AgentDashboard {
      */
     async loadSavedPersonalStatus() {
         try {
-            const savedStatus = localStorage.getItem(`agentStatus_${this.agentId}`);
+            // Try the new format first (with full email)
+            let savedStatus = localStorage.getItem(`agentStatus_${this.agentId}`);
+            
+            // If not found and agentId contains @, try the old format (username only)
+            if (!savedStatus && this.agentId.includes('@')) {
+                const usernameOnly = this.agentId.split('@')[0];
+                savedStatus = localStorage.getItem(`agentStatus_${usernameOnly}`);
+                
+                // If found in old format, migrate to new format and remove old
+                if (savedStatus) {
+                    localStorage.setItem(`agentStatus_${this.agentId}`, savedStatus);
+                    localStorage.removeItem(`agentStatus_${usernameOnly}`);
+                }
+            }
+            
             if (savedStatus && ['online', 'afk'].includes(savedStatus)) {
                 this.personalStatus = savedStatus;
                 
@@ -338,6 +464,14 @@ class AgentDashboard {
     updateConnectedAgents(agents) {
         this.connectedAgents.clear();
         agents.forEach(agent => this.connectedAgents.set(agent.id, agent));
+        
+        // Refresh the agents dropdown if it exists and is visible
+        const dropdown = document.getElementById('bulk-assign-agent');
+        if (dropdown && dropdown.style.display !== 'none') {
+            // Force refresh of dropdown options
+            dropdown.innerHTML = '';
+            this.populateAgentsDropdown();
+        }
         
         // Update compact format in header
         const compactContainer = document.getElementById('connected-agents-compact');
@@ -531,22 +665,38 @@ class AgentDashboard {
      */
     async loadConversations() {
         try {
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations`);
+            console.log('📞 Loading conversations...');
+            const token = localStorage.getItem('agent_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+                console.log('🔑 Using auth token');
+            } else {
+                console.log('⚠️ No auth token found');
+            }
+            
+            console.log(`🌐 Making request to: ${this.apiUrl}/api/admin/conversations`);
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations`, { headers });
+            console.log(`📡 Response status: ${response.status}`);
             if (!response.ok) {
                 throw new Error(`Failed to load conversations: ${response.status}`);
             }
             const data = await response.json();
+            console.log(`📋 Loaded ${data.conversations.length} conversations:`, data.conversations);
             
             // Store all conversations for filtering
             this.allConversations = data.conversations;
+            console.log(`💾 Stored ${this.allConversations.length} conversations in allConversations`);
             
             // Apply current filter and render
+            console.log(`🔍 Applying filter: ${this.currentFilter}`);
             this.applyFilter();
             
             // Update filter button styles in case this is the initial load
             this.updateFilterButtons();
+            console.log('✅ LoadConversations completed successfully');
         } catch (error) {
-            console.error('Error loading conversations:', error);
+            console.error('❌ Error loading conversations:', error);
         }
     }
 
@@ -568,13 +718,19 @@ class AgentDashboard {
      * @param {Array} conversations - Array of conversation objects
      */
     renderQueue(conversations) {
+        console.log(`🎨 renderQueue called with ${conversations.length} conversations`);
         const queueContainer = document.getElementById('chat-queue');
-        if (!queueContainer) return;
+        if (!queueContainer) {
+            console.error('❌ chat-queue element not found!');
+            return;
+        }
         
         // Sort conversations by priority
         const sorted = this.sortConversationsByPriority(conversations);
+        console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
 
         queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
+        console.log('✅ Queue rendered successfully');
     }
 
     /**
@@ -656,13 +812,25 @@ class AgentDashboard {
         const statusLabel = this.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv);
         const statusCss = this.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
         
+        const isSelected = this.selectedConversations.has(conv.id);
+        const archivedClass = conv.archived ? 'opacity-75 bg-gray-50' : '';
+        
         return `
-            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass}" 
+            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass}" 
                  onclick="dashboard.selectChat('${conv.id}')">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center gap-2">
+                        <input type="checkbox" 
+                               class="conversation-checkbox" 
+                               data-conversation-id="${conv.id}"
+                               ${isSelected ? 'checked' : ''}
+                               onclick="event.stopPropagation(); dashboard.toggleConversationSelection('${conv.id}')"
+                               title="Select for bulk actions">
                         <div>
-                            <div class="font-medium text-sm">User #${conv.userNumber || 'Unknown'}</div>
+                            <div class="font-medium text-sm flex items-center gap-1">
+                                User #${conv.userNumber || 'Unknown'}
+                                ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
+                            </div>
                             <div class="text-xs text-gray-500">
                                 ${this.formatConversationDate(conv.startedAt)}
                             </div>
@@ -1020,6 +1188,7 @@ class AgentDashboard {
      * @param {string} filter - Filter type: 'mine', 'unassigned', 'others', 'all'
      */
     setFilter(filter) {
+        console.log(`🔽 setFilter called with filter: ${filter}`);
         this.currentFilter = filter;
         this.updateFilterButtons();
         this.applyFilter();
@@ -1055,7 +1224,9 @@ class AgentDashboard {
      * Apply current filter to conversations
      */
     applyFilter() {
+        console.log(`🔍 applyFilter called - current filter: ${this.currentFilter}, total conversations: ${this.allConversations.length}`);
         const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
+        console.log(`📊 Filtered to ${filteredConversations.length} conversations`);
         this.renderQueue(filteredConversations);
     }
 
@@ -1066,16 +1237,27 @@ class AgentDashboard {
      * @returns {Array} Filtered conversations
      */
     filterConversations(conversations, filter) {
+        // First apply archive filter
+        let filtered = conversations;
+        if (this.archiveFilter === 'active') {
+            filtered = conversations.filter(conv => !conv.archived);
+        } else if (this.archiveFilter === 'archived') {
+            filtered = conversations.filter(conv => conv.archived);
+            // Archived conversations don't use assignment filters
+            return filtered;
+        }
+        
+        // Then apply assignment filter (only for active conversations)
         switch (filter) {
             case 'mine':
-                return conversations.filter(conv => conv.assignedAgent === this.agentId);
+                return filtered.filter(conv => conv.assignedAgent === this.agentId);
             case 'unassigned':
-                return conversations.filter(conv => !conv.assignedAgent);
+                return filtered.filter(conv => !conv.assignedAgent);
             case 'others':
-                return conversations.filter(conv => conv.assignedAgent && conv.assignedAgent !== this.agentId);
+                return filtered.filter(conv => conv.assignedAgent && conv.assignedAgent !== this.agentId);
             case 'all':
             default:
-                return conversations;
+                return filtered;
         }
     }
 
@@ -2049,46 +2231,348 @@ class AgentDashboard {
         div.textContent = text;
         return div.innerHTML;
     }
-}
 
-// Logout function for agent dashboard
-function logoutAgent() {
-    if (confirm('Ar tikrai norite atsijungti?')) {
-        // Try multiple approaches for iframe communication
-        try {
-            // Method 1: Call parent window logout
-            if (window.parent && window.parent !== window && typeof window.parent.logout === 'function') {
-                window.parent.logout();
-                return;
-            }
-        } catch (e) {
-            console.log('Parent logout failed:', e.message);
+    /**
+     * Toggle conversation selection for bulk operations
+     */
+    toggleConversationSelection(conversationId) {
+        if (this.selectedConversations.has(conversationId)) {
+            this.selectedConversations.delete(conversationId);
+        } else {
+            this.selectedConversations.add(conversationId);
         }
         
-        try {
-            // Method 2: PostMessage to parent
-            if (window.parent && window.parent !== window) {
-                window.parent.postMessage({ action: 'logout' }, '*');
-                
-                // Wait a moment then fallback
-                setTimeout(() => {
-                    window.location.href = '/agent-login.html';
-                }, 500);
-                return;
-            }
-        } catch (e) {
-            console.log('PostMessage failed:', e.message);
+        // Update Select All checkbox state based on current selection
+        const selectAllCheckbox = document.getElementById('select-all');
+        if (selectAllCheckbox) {
+            // Get all filtered conversations
+            const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
+            const filteredIds = new Set(filteredConversations.map(conv => conv.id));
+            
+            // Check if all filtered conversations are selected
+            const allSelected = filteredConversations.length > 0 && 
+                filteredConversations.every(conv => this.selectedConversations.has(conv.id));
+            selectAllCheckbox.checked = allSelected;
+            
+            // Set indeterminate state if some but not all filtered conversations are selected
+            const selectedFromFilter = Array.from(this.selectedConversations).filter(id => filteredIds.has(id));
+            const someSelected = selectedFromFilter.length > 0 && selectedFromFilter.length < filteredConversations.length;
+            selectAllCheckbox.indeterminate = someSelected;
         }
         
-        // Method 3: Direct redirect
-        window.location.href = '/agent-login.html';
+        this.updateBulkActionsPanel();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * Toggle select/deselect all filtered conversations
+     */
+    toggleSelectAll(selectAll) {
+        if (selectAll) {
+            // Get all conversations that match current filters
+            const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
+            
+            // Select all filtered conversations (not just visible in DOM)
+            filteredConversations.forEach(conv => {
+                this.selectedConversations.add(conv.id);
+            });
+        } else {
+            // Deselect all
+            this.selectedConversations.clear();
+        }
+        
+        this.updateBulkActionsPanel();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * Clear all conversation selections
+     */
+    clearAllSelections() {
+        this.selectedConversations.clear();
+        
+        // Also uncheck the Select All checkbox if it exists
+        const selectAllCheckbox = document.getElementById('select-all');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
+        
+        this.updateBulkActionsPanel();
+        this.updateSelectionUI();
+    }
+
+    /**
+     * Update the bulk actions panel visibility and content
+     */
+    updateBulkActionsPanel() {
+        const panel = document.getElementById('bulk-actions-panel');
+        const selectedCount = this.selectedConversations.size;
+        
+        if (selectedCount > 0) {
+            panel.classList.remove('hidden');
+            document.getElementById('selected-count').textContent = selectedCount;
+            // Update buttons when panel becomes visible
+            this.updateBulkActionButtons();
+        } else {
+            panel.classList.add('hidden');
+        }
+    }
+    
+    /**
+     * Update bulk action buttons based on archive filter
+     */
+    updateBulkActionButtons() {
+        const archiveBtn = document.getElementById('bulk-archive');
+        const unarchiveBtn = document.getElementById('bulk-unarchive');
+        const assignMeBtn = document.getElementById('bulk-assign-me');
+        const assignAgentDropdown = document.getElementById('bulk-assign-agent');
+        
+        if (this.archiveFilter === 'archived') {
+            // In archive view - only show unarchive button
+            if (archiveBtn) archiveBtn.style.display = 'none';
+            if (unarchiveBtn) unarchiveBtn.style.display = 'block';
+            if (assignMeBtn) assignMeBtn.style.display = 'none';
+            if (assignAgentDropdown) assignAgentDropdown.style.display = 'none';
+        } else {
+            // In active view - show archive and assign buttons
+            if (archiveBtn) archiveBtn.style.display = 'block';
+            if (unarchiveBtn) unarchiveBtn.style.display = 'none';
+            if (assignMeBtn) assignMeBtn.style.display = 'block';
+            if (assignAgentDropdown) {
+                assignAgentDropdown.style.display = 'block';
+                // Populate agents dropdown if not already populated
+                this.populateAgentsDropdown();
+            }
+        }
+    }
+    
+    /**
+     * Populate the agents dropdown with available agents
+     */
+    populateAgentsDropdown() {
+        const dropdown = document.getElementById('bulk-assign-agent');
+        if (!dropdown || dropdown.options.length > 1) return; // Already populated
+        
+        // Clear and add default option
+        dropdown.innerHTML = '<option value="">Assign to...</option>';
+        
+        // Add connected agents from our tracking
+        this.connectedAgents.forEach((status, agentEmail) => {
+            if (agentEmail !== this.agentId) { // Don't include self
+                const option = document.createElement('option');
+                option.value = agentEmail;
+                option.textContent = agentEmail.split('@')[0]; // Show just the username part
+                dropdown.appendChild(option);
+            }
+        });
+        
+        // If no other agents, add a disabled message
+        if (dropdown.options.length === 1) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'No other agents online';
+            option.disabled = true;
+            dropdown.appendChild(option);
+        }
+    }
+
+    /**
+     * Update selection UI (checkboxes)
+     */
+    updateSelectionUI() {
+        document.querySelectorAll('.conversation-checkbox').forEach(checkbox => {
+            const conversationId = checkbox.dataset.conversationId;
+            checkbox.checked = this.selectedConversations.has(conversationId);
+        });
+    }
+
+    /**
+     * Toggle between active and archived conversations
+     */
+    toggleArchiveFilter() {
+        this.archiveFilter = this.archiveFilter === 'active' ? 'archived' : 'active';
+        
+        // Update archive icon style
+        const archiveToggle = document.getElementById('archive-toggle');
+        if (archiveToggle) {
+            if (this.archiveFilter === 'archived') {
+                archiveToggle.className = 'text-orange-600 hover:text-orange-800 transition-colors';
+                archiveToggle.title = 'Switch to Active View';
+            } else {
+                archiveToggle.className = 'text-gray-400 hover:text-gray-600 transition-colors';
+                archiveToggle.title = 'Toggle Archive View';
+            }
+        }
+        
+        // Disable/enable assignment filter buttons based on archive mode
+        const assignmentButtons = ['filter-mine', 'filter-unassigned', 'filter-others', 'filter-all'];
+        assignmentButtons.forEach(buttonId => {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                if (this.archiveFilter === 'archived') {
+                    button.disabled = true;
+                    button.className = button.className.replace(/bg-\w+-\d+/g, 'bg-gray-200').replace(/text-\w+-\d+/g, 'text-gray-500');
+                } else {
+                    button.disabled = false;
+                    // Restore button styles - will be handled by updateFilterButtons()
+                }
+            }
+        });
+        
+        // Update bulk action buttons based on archive mode
+        this.updateBulkActionButtons();
+        
+        // Update filter button styles if we're switching back to active
+        if (this.archiveFilter === 'active') {
+            this.updateFilterButtons();
+        }
+        
+        this.applyFilter();
+    }
+
+    /**
+     * Bulk archive selected conversations
+     */
+    async bulkArchiveConversations() {
+        const selectedIds = Array.from(this.selectedConversations);
+        if (selectedIds.length === 0) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-archive`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                },
+                body: JSON.stringify({ conversationIds: selectedIds })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`✅ Archived ${result.data.archivedCount} conversations`);
+                this.clearAllSelections();
+                this.loadConversations(); // Refresh the list
+            } else {
+                throw new Error('Failed to archive conversations');
+            }
+        } catch (error) {
+            console.error('❌ Bulk archive failed:', error);
+            alert('Failed to archive conversations. Please try again.');
+        }
+    }
+
+    /**
+     * Bulk unarchive selected conversations
+     */
+    async bulkUnarchiveConversations() {
+        const selectedIds = Array.from(this.selectedConversations);
+        if (selectedIds.length === 0) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-unarchive`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                },
+                body: JSON.stringify({ conversationIds: selectedIds })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`✅ Unarchived ${result.data.unarchivedCount} conversations`);
+                this.clearAllSelections();
+                this.loadConversations(); // Refresh the list
+            } else {
+                throw new Error('Failed to unarchive conversations');
+            }
+        } catch (error) {
+            console.error('❌ Bulk unarchive failed:', error);
+            alert('Failed to unarchive conversations. Please try again.');
+        }
+    }
+
+    /**
+     * Bulk assign selected conversations to current agent
+     */
+    async bulkAssignToMe() {
+        await this.bulkAssignToAgent(this.agentId);
+    }
+    
+    /**
+     * Bulk assign selected conversations to specific agent
+     */
+    async bulkAssignToAgent(agentId) {
+        const selectedIds = Array.from(this.selectedConversations);
+        if (selectedIds.length === 0) return;
+
+        try {
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-assign`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                },
+                body: JSON.stringify({ 
+                    conversationIds: selectedIds,
+                    agentId: agentId
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                const assignedTo = agentId === this.agentId ? 'me' : agentId.split('@')[0];
+                console.log(`✅ Assigned ${result.data.assignedCount} conversations to ${assignedTo}`);
+                this.clearAllSelections();
+                this.loadConversations(); // Refresh the list
+            } else {
+                throw new Error('Failed to assign conversations');
+            }
+        } catch (error) {
+            console.error('❌ Bulk assign failed:', error);
+            alert('Failed to assign conversations. Please try again.');
+        }
     }
 }
 
-// Initialize dashboard when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.dashboard = new AgentDashboard();
-});
+// Logout function for agent dashboard
+async function logoutAgent() {
+    if (confirm('Ar tikrai norite atsijungti?')) {
+        try {
+            // Call backend logout endpoint to invalidate refresh token
+            const refreshToken = localStorage.getItem('refresh_token');
+            if (refreshToken) {
+                await fetch('http://localhost:3002/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ refreshToken })
+                });
+            }
+        } catch (error) {
+            console.error('Logout API call failed:', error);
+        }
+        
+        // Clear all stored authentication data
+        localStorage.removeItem('agent_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user_data');
+        localStorage.removeItem('agentUser'); // Clear old system data too
+        
+        // Clear any agent status data
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('agentStatus_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        
+        // Redirect to login page
+        window.location.href = 'login.html';
+    }
+}
 
-// Global function for onclick handlers (backward compatibility)
-window.dashboard = null;
+// Initialize dashboard immediately when script loads (DOM is already ready at this point)
+console.log('🚀 Initializing Agent Dashboard...');
+new AgentDashboard();
+console.log('✅ Dashboard initialized');

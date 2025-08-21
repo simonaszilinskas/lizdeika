@@ -1,33 +1,53 @@
 # Vilnius Assistant - Developer Guide
 
-> Comprehensive development guide covering architecture, deployment, troubleshooting, and recent fixes.
+> Comprehensive development guide covering setup, architecture, deployment, and troubleshooting.
 
 ## 🚀 Quick Development Setup
 
 ### Prerequisites
-- Node.js 16+
-- PostgreSQL 12+
-- Git
+- **Node.js 18+** - JavaScript runtime
+- **PostgreSQL 12+** - Main database
+- **Git** - Version control
 
-### Clone & Install
+### 1. Clone & Install
 ```bash
 git clone <repository-url>
-cd vilnius-assistant/custom-widget
-cd backend && npm install
+cd vilnius-assistant/custom-widget/backend
+npm install
 ```
 
-### Environment Setup
+### 2. Environment Setup
 ```bash
 cp .env.example .env
 # Configure required variables (see Configuration section below)
 ```
 
-### Database Setup
+### 3. Database Setup
 ```bash
 # Create database
 createdb vilnius_support
 
-# Apply schema
+# Apply schema with Prisma
+npx prisma db push
+
+# Seed initial data (optional)
+npx prisma db seed
+```
+
+### 4. Start Development Server
+```bash
+# Development mode (with auto-restart)
+npm run dev
+
+# Production mode
+npm start
+```
+
+**✅ Your system is now running:**
+- **Agent Dashboard**: http://localhost:3002/agent-dashboard.html
+- **Customer Widget Demo**: http://localhost:3002/embed-widget.html
+- **Settings**: http://localhost:3002/settings.html
+- **API Documentation**: http://localhost:3002/docs
 npx prisma db push
 
 # Verify setup

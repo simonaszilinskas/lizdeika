@@ -48,8 +48,9 @@ class ConversationService {
      */
     async createConversation(conversationId, conversation) {
         try {
-            // Generate a user-friendly ticket number
+            // Generate a user-friendly ticket number and user number for tracking
             const ticketNumber = await this.generateTicketNumber();
+            const userNumber = await this.generateUserNumber();
             
             // NO USER CREATION - All conversations are anonymous and session-based
             const ticket = await prisma.tickets.create({
@@ -57,6 +58,7 @@ class ConversationService {
                     id: conversationId,
                     ticket_number: ticketNumber,
                     user_id: null, // Always null - no user accounts for website visitors
+                    user_number: userNumber, // Sequential number for anonymous user tracking
                     subject: conversation.subject || 'Website Support Request',
                     description: conversation.description || '',
                     source: 'widget',
@@ -133,7 +135,7 @@ class ConversationService {
             return {
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: assignedAgentId,
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
@@ -181,7 +183,7 @@ class ConversationService {
             return {
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: assignedAgentId,
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
@@ -264,6 +266,13 @@ class ConversationService {
         try {
             // Ensure conversation exists
             await this.ensureConversationExists(conversationId, message);
+            
+            // Auto-unarchive conversation if new message arrives from user or agent
+            if (message.sender === 'visitor' || message.sender === 'user') {
+                await this.autoUnarchiveOnNewMessage(conversationId, null); // User message - auto-assign
+            } else if (message.sender === 'agent') {
+                await this.autoUnarchiveOnNewMessage(conversationId, message.senderId); // Agent message - assign to sender
+            }
             
             const newMessage = await prisma.messages.create({
                 data: {
@@ -413,12 +422,13 @@ class ConversationService {
             return tickets.map(ticket => ({
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.users_tickets_assigned_agent_idTousers ? this.mapUserIdToAgentId(ticket.users_tickets_assigned_agent_idTousers) : null,
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
+                archived: ticket.archived, // Include archived status
                 messageCount: ticket._count.messages,
                 lastMessage: ticket.messages[0] ? {
                     id: ticket.messages[0].id,
@@ -519,7 +529,7 @@ class ConversationService {
             return tickets.map(ticket => ({
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: agentId,  // Return the original agent ID for compatibility
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
@@ -549,7 +559,7 @@ class ConversationService {
             return tickets.map(ticket => ({
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.assigned_agent_id,
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
@@ -598,7 +608,7 @@ class ConversationService {
             return tickets.map(ticket => ({
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.assigned_agent_id,
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
@@ -656,7 +666,7 @@ class ConversationService {
             return {
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: agentId,  // Return the original agent ID for compatibility
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
@@ -689,7 +699,7 @@ class ConversationService {
             return tickets.map(ticket => ({
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
-                userNumber: null, // No user numbers for anonymous sessions,
+                userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.assigned_agent_id,
                 startedAt: ticket.created_at,
                 updatedAt: ticket.updated_at,
@@ -756,6 +766,35 @@ class ConversationService {
         return `VIL-${dateStr}-${sequence}`;
     }
 
+    /**
+     * Generate next available user number for anonymous users
+     */
+    async generateUserNumber() {
+        try {
+            // Find the highest existing user number
+            const result = await prisma.tickets.findFirst({
+                where: {
+                    user_number: {
+                        not: null
+                    }
+                },
+                orderBy: {
+                    user_number: 'desc'
+                },
+                select: {
+                    user_number: true
+                }
+            });
+            
+            // Return next available number (starting from 1)
+            return (result?.user_number || 0) + 1;
+        } catch (error) {
+            console.error('Failed to generate user number:', error);
+            // Fallback to timestamp-based number in case of error
+            return Math.floor(Date.now() / 1000) % 100000;
+        }
+    }
+
     // REMOVED: No user creation methods needed
     // All website visitors are purely session-based with no database user records
 
@@ -771,6 +810,161 @@ class ConversationService {
                 category: 'general'
                 // No visitorId needed - all are anonymous sessions
             });
+        }
+    }
+
+    /**
+     * Bulk archive conversations
+     */
+    async bulkArchiveConversations(conversationIds) {
+        try {
+            const result = await prisma.tickets.updateMany({
+                where: {
+                    id: {
+                        in: conversationIds
+                    },
+                    archived: false
+                },
+                data: {
+                    archived: true,
+                    assigned_agent_id: null, // Clear assignment when archiving
+                    updated_at: new Date()
+                }
+            });
+            
+            return { count: result.count };
+        } catch (error) {
+            console.error('Failed to bulk archive conversations:', error);
+            throw new Error('Failed to archive conversations: ' + error.message);
+        }
+    }
+
+    /**
+     * Bulk unarchive conversations
+     */
+    async bulkUnarchiveConversations(conversationIds) {
+        try {
+            const result = await prisma.tickets.updateMany({
+                where: {
+                    id: {
+                        in: conversationIds
+                    },
+                    archived: true
+                },
+                data: {
+                    archived: false,
+                    updated_at: new Date()
+                }
+            });
+            
+            return { count: result.count };
+        } catch (error) {
+            console.error('Failed to bulk unarchive conversations:', error);
+            throw new Error('Failed to unarchive conversations: ' + error.message);
+        }
+    }
+
+    /**
+     * Bulk assign conversations to agent
+     */
+    async bulkAssignConversations(conversationIds, agentId) {
+        try {
+            // Convert agent email to user ID if needed
+            let userId = agentId;
+            if (agentId.includes('@')) {
+                const user = await prisma.users.findUnique({
+                    where: { email: agentId }
+                });
+                if (!user) {
+                    throw new Error(`Agent with email ${agentId} not found`);
+                }
+                userId = user.id;
+            }
+
+            const result = await prisma.tickets.updateMany({
+                where: {
+                    id: {
+                        in: conversationIds
+                    }
+                },
+                data: {
+                    assigned_agent_id: userId,
+                    updated_at: new Date()
+                }
+            });
+            
+            return { count: result.count };
+        } catch (error) {
+            console.error('Failed to bulk assign conversations:', error);
+            throw new Error('Failed to assign conversations: ' + error.message);
+        }
+    }
+
+    /**
+     * Auto-unarchive conversation when new message arrives
+     */
+    async autoUnarchiveOnNewMessage(conversationId, assignToAgentId = null) {
+        try {
+            // Check if conversation is archived
+            const conversation = await prisma.tickets.findUnique({
+                where: { id: conversationId },
+                select: { archived: true, assigned_agent_id: true }
+            });
+            
+            if (conversation && conversation.archived) {
+                let updateData = {
+                    archived: false,
+                    updated_at: new Date()
+                };
+                
+                // Handle assignment based on message type
+                if (assignToAgentId) {
+                    // Agent message - assign to that agent
+                    updateData.assigned_agent_id = assignToAgentId;
+                } else {
+                    // User message - try auto-assignment or leave unassigned
+                    const agentService = require('./agentService');
+                    try {
+                        const availableAgent = await agentService.getNextAvailableAgent();
+                        updateData.assigned_agent_id = availableAgent || null;
+                    } catch (error) {
+                        console.error('Failed to get available agent for auto-assignment:', error);
+                        updateData.assigned_agent_id = null;
+                    }
+                }
+                
+                await prisma.tickets.update({
+                    where: { id: conversationId },
+                    data: updateData
+                });
+                
+                // Log auto-unarchive activity
+                try {
+                    const activityService = require('./activityService');
+                    await activityService.logActivity({
+                        userId: assignToAgentId, // Log which agent caused the unarchive (if any)
+                        actionType: 'conversation',
+                        action: 'auto_unarchive',
+                        details: { 
+                            conversationId,
+                            assignedTo: updateData.assigned_agent_id,
+                            trigger: assignToAgentId ? 'agent_message' : 'user_message'
+                        },
+                        ipAddress: null // System action
+                    });
+                } catch (error) {
+                    console.error('Failed to log auto-unarchive activity:', error);
+                    // Don't fail the unarchive operation if logging fails
+                }
+                
+                console.log(`Auto-unarchived conversation ${conversationId} due to new message`);
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Failed to auto-unarchive conversation:', error);
+            return false;
         }
     }
 

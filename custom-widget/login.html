@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vilnius Assistant - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="w-20 h-20 bg-gradient-to-br from-green-600 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <i class="fas fa-comments text-white text-2xl"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800">Vilnius Assistant</h1>
+            <p class="text-gray-600 mt-2">Agent Login</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-6">
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <input type="email" id="email" required 
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
+            </div>
+            
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <input type="password" id="password" required 
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
+            </div>
+            
+            <button type="submit" id="loginButton" 
+                    class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-4 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium">
+                <span id="loginButtonText">Sign In</span>
+                <i id="loginSpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+            </button>
+        </form>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden">
+            <i class="fas fa-exclamation-circle mr-2"></i>
+            <span id="errorText"></span>
+        </div>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm hidden">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span id="successText">Login successful! Redirecting...</span>
+        </div>
+
+        <!-- Development Quick Login (will be removed in production) -->
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <p class="text-xs text-gray-500 text-center mb-4">Development Quick Login:</p>
+            <div class="space-y-2">
+                <button type="button" onclick="quickLogin('admin')" 
+                        class="w-full bg-purple-100 text-purple-700 py-2 px-4 rounded text-sm hover:bg-purple-200 transition-colors">
+                    Login as Admin
+                </button>
+                <button type="button" onclick="quickLogin('user')" 
+                        class="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded text-sm hover:bg-gray-200 transition-colors">
+                    Login as User
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+
+        // Check if already logged in
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('agent_token');
+            if (token) {
+                // Verify token is still valid
+                fetch(`${apiUrl}/api/auth/verify`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = 'agent-dashboard.html';
+                    } else {
+                        localStorage.removeItem('agent_token');
+                    }
+                })
+                .catch(() => {
+                    localStorage.removeItem('agent_token');
+                });
+            }
+        });
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            await login(email, password);
+        });
+
+        async function login(email, password) {
+            const loginButton = document.getElementById('loginButton');
+            const loginButtonText = document.getElementById('loginButtonText');
+            const loginSpinner = document.getElementById('loginSpinner');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            
+            // Reset messages
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+            
+            // Show loading state
+            loginButton.disabled = true;
+            loginButtonText.textContent = 'Signing in...';
+            loginSpinner.classList.remove('hidden');
+            
+            try {
+                const response = await fetch(`${apiUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Store tokens
+                    localStorage.setItem('agent_token', data.data.tokens.accessToken);
+                    localStorage.setItem('refresh_token', data.data.tokens.refreshToken);
+                    localStorage.setItem('user_data', JSON.stringify(data.data.user));
+                    
+                    // Show success
+                    successMessage.classList.remove('hidden');
+                    
+                    // Redirect after short delay
+                    setTimeout(() => {
+                        window.location.href = 'agent-dashboard.html';
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('errorText').textContent = error.message;
+                errorMessage.classList.remove('hidden');
+            } finally {
+                // Reset loading state
+                loginButton.disabled = false;
+                loginButtonText.textContent = 'Sign In';
+                loginSpinner.classList.add('hidden');
+            }
+        }
+
+        // Development quick login functions
+        async function quickLogin(role) {
+            const credentials = {
+                admin: { email: 'admin@vilnius.lt', password: 'Admin123!' },
+                user: { email: 'agent@vilnius.lt', password: 'Agent123!' }
+            };
+            
+            const creds = credentials[role];
+            if (creds) {
+                document.getElementById('email').value = creds.email;
+                document.getElementById('password').value = creds.password;
+                await login(creds.email, creds.password);
+            }
+        }
+    </script>
+</body>
+</html>
