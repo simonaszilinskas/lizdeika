@@ -190,6 +190,23 @@ class AgentController {
             // Add agent message atomically
             await conversationService.addMessage(conversationId, agentMessage);
             
+            // Score agent action in Langfuse for observability (excludes autopilot mode)
+            if (suggestionAction && (suggestionAction === 'as-is' || suggestionAction === 'edited' || suggestionAction === 'from-scratch')) {
+                try {
+                    const LangChainRAG = require('../services/langchainRAG');
+                    const langchainRAG = new LangChainRAG();
+                    
+                    await langchainRAG.scoreAgentAction(
+                        conversationId, 
+                        suggestionAction,
+                        usedSuggestion // Original suggestion for metadata
+                    );
+                } catch (error) {
+                    console.error('Failed to score agent action:', error);
+                    // Don't fail the request if scoring fails
+                }
+            }
+            
             // Emit agent message to customer via WebSocket
             this.io.to(conversationId).emit('agent-message', {
                 message: agentMessage,

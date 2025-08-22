@@ -19,6 +19,8 @@ This document describes the integration of Langfuse observability into the Vilni
 - **Model Interactions**: All OpenRouter API calls with token counts
 - **Performance**: Processing times for each chain component
 - **Errors**: Comprehensive error tracking with stack traces
+- **Agent Actions**: User behavior scoring for "Send as is", "Edit", "From the start" actions
+- **Session Continuity**: Conversation-based session grouping for better analytics
 
 ## 🛠️ Configuration
 
@@ -93,20 +95,30 @@ The Langfuse integration is automatically enabled when:
 
 ### Session Tracking
 
-Sessions are automatically generated using:
-- Query hash (first 20 characters)
-- Chat history length  
-- Timestamp
-- Format: `vilnius-rag-{hash}-{historyLength}-{timestamp}`
+Sessions are automatically generated using conversation-based continuity:
+- **Conversation-based**: Uses `conversationId` when available for proper session grouping
+- **Fallback**: Query hash + chat history length + timestamp for backward compatibility
+- **Format**: `vilnius-conversation-{conversationId}` or `vilnius-rag-{hash}-{historyLength}-{timestamp}`
+
+### Agent Action Scoring
+
+Tracks how agents interact with AI suggestions using **categorical scoring**:
+- **"Send as is"**: Agent uses AI suggestion without modification (value: "as-is")
+- **"Edit"**: Agent improves or modifies AI suggestion before sending (value: "edited")
+- **"From the start"**: Agent writes completely new response (value: "from-scratch")
+- **Data Type**: CATEGORICAL for easy filtering and analysis
+- **Metadata**: Includes numeric scores (1.0, 0.7, 0.3) for reference
+- **Autopilot exclusion**: No scoring when system is in autopilot mode (agents not involved)
 
 ### Example Session Flow
 
 ```javascript
-// Automatic session creation and tracking
+// Automatic session creation and tracking with conversationId
 const result = await langchainRAG.getAnswer(
     "Kaip registruoti vaiką į mokyklą?", 
     chatHistory, 
-    true
+    true,
+    "conversation-123"  // conversationId for session continuity
 );
 
 // Session traces sent to Langfuse:
@@ -114,6 +126,20 @@ const result = await langchainRAG.getAnswer(
 // - Document retrieval trace  
 // - Response generation trace
 // - Complete session metadata
+// Session ID: "vilnius-conversation-conversation-123"
+
+// Agent action scoring (after agent responds) - sends categorical score
+await langchainRAG.scoreAgentAction(
+    "conversation-123",
+    "as-is",  // or "edited" or "from-scratch" - becomes categorical value
+    originalSuggestion
+);
+
+// Results in Langfuse:
+// - Name: "Send as is" 
+// - Value: "as-is" (categorical)
+// - Data Type: CATEGORICAL
+// - Metadata: {numericScore: 1.0, conversationId: "conversation-123", ...}
 ```
 
 ## 📈 Monitoring Dashboard
@@ -137,6 +163,12 @@ const result = await langchainRAG.getAnswer(
    - Peak usage times
    - User session duration
    - Popular topics and categories
+
+4. **Agent Performance Metrics**
+   - AI suggestion acceptance rates ("Send as is" vs "Edit" vs "From the start")
+   - Agent efficiency patterns and workflow preferences
+   - Conversation-level session continuity analysis
+   - System mode impact (HITL vs autopilot usage patterns)
 
 ### Dashboard Sections
 
@@ -172,10 +204,21 @@ process.env.ENABLE_QUERY_REPHRASING = 'false';  // Skip rephrase tracing
 ### Health Check
 
 ```bash
-# Test basic RAG functionality with tracing
+# Test basic RAG functionality with tracing and conversationId
 curl -X POST "http://localhost:3002/test-rag" \
   -H "Content-Type: application/json" \
-  -d '{"query": "test langfuse integration"}'
+  -d '{"query": "test langfuse integration", "conversationId": "test-session-123"}'
+
+# Test agent scoring (requires existing conversation)
+curl -X POST "http://localhost:3002/api/agent/respond" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": "test-session-123",
+    "message": "Agent response",
+    "agentId": "admin",
+    "suggestionAction": "as-is",
+    "usedSuggestion": "Original AI suggestion"
+  }'
 ```
 
 ### Verification Steps
@@ -190,6 +233,10 @@ curl -X POST "http://localhost:3002/test-rag" \
 2. **Verify Traces**: Check Langfuse dashboard for new traces within minutes
 
 3. **Monitor Performance**: Review trace timing and success rates
+
+4. **Verify Session Continuity**: Look for session IDs like `vilnius-conversation-{conversationId}` in Langfuse
+
+5. **Check Agent Scoring**: Look for score entries named "Send as is", "Edit", "From the start" in dashboard
 
 ## 🚨 Troubleshooting
 
@@ -274,3 +321,9 @@ await langchainRAG.shutdown();
 ---
 
 **Integration Status**: ✅ **ACTIVE** - Langfuse observability is fully integrated and operational.
+
+**Latest Updates**:
+- ✅ Agent action scoring ("Send as is", "Edit", "From the start")  
+- ✅ Conversation-based session continuity
+- ✅ Autopilot mode exclusion from scoring
+- ✅ Enhanced session tracking with conversationId support

@@ -20,6 +20,7 @@
 const VilniusRAGChain = require('./chains/VilniusRAGChain');
 const ChromaRetriever = require('./chains/ChromaRetriever');
 const QueryRephraseChain = require('./chains/QueryRephraseChain');
+const { Langfuse } = require("langfuse");
 
 class LangChainRAG {
     constructor() {
@@ -37,6 +38,14 @@ class LangChainRAG {
         this.retriever = this.ragChain.retriever;
         this.rephraseChain = this.ragChain.rephraseChain;
 
+        // Initialize Langfuse client for scoring
+        this.langfuse = new Langfuse({
+            publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+            secretKey: process.env.LANGFUSE_SECRET_KEY,
+            baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
+            debug: process.env.LANGFUSE_DEBUG === 'true'
+        });
+
         console.log('✅ LangChain RAG Service initialized with proper chains');
         console.log(`   - Retrieval K: ${this.ragChain.retriever.k}`);
         console.log(`   - Query rephrasing: ${this.ragChain.enableRephrasing ? 'ENABLED' : 'DISABLED'}`);
@@ -51,7 +60,7 @@ class LangChainRAG {
      * @param {boolean} includeDebug - Whether to include debug information
      * @returns {Object} Answer with sources and debug info (same format as original)
      */
-    async getAnswer(query, chatHistory = [], includeDebug = true) {
+    async getAnswer(query, chatHistory = [], includeDebug = true, conversationId = null) {
         const startTime = Date.now();
 
         try {
@@ -73,10 +82,11 @@ class LangChainRAG {
                 console.log(`   Query: "${query}"`);
                 console.log(`   History length: ${chatHistory.length}`);
                 console.log(`   Include debug: ${includeDebug}`);
+                console.log(`   Conversation ID: ${conversationId}`);
             }
 
-            // Generate session ID for tracing grouping
-            const sessionId = this.generateSessionId(query, chatHistory);
+            // Generate session ID for tracing grouping (use conversationId if available)
+            const sessionId = this.generateSessionId(query, chatHistory, conversationId);
             
             // Update chain configuration with session context
             this.ragChain.langfuseHandler.sessionId = sessionId;
@@ -260,9 +270,15 @@ class LangChainRAG {
 
     /**
      * Generate session ID for Langfuse tracing
-     * This groups related queries together for better observability
+     * Uses conversationId for proper conversation-based session grouping
      */
-    generateSessionId(query, chatHistory) {
+    generateSessionId(query, chatHistory, conversationId) {
+        // Use conversationId if available for proper conversation-based sessions
+        if (conversationId) {
+            return `vilnius-conversation-${conversationId}`;
+        }
+        
+        // Fallback to query-based session ID for backward compatibility
         const timestamp = Date.now();
         const queryHash = this.hashString(query.substring(0, 20));
         const historyLength = chatHistory.length;
@@ -284,6 +300,99 @@ class LangChainRAG {
     }
 
     /**
+     * Send agent action score to Langfuse for observability
+     * Tracks how agents use AI suggestions: "Send as is", "Edit", "From the start"
+     */
+    async scoreAgentAction(conversationId, suggestionAction, originalSuggestion = null) {
+        try {
+            // Don't score actions in autopilot mode - agents aren't involved
+            const systemMode = await this.getSystemMode();
+            if (systemMode === 'autopilot') {
+                if (this.ragChain.verbose) {
+                    console.log('🚫 Skipping agent action scoring - autopilot mode active');
+                }
+                return;
+            }
+
+            if (!conversationId || !suggestionAction) {
+                console.warn('⚠️ Missing conversationId or suggestionAction for scoring');
+                return;
+            }
+
+            const sessionId = `vilnius-conversation-${conversationId}`;
+            
+            // Map agent actions to user-friendly score names
+            const scoreMapping = {
+                'as-is': 'Send as is',
+                'edited': 'Edit', 
+                'from-scratch': 'From the start'
+            };
+
+            const scoreName = scoreMapping[suggestionAction] || suggestionAction;
+            const scoreValue = this.getScoreValue(suggestionAction);
+
+            if (this.ragChain.verbose) {
+                console.log('📊 Scoring agent action:');
+                console.log(`   Session: ${sessionId}`);
+                console.log(`   Action: ${suggestionAction} → "${scoreName}"`);
+                console.log(`   Score: ${scoreValue}`);
+            }
+
+            // Use the separate Langfuse client to send the categorical score
+            await this.langfuse.score({
+                name: scoreName,
+                value: suggestionAction, // Use the original action as categorical value
+                dataType: "CATEGORICAL",
+                sessionId: sessionId,
+                comment: `Agent action: ${suggestionAction}`,
+                metadata: {
+                    conversationId: conversationId,
+                    suggestionAction: suggestionAction,
+                    systemMode: systemMode,
+                    timestamp: new Date().toISOString(),
+                    originalSuggestionLength: originalSuggestion?.length || null,
+                    numericScore: scoreValue // Keep numeric value in metadata for reference
+                }
+            });
+
+            console.log(`✅ Agent action scored: ${scoreName} (${scoreValue}) for conversation ${conversationId}`);
+
+        } catch (error) {
+            console.error('❌ Error scoring agent action:', error);
+            // Don't throw - scoring failures shouldn't break core functionality
+        }
+    }
+
+    /**
+     * Get system mode (needed to exclude scoring in autopilot)
+     */
+    async getSystemMode() {
+        try {
+            const agentService = require('./agentService');
+            return await agentService.getSystemMode();
+        } catch (error) {
+            console.warn('Could not get system mode for scoring:', error.message);
+            return 'hitl'; // Default to HITL mode
+        }
+    }
+
+    /**
+     * Map agent actions to numeric scores for Langfuse
+     */
+    getScoreValue(suggestionAction) {
+        switch (suggestionAction) {
+            case 'as-is': 
+                return 1.0;    // Perfect - agent used suggestion as-is
+            case 'edited': 
+                return 0.7;    // Good - agent improved suggestion  
+            case 'from-scratch': 
+                return 0.3;    // Poor - agent wrote completely new response
+            default: 
+                return 0.5;    // Unknown action
+        }
+    }
+
+    /**
      * Cleanup method to flush Langfuse events
      * Important for serverless/short-lived environments
      */
@@ -291,7 +400,8 @@ class LangChainRAG {
         try {
             await this.ragChain.langfuseHandler.shutdownAsync();
             await this.ragChain.rephraseChain.langfuseHandler.shutdownAsync();
-            console.log('✅ Langfuse handlers shutdown completed');
+            await this.langfuse.shutdownAsync();
+            console.log('✅ Langfuse handlers and client shutdown completed');
         } catch (error) {
             console.error('❌ Error during Langfuse shutdown:', error);
         }

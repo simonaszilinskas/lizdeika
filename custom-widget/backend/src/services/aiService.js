@@ -183,7 +183,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
             
             if (recentMessage) {
                 // Get RAG response using LangChain with full conversation context and debug info
-                const ragResult = await ragService.getAnswer(recentMessage, chatHistory, true);
+                const ragResult = await ragService.getAnswer(recentMessage, chatHistory, true, conversationId);
                 
                 // Merge LangChain debug info into main debug structure
                 if (ragResult.debugInfo) {
