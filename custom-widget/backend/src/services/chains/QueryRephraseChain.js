@@ -15,7 +15,11 @@
 const { LLMChain } = require("langchain/chains");
 const { ChatOpenAI } = require("@langchain/openai");
 const { CallbackHandler } = require("langfuse-langchain");
-const { createRephrasePrompt, formatChatHistory } = require('./VilniusPrompts');
+const { 
+    createRephrasePrompt, 
+    formatChatHistory, 
+    getRephrasePromptManaged 
+} = require('./VilniusPrompts');
 
 class QueryRephraseChain extends LLMChain {
     constructor(options = {}) {
@@ -44,6 +48,7 @@ class QueryRephraseChain extends LLMChain {
 
         this.skipRephrasing = options.skipRephrasing || false;
         this.minHistoryLength = options.minHistoryLength || 1;
+        this.managedPrompt = null; // Cached managed prompt
 
         // Initialize Langfuse callback handler for query rephrasing observability
         this.langfuseHandler = new CallbackHandler({
@@ -55,6 +60,28 @@ class QueryRephraseChain extends LLMChain {
             sessionId: options.sessionId,
             userId: options.userId
         });
+    }
+
+    /**
+     * Get managed rephrase prompt from Langfuse with fallback
+     */
+    async getManagedPrompt() {
+        if (!this.managedPrompt) {
+            try {
+                this.managedPrompt = await getRephrasePromptManaged();
+                if (this.verbose && this.managedPrompt.managed.fromLangfuse) {
+                    console.log(`📝 Using Langfuse managed rephrase prompt (v${this.managedPrompt.managed.version})`);
+                } else if (this.verbose && this.managedPrompt.managed.source === '.env override') {
+                    console.log(`📝 Using .env rephrase prompt override`);
+                } else if (this.verbose) {
+                    console.log(`📝 Using hardcoded rephrase prompt fallback`);
+                }
+            } catch (error) {
+                console.warn('Failed to get managed rephrase prompt, using hardcoded fallback:', error.message);
+                this.managedPrompt = null;
+            }
+        }
+        return this.managedPrompt;
     }
 
     /**
@@ -129,13 +156,46 @@ class QueryRephraseChain extends LLMChain {
         }
 
         try {
-            // Call the parent LLMChain with formatted inputs and Langfuse callback
-            const result = await super._call({
-                question: question,
-                chat_history: formattedHistory
-            }, runManager, {
+            // Get managed prompt for enhanced rephrasing instructions
+            const managedPrompt = await this.getManagedPrompt();
+
+            // Prepare callback options with potential prompt linking
+            const callbackOptions = {
                 callbacks: [this.langfuseHandler]
-            });
+            };
+
+            // Add prompt metadata if available for trace linking
+            if (managedPrompt?.managed?.langfusePrompt) {
+                callbackOptions.metadata = {
+                    langfusePrompt: managedPrompt.managed.langfusePrompt
+                };
+            }
+
+            // If we have a managed prompt, use it directly with the LLM
+            let result;
+            if (managedPrompt?.managed && managedPrompt.managed.fromLangfuse) {
+                // Use managed prompt content directly
+                const compiledPrompt = managedPrompt.managed.compile({
+                    question: question,
+                    chat_history: formattedHistory
+                });
+
+                // Call LLM directly with compiled prompt
+                const llmResponse = await this.llm.invoke([
+                    { role: "user", content: compiledPrompt }
+                ], callbackOptions);
+
+                result = {
+                    rephrased_query: llmResponse.content || llmResponse.text || question,
+                    text: llmResponse.content || llmResponse.text || question
+                };
+            } else {
+                // Call the parent LLMChain with formatted inputs and Langfuse callback
+                result = await super._call({
+                    question: question,
+                    chat_history: formattedHistory
+                }, runManager, callbackOptions);
+            }
 
             const rephrasedQuery = result.rephrased_query || result.text || question;
             const wasRephrased = rephrasedQuery !== question;
@@ -145,6 +205,9 @@ class QueryRephraseChain extends LLMChain {
             debugInfo.improvement = wasRephrased;
             debugInfo.model = "google/gemini-2.5-flash-lite";
             debugInfo.temperature = 0.1;
+            debugInfo.promptSource = managedPrompt?.managed?.fromLangfuse ? 'langfuse' : 
+                                  (managedPrompt?.managed?.source === '.env override' ? 'env' : 'hardcoded');
+            debugInfo.promptVersion = managedPrompt?.managed?.version || null;
             debugInfo.successful = true;
 
             if (this.verbose) {

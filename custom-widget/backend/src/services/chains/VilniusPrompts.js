@@ -1,18 +1,21 @@
 /**
- * Vilnius Assistant Prompt Templates
+ * Vilnius Assistant Prompt Templates - Enhanced with Langfuse Prompt Management
  * 
- * Centralized prompt templates for the Vilnius city assistant,
- * converted from hardcoded strings to proper LangChain PromptTemplate objects.
+ * Centralized prompt templates for the Vilnius city assistant with optional
+ * Langfuse prompt management for non-technical editing and performance tracking.
  * 
  * Features:
  * - Lithuanian-first system prompts
- * - Query rephrasing templates
+ * - Query rephrasing templates  
  * - RAG-enhanced conversation templates
- * - Proper variable injection
- * - Consistent formatting
+ * - Langfuse prompt management (optional)
+ * - Fallback to hardcoded prompts
+ * - Performance tracking by prompt version
+ * - A/B testing capabilities
  */
 
 const { PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate } = require("@langchain/core/prompts");
+const promptManager = require('../promptManager');
 
 /**
  * System prompt for the main RAG chain
@@ -242,6 +245,134 @@ function extractChunkInfo(metadata) {
     return null;
 }
 
+// =============================================================================
+// LANGFUSE PROMPT MANAGEMENT INTEGRATION
+// =============================================================================
+
+/**
+ * Get Vilnius RAG system prompt with Langfuse management
+ * Falls back to hardcoded version if Langfuse unavailable
+ */
+async function getSystemPromptManaged(variables = {}) {
+    const prompt = await promptManager.getPrompt(
+        'vilnius-rag-system',
+        SYSTEM_PROMPT_TEMPLATE,
+        variables
+    );
+    
+    return {
+        template: createSystemPrompt(),
+        managed: prompt,
+        compile: (compileVars = {}) => prompt.compile(compileVars),
+        metadata: { langfusePrompt: prompt.langfusePrompt }
+    };
+}
+
+/**
+ * Get query rephrasing prompt with Langfuse management
+ */
+async function getRephrasePromptManaged(variables = {}) {
+    const prompt = await promptManager.getPrompt(
+        'vilnius-query-rephrase',
+        REPHRASE_PROMPT_TEMPLATE,
+        variables
+    );
+    
+    return {
+        template: createRephrasePrompt(),
+        managed: prompt,
+        compile: (compileVars = {}) => prompt.compile(compileVars),
+        metadata: { langfusePrompt: prompt.langfusePrompt }
+    };
+}
+
+/**
+ * Get context formatting prompt with Langfuse management
+ */
+async function getContextPromptManaged(variables = {}) {
+    const prompt = await promptManager.getPrompt(
+        'vilnius-context-format',
+        CONTEXT_TEMPLATE,
+        variables
+    );
+    
+    return {
+        template: createContextPrompt(),
+        managed: prompt,
+        compile: (compileVars = {}) => prompt.compile(compileVars),
+        metadata: { langfusePrompt: prompt.langfusePrompt }
+    };
+}
+
+/**
+ * Initialize all prompts in Langfuse (run once for setup)
+ * This creates the prompts in Langfuse UI for management
+ */
+async function initializePromptsInLangfuse() {
+    console.log('🚀 Initializing Vilnius Assistant prompts in Langfuse...');
+    
+    const prompts = [
+        {
+            name: 'vilnius-rag-system',
+            content: SYSTEM_PROMPT_TEMPLATE,
+            config: {
+                description: 'Main system prompt for Vilnius RAG assistant',
+                language: 'lithuanian',
+                category: 'system'
+            }
+        },
+        {
+            name: 'vilnius-query-rephrase',
+            content: REPHRASE_PROMPT_TEMPLATE,
+            config: {
+                description: 'Query rephrasing for better document retrieval',
+                language: 'multilingual',
+                category: 'processing'
+            }
+        },
+        {
+            name: 'vilnius-context-format',
+            content: CONTEXT_TEMPLATE,
+            config: {
+                description: 'Context formatting template for RAG responses',
+                language: 'lithuanian',
+                category: 'formatting'
+            }
+        }
+    ];
+
+    const results = [];
+    for (const prompt of prompts) {
+        const result = await promptManager.createPrompt(
+            prompt.name,
+            prompt.content,
+            prompt.config
+        );
+        results.push({ name: prompt.name, success: !!result });
+    }
+
+    console.log('✅ Prompt initialization completed:', results);
+    return results;
+}
+
+/**
+ * Health check for prompt management system
+ */
+async function checkPromptSystemHealth() {
+    const health = await promptManager.healthCheck();
+    const cacheStats = promptManager.getCacheStats();
+    
+    return {
+        ...health,
+        cache: cacheStats,
+        prompts: {
+            system: 'vilnius-rag-system',
+            rephrase: 'vilnius-query-rephrase',
+            context: 'vilnius-context-format'
+        }
+    };
+}
+
 module.exports = {
     // Template creators
     createSystemPrompt,
@@ -250,6 +381,13 @@ module.exports = {
     createHistoryPrompt,
     createRAGChatPrompt,
     createSimpleRAGPrompt,
+    
+    // Langfuse-managed prompt functions
+    getSystemPromptManaged,
+    getRephrasePromptManaged,
+    getContextPromptManaged,
+    initializePromptsInLangfuse,
+    checkPromptSystemHealth,
     
     // Utility functions
     formatChatHistory,

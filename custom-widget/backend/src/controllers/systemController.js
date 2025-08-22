@@ -568,6 +568,59 @@ Based on the relevant information provided above, please respond to the user's q
     }
 
     /**
+     * Initialize all prompts in Langfuse for management
+     * POST /prompts/initialize
+     */
+    async initializePrompts(req, res) {
+        try {
+            const { initializePromptsInLangfuse } = require('../services/chains/VilniusPrompts');
+            
+            console.log('🚀 Initializing Langfuse prompts...');
+            const results = await initializePromptsInLangfuse();
+            
+            res.json({
+                success: true,
+                message: 'Prompts initialized in Langfuse',
+                results: results,
+                timestamp: new Date().toISOString()
+            });
+            
+        } catch (error) {
+            console.error('Failed to initialize prompts:', error);
+            res.status(500).json({
+                error: 'Failed to initialize prompts',
+                details: error.message,
+                available: process.env.LANGFUSE_PUBLIC_KEY ? 'Langfuse configured' : 'Langfuse not configured'
+            });
+        }
+    }
+
+    /**
+     * Get prompt management system health
+     * GET /prompts/health
+     */
+    async getPromptHealth(req, res) {
+        try {
+            const { checkPromptSystemHealth } = require('../services/chains/VilniusPrompts');
+            
+            const health = await checkPromptSystemHealth();
+            
+            res.json({
+                success: true,
+                health: health,
+                timestamp: new Date().toISOString()
+            });
+            
+        } catch (error) {
+            console.error('Failed to check prompt health:', error);
+            res.status(500).json({
+                error: 'Failed to check prompt system health',
+                details: error.message
+            });
+        }
+    }
+
+    /**
      * Static method to get RAG settings for use in other services
      */
     static getRagConfig() {

@@ -24,7 +24,8 @@ const {
     createRAGChatPrompt, 
     createSimpleRAGPrompt,
     formatChatHistory,
-    formatContextAsMarkdown 
+    formatContextAsMarkdown,
+    getSystemPromptManaged
 } = require('./VilniusPrompts');
 
 class VilniusRAGChain extends BaseChain {
@@ -58,9 +59,10 @@ class VilniusRAGChain extends BaseChain {
             skipRephrasing: options.skipRephrasing || false
         });
 
-        // Create prompts
+        // Create prompts (will be enhanced with managed prompts on first use)
         this.ragChatPrompt = createRAGChatPrompt();
         this.simpleRAGPrompt = createSimpleRAGPrompt();
+        this.managedPrompt = null; // Cached managed prompt
 
         // Configuration
         this.enableRephrasing = options.enableRephrasing !== false;
@@ -210,6 +212,9 @@ class VilniusRAGChain extends BaseChain {
                 console.log('🤖 VilniusRAGChain: Generating response');
             }
 
+            // Get managed prompt for enhanced system instructions
+            const managedPrompt = await this.getManagedPrompt();
+
             const hasHistory = chat_history && chat_history.length > 0;
             let response;
 
@@ -222,7 +227,17 @@ class VilniusRAGChain extends BaseChain {
                     context: context
                 });
 
-                response = await this._invokeWithTimeout(messages, runManager);
+                // If we have a managed prompt, replace the system message
+                if (managedPrompt?.managed) {
+                    const systemContent = managedPrompt.managed.compile({
+                        formatted_history: formattedHistory,
+                        question: question,
+                        context: context
+                    });
+                    messages[0].content = systemContent;
+                }
+
+                response = await this._invokeWithTimeout(messages, runManager, managedPrompt);
             } else {
                 // Use simple prompt without history
                 const messages = await this.simpleRAGPrompt.formatMessages({
@@ -230,7 +245,16 @@ class VilniusRAGChain extends BaseChain {
                     context: context
                 });
 
-                response = await this._invokeWithTimeout(messages, runManager);
+                // If we have a managed prompt, replace the system message
+                if (managedPrompt?.managed) {
+                    const systemContent = managedPrompt.managed.compile({
+                        question: question,
+                        context: context
+                    });
+                    messages[0].content = systemContent;
+                }
+
+                response = await this._invokeWithTimeout(messages, runManager, managedPrompt);
             }
 
             const answer = response.content || response.text || 'Atsiprašau, negaliu atsakyti į šį klausimą.';
@@ -332,14 +356,24 @@ class VilniusRAGChain extends BaseChain {
     /**
      * Invoke LLM with timeout protection
      */
-    async _invokeWithTimeout(messages, runManager) {
+    async _invokeWithTimeout(messages, runManager, managedPrompt = null) {
         const timeoutPromise = new Promise((_, reject) => 
             setTimeout(() => reject(new Error(`LLM call timeout after ${this.timeout}ms`)), this.timeout)
         );
         
-        const llmPromise = this.llm.invoke(messages, {
+        // Prepare callback options with potential prompt linking
+        const callbackOptions = {
             callbacks: [this.langfuseHandler]
-        });
+        };
+
+        // Add prompt metadata if available for trace linking
+        if (managedPrompt?.managed?.langfusePrompt) {
+            callbackOptions.metadata = {
+                langfusePrompt: managedPrompt.managed.langfusePrompt
+            };
+        }
+        
+        const llmPromise = this.llm.invoke(messages, callbackOptions);
         
         try {
             return await Promise.race([llmPromise, timeoutPromise]);
@@ -349,6 +383,28 @@ class VilniusRAGChain extends BaseChain {
             }
             throw error;
         }
+    }
+
+    /**
+     * Get managed system prompt from Langfuse with fallback
+     */
+    async getManagedPrompt() {
+        if (!this.managedPrompt) {
+            try {
+                this.managedPrompt = await getSystemPromptManaged();
+                if (this.verbose && this.managedPrompt.managed.fromLangfuse) {
+                    console.log(`📝 Using Langfuse managed system prompt (v${this.managedPrompt.managed.version})`);
+                } else if (this.verbose && this.managedPrompt.managed.source === '.env override') {
+                    console.log(`📝 Using .env system prompt override`);
+                } else if (this.verbose) {
+                    console.log(`📝 Using hardcoded system prompt fallback`);
+                }
+            } catch (error) {
+                console.warn('Failed to get managed prompt, using hardcoded fallback:', error.message);
+                this.managedPrompt = null;
+            }
+        }
+        return this.managedPrompt;
     }
 
     /**

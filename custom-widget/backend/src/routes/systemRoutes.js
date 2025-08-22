@@ -101,6 +101,15 @@ function createSystemRoutes() {
         systemController.contextTest(req, res);
     });
 
+    // Langfuse Prompt Management routes
+    router.post('/prompts/initialize', (req, res) => {
+        systemController.initializePrompts(req, res);
+    });
+
+    router.get('/prompts/health', (req, res) => {
+        systemController.getPromptHealth(req, res);
+    });
+
     return router;
 }
 
