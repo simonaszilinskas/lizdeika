@@ -245,7 +245,11 @@ vilnius-assistant/
 - **knowledgeService.js**: Document processing and vector database management
 
 #### **AI & RAG Services**
-- **langchainRAG.js**: Advanced RAG implementation with LangChain
+- **langchainRAG.js**: Advanced RAG implementation using proper LangChain patterns
+  - **chains/VilniusRAGChain.js**: Main RAG orchestrator extending BaseChain
+  - **chains/ChromaRetriever.js**: Custom retriever extending BaseRetriever  
+  - **chains/QueryRephraseChain.js**: Context-aware query enhancement
+  - **chains/VilniusPrompts.js**: Centralized prompt templates
 - **chromaService.js**: Vector database operations and embeddings
 - **mistralEmbeddingFunction.js**: Mistral embedding generation
 
