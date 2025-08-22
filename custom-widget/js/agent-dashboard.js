@@ -1741,35 +1741,37 @@ class AgentDashboard {
                     }
                 },
                 {
-                    id: 'rag-config',
-                    title: '2. RAG Configuration',
-                    data: langchainDebug.step2_ragConfig
-                },
-                {
                     id: 'query-rephrasing',
-                    title: '3. Query Rephrasing (LLM Call #1)',
-                    data: langchainDebug.step3_queryRephrasing
+                    title: '2. Query Rephrasing (LLM Call #1)',
+                    data: langchainDebug.step2_queryRephrasing
                 },
                 {
                     id: 'document-retrieval',
-                    title: '4. Document Retrieval',
-                    data: langchainDebug.step4_documentRetrieval
+                    title: '3. Document Retrieval',
+                    data: langchainDebug.step3_documentRetrieval
                 },
                 {
-                    id: 'prompt-construction',
-                    title: '5. Final Prompt Construction',
-                    data: langchainDebug.step5_promptConstruction
+                    id: 'context-formatting',
+                    title: '4. Context Formatting',
+                    data: langchainDebug.step4_contextFormatting
                 },
                 {
-                    id: 'llm-response',
-                    title: '6. AI Model Response (LLM Call #2)',
-                    data: langchainDebug.step6_llmResponse
+                    id: 'response-generation',
+                    title: '5. AI Model Response (LLM Call #2)',
+                    data: langchainDebug.step5_responseGeneration
+                },
+                {
+                    id: 'source-attribution',
+                    title: '6. Source Attribution',
+                    data: langchainDebug.step6_sourceAttribution
                 },
                 {
                     id: 'final-result',
                     title: '7. Final Result',
                     data: {
                         ...langchainDebug.step7_finalResult,
+                        totalProcessingTime: langchainDebug.totalProcessingTime,
+                        chainType: langchainDebug.chainType,
                         aiServiceFinalResponse: debugInfo.finalResponse
                     }
                 }
@@ -1881,11 +1883,25 @@ class AgentDashboard {
             if (data.rephrasedQuery) highlights.push(`Rephrased: "${data.rephrasedQuery}"`);
             if (data.extractedContent) highlights.push(`Response: ${data.extractedContent.substring(0, 50)}...`);
             
+            // Prompt management fields (Langfuse integration)
+            if (data.promptSource) highlights.push(`Prompt Source: ${data.promptSource}`);
+            if (data.promptVersion) highlights.push(`Version: v${data.promptVersion}`);
+            if (data.originalQuery) highlights.push(`Original: "${data.originalQuery}"`);
+            if (data.improvement !== undefined) highlights.push(`Improved: ${data.improvement ? 'Yes' : 'No'}`);
+            if (data.action) highlights.push(`Action: ${data.action}`);
+            if (data.hasHistory !== undefined) highlights.push(`Has History: ${data.hasHistory}`);
+            if (data.promptType) highlights.push(`Type: ${data.promptType}`);
+            
             // RAG-specific fields
             if (data.contextsUsed) highlights.push(`Contexts: ${data.contextsUsed}`);
             if (data.sources && Array.isArray(data.sources)) highlights.push(`Sources: ${data.sources.length}`);
             if (data.retrievedDocuments !== undefined) highlights.push(`Documents: ${data.retrievedDocuments}`);
+            if (data.requestedDocuments !== undefined) highlights.push(`Requested: ${data.requestedDocuments}`);
             if (data.searchQuery) highlights.push(`Search: "${data.searchQuery}"`);
+            if (data.documentsMetadata && Array.isArray(data.documentsMetadata)) {
+                highlights.push(`Metadata: ${data.documentsMetadata.length} entries`);
+            }
+            if (data.documentsUsed) highlights.push(`Used: ${data.documentsUsed}`);
             
             // Content length fields
             if (data.contextLength) highlights.push(`Context: ${data.contextLength} chars`);
