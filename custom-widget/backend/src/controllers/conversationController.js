@@ -461,7 +461,7 @@ class ConversationController {
                 const sender = msg.sender === 'visitor' ? 'Customer' : 'Agent';
                 return `${sender}: ${msg.content}`;
             })
-            .join('\\n\\n');
+            .join('\n\n');
         
         // If conversation is getting long, include only recent messages
         if (conversationHistory.length > 2000) {
@@ -471,7 +471,7 @@ class ConversationController {
                     const sender = msg.sender === 'visitor' ? 'Customer' : 'Agent';
                     return `${sender}: ${msg.content}`;
                 })
-                .join('\\n\\n');
+                .join('\n\n');
         }
         
         return conversationHistory;

@@ -295,9 +295,22 @@ function extractRecentUserMessage(conversationContext) {
 
 /**
  * Parse conversation context into structured history for LangChain
+ * Enhanced with better validation and debug logging
  */
 function parseConversationHistory(conversationContext) {
-    const lines = conversationContext.split('\n').filter(line => line.trim());
+    if (!conversationContext || typeof conversationContext !== 'string') {
+        console.warn('⚠️ Invalid conversation context:', conversationContext);
+        return [];
+    }
+    
+    console.log('🔍 Parsing conversation context:', conversationContext.substring(0, 200) + '...');
+    
+    // Handle both single and double-escaped newlines
+    const normalizedContext = conversationContext
+        .replace(/\\n\\n/g, '\n\n')
+        .replace(/\\n/g, '\n');
+    
+    const lines = normalizedContext.split('\n').filter(line => line.trim());
     const history = [];
     
     let currentUserMessage = null;
@@ -329,6 +342,7 @@ function parseConversationHistory(conversationContext) {
         history.push([currentUserMessage, '']);
     }
     
+    console.log(`✅ Parsed ${history.length} conversation pairs:`, history);
     return history;
 }
 

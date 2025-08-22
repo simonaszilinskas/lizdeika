@@ -273,17 +273,17 @@ class LangChainRAG {
      * Uses conversationId for proper conversation-based session grouping
      */
     generateSessionId(query, chatHistory, conversationId) {
-        // Use conversationId if available for proper conversation-based sessions
+        // Always use conversationId when available for proper conversation continuity
         if (conversationId) {
             return `vilnius-conversation-${conversationId}`;
         }
         
-        // Fallback to query-based session ID for backward compatibility
-        const timestamp = Date.now();
-        const queryHash = this.hashString(query.substring(0, 20));
-        const historyLength = chatHistory.length;
+        // Fallback: Use consistent hash based on first message only (no timestamp)
+        // This ensures session continuity even without conversationId
+        const firstMessage = chatHistory.length > 0 ? chatHistory[0][0] : query;
+        const queryHash = this.hashString(firstMessage.substring(0, 50));
         
-        return `vilnius-rag-${queryHash}-${historyLength}-${timestamp}`;
+        return `vilnius-rag-session-${queryHash}`;
     }
 
     /**
