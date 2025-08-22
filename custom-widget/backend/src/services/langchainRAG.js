@@ -75,6 +75,13 @@ class LangChainRAG {
                 console.log(`   Include debug: ${includeDebug}`);
             }
 
+            // Generate session ID for tracing grouping
+            const sessionId = this.generateSessionId(query, chatHistory);
+            
+            // Update chain configuration with session context
+            this.ragChain.langfuseHandler.sessionId = sessionId;
+            this.ragChain.rephraseChain.langfuseHandler.sessionId = sessionId;
+
             // Call the main RAG chain
             const result = await this.ragChain._call({
                 question: query,
@@ -249,6 +256,45 @@ class LangChainRAG {
     extractChunkInfo(metadata) {
         const { extractChunkInfo } = require('./chains/VilniusPrompts');
         return extractChunkInfo(metadata);
+    }
+
+    /**
+     * Generate session ID for Langfuse tracing
+     * This groups related queries together for better observability
+     */
+    generateSessionId(query, chatHistory) {
+        const timestamp = Date.now();
+        const queryHash = this.hashString(query.substring(0, 20));
+        const historyLength = chatHistory.length;
+        
+        return `vilnius-rag-${queryHash}-${historyLength}-${timestamp}`;
+    }
+
+    /**
+     * Simple hash function for generating session IDs
+     */
+    hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(16);
+    }
+
+    /**
+     * Cleanup method to flush Langfuse events
+     * Important for serverless/short-lived environments
+     */
+    async shutdown() {
+        try {
+            await this.ragChain.langfuseHandler.shutdownAsync();
+            await this.ragChain.rephraseChain.langfuseHandler.shutdownAsync();
+            console.log('✅ Langfuse handlers shutdown completed');
+        } catch (error) {
+            console.error('❌ Error during Langfuse shutdown:', error);
+        }
     }
 }
 

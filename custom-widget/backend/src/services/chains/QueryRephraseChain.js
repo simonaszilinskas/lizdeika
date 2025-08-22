@@ -14,6 +14,7 @@
 
 const { LLMChain } = require("langchain/chains");
 const { ChatOpenAI } = require("@langchain/openai");
+const { CallbackHandler } = require("langfuse-langchain");
 const { createRephrasePrompt, formatChatHistory } = require('./VilniusPrompts');
 
 class QueryRephraseChain extends LLMChain {
@@ -43,6 +44,17 @@ class QueryRephraseChain extends LLMChain {
 
         this.skipRephrasing = options.skipRephrasing || false;
         this.minHistoryLength = options.minHistoryLength || 1;
+
+        // Initialize Langfuse callback handler for query rephrasing observability
+        this.langfuseHandler = new CallbackHandler({
+            publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+            secretKey: process.env.LANGFUSE_SECRET_KEY,
+            baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
+            debug: process.env.LANGFUSE_DEBUG === 'true',
+            flushAt: 1,
+            sessionId: options.sessionId,
+            userId: options.userId
+        });
     }
 
     /**
@@ -117,11 +129,13 @@ class QueryRephraseChain extends LLMChain {
         }
 
         try {
-            // Call the parent LLMChain with formatted inputs
+            // Call the parent LLMChain with formatted inputs and Langfuse callback
             const result = await super._call({
                 question: question,
                 chat_history: formattedHistory
-            }, runManager);
+            }, runManager, {
+                callbacks: [this.langfuseHandler]
+            });
 
             const rephrasedQuery = result.rephrased_query || result.text || question;
             const wasRephrased = rephrasedQuery !== question;

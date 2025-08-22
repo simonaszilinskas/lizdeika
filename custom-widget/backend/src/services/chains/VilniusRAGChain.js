@@ -17,6 +17,7 @@
 const { BaseChain } = require("langchain/chains");
 const { ChatOpenAI } = require("@langchain/openai");
 const { Document } = require("@langchain/core/documents");
+const { CallbackHandler } = require("langfuse-langchain");
 const ChromaRetriever = require('./ChromaRetriever');
 const QueryRephraseChain = require('./QueryRephraseChain');
 const { 
@@ -67,6 +68,23 @@ class VilniusRAGChain extends BaseChain {
         this.includeDebug = options.includeDebug !== false;
         this.verbose = options.verbose || false;
         this.timeout = options.timeout || 60000; // 60 second timeout
+
+        // Initialize Langfuse callback handler for observability
+        this.langfuseHandler = new CallbackHandler({
+            publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+            secretKey: process.env.LANGFUSE_SECRET_KEY,
+            baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
+            debug: process.env.LANGFUSE_DEBUG === 'true',
+            flushAt: 1, // Flush immediately for better debugging
+            sessionId: options.sessionId, // Optional session ID for grouping traces
+            userId: options.userId // Optional user ID for tracking
+        });
+
+        if (this.verbose) {
+            console.log('✅ Langfuse observability initialized');
+            console.log(`   - Base URL: ${process.env.LANGFUSE_BASE_URL}`);
+            console.log(`   - Debug mode: ${process.env.LANGFUSE_DEBUG === 'true'}`);
+        }
     }
 
     /**
@@ -319,7 +337,9 @@ class VilniusRAGChain extends BaseChain {
             setTimeout(() => reject(new Error(`LLM call timeout after ${this.timeout}ms`)), this.timeout)
         );
         
-        const llmPromise = this.llm.invoke(messages);
+        const llmPromise = this.llm.invoke(messages, {
+            callbacks: [this.langfuseHandler]
+        });
         
         try {
             return await Promise.race([llmPromise, timeoutPromise]);

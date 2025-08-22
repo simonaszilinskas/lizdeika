@@ -2,7 +2,7 @@
 
 > **Phase 3 Complete**: A production-ready customer support platform with AI-powered assistance, user management, and RAG capabilities for Vilnius city.
 
-**Current Status**: ✅ PostgreSQL database, JWT authentication, dual AI providers (OpenRouter + Flowise), document RAG with Chroma DB, automatic ticket assignment for 20 agents supporting 16,000+ conversations annually.
+**Current Status**: ✅ PostgreSQL database, JWT authentication, dual AI providers (OpenRouter + Flowise), document RAG with Chroma DB, automatic ticket assignment, Langfuse observability for 20 agents supporting 16,000+ conversations annually.
 
 ## 📚 Documentation
 
@@ -13,6 +13,7 @@
 | **[System Architecture](./custom-widget/ARCHITECTURE.md)** | Technical architecture and diagrams |
 | **[File Structure](./custom-widget/FILE_GUIDE.md)** | Complete file overview |
 | **[User Management](./custom-widget/USER_MANAGEMENT_SYSTEM.md)** | Authentication and user system |
+| **[Langfuse Integration](./custom-widget/backend/LANGFUSE_INTEGRATION.md)** | LLM observability and tracing setup |
 
 ## ⚡ Quick Start
 
