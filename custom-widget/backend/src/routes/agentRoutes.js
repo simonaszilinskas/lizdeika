@@ -75,6 +75,15 @@ function createAgentRoutes(io) {
         agentController.getConnectedAgents(req, res);
     });
 
+    // NEW: AFK detection configuration
+    router.get('/system/afk-config', (req, res) => {
+        agentController.getAFKConfig(req, res);
+    });
+
+    router.post('/system/afk-timeout', (req, res) => {
+        agentController.setAFKTimeout(req, res);
+    });
+
     return router;
 }
 

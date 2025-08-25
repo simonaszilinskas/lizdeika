@@ -37,6 +37,7 @@
 const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
+const afkDetectionService = require('../services/afkDetectionService');
 const { asyncHandler } = require('../utils/errors');
 
 class AgentController {
@@ -251,6 +252,9 @@ class AgentController {
                 return res.status(400).json({ error: 'Personal status must be online or afk' });
             }
 
+            // Record activity for AFK detection
+            await afkDetectionService.recordActivity(agentId);
+
             const previousAgent = await agentService.getAgent(agentId);
             const previousStatus = previousAgent?.personalStatus;
             const updatedAgent = await agentService.updateAgentPersonalStatus(agentId, personalStatus, conversationService);
@@ -371,6 +375,28 @@ class AgentController {
             res.status(500).json({ error: 'Failed to get all agents' });
         }
     }
+
+    /**
+     * Get AFK detection configuration
+     */
+    getAFKConfig = asyncHandler(async (req, res) => {
+        const config = afkDetectionService.getConfig();
+        res.json(config);
+    })
+
+    /**
+     * Update AFK timeout configuration
+     */
+    setAFKTimeout = asyncHandler(async (req, res) => {
+        const { minutes } = req.body;
+        
+        if (!minutes || minutes < 1 || minutes > 120) {
+            return res.status(400).json({ error: 'Timeout must be between 1 and 120 minutes' });
+        }
+
+        afkDetectionService.setAFKTimeout(minutes);
+        res.json({ success: true, afkTimeoutMinutes: minutes });
+    })
 }
 
 module.exports = AgentController;

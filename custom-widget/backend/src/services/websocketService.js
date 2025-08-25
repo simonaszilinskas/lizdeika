@@ -4,6 +4,7 @@
  */
 const agentService = require('./agentService');
 const conversationService = require('./conversationService');
+const afkDetectionService = require('./afkDetectionService');
 
 class WebSocketService {
     constructor(io) {
@@ -29,6 +30,9 @@ class WebSocketService {
                 // Update agent status to online
                 await agentService.setAgentOnline(agentId, socket.id);
                 
+                // Record activity for AFK detection
+                await afkDetectionService.recordActivity(agentId);
+                
                 console.log(`Agent ${agentId} connected with socket ${socket.id}`);
                 
                 // Send current system mode and connected agents to the joining agent
@@ -51,8 +55,14 @@ class WebSocketService {
             });
             
             // Handle agent typing
-            socket.on('agent-typing', (data) => {
+            socket.on('agent-typing', async (data) => {
                 const { conversationId, isTyping } = data;
+                
+                // Record activity for AFK detection
+                if (socket.agentId) {
+                    await afkDetectionService.recordActivity(socket.agentId);
+                }
+                
                 socket.to(conversationId).emit('agent-typing-status', {
                     isTyping,
                     timestamp: new Date()
