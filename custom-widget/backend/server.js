@@ -114,12 +114,17 @@ server.listen(PORT, () => {
     
     // Set up periodic auto-close of inactive conversations
     const autoCloseInterval = parseInt(process.env.AUTO_CLOSE_CHECK_INTERVAL_MINUTES) || 60; // Default 1 hour
-    setInterval(() => {
+    setInterval(async () => {
         try {
             const conversationService = require('./src/services/conversationService');
-            const closedCount = conversationService.autoCloseInactiveConversations();
-            if (closedCount > 0) {
-                console.log(`Auto-closed ${closedCount} inactive conversations`);
+            // Check if the function exists before calling it
+            if (typeof conversationService.autoCloseInactiveConversations === 'function') {
+                const closedCount = await conversationService.autoCloseInactiveConversations();
+                if (closedCount > 0) {
+                    console.log(`Auto-closed ${closedCount} inactive conversations`);
+                }
+            } else {
+                console.log('⚠️  autoCloseInactiveConversations function not implemented yet - skipping auto-close check');
             }
         } catch (error) {
             console.error('Error during auto-close check:', error);
