@@ -510,12 +510,39 @@
                     document.getElementById('mainContainer').style.height = 'calc(100vh - 44px)';
                 }
                 
-                console.log('📜 Loading dashboard JavaScript...');
-                const script = document.createElement('script');
-                script.src = 'js/agent-dashboard.js';
-                script.onload = () => console.log('✅ Dashboard JavaScript loaded successfully');
-                script.onerror = () => console.error('❌ Failed to load dashboard JavaScript');
-                document.body.appendChild(script);
+                console.log('📜 Loading enhanced error handling modules...');
+                const loadScript = (src) => {
+                    return new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = src;
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.body.appendChild(script);
+                    });
+                };
+
+                try {
+                    // Load error handling modules first
+                    await loadScript('js/modules/notificationSystem.js');
+                    await loadScript('js/modules/errorHandler.js');
+                    await loadScript('js/modules/errorMonitoring.js');
+                    
+                    console.log('✅ Error handling modules loaded');
+                    console.log('📜 Loading dashboard JavaScript...');
+                    
+                    // Then load main dashboard
+                    const script = document.createElement('script');
+                    script.src = 'js/agent-dashboard.js';
+                    script.onload = () => console.log('✅ Dashboard JavaScript loaded successfully');
+                    script.onerror = () => console.error('❌ Failed to load dashboard JavaScript');
+                    document.body.appendChild(script);
+                } catch (error) {
+                    console.error('❌ Failed to load error handling modules:', error);
+                    // Still try to load dashboard even if error modules fail
+                    const script = document.createElement('script');
+                    script.src = 'js/agent-dashboard.js';
+                    document.body.appendChild(script);
+                }
                 
             } catch (error) {
                 console.error('❌ Authentication check failed:', error);

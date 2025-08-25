@@ -18,10 +18,37 @@ class Settings {
         };
         this.lastAgentsData = null;
         
+        // Enhanced error handling
+        this.errorHandler = null;
+        this.apiRequest = null;
+        
+        this.initializeErrorHandling();
         this.initializeElements();
         this.initializeSmartConnection();
         this.attachEventListeners();
         this.loadInitialData();
+    }
+
+    /**
+     * Initialize error handling system
+     */
+    initializeErrorHandling() {
+        if (window.ErrorHandler) {
+            this.errorHandler = new window.ErrorHandler({
+                maxRetries: 3,
+                retryDelay: 1000,
+                enableUserNotifications: true,
+                enableLogging: true
+            });
+            
+            // Create API request helper with retry
+            this.apiRequest = this.errorHandler.createAPIErrorHandler(this.apiUrl);
+            
+            console.log('✅ Settings: Error handling initialized');
+        } else {
+            console.warn('⚠️ Settings: ErrorHandler not available, using fallback');
+            this.apiRequest = async (url, options) => fetch(`${this.apiUrl}${url}`, options);
+        }
     }
 
     initializeElements() {
@@ -149,39 +176,37 @@ class Settings {
             }
 
             console.log('🌐 Fetching user profile from:', `${this.apiUrl}/api/auth/profile`);
-            const response = await fetch(`${this.apiUrl}/api/auth/profile`, {
+            
+            // Use enhanced API request with retry mechanism
+            const response = await this.apiRequest('/api/auth/profile', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
             console.log('📡 Response status:', response.status); // Debug log
             
-            if (response.ok) {
-                const data = await response.json();
-                console.log('📦 Raw response data:', data); // Debug log
+            const data = await response.json();
+            console.log('📦 Raw response data:', data); // Debug log
+            
+            this.currentUser = data.data; // User data is directly in data, not data.user
+            console.log('👤 Current user loaded:', this.currentUser); // Debug log
+            
+            // Add admin class to body if user is admin
+            if (this.currentUser && this.currentUser.role === 'admin') {
+                document.body.classList.add('admin-user');
+                console.log('✅ Admin class added to body, body classes:', document.body.className);
                 
-                this.currentUser = data.data; // User data is directly in data, not data.user
-                console.log('👤 Current user loaded:', this.currentUser); // Debug log
-                
-                // Add admin class to body if user is admin
-                if (this.currentUser && this.currentUser.role === 'admin') {
-                    document.body.classList.add('admin-user');
-                    console.log('✅ Admin class added to body, body classes:', document.body.className);
-                    
-                    // Force show admin elements
-                    const adminElements = document.querySelectorAll('.admin-only');
-                    console.log('🔧 Found admin-only elements:', adminElements.length);
-                    adminElements.forEach(el => {
-                        el.style.display = 'block';
-                        console.log('👁️  Forced show admin element:', el);
-                    });
-                } else {
-                    console.log('❌ User is not admin, role:', this.currentUser?.role);
-                }
+                // Force show admin elements
+                const adminElements = document.querySelectorAll('.admin-only');
+                console.log('🔧 Found admin-only elements:', adminElements.length);
+                adminElements.forEach(el => {
+                    el.style.display = 'block';
+                    console.log('👁️  Forced show admin element:', el);
+                });
             } else {
-                const errorData = await response.json();
-                console.log('❌ Profile request failed:', response.status, errorData);
+                console.log('❌ User is not admin, role:', this.currentUser?.role);
             }
         } catch (error) {
+            // Error is already handled by the error handler system
             console.error('💥 Failed to load current user:', error);
         }
     }
@@ -901,7 +926,22 @@ class Settings {
         return new Date(timestamp).toLocaleDateString();
     }
 
-    showMessage(text, type = 'info') {
+    showMessage(text, type = 'info', title = '') {
+        // Use new notification system if available
+        if (window.notificationSystem) {
+            switch (type) {
+                case 'success':
+                    return window.notificationSystem.success(text, title);
+                case 'error':
+                    return window.notificationSystem.error(text, title);
+                case 'warning':
+                    return window.notificationSystem.warning(text, title);
+                default:
+                    return window.notificationSystem.info(text, title);
+            }
+        }
+        
+        // Fallback to old system if notification system not available
         this.messageText.textContent = text;
         
         // Reset classes
