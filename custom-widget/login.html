@@ -50,20 +50,6 @@
             <span id="successText">Login successful! Redirecting...</span>
         </div>
 
-        <!-- Development Quick Login (will be removed in production) -->
-        <div class="mt-8 pt-6 border-t border-gray-200">
-            <p class="text-xs text-gray-500 text-center mb-4">Development Quick Login:</p>
-            <div class="space-y-2">
-                <button type="button" onclick="quickLogin('admin')" 
-                        class="w-full bg-purple-100 text-purple-700 py-2 px-4 rounded text-sm hover:bg-purple-200 transition-colors">
-                    Login as Admin
-                </button>
-                <button type="button" onclick="quickLogin('user')" 
-                        class="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded text-sm hover:bg-gray-200 transition-colors">
-                    Login as User
-                </button>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -156,20 +142,6 @@
             }
         }
 
-        // Development quick login functions
-        async function quickLogin(role) {
-            const credentials = {
-                admin: { email: 'admin@vilnius.lt', password: 'Admin123!' },
-                user: { email: 'agent@vilnius.lt', password: 'Agent123!' }
-            };
-            
-            const creds = credentials[role];
-            if (creds) {
-                document.getElementById('email').value = creds.email;
-                document.getElementById('password').value = creds.password;
-                await login(creds.email, creds.password);
-            }
-        }
     </script>
 </body>
 </html>
