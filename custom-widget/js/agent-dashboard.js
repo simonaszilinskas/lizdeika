@@ -24,6 +24,11 @@ class AgentDashboard {
         this.selectedConversations = new Set(); // Track selected conversations for bulk operations
         this.archiveFilter = 'active'; // Archive filter (active, archived)
         
+        // Agent caching to prevent rapid-fire API calls
+        this.agentCache = null;
+        this.agentCacheExpiry = 0;
+        this.agentCacheDuration = 30000; // 30 seconds cache
+        
         // Make dashboard globally available immediately
         window.dashboard = this;
         
@@ -974,18 +979,33 @@ class AgentDashboard {
 
     /**
      * Render dropdown options for all agents (online and offline)
+     * Uses caching to prevent rapid-fire API calls
      */
     async renderAgentOptions(conversationId) {
         try {
-            // Fetch all agents from server
-            const response = await fetch(`${this.apiUrl}/api/agents/all`);
-            if (!response.ok) {
-                console.error('Failed to fetch agents:', response.status);
-                return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
-            }
+            let allAgents;
             
-            const data = await response.json();
-            const allAgents = data.agents.filter(agent => agent.id !== this.agentId);
+            // Check cache first
+            if (this.agentCache && Date.now() < this.agentCacheExpiry) {
+                allAgents = this.agentCache.filter(agent => agent.id !== this.agentId);
+                console.log('📋 Using cached agent data');
+            } else {
+                // Fetch all agents from server
+                console.log('🔄 Fetching fresh agent data');
+                const response = await fetch(`${this.apiUrl}/api/agents/all`);
+                if (!response.ok) {
+                    console.error('Failed to fetch agents:', response.status);
+                    return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
+                }
+                
+                const data = await response.json();
+                
+                // Update cache
+                this.agentCache = data.agents;
+                this.agentCacheExpiry = Date.now() + this.agentCacheDuration;
+                
+                allAgents = data.agents.filter(agent => agent.id !== this.agentId);
+            }
             
             // Sort: online agents first, then offline
             allAgents.sort((a, b) => {
@@ -2009,6 +2029,9 @@ class AgentDashboard {
         // Listen for connected agents updates
         this.socket.on('connected-agents-update', (data) => {
             console.log('Connected agents update:', data);
+            // Invalidate agent cache when status changes
+            this.agentCacheExpiry = 0;
+            console.log('🔄 Agent cache invalidated due to status change');
             this.updateConnectedAgents(data.agents);
         });
         

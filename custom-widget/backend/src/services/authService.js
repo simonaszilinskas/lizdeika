@@ -299,14 +299,14 @@ class AuthService {
     // Find and revoke refresh token
     const storedToken = await this.db.refresh_tokens.findUnique({
       where: { token: refreshToken },
-      include: { user: true },
+      include: { users: true },
     });
 
     if (storedToken) {
       // Set agent status to offline if user is an agent
-      if (storedToken.user.role === 'agent') {
-        await this.db.agentStatus.updateMany({
-          where: { user_id: storedToken.user.id },
+      if (storedToken.users.role === 'agent') {
+        await this.db.agent_status.updateMany({
+          where: { user_id: storedToken.users.id },
           data: { status: 'offline' },
         });
       }
@@ -321,8 +321,8 @@ class AuthService {
         data: {
           action: 'user_logout',
           details: {
-            user_id: storedToken.user.id,
-            email: storedToken.user.email,
+            user_id: storedToken.users.id,
+            email: storedToken.users.email,
             timestamp: new Date().toISOString(),
           },
         },

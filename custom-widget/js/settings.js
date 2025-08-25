@@ -9,7 +9,17 @@ class Settings {
         this.currentUser = null;
         this.currentMode = null;
         
+        // Smart connection management
+        this.socket = null;
+        this.connectionManager = null;
+        this.lastDataTimestamp = {
+            connectedAgents: 0,
+            systemMode: 0
+        };
+        this.lastAgentsData = null;
+        
         this.initializeElements();
+        this.initializeSmartConnection();
         this.attachEventListeners();
         this.loadInitialData();
     }
@@ -269,11 +279,44 @@ class Settings {
             const response = await fetch(`${this.apiUrl}/api/agents/connected`);
             const data = await response.json();
             
+            // Check if data has changed for smart polling
+            const dataString = JSON.stringify(data.agents);
+            const hasChanged = this.lastAgentsData !== dataString;
+            this.lastAgentsData = dataString;
+            
             this.displayAgents(data.agents);
             this.updateAgentStats(data.agents);
+            
+            return hasChanged; // Return true if data changed
         } catch (error) {
             console.error('Error loading connected agents:', error);
+            return false; // No change on error
         }
+    }
+
+    /**
+     * Update agent display with new data (used by smart updates)
+     */
+    updateAgentDisplay(agents) {
+        this.displayAgents(agents);
+        this.updateAgentStats(agents);
+        console.log('📊 Agent display updated via smart update');
+    }
+
+    /**
+     * Update system mode display (used by smart updates)
+     */
+    updateSystemModeDisplay(mode) {
+        this.currentMode = mode;
+        if (this.currentModeSpan) {
+            this.currentModeSpan.textContent = mode.toUpperCase();
+            this.currentModeSpan.className = `px-3 py-1 text-sm font-semibold rounded-full ${
+                mode === 'autopilot' ? 'bg-blue-100 text-blue-800' :
+                mode === 'hitl' ? 'bg-green-100 text-green-800' : 
+                'bg-red-100 text-red-800'
+            }`;
+        }
+        console.log('🎛️ System mode display updated via smart update:', mode);
     }
 
     displayAgents(agents) {
@@ -685,10 +728,169 @@ class Settings {
         modal.classList.add('hidden');
     }
 
+    /**
+     * Initialize smart connection with WebSocket and intelligent polling
+     */
+    initializeSmartConnection() {
+        try {
+            // Initialize WebSocket connection
+            if (typeof io !== 'undefined') {
+                this.socket = io(this.apiUrl, {
+                    transports: ['websocket', 'polling'],
+                    timeout: 5000,
+                    reconnection: true,
+                    reconnectionAttempts: 5,
+                    reconnectionDelay: 1000,
+                });
+
+                this.setupWebSocketListeners();
+            }
+
+            // Initialize smart connection manager
+            if (typeof ConnectionManager !== 'undefined') {
+                this.connectionManager = new ConnectionManager(this.apiUrl, this.socket);
+                this.setupSmartPolling();
+            } else {
+                console.warn('ConnectionManager not available, falling back to basic polling');
+                this.startBasicPolling();
+            }
+        } catch (error) {
+            console.error('Error initializing smart connection:', error);
+            this.startBasicPolling();
+        }
+    }
+
+    /**
+     * Setup WebSocket event listeners
+     */
+    setupWebSocketListeners() {
+        this.socket.on('connect', () => {
+            console.log('🔌 Settings: WebSocket connected');
+            // Subscribe to smart updates
+            this.socket.emit('subscribe-smart-updates', ['agent-status', 'system-mode']);
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('🔌 Settings: WebSocket disconnected');
+        });
+
+        // Listen for smart updates
+        this.socket.on('smart-update', (update) => {
+            console.log('📡 Settings: Received smart update:', update.type);
+            this.handleSmartUpdate(update);
+        });
+
+        // Listen for current state responses
+        this.socket.on('current-state', (response) => {
+            this.handleCurrentState(response);
+        });
+    }
+
+    /**
+     * Handle smart updates from WebSocket
+     */
+    handleSmartUpdate(update) {
+        switch (update.type) {
+            case 'agent-status':
+                this.updateAgentDisplay(update.data);
+                this.lastDataTimestamp.connectedAgents = Date.now();
+                break;
+            case 'system-mode':
+                this.updateSystemModeDisplay(update.data);
+                this.lastDataTimestamp.systemMode = Date.now();
+                break;
+        }
+    }
+
+    /**
+     * Handle current state responses
+     */
+    handleCurrentState(response) {
+        switch (response.type) {
+            case 'connected-agents':
+                this.updateAgentDisplay(response.data);
+                break;
+            case 'system-mode':
+                this.updateSystemModeDisplay(response.data);
+                break;
+        }
+    }
+
+    /**
+     * Setup smart polling with connection manager
+     */
+    setupSmartPolling() {
+        // Create smart poller for connected agents
+        this.connectionManager.createSmartPoller('connected-agents', 
+            () => this.smartLoadConnectedAgents(), {
+                interval: 30000, // 30 seconds (was 5 seconds!)
+                maxInterval: 60000,
+                exponential: true,
+                onlyWhenNeeded: true
+            }
+        );
+
+        // Create smart poller for system mode (less frequent)
+        this.connectionManager.createSmartPoller('system-mode', 
+            () => this.smartLoadSystemMode(), {
+                interval: 45000, // 45 seconds
+                maxInterval: 120000, // 2 minutes max
+                exponential: true,
+                onlyWhenNeeded: true
+            }
+        );
+
+        // Start the pollers
+        this.connectionManager.startPoller('connected-agents');
+        this.connectionManager.startPoller('system-mode');
+
+        console.log('🚀 Smart polling initialized for settings page');
+    }
+
+    /**
+     * Smart load connected agents - returns true if data changed
+     */
+    async smartLoadConnectedAgents() {
+        // First try to request current state via WebSocket
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('request-current-state', 'connected-agents');
+            return false; // Don't continue with HTTP request
+        }
+
+        // Fallback to HTTP request
+        return await this.loadConnectedAgents();
+    }
+
+    /**
+     * Smart load system mode - returns true if data changed
+     */
+    async smartLoadSystemMode() {
+        // First try to request current state via WebSocket
+        if (this.socket && this.socket.connected) {
+            this.socket.emit('request-current-state', 'system-mode');
+            return false; // Don't continue with HTTP request
+        }
+
+        // Fallback to HTTP request
+        const previousMode = this.currentMode;
+        await this.loadSystemMode();
+        return this.currentMode !== previousMode;
+    }
+
     // Utility Methods
     startPeriodicUpdates() {
-        // Refresh agents every 5 seconds
-        setInterval(() => this.loadConnectedAgents(), 5000);
+        console.log('⚠️ Using deprecated startPeriodicUpdates - smart polling should be used instead');
+        this.startBasicPolling();
+    }
+
+    /**
+     * Fallback to basic polling if smart polling fails
+     */
+    startBasicPolling() {
+        console.log('📊 Falling back to basic polling (reduced frequency)');
+        // Reduce frequency from 5s to 30s even in fallback mode
+        setInterval(() => this.loadConnectedAgents(), 30000);
+        setInterval(() => this.loadSystemMode(), 45000);
     }
 
     formatTime(timestamp) {
