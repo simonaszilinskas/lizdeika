@@ -43,6 +43,7 @@ class JSDOMEnvironment {
         global.window = this.window;
         global.document = this.document;
         global.navigator = this.window.navigator;
+        global.localStorage = this.window.localStorage;
         
         return this;
     }

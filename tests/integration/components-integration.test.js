@@ -57,7 +57,8 @@ describe('Integration Tests - Settings and Dashboard', () => {
     
     describe('WebSocket Integration', () => {
         test('should handle WebSocket events', () => {
-            const mockSocket = new WebSocket('ws://localhost:3002');
+            const WebSocketMocks = require('../mocks/websocket-mocks');
+            const mockSocket = WebSocketMocks.createMockSocket();
             
             // Test WebSocket connection
             expect(mockSocket.readyState).toBe(1); // OPEN
