@@ -1710,7 +1710,6 @@ class AgentDashboard {
             if (response.ok) {
                 this.hideAISuggestion();
                 this.clearMessageInput();
-                this.showToast('Message sent successfully', 'success');
                 
                 // Reload messages and queue with slight delay
                 setTimeout(async () => {
