@@ -38,7 +38,7 @@ class AgentDashboard {
         // Initialize conversation update manager (Phase 1: infrastructure only)
         this.conversationUpdateManager = new ConversationUpdateManager({
             loader: this.modernConversationLoader,
-            renderer: this.renderConversations.bind(this),
+            renderer: this.renderQueue.bind(this),
             logger: console
         });
         
