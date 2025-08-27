@@ -2242,27 +2242,11 @@ class AgentDashboard {
         });
         
         // Application events
-        this.websocketManager.on('new-message', async (data) => {
+        this.websocketManager.on('new-message', (data) => {
             console.log('📨 New message received:', data);
             
-            // Phase 2: Try incremental update first, fallback to full reload
-            let incrementalUpdateSuccess = false;
-            if (this.conversationUpdateManager) {
-                try {
-                    await this.conversationUpdateManager.handleWebSocketUpdate('new_message', data);
-                    incrementalUpdateSuccess = true;
-                    console.log('✅ Incremental update successful for new message');
-                } catch (error) {
-                    console.log('⚠️ Incremental update failed, falling back to full reload:', error.message);
-                    incrementalUpdateSuccess = false;
-                }
-            }
-            
-            // Only do full reload if incremental update is disabled or failed
-            if (!incrementalUpdateSuccess) {
-                console.log('🔄 Performing full conversation reload');
-                this.loadConversations();
-            }
+            // Always do full conversation reload for reliability
+            this.loadConversations();
             
             // If this is the current chat, update messages and check for suggestion
             if (data.conversationId === this.currentChatId) {
@@ -2294,11 +2278,7 @@ class AgentDashboard {
             console.log('🔄 Tickets reassigned:', data);
             this.handleTicketReassignments(data);
             
-            // Phase 1: Use ConversationUpdateManager infrastructure but maintain current behavior
-            if (this.conversationUpdateManager) {
-                this.conversationUpdateManager.handleWebSocketUpdate('tickets_reassigned', data);
-            }
-            // Always do the original behavior as fallback (Phase 1 safety)
+            // Refresh conversations to show updated assignments
             setTimeout(() => this.loadConversations(), 500);
         });
         
