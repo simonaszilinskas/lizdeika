@@ -1533,7 +1533,17 @@ class AgentDashboard {
         
         const message = input.value.trim();
         
-        if (!message || !this.currentChatId) return;
+        // Validate message and provide feedback
+        if (!message) {
+            this.showToast('Please enter a message before sending', 'warning');
+            input.focus();
+            return;
+        }
+        
+        if (!this.currentChatId) {
+            this.showToast('Please select a conversation first', 'warning');
+            return;
+        }
         
         // Determine suggestion action
         const suggestionAction = this.currentSuggestion ? 
@@ -1700,6 +1710,7 @@ class AgentDashboard {
             if (response.ok) {
                 this.hideAISuggestion();
                 this.clearMessageInput();
+                this.showToast('Message sent successfully', 'success');
                 
                 // Reload messages and queue with slight delay
                 setTimeout(async () => {
@@ -1709,6 +1720,7 @@ class AgentDashboard {
             } else {
                 const errorText = await response.text();
                 console.error('Failed to send message:', errorText);
+                this.showToast(`Failed to send message: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
             console.error('Error sending agent response:', error);
@@ -1726,8 +1738,8 @@ class AgentDashboard {
                 errorMessage = 'Network error. Please check your connection and try again.';
             }
             
-            // Show error to user (you could implement a toast notification here)
-            console.warn('User-facing error:', errorMessage);
+            // Show error to user with toast notification
+            this.showToast(errorMessage, 'error');
             
             // Attempt to refresh data in case it helps
             setTimeout(() => {
@@ -1748,6 +1760,62 @@ class AgentDashboard {
             input.value = '';
             input.style.height = 'auto';
         }
+    }
+
+    /**
+     * Show toast notification to user
+     * @param {string} message - Message to display
+     * @param {string} type - Type of toast: 'success', 'warning', 'error', 'info'
+     */
+    showToast(message, type = 'info') {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'fixed top-4 right-4 z-50 space-y-2';
+            document.body.appendChild(toastContainer);
+        }
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `max-w-sm p-4 rounded-md shadow-lg transform transition-all duration-300 ease-in-out`;
+        
+        // Set colors based on type
+        const typeStyles = {
+            success: 'bg-green-500 text-white',
+            warning: 'bg-yellow-500 text-white',
+            error: 'bg-red-500 text-white',
+            info: 'bg-blue-500 text-white'
+        };
+        
+        toast.className += ` ${typeStyles[type] || typeStyles.info}`;
+        
+        // Set content
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <span class="flex-1">${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" 
+                        class="ml-3 text-white hover:text-gray-200 focus:outline-none">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        // Add to container
+        toastContainer.appendChild(toast);
+        
+        // Auto-remove after 5 seconds (except for errors - keep them longer)
+        const duration = type === 'error' ? 8000 : 5000;
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, duration);
     }
 
     /**
