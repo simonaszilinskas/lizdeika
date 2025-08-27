@@ -1267,12 +1267,12 @@ class AgentDashboard {
                 await this.loadConversations();
                 console.log('✅ Conversation list refreshed after unarchive operation');
             } else {
-                console.error('Failed to unarchive conversation:', response.status);
-                alert('Failed to unarchive conversation. Please try again.');
+                const errorText = await response.text();
+                console.error('Failed to unarchive conversation:', response.status, errorText);
+                this.showToast(`Failed to unarchive conversation: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('Error unarchiving conversation:', error);
-            alert('Failed to unarchive conversation. Please try again.');
+            this.handleBulkOperationError(error, 'unarchive');
         }
     }
 
@@ -1840,6 +1840,30 @@ class AgentDashboard {
             errorMessage = `You are not authorized to ${operation} this conversation.`;
         } else if (error.message.includes('404')) {
             errorMessage = 'This conversation no longer exists.';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'Server error. Please try again in a moment.';
+        } else if (error.name === 'TypeError') {
+            errorMessage = 'Network error. Please check your connection and try again.';
+        }
+        
+        this.showToast(errorMessage, 'error');
+    }
+
+    /**
+     * Handle bulk operation errors with user-friendly messages
+     * @param {Error} error - The error that occurred
+     * @param {string} operation - The operation that failed ('archive', 'unarchive', 'assign')
+     */
+    handleBulkOperationError(error, operation = 'process') {
+        console.error(`Error ${operation}ing conversations:`, error);
+        
+        // Show user-friendly error message
+        let errorMessage = `Failed to ${operation} conversations. Please try again.`;
+        
+        if (error.message.includes('403')) {
+            errorMessage = `You are not authorized to ${operation} these conversations.`;
+        } else if (error.message.includes('404')) {
+            errorMessage = 'Some conversations no longer exist.';
         } else if (error.message.includes('500')) {
             errorMessage = 'Server error. Please try again in a moment.';
         } else if (error.name === 'TypeError') {
@@ -2687,11 +2711,12 @@ class AgentDashboard {
                 await this.loadConversations();
                 console.log('✅ Conversation list refreshed after archive operation');
             } else {
-                throw new Error('Failed to archive conversations');
+                const errorText = await response.text();
+                console.error('Failed to archive conversations:', response.status, errorText);
+                this.showToast(`Failed to archive conversations: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('❌ Bulk archive failed:', error);
-            alert('Failed to archive conversations. Please try again.');
+            this.handleBulkOperationError(error, 'archive');
         }
     }
 
@@ -2721,11 +2746,12 @@ class AgentDashboard {
                 await this.loadConversations();
                 console.log('✅ Conversation list refreshed after unarchive operation');
             } else {
-                throw new Error('Failed to unarchive conversations');
+                const errorText = await response.text();
+                console.error('Failed to unarchive conversations:', response.status, errorText);
+                this.showToast(`Failed to unarchive conversations: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('❌ Bulk unarchive failed:', error);
-            alert('Failed to unarchive conversations. Please try again.');
+            this.handleBulkOperationError(error, 'unarchive');
         }
     }
 
@@ -2766,11 +2792,12 @@ class AgentDashboard {
                 await this.loadConversations();
                 console.log('✅ Conversation list refreshed after bulk assign operation');
             } else {
-                throw new Error('Failed to assign conversations');
+                const errorText = await response.text();
+                console.error('Failed to assign conversations:', response.status, errorText);
+                this.showToast(`Failed to assign conversations: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('❌ Bulk assign failed:', error);
-            alert('Failed to assign conversations. Please try again.');
+            this.handleBulkOperationError(error, 'assign');
         }
     }
 }
