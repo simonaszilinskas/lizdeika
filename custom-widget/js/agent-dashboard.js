@@ -29,6 +29,12 @@ class AgentDashboard {
         this.agentCacheExpiry = 0;
         this.agentCacheDuration = 30000; // 30 seconds cache
         
+        // Initialize modern conversation loader
+        this.modernConversationLoader = new ModernConversationLoader({
+            apiUrl: this.apiUrl,
+            logger: console
+        });
+        
         // Make dashboard globally available immediately
         window.dashboard = this;
         
@@ -666,42 +672,34 @@ class AgentDashboard {
 
 
     /**
-     * Load and display conversations
+     * Load and display conversations using modern loader
      */
     async loadConversations() {
         try {
-            console.log('📞 Loading conversations...');
-            const token = localStorage.getItem('agent_token');
-            const headers = {};
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-                console.log('🔑 Using auth token');
-            } else {
-                console.log('⚠️ No auth token found');
-            }
+            console.log('📞 Loading conversations with modern loader...');
             
-            console.log(`🌐 Making request to: ${this.apiUrl}/api/admin/conversations`);
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations`, { headers });
-            console.log(`📡 Response status: ${response.status}`);
-            if (!response.ok) {
-                throw new Error(`Failed to load conversations: ${response.status}`);
-            }
-            const data = await response.json();
-            console.log(`📋 Loaded ${data.conversations.length} conversations:`, data.conversations);
+            const filters = {
+                archiveFilter: this.archiveFilter,
+                assignmentFilter: this.currentFilter,
+                agentId: this.agentId
+            };
             
-            // Store all conversations for filtering
-            this.allConversations = data.conversations;
-            console.log(`💾 Stored ${this.allConversations.length} conversations in allConversations`);
+            // Use modern conversation loader
+            await this.modernConversationLoader.load(filters, (conversations) => {
+                this.renderQueue(conversations);
+            });
             
-            // Apply current filter and render
-            console.log(`🔍 Applying filter: ${this.currentFilter}`);
-            this.applyFilter();
+            // Store conversations for backward compatibility
+            const conversationData = this.modernConversationLoader.getConversations();
+            this.allConversations = conversationData.all;
             
-            // Update filter button styles in case this is the initial load
+            // Update filter button styles
             this.updateFilterButtons();
-            console.log('✅ LoadConversations completed successfully');
+            console.log('✅ Modern conversation loading completed successfully');
+            
         } catch (error) {
-            console.error('❌ Error loading conversations:', error);
+            console.error('❌ Error in modern conversation loading:', error);
+            // Fallback to show error state is handled by the modern loader
         }
     }
 
@@ -853,7 +851,7 @@ class AgentDashboard {
                 <div class="flex justify-between items-center mt-2 text-xs">
                     <div class="flex items-center gap-2">
                         <span class="text-gray-500">${conv.messageCount} messages</span>
-                        ${this.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id)}
+                        ${this.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id, conv.archived)}
                     </div>
                     <span class="text-gray-500">${this.formatConversationDate(conv.updatedAt || conv.startedAt)}</span>
                 </div>
@@ -937,7 +935,16 @@ class AgentDashboard {
     /**
      * Render assignment buttons for conversation card
      */
-    renderAssignmentButtons(isAssignedToMe, isUnassigned, conversationId) {
+    renderAssignmentButtons(isAssignedToMe, isUnassigned, conversationId, isArchived = false) {
+        // Archived conversations show unarchive button only
+        if (isArchived) {
+            return `
+                <button onclick="dashboard.unarchiveConversation('${conversationId}', event)" 
+                        class="px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 text-xs rounded">
+                    Unarchive
+                </button>`;
+        }
+        
         if (isAssignedToMe) {
             return `
                 <div class="flex gap-1">
@@ -978,7 +985,7 @@ class AgentDashboard {
     }
 
     /**
-     * Render dropdown options for all agents (online and offline)
+     * Render dropdown options for online agents only
      * Uses caching to prevent rapid-fire API calls
      */
     async renderAgentOptions(conversationId) {
@@ -1029,22 +1036,27 @@ class AgentDashboard {
                 dropdownHtml += `<div class="border-t border-gray-200 my-1"></div>`;
             }
             
-            // Add agent options
-            dropdownHtml += allAgents.map(agent => {
-                const isOnline = agent.connected === true;
-                const statusDot = isOnline ? 
-                    `<span class="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>` : 
-                    `<span class="w-2 h-2 bg-gray-400 rounded-full inline-block mr-2"></span>`;
-                const textColor = isOnline ? 'text-gray-900' : 'text-gray-500';
-                const displayName = agent.name || this.getAgentDisplayName(agent);
-                
-                return `
-                    <button onclick="dashboard.assignToAgent('${conversationId}', '${agent.id}', event)" 
-                            class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center ${textColor}">
-                        ${statusDot}${displayName}${isOnline ? '' : ' (offline)'}
-                    </button>
+            // Add agent options - only show online agents
+            const onlineAgents = allAgents.filter(agent => agent.connected === true);
+            
+            if (onlineAgents.length === 0) {
+                dropdownHtml += `
+                    <div class="px-3 py-2 text-xs text-gray-500 text-center">
+                        No other agents online
+                    </div>
                 `;
-            }).join('');
+            } else {
+                dropdownHtml += onlineAgents.map(agent => {
+                    const displayName = agent.name || this.getAgentDisplayName(agent);
+                    
+                    return `
+                        <button onclick="dashboard.assignToAgent('${conversationId}', '${agent.id}', event)" 
+                                class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 flex items-center text-gray-900">
+                            <span class="w-2 h-2 bg-green-500 rounded-full inline-block mr-2"></span>${displayName}
+                        </button>
+                    `;
+                }).join('');
+            }
             
             return dropdownHtml;
         } catch (error) {
@@ -1097,6 +1109,7 @@ class AgentDashboard {
         }
         
         try {
+            console.log('🔄 Assigning conversation:', conversationId, 'to agent:', agentId);
             const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1104,7 +1117,11 @@ class AgentDashboard {
             });
             
             if (response.ok) {
+                console.log('✅ Assignment to agent successful, refreshing conversation list...');
+                // Clear modern loader cache to force fresh data
+                this.modernConversationLoader.refresh();
                 await this.loadConversations();
+                console.log('✅ Conversation list refreshed after assignment to agent');
             } else {
                 console.error('Failed to assign conversation:', response.status);
             }
@@ -1156,6 +1173,7 @@ class AgentDashboard {
         }
         
         try {
+            console.log('🔄 Assigning conversation:', conversationId, 'to agent:', this.agentId);
             const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1163,7 +1181,11 @@ class AgentDashboard {
             });
             
             if (response.ok) {
+                console.log('✅ Assignment successful, refreshing conversation list...');
+                // Clear modern loader cache to force fresh data
+                this.modernConversationLoader.refresh();
                 await this.loadConversations();
+                console.log('✅ Conversation list refreshed after assignment');
             } else {
                 console.error('Failed to assign conversation:', response.status);
             }
@@ -1183,6 +1205,7 @@ class AgentDashboard {
         }
         
         try {
+            console.log('🔄 Unassigning conversation:', conversationId, 'from agent:', this.agentId);
             const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/unassign`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1190,16 +1213,58 @@ class AgentDashboard {
             });
             
             if (response.ok) {
+                console.log('✅ Unassignment successful, refreshing conversation list...');
                 // If we're unassigning the current chat, reset the view
                 if (conversationId === this.currentChatId) {
                     this.resetChatView();
                 }
+                // Clear modern loader cache to force fresh data
+                this.modernConversationLoader.refresh();
                 await this.loadConversations();
+                console.log('✅ Conversation list refreshed after unassignment');
             } else {
                 console.error('Failed to unassign conversation:', response.status);
             }
         } catch (error) {
             console.error('Error unassigning conversation:', error);
+        }
+    }
+
+    /**
+     * Unarchive conversation
+     * @param {string} conversationId - ID of conversation to unarchive
+     * @param {Event} event - Click event to prevent propagation
+     */
+    async unarchiveConversation(conversationId, event) {
+        if (event) {
+            event.stopPropagation(); // Prevent selecting the chat
+        }
+        
+        try {
+            console.log('📂 Unarchiving conversation:', conversationId);
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-unarchive`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                },
+                body: JSON.stringify({ conversationIds: [conversationId] })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`✅ Unarchived conversation successfully`);
+                console.log('✅ Unarchive operation successful, refreshing conversation list...');
+                this.modernConversationLoader.refresh();
+                await this.loadConversations();
+                console.log('✅ Conversation list refreshed after unarchive operation');
+            } else {
+                console.error('Failed to unarchive conversation:', response.status);
+                alert('Failed to unarchive conversation. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error unarchiving conversation:', error);
+            alert('Failed to unarchive conversation. Please try again.');
         }
     }
 
@@ -1245,9 +1310,17 @@ class AgentDashboard {
      */
     applyFilter() {
         console.log(`🔍 applyFilter called - current filter: ${this.currentFilter}, total conversations: ${this.allConversations.length}`);
-        const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
-        console.log(`📊 Filtered to ${filteredConversations.length} conversations`);
-        this.renderQueue(filteredConversations);
+        
+        const filters = {
+            archiveFilter: this.archiveFilter,
+            assignmentFilter: this.currentFilter,
+            agentId: this.agentId
+        };
+        
+        // Use modern conversation loader for filtering
+        this.modernConversationLoader.reapplyFilters(filters, (conversations) => {
+            this.renderQueue(conversations);
+        });
     }
 
     /**
@@ -1990,27 +2063,57 @@ class AgentDashboard {
     }
 
     /**
-     * Initialize WebSocket connection
+     * Initialize WebSocket connection using ModernWebSocketManager
      */
-    initializeWebSocket() {
-        const wsUrl = this.apiUrl.replace('http', 'ws');
-        this.socket = io(wsUrl);
-        
-        this.socket.on('connect', () => {
-            console.log('Connected to WebSocket server');
-            this.socket.emit('join-agent-dashboard', this.agentId);
+    async initializeWebSocket() {
+        try {
+            const wsUrl = this.apiUrl.replace('http', 'ws');
             
+            // Initialize modern WebSocket manager
+            this.websocketManager = new ModernWebSocketManager({
+                url: wsUrl,
+                agentId: this.agentId,
+                logger: console
+            });
+            
+            // Set up event handlers for dashboard functionality
+            this.setupWebSocketEventHandlers();
+            
+            // Connect to WebSocket server
+            await this.websocketManager.connect();
+            
+            console.log('✅ Modern WebSocket manager initialized successfully');
+            
+        } catch (error) {
+            console.error('💥 Failed to initialize modern WebSocket manager:', error);
+            // Fallback to polling if WebSocket fails completely
+            this.fallbackToPolling();
+        }
+    }
+    
+    /**
+     * Setup WebSocket event handlers for dashboard functionality
+     */
+    setupWebSocketEventHandlers() {
+        // Connection events
+        this.websocketManager.on('connect', () => {
+            console.log('✅ Connected to WebSocket server via modern manager');
             // Register initial agent status on connection
             this.registerInitialStatus();
         });
         
-        this.socket.on('disconnect', () => {
-            console.log('Disconnected from WebSocket server');
+        this.websocketManager.on('disconnect', () => {
+            console.log('❌ Disconnected from WebSocket server');
         });
         
-        // Listen for new messages from customers
-        this.socket.on('new-message', (data) => {
-            console.log('New message received:', data);
+        this.websocketManager.on('reconnect', (attemptNumber) => {
+            console.log(`🔄 Reconnected after ${attemptNumber} attempts`);
+            this.handleReconnection();
+        });
+        
+        // Application events
+        this.websocketManager.on('new-message', (data) => {
+            console.log('📨 New message received:', data);
             this.loadConversations();
             
             // If this is the current chat, update messages and check for suggestion
@@ -2026,53 +2129,48 @@ class AgentDashboard {
             }
         });
         
-        // Listen for connected agents updates
-        this.socket.on('connected-agents-update', (data) => {
-            console.log('Connected agents update:', data);
+        this.websocketManager.on('connected-agents-update', (data) => {
+            console.log('👥 Connected agents update:', data);
             // Invalidate agent cache when status changes
             this.agentCacheExpiry = 0;
             console.log('🔄 Agent cache invalidated due to status change');
             this.updateConnectedAgents(data.agents);
         });
         
-        // Listen for system mode updates
-        this.socket.on('system-mode-update', (data) => {
-            console.log('System mode update:', data);
+        this.websocketManager.on('system-mode-update', (data) => {
+            console.log('⚙️ System mode update:', data);
             this.updateSystemMode(data.mode);
         });
         
-        // Listen for ticket reassignments
-        this.socket.on('tickets-reassigned', (data) => {
-            console.log('Tickets reassigned:', data);
+        this.websocketManager.on('tickets-reassigned', (data) => {
+            console.log('🔄 Tickets reassigned:', data);
             this.handleTicketReassignments(data);
             // Refresh conversations to show updated assignments
             setTimeout(() => this.loadConversations(), 500);
         });
         
-        // Listen for customer typing status
-        this.socket.on('customer-typing-status', (data) => {
+        this.websocketManager.on('customer-typing-status', (data) => {
             if (data.conversationId === this.currentChatId) {
                 this.showCustomerTyping(data.isTyping);
             }
         });
         
-        this.socket.on('connect_error', (error) => {
-            console.error('WebSocket connection error:', error);
-            this.handleConnectionError();
-        });
-        
-        this.socket.on('reconnect', (attemptNumber) => {
-            console.log(`Reconnected to WebSocket server after ${attemptNumber} attempts`);
-            this.handleReconnection();
-        });
-        
-        this.socket.on('reconnect_error', (error) => {
-            console.error('WebSocket reconnection error:', error);
-        });
-        
-        this.socket.on('reconnect_failed', () => {
-            console.error('WebSocket reconnection failed - falling back to polling');
+        // Error handling with circuit breaker
+        this.websocketManager.on('circuit-breaker-open', (data) => {
+            console.error('🚨 WebSocket circuit breaker opened, falling back to polling');
             this.fallbackToPolling();
+        });
+        
+        // Connection status monitoring
+        this.websocketManager.onConnectionChange((status, details) => {
+            console.log(`🔌 Connection status: ${status}`, details);
+            if (status === 'disconnected' && details.errorCount > 2) {
+                this.handleConnectionError();
+            }
+        });
+        
+        this.websocketManager.onError((errorInfo) => {
+            console.error('💥 WebSocket error:', errorInfo);
         });
     }
     
@@ -2096,8 +2194,8 @@ class AgentDashboard {
      * @param {boolean} isTyping - Whether agent is typing
      */
     sendTypingStatus(isTyping) {
-        if (this.socket && this.currentChatId) {
-            this.socket.emit('agent-typing', {
+        if (this.websocketManager && this.currentChatId) {
+            this.websocketManager.send('agent-typing', {
                 conversationId: this.currentChatId,
                 isTyping: isTyping
             });
@@ -2116,17 +2214,12 @@ class AgentDashboard {
      * Handle successful WebSocket reconnection
      */
     handleReconnection() {
-        // Rejoin agent dashboard
-        if (this.socket && this.socket.connected) {
-            this.socket.emit('join-agent-dashboard', this.agentId);
-            
-            // Re-register agent status
-            this.registerInitialStatus();
-            
-            // Rejoin current conversation if any
-            if (this.currentChatId) {
-                this.socket.emit('join-conversation', this.currentChatId);
-            }
+        // Re-register agent status
+        this.registerInitialStatus();
+        
+        // Rejoin current conversation if any
+        if (this.currentChatId) {
+            this.websocketManager.send('join-conversation', this.currentChatId);
         }
         
         // Stop polling if it was started as fallback
@@ -2490,7 +2583,10 @@ class AgentDashboard {
                 const result = await response.json();
                 console.log(`✅ Archived ${result.data.archivedCount} conversations`);
                 this.clearAllSelections();
-                this.loadConversations(); // Refresh the list
+                console.log('✅ Archive operation successful, refreshing conversation list...');
+                this.modernConversationLoader.refresh();
+                await this.loadConversations();
+                console.log('✅ Conversation list refreshed after archive operation');
             } else {
                 throw new Error('Failed to archive conversations');
             }
@@ -2521,7 +2617,10 @@ class AgentDashboard {
                 const result = await response.json();
                 console.log(`✅ Unarchived ${result.data.unarchivedCount} conversations`);
                 this.clearAllSelections();
-                this.loadConversations(); // Refresh the list
+                console.log('✅ Unarchive operation successful, refreshing conversation list...');
+                this.modernConversationLoader.refresh();
+                await this.loadConversations();
+                console.log('✅ Conversation list refreshed after unarchive operation');
             } else {
                 throw new Error('Failed to unarchive conversations');
             }
@@ -2563,7 +2662,10 @@ class AgentDashboard {
                 const assignedTo = agentId === this.agentId ? 'me' : agentId.split('@')[0];
                 console.log(`✅ Assigned ${result.data.assignedCount} conversations to ${assignedTo}`);
                 this.clearAllSelections();
-                this.loadConversations(); // Refresh the list
+                console.log('✅ Bulk assign operation successful, refreshing conversation list...');
+                this.modernConversationLoader.refresh();
+                await this.loadConversations();
+                console.log('✅ Conversation list refreshed after bulk assign operation');
             } else {
                 throw new Error('Failed to assign conversations');
             }

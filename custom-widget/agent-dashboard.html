@@ -528,6 +528,15 @@
                     await loadScript('js/modules/errorMonitoring.js');
                     
                     console.log('✅ Error handling modules loaded');
+                    
+                    // Load modern WebSocket manager
+                    await loadScript('js/modules/modern-websocket-manager.js');
+                    console.log('✅ Modern WebSocket manager loaded');
+                    
+                    // Load modern conversation loader
+                    await loadScript('js/modules/modern-conversation-loader.js');
+                    console.log('✅ Modern conversation loader loaded');
+                    
                     console.log('📜 Loading dashboard JavaScript...');
                     
                     // Then load main dashboard
@@ -538,7 +547,9 @@
                     document.body.appendChild(script);
                 } catch (error) {
                     console.error('❌ Failed to load error handling modules:', error);
-                    // Still try to load dashboard even if error modules fail
+                    // Still try to load modern modules and dashboard even if error modules fail
+                    await loadScript('js/modules/modern-websocket-manager.js');
+                    await loadScript('js/modules/modern-conversation-loader.js');
                     const script = document.createElement('script');
                     script.src = 'js/agent-dashboard.js';
                     document.body.appendChild(script);
