@@ -35,6 +35,13 @@ class AgentDashboard {
             logger: console
         });
         
+        // Initialize conversation update manager (Phase 1: infrastructure only)
+        this.conversationUpdateManager = new ConversationUpdateManager({
+            loader: this.modernConversationLoader,
+            renderer: this.renderConversations.bind(this),
+            logger: console
+        });
+        
         // Make dashboard globally available immediately
         window.dashboard = this;
         
@@ -2237,6 +2244,12 @@ class AgentDashboard {
         // Application events
         this.websocketManager.on('new-message', (data) => {
             console.log('📨 New message received:', data);
+            
+            // Phase 1: Use ConversationUpdateManager infrastructure but maintain current behavior
+            if (this.conversationUpdateManager) {
+                this.conversationUpdateManager.handleWebSocketUpdate('new_message', data);
+            }
+            // Always do the original behavior as fallback (Phase 1 safety)
             this.loadConversations();
             
             // If this is the current chat, update messages and check for suggestion
@@ -2268,7 +2281,12 @@ class AgentDashboard {
         this.websocketManager.on('tickets-reassigned', (data) => {
             console.log('🔄 Tickets reassigned:', data);
             this.handleTicketReassignments(data);
-            // Refresh conversations to show updated assignments
+            
+            // Phase 1: Use ConversationUpdateManager infrastructure but maintain current behavior
+            if (this.conversationUpdateManager) {
+                this.conversationUpdateManager.handleWebSocketUpdate('tickets_reassigned', data);
+            }
+            // Always do the original behavior as fallback (Phase 1 safety)
             setTimeout(() => this.loadConversations(), 500);
         });
         
