@@ -163,13 +163,69 @@ class ConversationUpdateManager {
 
     /**
      * Update single conversation with new message
-     * Phase 1: Built but not used
+     * Phase 2: Incremental implementation
      */
     async updateConversationMessage(eventData) {
-        // Future implementation: update only the specific conversation
-        // that received a new message without full reload
-        this.logger.log('📨 Would update conversation message incrementally:', eventData);
-        throw new Error('Not implemented in Phase 1');
+        this.logger.log('📨 Updating conversation message incrementally:', eventData);
+        
+        const { conversationId, message, timestamp } = eventData;
+        
+        if (!conversationId) {
+            throw new Error('No conversationId provided for message update');
+        }
+
+        // Get current conversation data from the loader
+        const conversationData = this.loader.getConversations();
+        if (!conversationData || !conversationData.all) {
+            throw new Error('No conversation data available for incremental update');
+        }
+
+        // Find the conversation that received the message
+        const conversationIndex = conversationData.all.findIndex(conv => conv.id === conversationId);
+        
+        if (conversationIndex === -1) {
+            // Conversation not found in current list - might be filtered out or new
+            // Fall back to full reload to handle edge cases
+            this.logger.log('📨 Conversation not found in current list, falling back to full reload');
+            throw new Error('Conversation not found for incremental update');
+        }
+
+        // Update the conversation's metadata
+        const conversation = conversationData.all[conversationIndex];
+        const oldUpdatedAt = conversation.updatedAt;
+        
+        // Update conversation properties that might change with new message
+        conversation.updatedAt = timestamp || new Date().toISOString();
+        conversation.messageCount = (conversation.messageCount || 0) + 1;
+        conversation.lastMessage = message || 'New message received';
+        conversation.needsResponse = true; // New customer message likely needs response
+
+        this.logger.log('📨 Updated conversation metadata:', {
+            id: conversationId,
+            oldUpdatedAt,
+            newUpdatedAt: conversation.updatedAt,
+            messageCount: conversation.messageCount
+        });
+
+        // Update the conversation in our tracking
+        this.conversations.set(conversationId, conversation);
+
+        // Check if re-sorting is needed (conversation time changed)
+        const needsReSort = oldUpdatedAt !== conversation.updatedAt;
+        
+        if (needsReSort) {
+            this.logger.log('📨 Re-sorting conversations due to timestamp change');
+            // Re-render the entire list with updated conversation
+            // This is still more efficient than full API reload
+            this.renderer(conversationData.all);
+        } else {
+            // If only metadata changed, we could update just the specific item
+            // For Phase 2 simplicity, still re-render the list
+            this.logger.log('📨 Re-rendering conversation list with updated data');
+            this.renderer(conversationData.all);
+        }
+
+        return true;
     }
 
     /**
@@ -219,12 +275,23 @@ class ConversationUpdateManager {
     }
 
     /**
-     * Enable feature flags (for future phases)
-     * Phase 1: Available but not used
+     * Enable feature flags (Phase 2: Controlled enablement)
      */
     enableIncrementalUpdates() {
-        this.logger.log('🚩 Enabling incremental updates');
+        this.logger.log('🚩 Enabling incremental updates for Phase 2 testing');
         this.featureFlags.enable('incrementalUpdates');
+        this.logger.log('⚠️ Incremental updates enabled - will attempt smart updates with automatic fallback');
+    }
+
+    /**
+     * Enable incremental updates specifically for new messages only
+     * Phase 2: Safe enablement of single feature
+     */
+    enableNewMessageUpdates() {
+        this.logger.log('🚩 Enabling incremental updates for new messages only (Phase 2)');
+        this.featureFlags.enable('incrementalUpdates');
+        this.featureFlags.newMessageUpdatesOnly = true;
+        this.logger.log('📨 New message incremental updates enabled with full safety fallbacks');
     }
 
     /**

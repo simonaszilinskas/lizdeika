@@ -2242,15 +2242,27 @@ class AgentDashboard {
         });
         
         // Application events
-        this.websocketManager.on('new-message', (data) => {
+        this.websocketManager.on('new-message', async (data) => {
             console.log('📨 New message received:', data);
             
-            // Phase 1: Use ConversationUpdateManager infrastructure but maintain current behavior
+            // Phase 2: Try incremental update first, fallback to full reload
+            let incrementalUpdateSuccess = false;
             if (this.conversationUpdateManager) {
-                this.conversationUpdateManager.handleWebSocketUpdate('new_message', data);
+                try {
+                    await this.conversationUpdateManager.handleWebSocketUpdate('new_message', data);
+                    incrementalUpdateSuccess = true;
+                    console.log('✅ Incremental update successful for new message');
+                } catch (error) {
+                    console.log('⚠️ Incremental update failed, falling back to full reload:', error.message);
+                    incrementalUpdateSuccess = false;
+                }
             }
-            // Always do the original behavior as fallback (Phase 1 safety)
-            this.loadConversations();
+            
+            // Only do full reload if incremental update is disabled or failed
+            if (!incrementalUpdateSuccess) {
+                console.log('🔄 Performing full conversation reload');
+                this.loadConversations();
+            }
             
             // If this is the current chat, update messages and check for suggestion
             if (data.conversationId === this.currentChatId) {
