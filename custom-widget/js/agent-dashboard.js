@@ -1123,10 +1123,12 @@ class AgentDashboard {
                 await this.loadConversations();
                 console.log('✅ Conversation list refreshed after assignment to agent');
             } else {
-                console.error('Failed to assign conversation:', response.status);
+                const errorText = await response.text();
+                console.error('Failed to assign conversation:', response.status, errorText);
+                this.showToast(`Failed to assign conversation: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('Error assigning conversation to agent:', error);
+            this.handleAssignmentError(error, 'assign');
         }
     }
 
@@ -1155,10 +1157,12 @@ class AgentDashboard {
                 console.log(`Unassigned conversation ${conversationId}`);
                 await this.loadConversations();
             } else {
-                console.error('Failed to unassign conversation:', response.status);
+                const errorText = await response.text();
+                console.error('Failed to unassign conversation:', response.status, errorText);
+                this.showToast(`Failed to unassign conversation: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('Error unassigning conversation:', error);
+            this.handleAssignmentError(error, 'unassign');
         }
     }
 
@@ -1187,10 +1191,12 @@ class AgentDashboard {
                 await this.loadConversations();
                 console.log('✅ Conversation list refreshed after assignment');
             } else {
-                console.error('Failed to assign conversation:', response.status);
+                const errorText = await response.text();
+                console.error('Failed to assign conversation:', response.status, errorText);
+                this.showToast(`Failed to assign conversation: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('Error assigning conversation:', error);
+            this.handleAssignmentError(error, 'assign');
         }
     }
 
@@ -1223,10 +1229,12 @@ class AgentDashboard {
                 await this.loadConversations();
                 console.log('✅ Conversation list refreshed after unassignment');
             } else {
-                console.error('Failed to unassign conversation:', response.status);
+                const errorText = await response.text();
+                console.error('Failed to unassign conversation:', response.status, errorText);
+                this.showToast(`Failed to unassign conversation: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            console.error('Error unassigning conversation:', error);
+            this.handleAssignmentError(error, 'unassign');
         }
     }
 
@@ -1815,6 +1823,30 @@ class AgentDashboard {
                 setTimeout(() => toast.remove(), 300);
             }
         }, duration);
+    }
+
+    /**
+     * Handle assignment operation errors with user-friendly messages
+     * @param {Error} error - The error that occurred
+     * @param {string} operation - The operation that failed ('assign' or 'unassign')
+     */
+    handleAssignmentError(error, operation = 'assign') {
+        console.error(`Error ${operation}ing conversation:`, error);
+        
+        // Show user-friendly error message
+        let errorMessage = `Failed to ${operation} conversation. Please try again.`;
+        
+        if (error.message.includes('403')) {
+            errorMessage = `You are not authorized to ${operation} this conversation.`;
+        } else if (error.message.includes('404')) {
+            errorMessage = 'This conversation no longer exists.';
+        } else if (error.message.includes('500')) {
+            errorMessage = 'Server error. Please try again in a moment.';
+        } else if (error.name === 'TypeError') {
+            errorMessage = 'Network error. Please check your connection and try again.';
+        }
+        
+        this.showToast(errorMessage, 'error');
     }
 
     /**
