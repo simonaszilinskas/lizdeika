@@ -156,29 +156,29 @@ describe('Agent Assignment Integration Tests', () => {
         it('should update agent personal status and handle reassignments', async () => {
             const agentId = 'admin';
 
-            // Update agent to AFK status
-            const afkResponse = await request(app)
+            // Update agent to offline status
+            const offlineResponse = await request(app)
                 .post('/api/agent/personal-status')
                 .send({
                     agentId: agentId,
-                    personalStatus: 'afk'
+                    personalStatus: 'offline'
                 })
                 .expect(200);
 
-            expect(afkResponse.body.success).toBe(true);
-            expect(afkResponse.body).toHaveProperty('agent');
-            expect(afkResponse.body).toHaveProperty('reassignments');
-            expect(typeof afkResponse.body.reassignments).toBe('number');
+            expect(offlineResponse.body.success).toBe(true);
+            expect(offlineResponse.body).toHaveProperty('agent');
+            expect(offlineResponse.body).toHaveProperty('reassignments');
+            expect(typeof offlineResponse.body.reassignments).toBe('number');
 
             // Get connected agents to verify status change
             const connectedResponse = await request(app)
                 .get('/api/agents/connected')
                 .expect(200);
 
-            // If agent is still connected, it should show as AFK
+            // If agent is still connected, it should show as offline
             const connectedAgent = connectedResponse.body.agents.find(a => a.id === agentId);
             if (connectedAgent) {
-                expect(connectedAgent.personalStatus).toBe('afk');
+                expect(connectedAgent.personalStatus).toBe('offline');
             }
 
             // Update back to online
@@ -223,7 +223,7 @@ describe('Agent Assignment Integration Tests', () => {
                 .expect(400);
 
             expect(response.body).toHaveProperty('error');
-            expect(response.body.error).toContain('Personal status must be online or afk');
+            expect(response.body.error).toContain('Personal status must be online or offline');
         });
     });
 

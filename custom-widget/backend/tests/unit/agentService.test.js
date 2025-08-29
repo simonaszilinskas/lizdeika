@@ -150,7 +150,7 @@ describe('AgentService', () => {
       agentService.updateAgentPersonalStatus('agent1', 'online');
       
       agentService.setAgentOnline('agent2', 'socket2');
-      agentService.updateAgentPersonalStatus('agent2', 'afk');
+      agentService.updateAgentPersonalStatus('agent2', 'offline');
       
       agentService.setAgentOnline('agent3', 'socket3');
       agentService.setAgentOffline('agent3');
@@ -283,25 +283,25 @@ describe('AgentService', () => {
       agentService.setAgentOnline('agent2', 'socket2');
       agentService.updateAgentPersonalStatus('agent2', 'online');
       
-      agentService.setAgentOnline('afkAgent', 'socket3');
-      agentService.updateAgentPersonalStatus('afkAgent', 'afk');
+      agentService.setAgentOnline('offlineAgent', 'socket3');
+      agentService.updateAgentPersonalStatus('offlineAgent', 'afk');
     });
 
     it('should reassign tickets when agent goes AFK', () => {
       // Mock conversations for AFK agent
       mockConversationService.getAgentConversations.mockReturnValue([
-        { id: 'conv1', assignedAgent: 'afkAgent' },
-        { id: 'conv2', assignedAgent: 'afkAgent' }
+        { id: 'conv1', assignedAgent: 'offlineAgent' },
+        { id: 'conv2', assignedAgent: 'offlineAgent' }
       ]);
 
-      const reassignments = agentService.handleAgentAFK('afkAgent', mockConversationService);
+      const reassignments = agentService.handleAgentOffline('offlineAgent', mockConversationService);
 
       expect(reassignments).toHaveLength(2);
       expect(mockConversationService.assignConversation).toHaveBeenCalledTimes(2);
       
       reassignments.forEach(r => {
         expect(r.action).toBe('reassigned');
-        expect(r.fromAgent).toBe('afkAgent');
+        expect(r.fromAgent).toBe('offlineAgent');
         expect(['agent1', 'agent2']).toContain(r.toAgent);
       });
     });
@@ -310,10 +310,10 @@ describe('AgentService', () => {
       agentService.clearAllData();
       
       mockConversationService.getAgentConversations.mockReturnValue([
-        { id: 'conv1', assignedAgent: 'afkAgent' }
+        { id: 'conv1', assignedAgent: 'offlineAgent' }
       ]);
 
-      const reassignments = agentService.handleAgentAFK('afkAgent', mockConversationService);
+      const reassignments = agentService.handleAgentOffline('offlineAgent', mockConversationService);
 
       expect(reassignments).toHaveLength(1);
       expect(reassignments[0].action).toBe('orphaned');
@@ -328,7 +328,7 @@ describe('AgentService', () => {
       agentService.updateAgentPersonalStatus('agent1', 'online');
       
       agentService.setAgentOnline('agent2', 'socket2');
-      agentService.updateAgentPersonalStatus('agent2', 'afk');
+      agentService.updateAgentPersonalStatus('agent2', 'offline');
       
       agentService.setAgentOnline('agent3', 'socket3');
       agentService.setAgentOffline('agent3');
@@ -455,7 +455,7 @@ describe('AgentService', () => {
     });
 
     it('should handle AFK operations with null conversation service', () => {
-      const reassignments = agentService.handleAgentAFK('agent1', null);
+      const reassignments = agentService.handleAgentOffline('agent1', null);
       expect(reassignments).toEqual([]);
     });
 

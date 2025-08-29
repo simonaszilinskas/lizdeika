@@ -384,18 +384,18 @@ describe('API Endpoints', () => {
                     .expect(400);
 
                 expect(response.body).toHaveProperty('error');
-                expect(response.body.error).toContain('Personal status must be online or afk');
+                expect(response.body.error).toContain('Personal status must be online or offline');
             });
 
-            it('should handle afk status change', async () => {
-                const afkUpdate = {
+            it('should handle offline status change', async () => {
+                const offlineUpdate = {
                     agentId: 'agent1',
-                    personalStatus: 'afk'
+                    personalStatus: 'offline'
                 };
 
                 const response = await request(app)
                     .post('/api/agent/personal-status')
-                    .send(afkUpdate)
+                    .send(offlineUpdate)
                     .expect(200);
 
                 expect(response.body.success).toBe(true);

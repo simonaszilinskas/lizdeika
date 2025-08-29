@@ -237,7 +237,7 @@ class AgentController {
     }
 
     /**
-     * Update personal agent status (online/afk) with ticket reassignment
+     * Update personal agent status (online/offline) with ticket reassignment
      */
     async updatePersonalStatus(req, res) {
         try {
@@ -247,8 +247,8 @@ class AgentController {
                 return res.status(400).json({ error: 'Agent ID and personal status are required' });
             }
 
-            if (!['online', 'afk'].includes(personalStatus)) {
-                return res.status(400).json({ error: 'Personal status must be online or afk' });
+            if (!['online', 'offline'].includes(personalStatus)) {
+                return res.status(400).json({ error: 'Personal status must be online or offline' });
             }
 
             // Update agent activity timestamp  
@@ -261,12 +261,11 @@ class AgentController {
             let reassignments = [];
             
             // Handle status changes with ticket management
-            if (personalStatus === 'afk' && previousStatus !== 'afk') {
-                // Agent going AFK - reassign their tickets
-                reassignments = await agentService.handleAgentAFK(agentId, conversationService);
-                console.log(`Agent ${agentId} went AFK, reassigned ${reassignments.length} tickets`);
+            if (personalStatus === 'offline' && previousStatus !== 'offline') {
+                // Agent going offline - no automatic reassignment in simplified version
+                console.log(`Agent ${agentId} went offline`);
                 
-            } else if (personalStatus === 'online' && previousStatus === 'afk') {
+            } else if (personalStatus === 'online' && previousStatus === 'offline') {
                 // Agent coming back online - reclaim appropriate tickets
                 const reclaims = await agentService.handleAgentBackOnline(agentId, conversationService);
                 const redistributions = await agentService.redistributeOrphanedTickets(conversationService, 2);

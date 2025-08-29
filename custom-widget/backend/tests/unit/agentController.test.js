@@ -206,11 +206,11 @@ describe('AgentController', () => {
         it('should update agent personal status and handle reassignments', async () => {
             req.body = {
                 agentId: 'agent1',
-                personalStatus: 'afk'
+                personalStatus: 'offline'
             };
 
             const mockPreviousAgent = { personalStatus: 'online' };
-            const mockUpdatedAgent = { id: 'agent1', personalStatus: 'afk' };
+            const mockUpdatedAgent = { id: 'agent1', personalStatus: 'offline' };
             const mockReassignments = [
                 { conversationId: 'conv1', fromAgent: 'agent1', toAgent: 'admin' }
             ];
@@ -218,14 +218,13 @@ describe('AgentController', () => {
 
             agentService.getAgent.mockResolvedValue(mockPreviousAgent);
             agentService.updateAgentPersonalStatus.mockResolvedValue(mockUpdatedAgent);
-            agentService.handleAgentAFK.mockResolvedValue(mockReassignments);
+            // handleAgentAFK is deprecated after AFK removal
             agentService.getConnectedAgents.mockResolvedValue(mockConnectedAgents);
 
             await agentController.updatePersonalStatus(req, res);
 
             expect(agentService.getAgent).toHaveBeenCalledWith('agent1');
-            expect(agentService.updateAgentPersonalStatus).toHaveBeenCalledWith('agent1', 'afk', conversationService);
-            expect(agentService.handleAgentAFK).toHaveBeenCalledWith('agent1', conversationService);
+            expect(agentService.updateAgentPersonalStatus).toHaveBeenCalledWith('agent1', 'offline', conversationService);
             expect(mockIo.to).toHaveBeenCalledWith('agents');
             expect(mockIo.emit).toHaveBeenCalledWith('connected-agents-update', { agents: mockConnectedAgents });
             expect(res.json).toHaveBeenCalledWith({
@@ -253,7 +252,7 @@ describe('AgentController', () => {
             await agentController.updatePersonalStatus(req, res);
 
             expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.json).toHaveBeenCalledWith({ error: 'Personal status must be online or afk' });
+            expect(res.json).toHaveBeenCalledWith({ error: 'Personal status must be online or offline' });
         });
 
         it('should handle agent coming back online', async () => {
@@ -262,7 +261,7 @@ describe('AgentController', () => {
                 personalStatus: 'online'
             };
 
-            const mockPreviousAgent = { personalStatus: 'afk' };
+            const mockPreviousAgent = { personalStatus: 'offline' };
             const mockUpdatedAgent = { id: 'agent1', personalStatus: 'online' };
             const mockReclaims = [{ conversationId: 'conv1', toAgent: 'agent1' }];
             const mockRedistributions = [{ conversationId: 'conv2', toAgent: 'agent1' }];
