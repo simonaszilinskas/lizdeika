@@ -18,8 +18,7 @@ class Settings {
         };
         this.lastAgentsData = null;
         
-        // Enhanced error handling
-        this.errorHandler = null;
+        // Simple error handling with SimpleErrorHandler
         this.apiRequest = null;
         
         // Sound notification manager
@@ -37,25 +36,30 @@ class Settings {
     }
 
     /**
-     * Initialize error handling system
+     * Initialize simple error handling system
      */
     initializeErrorHandling() {
-        if (window.ErrorHandler) {
-            this.errorHandler = new window.ErrorHandler({
-                maxRetries: 3,
-                retryDelay: 1000,
-                enableUserNotifications: true,
-                enableLogging: true
-            });
-            
-            // Create API request helper with retry
-            this.apiRequest = this.errorHandler.createAPIErrorHandler(this.apiUrl);
-            
-            console.log('✅ Settings: Error handling initialized');
-        } else {
-            console.warn('⚠️ Settings: ErrorHandler not available, using fallback');
-            this.apiRequest = async (url, options) => fetch(`${this.apiUrl}${url}`, options);
-        }
+        // Use simple API request helper with basic error logging
+        this.apiRequest = async (url, options) => {
+            try {
+                const response = await fetch(`${this.apiUrl}${url}`, options);
+                if (!response.ok) {
+                    const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    if (window.SimpleErrorHandler) {
+                        window.SimpleErrorHandler.logError(error, `API request to ${url}`);
+                    }
+                    throw error;
+                }
+                return response;
+            } catch (error) {
+                if (window.SimpleErrorHandler) {
+                    window.SimpleErrorHandler.logError(error, `API request failed: ${url}`);
+                }
+                throw error;
+            }
+        };
+        
+        console.log('✅ Settings: Error handling initialized');
     }
 
     /**
