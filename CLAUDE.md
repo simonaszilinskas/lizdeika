@@ -5,6 +5,12 @@
 - npm test -- tests/unit/archiveService.test.js : Run archive functionality tests
 - npm test -- tests/unit/conversationController.archive.test.js : Run archive controller tests
 
+## Real-time Features Testing
+- Create new conversation via API: `curl -X POST http://localhost:3001/api/widget/conversation -H "Content-Type: application/json" -d '{"content": "Test message"}'`
+- Test WebSocket new-conversation events in browser console
+- Monitor WebSocket connection logs in agent dashboard
+- Verify ModernWebSocketManager event forwarding
+
 ## Database Management
 - Database: PostgreSQL (`vilnius_support`)
 - User types: `agent` and `admin` (no "user" role - customers are tracked by user_number only)
@@ -100,3 +106,19 @@ npm test -- --coverage
 - Archive: Clears assignments, logs activity
 - Unarchive: Maintains unassigned state
 - Assign: Works only on active conversations
+
+## WebSocket Real-time System
+
+### ModernWebSocketManager Events
+- `new-conversation` - New conversations appear instantly in agent dashboard
+- `new-message` - Real-time message notifications
+- `connected-agents-update` - Live agent status updates
+- `system-mode-update` - System status changes
+- `tickets-reassigned` - Assignment change notifications
+- `customer-typing-status` - Live typing indicators
+
+### WebSocket Debugging
+- Enable console logging in browser dev tools
+- Monitor `🔧 ModernWebSocketManager` connection logs
+- Check `📨 Received` event logs for real-time updates
+- Verify agent dashboard loads conversations on `new-conversation` events

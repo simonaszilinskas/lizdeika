@@ -5,7 +5,7 @@ This document outlines the comprehensive improvements needed for the Vilnius Ass
 
 ## Project Status
 
-### ✅ COMPLETED (Priority 1 & 2)
+### ✅ COMPLETED (Priority 1-5)
 
 #### 🔒 Priority 1: Security - Hardcoded Credentials [COMPLETED]
 **Status**: ✅ **Merged to main**
@@ -28,6 +28,21 @@ This document outlines the comprehensive improvements needed for the Vilnius Ass
   - `afkDetectionService.js` - **NEW** Automatic AFK detection
   - `agentController.js`, `agentRoutes.js`, `websocketService.js` - AFK integration
 - **Runtime Impact**: **HIGH** - Eliminated crashes and improved session management
+
+#### ⚡ Priority 5: Real-time WebSocket Optimization [COMPLETED]
+**Status**: ✅ **Merged to main**
+- **Issue**: New conversations not appearing in real-time on agent dashboard
+- **Solution**: 
+  - Fixed WebSocket event forwarding in ModernWebSocketManager
+  - Added `new-conversation` to event forwarding list
+  - Stabilized WebSocket connections with heartbeat system
+  - Implemented real-time optimization infrastructure
+- **Files Modified**: 
+  - `js/modules/modern-websocket-manager.js` - Added new-conversation event forwarding
+  - `js/modules/conversation-update-manager.js` - **NEW** Real-time update system
+  - `backend/src/services/websocketService.js` - Enhanced WebSocket handling
+  - `js/agent-dashboard.js` - Real-time event integration
+- **Impact**: **HIGH** - New conversations now appear instantly without page refresh
 
 ### 🆕 NEW FEATURES ADDED
 - **Automatic AFK Detection**: 15-minute inactivity timeout with auto-restoration
