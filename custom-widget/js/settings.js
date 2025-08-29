@@ -88,7 +88,6 @@ class Settings {
         this.agentsList = document.getElementById('agents-list');
         this.totalConnected = document.getElementById('total-connected');
         this.totalAvailable = document.getElementById('total-available');
-        this.totalAfk = document.getElementById('total-afk');
         
         // Widget configuration elements
         this.widgetConfigDiv = document.getElementById('current-widget-config');
@@ -414,7 +413,7 @@ class Settings {
         this.agentsList.innerHTML = agents.map(agent => `
             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div class="flex items-center gap-3">
-                    <div class="w-3 h-3 rounded-full ${agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400'}"></div>
+                    <div class="w-3 h-3 rounded-full ${agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400'}"></div>
                     <div>
                         <div class="font-medium text-gray-900">${agent.id.substring(0, 12)}...</div>
                     </div>
@@ -433,12 +432,10 @@ class Settings {
 
     updateAgentStats(agents) {
         const total = agents.length;
-        const available = agents.filter(a => a.personalStatus !== 'afk').length;
-        const afk = agents.filter(a => a.personalStatus === 'afk').length;
+        const available = agents.filter(a => a.personalStatus === 'online').length;
         
         this.totalConnected.textContent = total;
         this.totalAvailable.textContent = available;
-        this.totalAfk.textContent = afk;
     }
 
     // Widget Configuration Methods

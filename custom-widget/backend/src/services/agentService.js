@@ -38,7 +38,7 @@ class AgentService {
     }
 
     /**
-     * Update agent personal status (online/afk) with database persistence
+     * Update agent personal status (online/offline) with database persistence
      */
     async updateAgentPersonalStatus(agentId, personalStatus, includeActiveChats = false) {
         try {
@@ -49,13 +49,13 @@ class AgentService {
             const agentStatus = await prisma.agent_status.upsert({
                 where: { user_id: user.id },
                 update: {
-                    status: personalStatus === 'online' ? 'online' : personalStatus === 'afk' ? 'busy' : 'offline',
+                    status: personalStatus === 'online' ? 'online' : 'offline',
                     updated_at: new Date()
                 },
                 create: {
                     id: uuidv4(),
                     user_id: user.id,
-                    status: personalStatus === 'online' ? 'online' : personalStatus === 'afk' ? 'busy' : 'offline',
+                    status: personalStatus === 'online' ? 'online' : 'offline',
                     updated_at: new Date()
                 },
                 include: {
@@ -135,7 +135,7 @@ class AgentService {
     }
 
     /**
-     * Get available agents (connected and not AFK)
+     * Get available agents (connected and online)
      */
     async getAvailableAgents() {
         try {
@@ -363,10 +363,10 @@ class AgentService {
     }
 
     /**
-     * Handle agent going AFK - simplified (no automatic reassignment)
+     * @deprecated AFK functionality has been removed
      */
     async handleAgentAFK(agentId, conversationService) {
-        // Simplified: just return empty array, no automatic reassignment
+        // No-op: AFK functionality removed
         return [];
     }
 
@@ -689,7 +689,7 @@ class AgentService {
     mapStatusToPersonal(dbStatus) {
         const mapping = {
             'online': 'online',
-            'busy': 'afk',
+            'busy': 'offline',
             'offline': 'offline'
         };
         return mapping[dbStatus] || 'offline';

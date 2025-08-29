@@ -16,7 +16,7 @@ class AgentDashboard {
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || 15000; // Reduced from 3s to 15s
         this.socket = null;
-        this.personalStatus = 'online'; // Personal agent status (online/afk)
+        this.personalStatus = 'online'; // Personal agent status (online/offline)
         this.systemMode = 'hitl'; // Global system mode (hitl/autopilot/off)
         this.connectedAgents = new Map(); // Track other connected agents
         this.currentFilter = 'unassigned'; // Current conversation filter (mine, unassigned, others, all)
@@ -409,7 +409,7 @@ class AgentDashboard {
                 }
             }
             
-            if (savedStatus && ['online', 'afk'].includes(savedStatus)) {
+            if (savedStatus && ['online', 'offline'].includes(savedStatus)) {
                 this.personalStatus = savedStatus;
                 
                 // Update the dropdown to reflect saved status
@@ -436,8 +436,8 @@ class AgentDashboard {
     }
 
     /**
-     * Update personal agent status (online/afk)
-     * @param {string} status - Personal status (online, afk)
+     * Update personal agent status (online/offline)
+     * @param {string} status - Personal status (online, offline)
      */
     async updatePersonalStatus(status) {
         const dot = document.getElementById('agent-status-dot');
@@ -560,16 +560,16 @@ class AgentDashboard {
             totalAgentsCompact.textContent = agents.length;
             
             // Create tooltip content with agent names grouped by status
-            const onlineAgents = agents.filter(agent => agent.personalStatus !== 'afk');
-            const afkAgents = agents.filter(agent => agent.personalStatus === 'afk');
+            const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
+            const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
             
             let tooltipContent = '';
             if (onlineAgents.length > 0) {
                 tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
             }
-            if (afkAgents.length > 0) {
+            if (offlineAgents.length > 0) {
                 if (tooltipContent) tooltipContent += '\n';
-                tooltipContent += `AFK (${afkAgents.length}): ${afkAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
+                tooltipContent += `Offline (${offlineAgents.length}): ${offlineAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
             }
             if (!tooltipContent) {
                 tooltipContent = 'No agents connected';
@@ -580,7 +580,7 @@ class AgentDashboard {
             
             // Show agents as small colored dots with individual tooltips
             compactContainer.innerHTML = agents.map(agent => {
-                const statusColor = agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400';
+                const statusColor = agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400';
                 const displayName = this.getAgentDisplayName(agent);
                 return `
                     <div class="w-2 h-2 rounded-full ${statusColor}" 
@@ -600,7 +600,7 @@ class AgentDashboard {
             container.innerHTML = agents.map(agent => `
                 <div class="flex items-center justify-between py-1 px-2 bg-white rounded text-xs">
                     <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full ${agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400'}"></div>
+                        <div class="w-2 h-2 rounded-full ${agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400'}"></div>
                         <span class="text-gray-700">${this.getAgentDisplayName(agent)}</span>
                     </div>
                     <span class="text-gray-500 capitalize">${agent.personalStatus || 'online'}</span>
@@ -666,13 +666,8 @@ class AgentDashboard {
         const myReassignments = reassignments.filter(r => r.toAgent === this.agentId);
         const myLosses = reassignments.filter(r => r.fromAgent === this.agentId);
         
-        if (reason === 'agent_afk') {
-            if (myLosses.length > 0) {
-                message = `${myLosses.length} of your tickets were reassigned while you're AFK`;
-            } else if (myReassignments.length > 0) {
-                message = `You received ${myReassignments.length} tickets from an AFK agent`;
-            }
-        } else if (reason === 'agent_online') {
+        // AFK reason removed - no longer applicable
+        if (reason === 'agent_online') {
             if (myReassignments.length > 0) {
                 message = `You received ${myReassignments.length} tickets (agent back online + redistribution)`;
             }
