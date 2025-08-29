@@ -146,6 +146,7 @@ class ModernWebSocketManager {
         // Application events (these will be forwarded to the dashboard)
         const appEvents = [
             'new-message',
+            'new-conversation',
             'connected-agents-update', 
             'system-mode-update',
             'tickets-reassigned',
