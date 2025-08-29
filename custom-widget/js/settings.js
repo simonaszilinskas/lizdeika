@@ -1134,17 +1134,17 @@ class Settings {
     }
 
     showMessage(text, type = 'info', title = '') {
-        // Use new notification system if available
-        if (window.notificationSystem) {
+        // Use simple toast system
+        if (window.toast) {
             switch (type) {
                 case 'success':
-                    return window.notificationSystem.success(text, title);
+                    return window.toast.success(text, title);
                 case 'error':
-                    return window.notificationSystem.error(text, title);
+                    return window.toast.error(text, title);
                 case 'warning':
-                    return window.notificationSystem.warning(text, title);
+                    return window.toast.warning(text, title);
                 default:
-                    return window.notificationSystem.info(text, title);
+                    return window.toast.info(text, title);
             }
         }
         
