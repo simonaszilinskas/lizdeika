@@ -42,6 +42,9 @@
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors active" data-tab="system">
                     <i class="fas fa-cogs mr-2"></i>System Settings
                 </button>
+                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="agent">
+                    <i class="fas fa-user-cog mr-2"></i>Agent Preferences
+                </button>
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="widget">
                     <i class="fas fa-code mr-2"></i>Widget Configuration
                 </button>
@@ -126,6 +129,97 @@
                         <span>Available: <span id="total-available">0</span></span>
                         <span>AFK: <span id="total-afk">0</span></span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Preferences Tab -->
+        <div id="agent-tab" class="tab-content hidden">
+            <!-- Notification Settings -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-bell text-indigo-600"></i>
+                    Desktop Notifications
+                </h2>
+                
+                <div class="mb-4">
+                    <p class="text-gray-600 mb-4">Configure when and how you receive desktop notifications for new messages.</p>
+                    
+                    <div class="space-y-4">
+                        <!-- Enable/Disable Notifications -->
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <div class="flex-1">
+                                <h3 class="font-medium text-gray-900">Desktop Notifications</h3>
+                                <p class="text-sm text-gray-600">Show browser notifications when new messages arrive</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="notifications-enabled" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        
+                        <!-- Permission Status -->
+                        <div id="notification-permission" class="hidden p-4 border border-gray-200 rounded-lg bg-gray-50">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div id="permission-status-icon" class="w-4 h-4">
+                                    <i class="fas fa-clock text-yellow-500"></i>
+                                </div>
+                                <h4 class="font-medium text-gray-900">Permission Status</h4>
+                            </div>
+                            <p id="permission-status-text" class="text-sm text-gray-600">Checking notification permissions...</p>
+                            <button id="request-permission-btn" class="hidden mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                                Enable Notifications
+                            </button>
+                        </div>
+                        
+                        <!-- Test Notifications -->
+                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                            <div class="flex-1">
+                                <h3 class="font-medium text-gray-900">Test Notification</h3>
+                                <p class="text-sm text-gray-600">Send a test notification to verify everything works</p>
+                            </div>
+                            <button id="test-notification-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                                Send Test
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Notification Settings Details -->
+                <div id="notification-details" class="mt-6 border-t pt-6">
+                    <h3 class="font-medium text-gray-900 mb-4">Notification Details</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <h4 class="font-medium text-blue-800 mb-1">When notifications appear:</h4>
+                            <ul class="list-disc list-inside text-blue-700 space-y-1">
+                                <li>New customer messages arrive</li>
+                                <li>Conversations are assigned to you</li>
+                                <li>Only when browser tab is not active</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <h4 class="font-medium text-green-800 mb-1">What notifications include:</h4>
+                            <ul class="list-disc list-inside text-green-700 space-y-1">
+                                <li>Customer message preview</li>
+                                <li>Ticket number reference</li>
+                                <li>Click to focus conversation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other Agent Settings -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-user-cog text-indigo-600"></i>
+                    Personal Preferences
+                </h2>
+                
+                <div class="text-gray-600">
+                    <p>Additional agent preferences will be added here in future updates.</p>
                 </div>
             </div>
         </div>
@@ -381,6 +475,10 @@
     <script src="js/modules/notificationSystem.js"></script>
     <script src="js/modules/errorHandler.js"></script>
     <script src="js/modules/errorMonitoring.js"></script>
+    
+    <!-- Browser Notification Manager -->
+    <script src="js/modules/browserNotificationManager.js"></script>
+    
     <script src="js/settings.js"></script>
 </body>
 </html>

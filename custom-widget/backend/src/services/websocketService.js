@@ -4,7 +4,6 @@
  */
 const agentService = require('./agentService');
 const conversationService = require('./conversationService');
-const afkDetectionService = require('./afkDetectionService');
 
 class WebSocketService {
     constructor(io) {
@@ -15,6 +14,13 @@ class WebSocketService {
     setupSocketHandlers() {
         this.io.on('connection', (socket) => {
             console.log('Client connected:', socket.id);
+            
+            // Debug: log all events from this socket
+            const originalOn = socket.on.bind(socket);
+            socket.on = function(event, handler) {
+                console.log(`🐛 Socket ${socket.id} registered listener for: ${event}`);
+                return originalOn(event, handler);
+            };
             
             // Join conversation room
             socket.on('join-conversation', (conversationId) => {
@@ -29,9 +35,6 @@ class WebSocketService {
                 
                 // Update agent status to online
                 await agentService.setAgentOnline(agentId, socket.id);
-                
-                // Record activity for AFK detection
-                await afkDetectionService.recordActivity(agentId);
                 
                 console.log(`Agent ${agentId} connected with socket ${socket.id}`);
                 
@@ -58,9 +61,9 @@ class WebSocketService {
             socket.on('agent-typing', async (data) => {
                 const { conversationId, isTyping } = data;
                 
-                // Record activity for AFK detection
+                // Update agent activity timestamp
                 if (socket.agentId) {
-                    await afkDetectionService.recordActivity(socket.agentId);
+                    await agentService.updateAgentActivity(socket.agentId);
                 }
                 
                 socket.to(conversationId).emit('agent-typing-status', {
@@ -79,23 +82,7 @@ class WebSocketService {
                 });
             });
             
-            // Smart polling subscription - agents can subscribe to specific updates
-            socket.on('subscribe-smart-updates', (subscriptions) => {
-                console.log(`Socket ${socket.id} subscribed to smart updates:`, subscriptions);
-                
-                // Join specific rooms based on subscriptions
-                if (subscriptions.includes('agent-status')) {
-                    socket.join('agent-status-updates');
-                }
-                if (subscriptions.includes('conversation-updates')) {
-                    socket.join('conversation-updates');
-                }
-                if (subscriptions.includes('system-mode')) {
-                    socket.join('system-mode-updates');
-                }
-            });
-            
-            // Client requesting current state (instead of polling)
+            // Request current state (simplified)
             socket.on('request-current-state', async (stateType) => {
                 try {
                     switch (stateType) {
@@ -125,13 +112,24 @@ class WebSocketService {
                     // Broadcast updated connected agents list
                     const connectedAgents = await agentService.getConnectedAgents();
                     this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
-                    
-                    // Also emit to smart update subscribers
-                    this.io.to('agent-status-updates').emit('smart-update', {
-                        type: 'agent-status',
-                        data: connectedAgents,
-                        timestamp: new Date()
-                    });
+                }
+            });
+            
+            // Handle heartbeat to keep agent status updated
+            socket.on('heartbeat', async (data) => {
+                if (socket.agentId) {
+                    try {
+                        // Update agent status timestamp to keep them "online"
+                        await agentService.updateAgentActivity(socket.agentId);
+                        
+                        // Send heartbeat acknowledgment
+                        socket.emit('heartbeat-ack', { 
+                            timestamp: new Date(),
+                            agentId: socket.agentId 
+                        });
+                    } catch (error) {
+                        console.error('Error handling heartbeat for agent', socket.agentId, ':', error);
+                    }
                 }
             });
         });
@@ -188,61 +186,7 @@ class WebSocketService {
         return agentsRoom ? agentsRoom.size : 0;
     }
 
-    /**
-     * Emit smart update to subscribed clients
-     * This reduces the need for polling by pushing updates when they actually happen
-     */
-    emitSmartUpdate(updateType, data) {
-        const timestamp = new Date();
-        const update = { type: updateType, data, timestamp };
-        
-        console.log(`📡 Smart update: ${updateType}`);
-        
-        switch (updateType) {
-            case 'agent-status':
-                this.io.to('agent-status-updates').emit('smart-update', update);
-                break;
-            case 'conversation-updates':
-                this.io.to('conversation-updates').emit('smart-update', update);
-                break;
-            case 'system-mode':
-                this.io.to('system-mode-updates').emit('smart-update', update);
-                break;
-            default:
-                console.log(`Unknown smart update type: ${updateType}`);
-        }
-    }
-
-    /**
-     * Enhanced agent status update with smart polling integration
-     */
-    emitAgentStatusUpdateSmart(agentId, status, connectedAgents = null) {
-        // Emit the traditional event
-        this.emitAgentStatusUpdate(agentId, status);
-        
-        // Also emit smart update if we have connected agents data
-        if (connectedAgents) {
-            this.emitSmartUpdate('agent-status', connectedAgents);
-        }
-    }
-
-    /**
-     * Get smart update subscribers count
-     */
-    getSmartUpdateStats() {
-        const rooms = ['agent-status-updates', 'conversation-updates', 'system-mode-updates'];
-        const stats = {};
-        
-        rooms.forEach(room => {
-            const roomObj = this.io.sockets.adapter.rooms.get(room);
-            stats[room] = roomObj ? roomObj.size : 0;
-        });
-        
-        return {
-            totalSubscribers: Object.values(stats).reduce((a, b) => a + b, 0),
-            byType: stats
-        };
-    }
+    // Smart update functionality removed for simplicity - using direct WebSocket events
 }
 
 module.exports = WebSocketService;

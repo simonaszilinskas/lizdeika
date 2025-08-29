@@ -11,7 +11,7 @@ class ModernWebSocketManager {
             reconnectionAttempts: config.reconnectionAttempts || 5,
             reconnectionDelay: config.reconnectionDelay || 1000,
             maxReconnectionDelay: config.maxReconnectionDelay || 30000,
-            heartbeatInterval: config.heartbeatInterval || 30000,
+            heartbeatInterval: config.heartbeatInterval || 15000,
             maxErrors: config.maxErrors || 3,
             ...config
         };
@@ -35,6 +35,9 @@ class ModernWebSocketManager {
         this.errorCount = 0;
         this.circuitBreakerOpen = false;
         
+        // Page visibility handling for better connection management
+        this.setupPageVisibilityHandler();
+        
         console.log('🔧 ModernWebSocketManager initialized:', this.config.url);
     }
     
@@ -54,6 +57,12 @@ class ModernWebSocketManager {
         
         try {
             this.logger.log('🔌 Connecting to WebSocket server:', this.config.url);
+            this.logger.log('🔧 Agent ID for connection:', this.config.agentId);
+            
+            // Check if Socket.IO is available
+            if (typeof io === 'undefined') {
+                throw new Error('Socket.IO library not loaded');
+            }
             
             // Use Socket.IO (same as legacy implementation)
             this.socket = io(this.config.url);
@@ -62,6 +71,7 @@ class ModernWebSocketManager {
             this.startHeartbeat();
             
         } catch (error) {
+            this.logger.error('💥 Connection error details:', error);
             this.handleError('Connection failed', error);
             throw error;
         }
@@ -76,13 +86,20 @@ class ModernWebSocketManager {
         // Connection events
         this.socket.on('connect', () => {
             this.logger.log('✅ Connected to WebSocket server');
+            this.logger.log('🔧 Socket ID:', this.socket.id);
             this.isConnected = true;
             this.reconnectionAttempts = 0;
             this.errorCount = 0;
             this.circuitBreakerOpen = false;
             
             // Join agent dashboard
+            this.logger.log('📡 Emitting join-agent-dashboard with agentId:', this.config.agentId);
             this.socket.emit('join-agent-dashboard', this.config.agentId);
+            this.logger.log('✅ join-agent-dashboard event emitted');
+            
+            // Send immediate heartbeat to establish agent status
+            this.logger.log('💓 Emitting heartbeat');
+            this.send('heartbeat', { timestamp: Date.now() });
             
             this.notifyConnectionListeners('connected');
             this.emit('connect');
@@ -103,6 +120,14 @@ class ModernWebSocketManager {
         
         this.socket.on('reconnect', (attemptNumber) => {
             this.logger.log(`🔄 Reconnected after ${attemptNumber} attempts`);
+            this.isConnected = true;
+            this.errorCount = 0;
+            this.circuitBreakerOpen = false;
+            
+            // Re-join agent dashboard and send heartbeat
+            this.socket.emit('join-agent-dashboard', this.config.agentId);
+            this.send('heartbeat', { timestamp: Date.now() });
+            
             this.notifyConnectionListeners('reconnected');
             this.emit('reconnect', attemptNumber);
         });
@@ -326,6 +351,29 @@ class ModernWebSocketManager {
         if (this.reconnectionTimer) {
             clearTimeout(this.reconnectionTimer);
             this.reconnectionTimer = null;
+        }
+    }
+    
+    /**
+     * Setup page visibility handler for better connection management
+     */
+    setupPageVisibilityHandler() {
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && this.isConnected) {
+                    // Page became visible again, send immediate heartbeat
+                    this.send('heartbeat', { timestamp: Date.now() });
+                    this.logger.log('👁️ Page became visible, sent heartbeat');
+                }
+            });
+            
+            // Also handle focus events
+            window.addEventListener('focus', () => {
+                if (this.isConnected) {
+                    this.send('heartbeat', { timestamp: Date.now() });
+                    this.logger.log('🎯 Page regained focus, sent heartbeat');
+                }
+            });
         }
     }
 }

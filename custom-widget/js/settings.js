@@ -22,7 +22,11 @@ class Settings {
         this.errorHandler = null;
         this.apiRequest = null;
         
+        // Browser notification manager
+        this.browserNotificationManager = null;
+        
         this.initializeErrorHandling();
+        this.initializeBrowserNotifications();
         this.initializeElements();
         this.initializeSmartConnection();
         this.attachEventListeners();
@@ -51,6 +55,25 @@ class Settings {
         }
     }
 
+    /**
+     * Initialize browser notifications manager
+     */
+    initializeBrowserNotifications() {
+        try {
+            if (typeof BrowserNotificationManager !== 'undefined') {
+                this.browserNotificationManager = new BrowserNotificationManager({
+                    title: 'Vilnius Assistant',
+                    logger: console
+                });
+                console.log('✅ Settings: Browser notification manager initialized');
+            } else {
+                console.warn('⚠️ Settings: BrowserNotificationManager not available');
+            }
+        } catch (error) {
+            console.error('❌ Settings: Failed to initialize browser notifications:', error);
+        }
+    }
+
     initializeElements() {
         // Tab elements
         this.tabButtons = document.querySelectorAll('.tab-button');
@@ -74,6 +97,14 @@ class Settings {
         // User management elements
         this.totalUsersSpan = document.getElementById('total-users');
         this.usersTableBody = document.getElementById('users-table-body');
+        
+        // Notification settings elements
+        this.notificationsEnabled = document.getElementById('notifications-enabled');
+        this.notificationPermission = document.getElementById('notification-permission');
+        this.permissionStatusIcon = document.getElementById('permission-status-icon');
+        this.permissionStatusText = document.getElementById('permission-status-text');
+        this.requestPermissionBtn = document.getElementById('request-permission-btn');
+        this.testNotificationBtn = document.getElementById('test-notification-btn');
         
         // Modal elements
         this.editUserModal = document.getElementById('edit-user-modal');
@@ -105,6 +136,17 @@ class Settings {
         this.editUserForm.addEventListener('submit', (e) => this.handleEditUserSubmit(e));
         this.addUserForm.addEventListener('submit', (e) => this.handleAddUserSubmit(e));
         document.getElementById('add-user-btn').addEventListener('click', () => this.openAddUserModal());
+        
+        // Notification settings
+        if (this.notificationsEnabled) {
+            this.notificationsEnabled.addEventListener('change', () => this.toggleNotifications());
+        }
+        if (this.requestPermissionBtn) {
+            this.requestPermissionBtn.addEventListener('click', () => this.requestNotificationPermission());
+        }
+        if (this.testNotificationBtn) {
+            this.testNotificationBtn.addEventListener('click', () => this.testNotification());
+        }
         
         // Modal handling
         this.setupModalEventListeners();
@@ -150,6 +192,9 @@ class Settings {
             if (this.currentUser && this.currentUser.role === 'admin') {
                 await this.loadUsers();
             }
+            
+            // Initialize notification UI
+            this.updateNotificationUI();
             
             // Start periodic updates
             this.startPeriodicUpdates();
@@ -744,6 +789,129 @@ class Settings {
             }, 2000);
         } catch (error) {
             console.error('Failed to copy password:', error);
+        }
+    }
+
+    // Notification Methods
+    async toggleNotifications() {
+        if (!this.browserNotificationManager) {
+            console.warn('Browser notification manager not available');
+            return;
+        }
+
+        const enabled = this.notificationsEnabled.checked;
+        
+        try {
+            const success = await this.browserNotificationManager.setEnabled(enabled);
+            
+            if (success) {
+                this.updateNotificationUI();
+                this.showMessage(
+                    enabled ? 'Notifications enabled' : 'Notifications disabled',
+                    'success'
+                );
+            } else {
+                // Reset checkbox if enabling failed
+                this.notificationsEnabled.checked = false;
+                this.updateNotificationUI();
+                this.showMessage('Failed to enable notifications', 'error');
+            }
+        } catch (error) {
+            console.error('Error toggling notifications:', error);
+            this.notificationsEnabled.checked = false;
+            this.updateNotificationUI();
+            this.showMessage('Error updating notification settings', 'error');
+        }
+    }
+
+    async requestNotificationPermission() {
+        if (!this.browserNotificationManager) {
+            return;
+        }
+
+        try {
+            const granted = await this.browserNotificationManager.requestPermission();
+            
+            if (granted) {
+                this.notificationsEnabled.checked = true;
+                this.showMessage('Notification permission granted!', 'success');
+            } else {
+                this.showMessage('Notification permission denied', 'warning');
+            }
+            
+            this.updateNotificationUI();
+        } catch (error) {
+            console.error('Error requesting notification permission:', error);
+            this.showMessage('Error requesting notification permission', 'error');
+        }
+    }
+
+    async testNotification() {
+        if (!this.browserNotificationManager) {
+            this.showMessage('Notification manager not available', 'error');
+            return;
+        }
+
+        try {
+            const notification = await this.browserNotificationManager.testNotification();
+            
+            if (notification) {
+                this.showMessage('Test notification sent!', 'success');
+            } else {
+                this.showMessage('Failed to send test notification', 'warning');
+            }
+        } catch (error) {
+            console.error('Error sending test notification:', error);
+            this.showMessage('Error sending test notification', 'error');
+        }
+    }
+
+    updateNotificationUI() {
+        if (!this.browserNotificationManager) {
+            return;
+        }
+
+        const settings = this.browserNotificationManager.getSettings();
+        
+        // Update checkbox state
+        this.notificationsEnabled.checked = settings.enabled;
+        
+        // Update permission status
+        if (this.notificationPermission) {
+            if (!settings.supported) {
+                // Browser doesn't support notifications
+                this.notificationPermission.classList.remove('hidden');
+                this.permissionStatusIcon.innerHTML = '<i class="fas fa-times text-red-500"></i>';
+                this.permissionStatusText.textContent = 'Your browser does not support desktop notifications';
+                this.requestPermissionBtn.classList.add('hidden');
+                this.testNotificationBtn.disabled = true;
+            } else if (settings.permission === 'denied') {
+                // Permission denied
+                this.notificationPermission.classList.remove('hidden');
+                this.permissionStatusIcon.innerHTML = '<i class="fas fa-ban text-red-500"></i>';
+                this.permissionStatusText.textContent = 'Notification permission denied. Please enable in browser settings.';
+                this.requestPermissionBtn.classList.add('hidden');
+                this.testNotificationBtn.disabled = true;
+            } else if (settings.permission === 'default') {
+                // Permission not requested
+                this.notificationPermission.classList.remove('hidden');
+                this.permissionStatusIcon.innerHTML = '<i class="fas fa-clock text-yellow-500"></i>';
+                this.permissionStatusText.textContent = 'Click below to enable desktop notifications';
+                this.requestPermissionBtn.classList.remove('hidden');
+                this.testNotificationBtn.disabled = true;
+            } else if (settings.permission === 'granted') {
+                // Permission granted
+                if (settings.enabled) {
+                    this.notificationPermission.classList.add('hidden');
+                    this.testNotificationBtn.disabled = false;
+                } else {
+                    this.notificationPermission.classList.remove('hidden');
+                    this.permissionStatusIcon.innerHTML = '<i class="fas fa-bell-slash text-gray-500"></i>';
+                    this.permissionStatusText.textContent = 'Notifications are disabled. Toggle above to enable.';
+                    this.requestPermissionBtn.classList.add('hidden');
+                    this.testNotificationBtn.disabled = true;
+                }
+            }
         }
     }
 

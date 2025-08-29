@@ -37,7 +37,6 @@
 const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
-const afkDetectionService = require('../services/afkDetectionService');
 const { asyncHandler } = require('../utils/errors');
 
 class AgentController {
@@ -252,8 +251,8 @@ class AgentController {
                 return res.status(400).json({ error: 'Personal status must be online or afk' });
             }
 
-            // Record activity for AFK detection
-            await afkDetectionService.recordActivity(agentId);
+            // Update agent activity timestamp  
+            await agentService.updateAgentActivity(agentId);
 
             const previousAgent = await agentService.getAgent(agentId);
             const previousStatus = previousAgent?.personalStatus;
@@ -376,27 +375,7 @@ class AgentController {
         }
     }
 
-    /**
-     * Get AFK detection configuration
-     */
-    getAFKConfig = asyncHandler(async (req, res) => {
-        const config = afkDetectionService.getConfig();
-        res.json(config);
-    })
-
-    /**
-     * Update AFK timeout configuration
-     */
-    setAFKTimeout = asyncHandler(async (req, res) => {
-        const { minutes } = req.body;
-        
-        if (!minutes || minutes < 1 || minutes > 120) {
-            return res.status(400).json({ error: 'Timeout must be between 1 and 120 minutes' });
-        }
-
-        afkDetectionService.setAFKTimeout(minutes);
-        res.json({ success: true, afkTimeoutMinutes: minutes });
-    })
+    // AFK detection removed - agent status is now purely connection-based
 }
 
 module.exports = AgentController;

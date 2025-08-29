@@ -175,13 +175,38 @@ class AgentService {
     }
 
     /**
-     * Set agent as online with socket info
+     * Set agent as online with socket info (simplified: connection = online)
      */
     async setAgentOnline(agentId, socketId = null, includeActiveChats = false) {
         try {
-            const agent = await this.updateAgentPersonalStatus(agentId, 'online', includeActiveChats);
-            agent.socketId = socketId;
-            return agent;
+            const user = await this.getOrCreateAgentUser(agentId);
+            const activeChats = includeActiveChats ? await this.getAgentActiveChatsCount(agentId) : 0;
+            
+            await prisma.agent_status.upsert({
+                where: { user_id: user.id },
+                update: {
+                    status: 'online',
+                    updated_at: new Date()
+                },
+                create: {
+                    id: uuidv4(),
+                    user_id: user.id,
+                    status: 'online',
+                    updated_at: new Date()
+                }
+            });
+            
+            return {
+                id: agentId,
+                name: this.getAgentDisplayName(agentId),
+                status: 'online',
+                personalStatus: 'online',
+                lastSeen: new Date(),
+                activeChats: activeChats,
+                connected: true,
+                socketId: socketId,
+                user_id: user.id
+            };
         } catch (error) {
             console.error('Failed to set agent online:', error);
             return {
@@ -190,19 +215,48 @@ class AgentService {
                 status: 'online',
                 lastSeen: new Date(),
                 socketId: socketId,
-                activeChats: 0
+                activeChats: 0,
+                connected: true
             };
         }
     }
 
     /**
-     * Set agent as offline (cleanup)
+     * Update agent activity timestamp (for heartbeat)
+     */
+    async updateAgentActivity(agentId) {
+        try {
+            const user = await this.getOrCreateAgentUser(agentId);
+            
+            await prisma.agent_status.upsert({
+                where: { user_id: user.id },
+                update: { 
+                    updated_at: new Date(),
+                    // Keep current status, just update timestamp
+                },
+                create: {
+                    id: uuidv4(),
+                    user_id: user.id,
+                    status: 'online',
+                    updated_at: new Date()
+                }
+            });
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to update agent activity:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Set agent as offline (cleanup) with grace period for reconnections
      */
     async setAgentOffline(agentId) {
         try {
             const user = await this.getOrCreateAgentUser(agentId);
             
-            const agentStatus = await prisma.agent_status.upsert({
+            await prisma.agent_status.upsert({
                 where: { user_id: user.id },
                 update: {
                     status: 'offline',
@@ -216,13 +270,15 @@ class AgentService {
                 }
             });
             
+            console.log(`🔴 Agent ${agentId} set to offline`);
+            
             return {
                 id: agentId,
                 name: this.getAgentDisplayName(agentId),
-                connected: false,
-                personalStatus: 'offline',
                 status: 'offline',
-                lastSeen: agentStatus.updated_at,
+                personalStatus: 'offline',
+                lastSeen: new Date(),
+                connected: false,
                 user_id: user.id
             };
         } catch (error) {
@@ -230,10 +286,9 @@ class AgentService {
             return {
                 id: agentId,
                 name: this.getAgentDisplayName(agentId),
-                connected: false,
-                personalStatus: 'offline',
                 status: 'offline',
-                lastSeen: new Date()
+                lastSeen: new Date(),
+                connected: false
             };
         }
     }
@@ -539,7 +594,7 @@ class AgentService {
     /**
      * Common query for active agents with status filtering - optimized
      */
-    async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = 1) {
+    async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = 120) {
         const cutoffTime = new Date(Date.now() - (minutesAgo * 60000));
         
         return await prisma.users.findMany({

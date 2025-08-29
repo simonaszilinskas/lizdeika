@@ -491,12 +491,12 @@
             // Prevent multiple polling intervals
             if (this.pollingInterval) return;
             
-            // Poll for new messages every 2 seconds
+            // Poll for new messages every 30 seconds (reduced from 2s)
             this.pollingInterval = setInterval(() => {
                 if (this.conversationId) {
                     this.loadMessages();
                 }
-            }, 2000);
+            }, 30000);
         },
 
         async sendMessage(message) {

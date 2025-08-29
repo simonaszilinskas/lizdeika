@@ -14,7 +14,7 @@ class AgentDashboard {
         this.agentId = this.getAuthenticatedAgentId();
         this.conversations = new Map();
         this.currentSuggestion = null;
-        this.pollInterval = config.pollInterval || 3000;
+        this.pollInterval = config.pollInterval || 15000; // Reduced from 3s to 15s
         this.socket = null;
         this.personalStatus = 'online'; // Personal agent status (online/afk)
         this.systemMode = 'hitl'; // Global system mode (hitl/autopilot/off)
@@ -41,6 +41,10 @@ class AgentDashboard {
             renderer: this.renderQueue.bind(this),
             logger: console
         });
+        
+        // Initialize browser notification manager
+        this.browserNotificationManager = null;
+        this.initializeBrowserNotifications();
         
         // Make dashboard globally available immediately
         window.dashboard = this;
@@ -98,6 +102,27 @@ class AgentDashboard {
         // Final fallback: generate random ID (for development/standalone use)
         console.warn('No authenticated user found, generating random agent ID');
         return 'agent-' + Math.random().toString(36).substring(2, 11);
+    }
+
+    /**
+     * Initialize browser notifications
+     */
+    async initializeBrowserNotifications() {
+        try {
+            // Only initialize if BrowserNotificationManager is available
+            if (typeof BrowserNotificationManager !== 'undefined') {
+                this.browserNotificationManager = new BrowserNotificationManager({
+                    title: 'Vilnius Assistant',
+                    logger: console
+                });
+                
+                console.log('✅ Browser notification manager initialized');
+            } else {
+                console.warn('⚠️ BrowserNotificationManager not available, notifications disabled');
+            }
+        } catch (error) {
+            console.error('❌ Failed to initialize browser notifications:', error);
+        }
     }
 
     /**
@@ -2245,6 +2270,16 @@ class AgentDashboard {
         this.websocketManager.on('new-message', (data) => {
             console.log('📨 New message received:', data);
             
+            // Show browser notification for new messages
+            if (this.browserNotificationManager && data.sender !== 'agent') {
+                this.browserNotificationManager.showNewMessageNotification({
+                    conversationId: data.conversationId,
+                    sender: data.sender === 'user' ? 'Customer' : data.sender,
+                    content: data.content || data.message,
+                    ticketNumber: data.ticketNumber || data.ticket_number
+                });
+            }
+            
             // Always do full conversation reload for reliability
             this.loadConversations();
             
@@ -2278,6 +2313,21 @@ class AgentDashboard {
             console.log('🔄 Tickets reassigned:', data);
             this.handleTicketReassignments(data);
             
+            // Show browser notification for assignments to current agent
+            if (this.browserNotificationManager && data.reassignments) {
+                const assignedToMe = data.reassignments.filter(r => 
+                    r.newAgent === this.agentId && r.conversationId
+                );
+                
+                assignedToMe.forEach(assignment => {
+                    this.browserNotificationManager.showAssignmentNotification({
+                        conversationId: assignment.conversationId,
+                        ticketNumber: assignment.ticketNumber,
+                        reason: data.reason || 'assignment'
+                    });
+                });
+            }
+            
             // Refresh conversations to show updated assignments
             setTimeout(() => this.loadConversations(), 500);
         });
@@ -2286,6 +2336,13 @@ class AgentDashboard {
             if (data.conversationId === this.currentChatId) {
                 this.showCustomerTyping(data.isTyping);
             }
+        });
+
+        this.websocketManager.on('new-conversation', (data) => {
+            console.log('🆕 New conversation created:', data);
+            
+            // Reload conversations to show the new conversation
+            this.loadConversations();
         });
         
         // Error handling with circuit breaker

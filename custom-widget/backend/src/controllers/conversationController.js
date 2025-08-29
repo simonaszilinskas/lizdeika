@@ -95,6 +95,32 @@ class ConversationController {
                     startedAt: new Date(),
                 };
                 await conversationService.createConversation(conversationId, conversation);
+                
+                // Auto-assign to available agent if in HITL mode
+                const currentMode = await agentService.getSystemMode();
+                if (currentMode === 'hitl') {
+                    try {
+                        const availableAgent = await agentService.getBestAvailableAgent();
+                        if (availableAgent) {
+                            await conversationService.assignConversation(conversationId, availableAgent.id);
+                            console.log(`🎯 Auto-assigned new conversation ${conversationId} to agent ${availableAgent.id}`);
+                            conversation.assignedAgent = availableAgent.id;
+                        } else {
+                            console.log(`⚠️ No agents available for new conversation ${conversationId}`);
+                        }
+                    } catch (error) {
+                        console.error('Failed to auto-assign new conversation:', error);
+                        // Continue without assignment - conversation will be unassigned
+                    }
+                }
+                
+                // Emit new conversation event to agents
+                console.log('🆕 New conversation created, notifying agents:', conversationId);
+                this.io.to('agents').emit('new-conversation', {
+                    conversationId,
+                    conversation,
+                    timestamp: new Date()
+                });
             }
             
             // Store user message
@@ -186,27 +212,28 @@ class ConversationController {
                 
             } else {
                 // HITL MODE: Create AI suggestion for agent review with auto-assignment to online agents
-                // Remove any existing pending messages to avoid duplicates
-                conversationService.removePendingMessages(conversationId);
                 
-                // Try to automatically assign to an available online agent
+                // Get current conversation assignment status
                 const conversation = await conversationService.getConversation(conversationId);
-                let assignedAgent = null;
-                let shouldMarkAsUnseen = false;
+                let assignedAgent = conversation ? conversation.assignedAgent : null;
                 
-                if (conversation && !conversation.assignedAgent) {
-                    const availableAgent = await agentService.getBestAvailableAgent();
-                    if (availableAgent) {
-                        await conversationService.assignConversation(conversationId, availableAgent.id);
-                        assignedAgent = availableAgent.id;
-                        console.log(`Auto-assigned conversation ${conversationId} to online agent ${availableAgent.id}`);
-                        
-                        // No system message needed for assignment
-                    } else {
-                        console.log(`No online agents available for conversation ${conversationId}, marking as unseen`);
-                        shouldMarkAsUnseen = true;
+                // Auto-assign unassigned conversations to available agents
+                if (!assignedAgent) {
+                    try {
+                        const availableAgent = await agentService.getBestAvailableAgent();
+                        if (availableAgent) {
+                            await conversationService.assignConversation(conversationId, availableAgent.id);
+                            assignedAgent = availableAgent.id;
+                            console.log(`🎯 Auto-assigned existing conversation ${conversationId} to agent ${availableAgent.id}`);
+                        } else {
+                            console.log(`⚠️ No online agents available for conversation ${conversationId}, marking as unseen`);
+                        }
+                    } catch (error) {
+                        console.error('Failed to auto-assign existing conversation:', error);
                     }
                 }
+                
+                let shouldMarkAsUnseen = !assignedAgent;
                 
                 aiMessage = {
                     id: uuidv4(),
@@ -228,6 +255,10 @@ class ConversationController {
                         needsManualAssignment: shouldMarkAsUnseen
                     }
                 };
+                
+                // Only remove existing pending messages AFTER we have a new suggestion ready
+                // This ensures we don't lose suggestions if AI generation fails
+                await conversationService.removePendingMessages(conversationId);
                 
                 await conversationService.addMessage(conversationId, aiMessage);
                 console.log(`Generated AI suggestion for conversation ${conversationId} (HITL mode)`);
