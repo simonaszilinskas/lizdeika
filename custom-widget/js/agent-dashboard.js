@@ -2325,29 +2325,25 @@ class AgentDashboard {
     }
 
     /**
-     * Initialize WebSocket connection using ModernWebSocketManager
+     * Initialize WebSocket connection using direct Socket.io
      */
     async initializeWebSocket() {
         try {
             const wsUrl = this.apiUrl.replace('http', 'ws');
             
-            // Initialize modern WebSocket manager
-            this.websocketManager = new ModernWebSocketManager({
-                url: wsUrl,
-                agentId: this.agentId,
-                logger: console
-            });
+            // Direct Socket.io connection (like settings.js)
+            this.socket = io(wsUrl);
             
             // Set up event handlers for dashboard functionality
             this.setupWebSocketEventHandlers();
             
-            // Connect to WebSocket server
-            await this.websocketManager.connect();
+            // Start heartbeat to keep connection alive
+            this.startHeartbeat();
             
-            console.log('✅ Modern WebSocket manager initialized successfully');
+            console.log('✅ Direct Socket.io WebSocket initialized successfully');
             
         } catch (error) {
-            console.error('💥 Failed to initialize modern WebSocket manager:', error);
+            console.error('💥 Failed to initialize WebSocket connection:', error);
             // Fallback to polling if WebSocket fails completely
             this.fallbackToPolling();
         }
@@ -2357,24 +2353,21 @@ class AgentDashboard {
      * Setup WebSocket event handlers for dashboard functionality
      */
     setupWebSocketEventHandlers() {
-        // Connection events
-        this.websocketManager.on('connect', () => {
-            console.log('✅ Connected to WebSocket server via modern manager');
+        // Connection events using direct Socket.io
+        this.socket.on('connect', () => {
+            console.log('✅ Connected to WebSocket server via direct Socket.io');
             // Register initial agent status on connection
             this.registerInitialStatus();
         });
         
-        this.websocketManager.on('disconnect', () => {
+        this.socket.on('disconnect', () => {
             console.log('❌ Disconnected from WebSocket server');
         });
         
-        this.websocketManager.on('reconnect', (attemptNumber) => {
-            console.log(`🔄 Reconnected after ${attemptNumber} attempts`);
-            this.handleReconnection();
-        });
+        // Note: Socket.io handles reconnection automatically - no custom 'reconnect' event needed
         
         // Application events
-        this.websocketManager.on('new-message', (data) => {
+        this.socket.on('new-message', (data) => {
             console.log('📨 New message received:', data);
             
             // Play sound notification for new messages
@@ -2404,7 +2397,7 @@ class AgentDashboard {
             }
         });
         
-        this.websocketManager.on('connected-agents-update', (data) => {
+        this.socket.on('connected-agents-update', (data) => {
             console.log('👥 Connected agents update:', data);
             // Invalidate agent cache when status changes
             this.agentCacheExpiry = 0;
@@ -2412,12 +2405,12 @@ class AgentDashboard {
             this.updateConnectedAgents(data.agents);
         });
         
-        this.websocketManager.on('system-mode-update', (data) => {
+        this.socket.on('system-mode-update', (data) => {
             console.log('⚙️ System mode update:', data);
             this.updateSystemMode(data.mode);
         });
         
-        this.websocketManager.on('tickets-reassigned', (data) => {
+        this.socket.on('tickets-reassigned', (data) => {
             console.log('🔄 Tickets reassigned:', data);
             this.handleTicketReassignments(data);
             
@@ -2437,13 +2430,13 @@ class AgentDashboard {
             setTimeout(() => this.loadConversations(), 500);
         });
         
-        this.websocketManager.on('customer-typing-status', (data) => {
+        this.socket.on('customer-typing-status', (data) => {
             if (data.conversationId === this.currentChatId) {
                 this.showCustomerTyping(data.isTyping);
             }
         });
 
-        this.websocketManager.on('new-conversation', (data) => {
+        this.socket.on('new-conversation', (data) => {
             console.log('🆕 New conversation created:', data);
             
             // Play sound notification for new conversations
@@ -2455,23 +2448,39 @@ class AgentDashboard {
             this.loadConversations();
         });
         
-        // Error handling with circuit breaker
-        this.websocketManager.on('circuit-breaker-open', (data) => {
-            console.error('🚨 WebSocket circuit breaker opened, falling back to polling');
-            this.fallbackToPolling();
+        // Socket.io error handling (simplified - no circuit breaker needed)
+        this.socket.on('error', (error) => {
+            console.error('💥 WebSocket error:', error);
         });
         
-        // Connection status monitoring
-        this.websocketManager.onConnectionChange((status, details) => {
-            console.log(`🔌 Connection status: ${status}`, details);
-            if (status === 'disconnected' && details.errorCount > 2) {
-                this.handleConnectionError();
+        // Socket.io handles connection status automatically - no custom monitoring needed
+    }
+    
+    /**
+     * Start heartbeat to keep WebSocket connection alive
+     */
+    startHeartbeat() {
+        // Send heartbeat every 15 seconds to keep connection active
+        this.heartbeatInterval = setInterval(() => {
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('heartbeat', { 
+                    timestamp: Date.now(),
+                    agentId: this.agentId 
+                });
+                console.log('💓 Agent dashboard heartbeat sent');
             }
-        });
-        
-        this.websocketManager.onError((errorInfo) => {
-            console.error('💥 WebSocket error:', errorInfo);
-        });
+        }, 15000); // 15 seconds
+    }
+    
+    /**
+     * Stop heartbeat interval
+     */
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+            console.log('💔 Agent dashboard heartbeat stopped');
+        }
     }
     
     /**
@@ -2494,48 +2503,16 @@ class AgentDashboard {
      * @param {boolean} isTyping - Whether agent is typing
      */
     sendTypingStatus(isTyping) {
-        if (this.websocketManager && this.currentChatId) {
-            this.websocketManager.send('agent-typing', {
+        if (this.socket && this.socket.connected && this.currentChatId) {
+            this.socket.emit('agent-typing', {
                 conversationId: this.currentChatId,
                 isTyping: isTyping
             });
         }
     }
     
-    /**
-     * Handle WebSocket connection errors
-     */
-    handleConnectionError() {
-        console.log('WebSocket connection failed, starting polling fallback');
-        this.fallbackToPolling();
-    }
-    
-    /**
-     * Handle successful WebSocket reconnection
-     */
-    handleReconnection() {
-        // Re-register agent status
-        this.registerInitialStatus();
-        
-        // Rejoin current conversation if any
-        if (this.currentChatId) {
-            this.websocketManager.send('join-conversation', this.currentChatId);
-        }
-        
-        // Stop polling if it was started as fallback
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-            this.pollingInterval = null;
-            console.log('WebSocket reconnected, stopping polling fallback');
-        }
-        
-        // Refresh data
-        this.loadConversations();
-        if (this.currentChatId) {
-            this.loadChatMessages(this.currentChatId);
-            this.checkForPendingSuggestion(this.currentChatId);
-        }
-    }
+    // Connection error and reconnection handling simplified
+    // Socket.io handles reconnection automatically - no custom logic needed
     
     /**
      * Fall back to polling when WebSocket fails
