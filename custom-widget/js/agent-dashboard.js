@@ -35,12 +35,7 @@ class AgentDashboard {
             logger: console
         });
         
-        // Initialize conversation update manager (Phase 1: infrastructure only)
-        this.conversationUpdateManager = new ConversationUpdateManager({
-            loader: this.modernConversationLoader,
-            renderer: this.renderQueue.bind(this),
-            logger: console
-        });
+        // ConversationUpdateManager removed - was unused infrastructure (always fell back to full reloads)
         
         // Initialize sound notification manager
         this.soundNotificationManager = null;
