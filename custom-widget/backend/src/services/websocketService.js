@@ -105,11 +105,12 @@ class WebSocketService {
             socket.on('disconnect', async () => {
                 console.log('Client disconnected:', socket.id);
                 
-                // Update agent status if this was an agent
+                // Don't immediately set agent to offline - rely on heartbeat timeout
+                // This allows agents to reconnect when switching pages without being marked offline
                 if (socket.agentId) {
-                    await agentService.setAgentOffline(socket.agentId);
+                    console.log(`🟡 Agent ${socket.agentId} disconnected but not marking offline (grace period)`);
                     
-                    // Broadcast updated connected agents list
+                    // Still broadcast the update so UI can reflect potential change
                     const connectedAgents = await agentService.getConnectedAgents();
                     this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
                 }

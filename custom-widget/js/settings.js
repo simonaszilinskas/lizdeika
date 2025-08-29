@@ -25,10 +25,13 @@ class Settings {
         // Sound notification manager
         this.soundNotificationManager = null;
         
+        // Heartbeat management
+        this.heartbeatInterval = null;
+        
         this.initializeErrorHandling();
         this.initializeSoundNotifications();
         this.initializeElements();
-        this.initializeSmartConnection();
+        // Delay WebSocket initialization until after user is loaded
         this.attachEventListeners();
         this.loadInitialData();
     }
@@ -190,6 +193,9 @@ class Settings {
         try {
             // Load current user to determine admin status
             await this.loadCurrentUser();
+            
+            // Initialize WebSocket connection after user is loaded
+            this.initializeSmartConnection();
             
             // Load system mode and agents
             await this.loadSystemMode();
@@ -953,14 +959,28 @@ class Settings {
      * Setup WebSocket event listeners
      */
     setupWebSocketListeners() {
-        this.socket.on('connect', () => {
+        this.socket.on('connect', async () => {
             console.log('🔌 Settings: WebSocket connected');
+            
+            // If current user is an agent or admin, join agent dashboard to be counted
+            if (this.currentUser && (this.currentUser.role === 'agent' || this.currentUser.role === 'admin')) {
+                console.log('📡 Settings: Joining agent dashboard as:', this.currentUser.id);
+                this.socket.emit('join-agent-dashboard', this.currentUser.id);
+                
+                // Send heartbeat to register as online
+                this.socket.emit('heartbeat', { timestamp: Date.now() });
+                
+                // Start sending periodic heartbeats to keep status active
+                this.startHeartbeat();
+            }
+            
             // Subscribe to smart updates
             this.socket.emit('subscribe-smart-updates', ['agent-status', 'system-mode']);
         });
 
         this.socket.on('disconnect', () => {
             console.log('🔌 Settings: WebSocket disconnected');
+            this.stopHeartbeat();
         });
 
         // Listen for smart updates
@@ -1088,6 +1108,35 @@ class Settings {
 
     formatDate(timestamp) {
         return new Date(timestamp).toLocaleDateString();
+    }
+
+    /**
+     * Start sending periodic heartbeats to keep agent status active
+     */
+    startHeartbeat() {
+        // Clear any existing interval
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+        }
+        
+        // Send heartbeat every 15 seconds to keep agent appearing as online
+        this.heartbeatInterval = setInterval(() => {
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('heartbeat', { timestamp: Date.now() });
+                console.log('💓 Settings: Heartbeat sent');
+            }
+        }, 15000); // 15 seconds
+    }
+
+    /**
+     * Stop sending heartbeats
+     */
+    stopHeartbeat() {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+            console.log('💔 Settings: Heartbeat stopped');
+        }
     }
 
     showMessage(text, type = 'info', title = '') {

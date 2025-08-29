@@ -168,6 +168,12 @@ class AgentDashboard {
         // Load saved personal status before initializing other components
         await this.loadSavedPersonalStatus();
         
+        // Register initial status with the server to ensure agent appears as connected
+        await this.registerInitialStatus();
+        
+        // Set up periodic status refresh to keep agent appearing as connected (every 30 minutes)
+        this.startStatusRefresh();
+        
         // Check if user is admin and show admin bar
         await this.checkAdminStatus();
         
@@ -475,6 +481,36 @@ class AgentDashboard {
         } catch (error) {
             console.error('Error registering initial status:', error);
         }
+    }
+
+    /**
+     * Start periodic status refresh to keep agent appearing as connected
+     * This prevents the agent from being filtered out due to stale timestamps
+     */
+    startStatusRefresh() {
+        // Clear any existing interval
+        if (this.statusRefreshInterval) {
+            clearInterval(this.statusRefreshInterval);
+        }
+        
+        // Refresh status every 30 minutes (well within the 2-hour timeout)
+        this.statusRefreshInterval = setInterval(async () => {
+            if (this.personalStatus && this.personalStatus !== 'offline') {
+                try {
+                    await fetch(`${this.apiUrl}/api/agent/personal-status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            agentId: this.agentId, 
+                            personalStatus: this.personalStatus 
+                        })
+                    });
+                    console.log(`Status refreshed for agent ${this.agentId} at ${new Date().toISOString()}`);
+                } catch (error) {
+                    console.error('Error refreshing agent status:', error);
+                }
+            }
+        }, 30 * 60 * 1000); // 30 minutes
     }
 
     /**
