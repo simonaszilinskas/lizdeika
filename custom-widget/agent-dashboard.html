@@ -531,9 +531,9 @@
                     
                     console.log('✅ Error handling modules loaded');
                     
-                    // Load browser notification manager
-                    await loadScript('js/modules/browserNotificationManager.js');
-                    console.log('✅ Browser notification manager loaded');
+                    // Load sound notification manager
+                    await loadScript('js/modules/soundNotificationManager.js');
+                    console.log('✅ Sound notification manager loaded');
                     
                     // Load modern WebSocket manager
                     await loadScript('js/modules/modern-websocket-manager.js');
@@ -554,7 +554,7 @@
                 } catch (error) {
                     console.error('❌ Failed to load error handling modules:', error);
                     // Still try to load modern modules and dashboard even if error modules fail
-                    await loadScript('js/modules/browserNotificationManager.js');
+                    await loadScript('js/modules/soundNotificationManager.js');
                     await loadScript('js/modules/modern-websocket-manager.js');
                     await loadScript('js/modules/modern-conversation-loader.js');
                     const script = document.createElement('script');

@@ -42,9 +42,9 @@ class AgentDashboard {
             logger: console
         });
         
-        // Initialize browser notification manager
-        this.browserNotificationManager = null;
-        this.initializeBrowserNotifications();
+        // Initialize sound notification manager
+        this.soundNotificationManager = null;
+        this.initializeSoundNotifications();
         
         // Make dashboard globally available immediately
         window.dashboard = this;
@@ -107,21 +107,21 @@ class AgentDashboard {
     /**
      * Initialize browser notifications
      */
-    async initializeBrowserNotifications() {
+    async initializeSoundNotifications() {
         try {
-            // Only initialize if BrowserNotificationManager is available
-            if (typeof BrowserNotificationManager !== 'undefined') {
-                this.browserNotificationManager = new BrowserNotificationManager({
-                    title: 'Vilnius Assistant',
+            // Only initialize if SoundNotificationManager is available
+            if (typeof SoundNotificationManager !== 'undefined') {
+                this.soundNotificationManager = new SoundNotificationManager({
+                    agentId: this.agentId,
                     logger: console
                 });
                 
-                console.log('✅ Browser notification manager initialized');
+                console.log('✅ Sound notification manager initialized');
             } else {
-                console.warn('⚠️ BrowserNotificationManager not available, notifications disabled');
+                console.warn('⚠️ SoundNotificationManager not available, notifications disabled');
             }
         } catch (error) {
-            console.error('❌ Failed to initialize browser notifications:', error);
+            console.error('❌ Failed to initialize sound notifications:', error);
         }
     }
 
@@ -850,8 +850,13 @@ class AgentDashboard {
         const isSelected = this.selectedConversations.has(conv.id);
         const archivedClass = conv.archived ? 'opacity-75 bg-gray-50' : '';
         
+        // Calculate unread indicator
+        const unreadCount = this.getUnreadMessageCount(conv, isAssignedToMe);
+        const urgencyIcon = this.getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe);
+        const priorityClass = this.getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe);
+
         return `
-            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass}" 
+            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass} ${priorityClass}" 
                  onclick="dashboard.selectChat('${conv.id}')">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center gap-2">
@@ -861,9 +866,11 @@ class AgentDashboard {
                                ${isSelected ? 'checked' : ''}
                                onclick="event.stopPropagation(); dashboard.toggleConversationSelection('${conv.id}')"
                                title="Select for bulk actions">
-                        <div>
-                            <div class="font-medium text-sm flex items-center gap-1">
-                                User #${conv.userNumber || 'Unknown'}
+                        ${urgencyIcon}
+                        <div class="flex-1">
+                            <div class="font-medium text-sm flex items-center gap-2">
+                                <span>User #${conv.userNumber || 'Unknown'}</span>
+                                ${unreadCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full animate-pulse">${unreadCount}</span>` : ''}
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
                             </div>
                             <div class="text-xs text-gray-500">
@@ -875,6 +882,7 @@ class AgentDashboard {
                         <span class="text-xs px-2 py-1 rounded ${statusCss}">
                             ${statusLabel}
                         </span>
+                        ${this.getTimeUrgencyIndicator(conv)}
                     </div>
                 </div>
                 <div class="text-sm truncate text-gray-600">
@@ -882,7 +890,10 @@ class AgentDashboard {
                 </div>
                 <div class="flex justify-between items-center mt-2 text-xs">
                     <div class="flex items-center gap-2">
-                        <span class="text-gray-500">${conv.messageCount} messages</span>
+                        <span class="text-gray-500 flex items-center gap-1">
+                            <i class="fas fa-comments text-gray-400"></i>
+                            ${conv.messageCount} messages
+                        </span>
                         ${this.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id, conv.archived)}
                     </div>
                     <span class="text-gray-500">${this.formatConversationDate(conv.updatedAt || conv.startedAt)}</span>
@@ -962,6 +973,80 @@ class AgentDashboard {
         
         // SOMEBODY'S (other agents)
         return 'bg-gray-400 text-white text-xs';
+    }
+
+    /**
+     * Get unread message count for visual indicator
+     */
+    getUnreadMessageCount(conv, isAssignedToMe) {
+        // For conversations assigned to me, show count based on unseen messages
+        if (isAssignedToMe && conv.lastMessage && conv.lastMessage.metadata) {
+            // If conversation is unseen, show at least 1
+            if (this.conversationIsUnseen(conv)) {
+                return 1;
+            }
+        }
+        
+        // For unassigned conversations, show count if unseen
+        if (!conv.assignedAgent && this.conversationIsUnseen(conv)) {
+            return 1;
+        }
+        
+        return 0;
+    }
+
+    /**
+     * Get urgency icon for conversation
+     */
+    getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe) {
+        if (isUnseen && isAssignedToMe) {
+            return '<i class="fas fa-exclamation-triangle text-red-600 animate-pulse" title="Urgent: Unseen message assigned to you!"></i>';
+        }
+        if (isUnseen) {
+            return '<i class="fas fa-exclamation-circle text-red-500" title="New unseen message"></i>';
+        }
+        if (needsResponse && isAssignedToMe) {
+            return '<i class="fas fa-reply text-blue-600" title="Needs your response"></i>';
+        }
+        if (isAssignedToMe) {
+            return '<i class="fas fa-user-check text-blue-500" title="Assigned to you"></i>';
+        }
+        
+        return '<i class="fas fa-comments text-gray-400"></i>';
+    }
+
+    /**
+     * Get priority animation class
+     */
+    getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe) {
+        if (isUnseen && isAssignedToMe) {
+            return 'animate-pulse'; // Most urgent
+        }
+        return '';
+    }
+
+    /**
+     * Get time-based urgency indicator
+     */
+    getTimeUrgencyIndicator(conv) {
+        if (!conv.lastMessage || !conv.lastMessage.timestamp) {
+            return '';
+        }
+
+        const now = new Date();
+        const lastMessageTime = new Date(conv.lastMessage.timestamp);
+        const timeDiff = now - lastMessageTime;
+        const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+        
+        if (this.conversationIsUnseen(conv)) {
+            if (hoursAgo >= 2) {
+                return '<i class="fas fa-clock text-red-500 animate-pulse" title="Unseen for over 2 hours!"></i>';
+            } else if (hoursAgo >= 1) {
+                return '<i class="fas fa-clock text-orange-500" title="Unseen for over 1 hour"></i>';
+            }
+        }
+        
+        return '';
     }
 
     /**
@@ -2270,13 +2355,14 @@ class AgentDashboard {
         this.websocketManager.on('new-message', (data) => {
             console.log('📨 New message received:', data);
             
-            // Show browser notification for new messages
-            if (this.browserNotificationManager && data.sender !== 'agent') {
-                this.browserNotificationManager.showNewMessageNotification({
+            // Play sound notification for new messages
+            if (this.soundNotificationManager && data.sender !== 'agent') {
+                this.soundNotificationManager.onNewMessage({
                     conversationId: data.conversationId,
-                    sender: data.sender === 'user' ? 'Customer' : data.sender,
+                    sender: data.sender,
                     content: data.content || data.message,
-                    ticketNumber: data.ticketNumber || data.ticket_number
+                    senderType: data.sender,
+                    conversation: data.conversation || { assigned_agent_id: data.assignedAgentId }
                 });
             }
             
@@ -2313,19 +2399,16 @@ class AgentDashboard {
             console.log('🔄 Tickets reassigned:', data);
             this.handleTicketReassignments(data);
             
-            // Show browser notification for assignments to current agent
-            if (this.browserNotificationManager && data.reassignments) {
+            // Play sound notification for assignments to current agent
+            if (this.soundNotificationManager && data.reassignments) {
                 const assignedToMe = data.reassignments.filter(r => 
                     r.newAgent === this.agentId && r.conversationId
                 );
                 
-                assignedToMe.forEach(assignment => {
-                    this.browserNotificationManager.showAssignmentNotification({
-                        conversationId: assignment.conversationId,
-                        ticketNumber: assignment.ticketNumber,
-                        reason: data.reason || 'assignment'
-                    });
-                });
+                if (assignedToMe.length > 0) {
+                    // Play new conversation sound for assignments
+                    this.soundNotificationManager.playSound('newConversation');
+                }
             }
             
             // Refresh conversations to show updated assignments
@@ -2340,6 +2423,11 @@ class AgentDashboard {
 
         this.websocketManager.on('new-conversation', (data) => {
             console.log('🆕 New conversation created:', data);
+            
+            // Play sound notification for new conversations
+            if (this.soundNotificationManager) {
+                this.soundNotificationManager.onNewConversation(data);
+            }
             
             // Reload conversations to show the new conversation
             this.loadConversations();

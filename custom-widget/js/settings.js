@@ -22,11 +22,11 @@ class Settings {
         this.errorHandler = null;
         this.apiRequest = null;
         
-        // Browser notification manager
-        this.browserNotificationManager = null;
+        // Sound notification manager
+        this.soundNotificationManager = null;
         
         this.initializeErrorHandling();
-        this.initializeBrowserNotifications();
+        this.initializeSoundNotifications();
         this.initializeElements();
         this.initializeSmartConnection();
         this.attachEventListeners();
@@ -58,19 +58,19 @@ class Settings {
     /**
      * Initialize browser notifications manager
      */
-    initializeBrowserNotifications() {
+    initializeSoundNotifications() {
         try {
-            if (typeof BrowserNotificationManager !== 'undefined') {
-                this.browserNotificationManager = new BrowserNotificationManager({
-                    title: 'Vilnius Assistant',
+            if (typeof SoundNotificationManager !== 'undefined') {
+                this.soundNotificationManager = new SoundNotificationManager({
+                    agentId: this.agentId,
                     logger: console
                 });
-                console.log('✅ Settings: Browser notification manager initialized');
+                console.log('✅ Settings: Sound notification manager initialized');
             } else {
-                console.warn('⚠️ Settings: BrowserNotificationManager not available');
+                console.warn('⚠️ Settings: SoundNotificationManager not available');
             }
         } catch (error) {
-            console.error('❌ Settings: Failed to initialize browser notifications:', error);
+            console.error('❌ Settings: Failed to initialize sound notifications:', error);
         }
     }
 
@@ -137,15 +137,25 @@ class Settings {
         this.addUserForm.addEventListener('submit', (e) => this.handleAddUserSubmit(e));
         document.getElementById('add-user-btn').addEventListener('click', () => this.openAddUserModal());
         
-        // Notification settings
-        if (this.notificationsEnabled) {
-            this.notificationsEnabled.addEventListener('change', () => this.toggleNotifications());
+        // Sound notification settings
+        const soundNotificationsEnabled = document.getElementById('sound-notifications-enabled');
+        if (soundNotificationsEnabled) {
+            soundNotificationsEnabled.addEventListener('change', () => this.toggleNotifications());
         }
-        if (this.requestPermissionBtn) {
-            this.requestPermissionBtn.addEventListener('click', () => this.requestNotificationPermission());
+        
+        const soundVolume = document.getElementById('sound-volume');
+        if (soundVolume) {
+            soundVolume.addEventListener('input', (e) => this.updateSoundVolume(e.target.value));
         }
-        if (this.testNotificationBtn) {
-            this.testNotificationBtn.addEventListener('click', () => this.testNotification());
+        
+        const testMessageSoundBtn = document.getElementById('test-message-sound-btn');
+        if (testMessageSoundBtn) {
+            testMessageSoundBtn.addEventListener('click', () => this.testMessageSound());
+        }
+        
+        const testConversationSoundBtn = document.getElementById('test-conversation-sound-btn');
+        if (testConversationSoundBtn) {
+            testConversationSoundBtn.addEventListener('click', () => this.testConversationSound());
         }
         
         // Modal handling
@@ -794,124 +804,110 @@ class Settings {
 
     // Notification Methods
     async toggleNotifications() {
-        if (!this.browserNotificationManager) {
-            console.warn('Browser notification manager not available');
+        if (!this.soundNotificationManager) {
+            console.warn('Sound notification manager not available');
             return;
         }
 
-        const enabled = this.notificationsEnabled.checked;
+        const enabled = document.getElementById('sound-notifications-enabled').checked;
         
         try {
-            const success = await this.browserNotificationManager.setEnabled(enabled);
+            this.soundNotificationManager.setEnabled(enabled);
             
-            if (success) {
-                this.updateNotificationUI();
-                this.showMessage(
-                    enabled ? 'Notifications enabled' : 'Notifications disabled',
-                    'success'
-                );
-            } else {
-                // Reset checkbox if enabling failed
-                this.notificationsEnabled.checked = false;
-                this.updateNotificationUI();
-                this.showMessage('Failed to enable notifications', 'error');
-            }
+            this.showMessage(
+                enabled ? 'Sound notifications enabled' : 'Sound notifications disabled',
+                'success'
+            );
         } catch (error) {
-            console.error('Error toggling notifications:', error);
-            this.notificationsEnabled.checked = false;
-            this.updateNotificationUI();
-            this.showMessage('Error updating notification settings', 'error');
+            console.error('Error toggling sound notifications:', error);
+            document.getElementById('sound-notifications-enabled').checked = false;
+            this.showMessage('Error updating sound notification settings', 'error');
         }
     }
 
+    // Sound notifications don't require permissions
     async requestNotificationPermission() {
-        if (!this.browserNotificationManager) {
-            return;
-        }
-
-        try {
-            const granted = await this.browserNotificationManager.requestPermission();
-            
-            if (granted) {
-                this.notificationsEnabled.checked = true;
-                this.showMessage('Notification permission granted!', 'success');
-            } else {
-                this.showMessage('Notification permission denied', 'warning');
-            }
-            
-            this.updateNotificationUI();
-        } catch (error) {
-            console.error('Error requesting notification permission:', error);
-            this.showMessage('Error requesting notification permission', 'error');
-        }
+        this.showMessage('Sound notifications are ready - no permissions required!', 'success');
     }
 
     async testNotification() {
-        if (!this.browserNotificationManager) {
-            this.showMessage('Notification manager not available', 'error');
+        if (!this.soundNotificationManager) {
+            this.showMessage('Sound notification manager not available', 'error');
             return;
         }
 
         try {
-            const notification = await this.browserNotificationManager.testNotification();
-            
-            if (notification) {
-                this.showMessage('Test notification sent!', 'success');
-            } else {
-                this.showMessage('Failed to send test notification', 'warning');
-            }
+            this.soundNotificationManager.testSound('newMessage');
+            this.showMessage('Test sound played!', 'success');
         } catch (error) {
-            console.error('Error sending test notification:', error);
-            this.showMessage('Error sending test notification', 'error');
+            console.error('Error playing test sound:', error);
+            this.showMessage('Error playing test sound', 'error');
         }
     }
 
     updateNotificationUI() {
-        if (!this.browserNotificationManager) {
+        if (!this.soundNotificationManager) {
             return;
         }
 
-        const settings = this.browserNotificationManager.getSettings();
-        
         // Update checkbox state
-        this.notificationsEnabled.checked = settings.enabled;
+        const enabledCheckbox = document.getElementById('sound-notifications-enabled');
+        if (enabledCheckbox) {
+            enabledCheckbox.checked = this.soundNotificationManager.enabled;
+        }
         
-        // Update permission status
-        if (this.notificationPermission) {
-            if (!settings.supported) {
-                // Browser doesn't support notifications
-                this.notificationPermission.classList.remove('hidden');
-                this.permissionStatusIcon.innerHTML = '<i class="fas fa-times text-red-500"></i>';
-                this.permissionStatusText.textContent = 'Your browser does not support desktop notifications';
-                this.requestPermissionBtn.classList.add('hidden');
-                this.testNotificationBtn.disabled = true;
-            } else if (settings.permission === 'denied') {
-                // Permission denied
-                this.notificationPermission.classList.remove('hidden');
-                this.permissionStatusIcon.innerHTML = '<i class="fas fa-ban text-red-500"></i>';
-                this.permissionStatusText.textContent = 'Notification permission denied. Please enable in browser settings.';
-                this.requestPermissionBtn.classList.add('hidden');
-                this.testNotificationBtn.disabled = true;
-            } else if (settings.permission === 'default') {
-                // Permission not requested
-                this.notificationPermission.classList.remove('hidden');
-                this.permissionStatusIcon.innerHTML = '<i class="fas fa-clock text-yellow-500"></i>';
-                this.permissionStatusText.textContent = 'Click below to enable desktop notifications';
-                this.requestPermissionBtn.classList.remove('hidden');
-                this.testNotificationBtn.disabled = true;
-            } else if (settings.permission === 'granted') {
-                // Permission granted
-                if (settings.enabled) {
-                    this.notificationPermission.classList.add('hidden');
-                    this.testNotificationBtn.disabled = false;
-                } else {
-                    this.notificationPermission.classList.remove('hidden');
-                    this.permissionStatusIcon.innerHTML = '<i class="fas fa-bell-slash text-gray-500"></i>';
-                    this.permissionStatusText.textContent = 'Notifications are disabled. Toggle above to enable.';
-                    this.requestPermissionBtn.classList.add('hidden');
-                    this.testNotificationBtn.disabled = true;
-                }
-            }
+        // Update volume display
+        const volumeSlider = document.getElementById('sound-volume');
+        const volumeDisplay = document.getElementById('volume-display');
+        if (volumeSlider && volumeDisplay) {
+            const volume = Math.round(this.soundNotificationManager.volume * 100);
+            volumeSlider.value = volume;
+            volumeDisplay.textContent = `${volume}%`;
+        }
+    }
+
+    updateSoundVolume(value) {
+        if (!this.soundNotificationManager) {
+            return;
+        }
+
+        const volume = parseInt(value) / 100;
+        this.soundNotificationManager.setVolume(volume);
+        
+        // Update volume display
+        const volumeDisplay = document.getElementById('volume-display');
+        if (volumeDisplay) {
+            volumeDisplay.textContent = `${value}%`;
+        }
+    }
+
+    async testMessageSound() {
+        if (!this.soundNotificationManager) {
+            this.showMessage('Sound notification manager not available', 'error');
+            return;
+        }
+
+        try {
+            this.soundNotificationManager.testSound('newMessage');
+            this.showMessage('Message sound played!', 'success');
+        } catch (error) {
+            console.error('Error playing message sound:', error);
+            this.showMessage('Error playing message sound', 'error');
+        }
+    }
+
+    async testConversationSound() {
+        if (!this.soundNotificationManager) {
+            this.showMessage('Sound notification manager not available', 'error');
+            return;
+        }
+
+        try {
+            this.soundNotificationManager.testSound('newConversation');
+            this.showMessage('Conversation sound played!', 'success');
+        } catch (error) {
+            console.error('Error playing conversation sound:', error);
+            this.showMessage('Error playing conversation sound', 'error');
         }
     }
 
