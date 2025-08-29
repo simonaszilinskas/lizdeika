@@ -417,9 +417,6 @@ class Settings {
                     <div class="w-3 h-3 rounded-full ${agent.personalStatus === 'afk' ? 'bg-orange-400' : 'bg-green-400'}"></div>
                     <div>
                         <div class="font-medium text-gray-900">${agent.id.substring(0, 12)}...</div>
-                        <div class="text-sm text-gray-500">
-                            ${agent.activeChats || 0} active chat${(agent.activeChats || 0) !== 1 ? 's' : ''}
-                        </div>
                     </div>
                 </div>
                 <div class="text-right">

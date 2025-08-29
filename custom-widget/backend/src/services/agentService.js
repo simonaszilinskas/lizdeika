@@ -45,9 +45,6 @@ class AgentService {
             // Get or create user for this agent
             const user = await this.getOrCreateAgentUser(agentId);
             
-            // Count active chats for this agent if requested
-            const activeChats = includeActiveChats ? await this.getAgentActiveChatsCount(agentId) : 0;
-            
             // Update agent status in database
             const agentStatus = await prisma.agent_status.upsert({
                 where: { user_id: user.id },
@@ -73,7 +70,6 @@ class AgentService {
                 status: this.mapStatusToLegacy(agentStatus.status),
                 personalStatus: personalStatus,
                 lastSeen: agentStatus.updated_at,
-                activeChats: activeChats,
                 connected: personalStatus !== 'offline',
                 user_id: user.id
             };
@@ -88,7 +84,6 @@ class AgentService {
                 status: personalStatus === 'online' ? 'online' : 'offline',
                 personalStatus: personalStatus,
                 lastSeen: new Date(),
-                activeChats: 0,
                 connected: personalStatus !== 'offline'
             };
         }
@@ -180,7 +175,6 @@ class AgentService {
     async setAgentOnline(agentId, socketId = null, includeActiveChats = false) {
         try {
             const user = await this.getOrCreateAgentUser(agentId);
-            const activeChats = includeActiveChats ? await this.getAgentActiveChatsCount(agentId) : 0;
             
             await prisma.agent_status.upsert({
                 where: { user_id: user.id },
@@ -202,7 +196,6 @@ class AgentService {
                 status: 'online',
                 personalStatus: 'online',
                 lastSeen: new Date(),
-                activeChats: activeChats,
                 connected: true,
                 socketId: socketId,
                 user_id: user.id
@@ -215,7 +208,6 @@ class AgentService {
                 status: 'online',
                 lastSeen: new Date(),
                 socketId: socketId,
-                activeChats: 0,
                 connected: true
             };
         }
@@ -555,11 +547,8 @@ class AgentService {
             
             if (onlineAgents.length === 0) return null;
             
-            // Sort by least active chats, then by last seen (most recent first)
+            // Sort by last seen (most recent first)
             onlineAgents.sort((a, b) => {
-                if (a.activeChats !== b.activeChats) {
-                    return a.activeChats - b.activeChats;
-                }
                 return new Date(b.lastSeen) - new Date(a.lastSeen);
             });
             
@@ -612,32 +601,12 @@ class AgentService {
         });
     }
 
-    /**
-     * Get active conversation count for agent directly from database
-     */
-    async getAgentActiveChatsCount(agentId) {
-        try {
-            return await prisma.tickets.count({
-                where: {
-                    assigned_agent_id: agentId
-                }
-            });
-        } catch (error) {
-            console.error('Failed to get agent active chats count:', error);
-            return 0;
-        }
-    }
 
     /**
      * Map user database object to agent response format - reduces duplication
      */
     async mapUserToAgent(user, includeActiveChats = false) {
         const agentId = this.getUserAgentId(user);
-        let activeChats = 0;
-        
-        if (includeActiveChats) {
-            activeChats = await this.getAgentActiveChatsCount(agentId);
-        }
         
         return {
             id: agentId,
@@ -645,7 +614,6 @@ class AgentService {
             status: user.agent_status ? this.mapStatusToLegacy(user.agent_status.status) : 'offline',
             personalStatus: user.agent_status ? this.mapStatusToPersonal(user.agent_status.status) : 'offline',
             lastSeen: user.agent_status?.updated_at || user.updated_at,
-            activeChats,
             connected: user.agent_status ? user.agent_status.status !== 'offline' : false,
             userId: user.id
         };
