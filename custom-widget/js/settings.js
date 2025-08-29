@@ -11,7 +11,7 @@ class Settings {
         
         // Smart connection management
         this.socket = null;
-        this.connectionManager = null;
+        // ConnectionManager removed - now using simple polling
         this.lastDataTimestamp = {
             connectedAgents: 0,
             systemMode: 0
@@ -935,14 +935,9 @@ class Settings {
                 this.setupWebSocketListeners();
             }
 
-            // Initialize smart connection manager
-            if (typeof ConnectionManager !== 'undefined') {
-                this.connectionManager = new ConnectionManager(this.apiUrl, this.socket);
-                this.setupSmartPolling();
-            } else {
-                console.warn('ConnectionManager not available, falling back to basic polling');
-                this.startBasicPolling();
-            }
+            // Use simple polling instead of complex connection manager
+            console.log('📊 Using simple polling for connected agents and system mode');
+            this.startBasicPolling();
         } catch (error) {
             console.error('Error initializing smart connection:', error);
             this.startBasicPolling();
@@ -1019,36 +1014,7 @@ class Settings {
         }
     }
 
-    /**
-     * Setup smart polling with connection manager
-     */
-    setupSmartPolling() {
-        // Create smart poller for connected agents
-        this.connectionManager.createSmartPoller('connected-agents', 
-            () => this.smartLoadConnectedAgents(), {
-                interval: 30000, // 30 seconds (was 5 seconds!)
-                maxInterval: 60000,
-                exponential: true,
-                onlyWhenNeeded: true
-            }
-        );
-
-        // Create smart poller for system mode (less frequent)
-        this.connectionManager.createSmartPoller('system-mode', 
-            () => this.smartLoadSystemMode(), {
-                interval: 45000, // 45 seconds
-                maxInterval: 120000, // 2 minutes max
-                exponential: true,
-                onlyWhenNeeded: true
-            }
-        );
-
-        // Start the pollers
-        this.connectionManager.startPoller('connected-agents');
-        this.connectionManager.startPoller('system-mode');
-
-        console.log('🚀 Smart polling initialized for settings page');
-    }
+    // setupSmartPolling method removed - now using simple startBasicPolling() instead
 
     /**
      * Smart load connected agents - returns true if data changed
@@ -1087,13 +1053,13 @@ class Settings {
     }
 
     /**
-     * Fallback to basic polling if smart polling fails
+     * Simple polling - replaces complex ConnectionManager
      */
     startBasicPolling() {
-        console.log('📊 Falling back to basic polling (reduced frequency)');
-        // Reduce frequency from 5s to 30s even in fallback mode
-        setInterval(() => this.loadConnectedAgents(), 30000);
-        setInterval(() => this.loadSystemMode(), 45000);
+        console.log('📊 Starting simple polling (30s agents, 45s system mode)');
+        // Use smart load methods which prefer WebSocket over HTTP
+        setInterval(() => this.smartLoadConnectedAgents(), 30000);
+        setInterval(() => this.smartLoadSystemMode(), 45000);
     }
 
     formatTime(timestamp) {
