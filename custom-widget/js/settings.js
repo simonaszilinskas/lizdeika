@@ -967,8 +967,8 @@ class Settings {
                 this.startHeartbeat();
             }
             
-            // Subscribe to smart updates
-            this.socket.emit('subscribe-smart-updates', ['agent-status', 'system-mode']);
+            // WebSocket connected - heartbeat will keep connection alive
+            // Using simple HTTP polling instead of smart updates
         });
 
         this.socket.on('disconnect', () => {
@@ -976,79 +976,14 @@ class Settings {
             this.stopHeartbeat();
         });
 
-        // Listen for smart updates
-        this.socket.on('smart-update', (update) => {
-            console.log('📡 Settings: Received smart update:', update.type);
-            this.handleSmartUpdate(update);
-        });
-
-        // Listen for current state responses
-        this.socket.on('current-state', (response) => {
-            this.handleCurrentState(response);
-        });
+        // Smart update listeners removed - using simple HTTP polling instead
     }
 
-    /**
-     * Handle smart updates from WebSocket
-     */
-    handleSmartUpdate(update) {
-        switch (update.type) {
-            case 'agent-status':
-                this.updateAgentDisplay(update.data);
-                this.lastDataTimestamp.connectedAgents = Date.now();
-                break;
-            case 'system-mode':
-                this.updateSystemModeDisplay(update.data);
-                this.lastDataTimestamp.systemMode = Date.now();
-                break;
-        }
-    }
+    // Smart update handler methods removed - using simple HTTP polling instead
 
-    /**
-     * Handle current state responses
-     */
-    handleCurrentState(response) {
-        switch (response.type) {
-            case 'connected-agents':
-                this.updateAgentDisplay(response.data);
-                break;
-            case 'system-mode':
-                this.updateSystemModeDisplay(response.data);
-                break;
-        }
-    }
+    // Smart polling functionality removed - now using simple HTTP polling
 
-    // setupSmartPolling method removed - now using simple startBasicPolling() instead
-
-    /**
-     * Smart load connected agents - returns true if data changed
-     */
-    async smartLoadConnectedAgents() {
-        // First try to request current state via WebSocket
-        if (this.socket && this.socket.connected) {
-            this.socket.emit('request-current-state', 'connected-agents');
-            return false; // Don't continue with HTTP request
-        }
-
-        // Fallback to HTTP request
-        return await this.loadConnectedAgents();
-    }
-
-    /**
-     * Smart load system mode - returns true if data changed
-     */
-    async smartLoadSystemMode() {
-        // First try to request current state via WebSocket
-        if (this.socket && this.socket.connected) {
-            this.socket.emit('request-current-state', 'system-mode');
-            return false; // Don't continue with HTTP request
-        }
-
-        // Fallback to HTTP request
-        const previousMode = this.currentMode;
-        await this.loadSystemMode();
-        return this.currentMode !== previousMode;
-    }
+    // Smart load methods removed - using direct HTTP calls instead
 
     // Utility Methods
     startPeriodicUpdates() {
@@ -1060,10 +995,10 @@ class Settings {
      * Simple polling - replaces complex ConnectionManager
      */
     startBasicPolling() {
-        console.log('📊 Starting simple polling (30s agents, 45s system mode)');
-        // Use smart load methods which prefer WebSocket over HTTP
-        setInterval(() => this.smartLoadConnectedAgents(), 30000);
-        setInterval(() => this.smartLoadSystemMode(), 45000);
+        console.log('📊 Starting simple HTTP polling (30s agents, 45s system mode)');
+        // Direct HTTP polling - simple and reliable
+        setInterval(() => this.loadConnectedAgents(), 30000);
+        setInterval(() => this.loadSystemMode(), 45000);
     }
 
     formatTime(timestamp) {
