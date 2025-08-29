@@ -996,23 +996,19 @@ class AgentDashboard {
     }
 
     /**
-     * Get urgency icon for conversation
+     * Get urgency icon for conversation (simplified - no user icons)
      */
     getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe) {
+        // Only show urgent indicators, no regular assignment icons
         if (isUnseen && isAssignedToMe) {
             return '<i class="fas fa-exclamation-triangle text-red-600 animate-pulse" title="Urgent: Unseen message assigned to you!"></i>';
         }
         if (isUnseen) {
             return '<i class="fas fa-exclamation-circle text-red-500" title="New unseen message"></i>';
         }
-        if (needsResponse && isAssignedToMe) {
-            return '<i class="fas fa-reply text-blue-600" title="Needs your response"></i>';
-        }
-        if (isAssignedToMe) {
-            return '<i class="fas fa-user-check text-blue-500" title="Assigned to you"></i>';
-        }
         
-        return '<i class="fas fa-comments text-gray-400"></i>';
+        // No icons for regular states - rely on colors instead
+        return '';
     }
 
     /**
