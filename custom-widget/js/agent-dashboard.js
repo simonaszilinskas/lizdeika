@@ -2,6 +2,40 @@
  * Agent Dashboard Controller
  * Manages agent interface for handling customer support conversations
  */
+
+// Import utility functions and constants
+import {
+    formatConversationDate,
+    escapeHtml,
+    getAgentDisplayName,
+    getQueueItemCssClass,
+    getQueueItemStatusLabel,
+    getQueueItemStatusCss,
+    getUnreadMessageCount,
+    getUrgencyIcon,
+    getPriorityAnimationClass,
+    getTimeUrgencyIndicator,
+    getMessageBubbleCss,
+    getMessageSenderLabel,
+    formatDebugPreview
+} from './agent-dashboard/ui/utils.js';
+
+import {
+    TIMING,
+    FILTERS,
+    AGENT_STATUS,
+    CSS_CLASSES,
+    ICONS,
+    SENDER_LABELS,
+    RESPONSE_TYPES,
+    TIME_THRESHOLDS,
+    DEBUG_LIMITS,
+    DEFAULTS,
+    ELEMENT_IDS,
+    API_ENDPOINTS,
+    WEBSOCKET_EVENTS,
+    STORAGE_KEYS
+} from './agent-dashboard/ui/constants.js';
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -14,20 +48,20 @@ class AgentDashboard {
         this.agentId = this.getAuthenticatedAgentId();
         this.conversations = new Map();
         this.currentSuggestion = null;
-        this.pollInterval = config.pollInterval || 15000; // Reduced from 3s to 15s
+        this.pollInterval = config.pollInterval || TIMING.POLL_INTERVAL;
         this.socket = null;
-        this.personalStatus = 'online'; // Personal agent status (online/offline)
-        this.systemMode = 'hitl'; // Global system mode (hitl/autopilot/off)
+        this.personalStatus = DEFAULTS.PERSONAL_STATUS; // Personal agent status (online/offline)
+        this.systemMode = DEFAULTS.SYSTEM_MODE; // Global system mode (hitl/autopilot/off)
         this.connectedAgents = new Map(); // Track other connected agents
-        this.currentFilter = 'unassigned'; // Current conversation filter (mine, unassigned, others, all)
+        this.currentFilter = FILTERS.DEFAULT_FILTER; // Current conversation filter (mine, unassigned, others, all)
         this.allConversations = []; // Store all conversations for filtering
         this.selectedConversations = new Set(); // Track selected conversations for bulk operations
-        this.archiveFilter = 'active'; // Archive filter (active, archived)
+        this.archiveFilter = DEFAULTS.ARCHIVE_FILTER; // Archive filter (active, archived)
         
         // Agent caching to prevent rapid-fire API calls
         this.agentCache = null;
         this.agentCacheExpiry = 0;
-        this.agentCacheDuration = 30000; // 30 seconds cache
+        this.agentCacheDuration = TIMING.AGENT_CACHE_DURATION;
         
         // Initialize modern conversation loader
         this.modernConversationLoader = new ModernConversationLoader({
@@ -54,7 +88,7 @@ class AgentDashboard {
     getAuthenticatedAgentId() {
         try {
             // First try the new user_data format
-            const userData = localStorage.getItem('user_data');
+            const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
             if (userData) {
                 const user = JSON.parse(userData);
                 if (user.email) {
@@ -64,7 +98,7 @@ class AgentDashboard {
             }
             
             // Try to get authenticated user from localStorage (old format)
-            const agentUser = localStorage.getItem('agentUser');
+            const agentUser = localStorage.getItem(STORAGE_KEYS.AGENT_USER);
             if (agentUser) {
                 const user = JSON.parse(agentUser);
                 // Use full email as agent ID
@@ -81,7 +115,7 @@ class AgentDashboard {
         try {
             if (window.parent && window.parent !== window) {
                 // We're in an iframe, try to get user from parent
-                const parentAgentUser = window.parent.localStorage?.getItem('agentUser');
+                const parentAgentUser = window.parent.localStorage?.getItem(STORAGE_KEYS.AGENT_USER);
                 if (parentAgentUser) {
                     const user = JSON.parse(parentAgentUser);
                     if (user.email) {
@@ -96,7 +130,7 @@ class AgentDashboard {
         
         // Final fallback: generate random ID (for development/standalone use)
         console.warn('No authenticated user found, generating random agent ID');
-        return 'agent-' + Math.random().toString(36).substring(2, 11);
+        return DEFAULTS.AGENT_ID_PREFIX + Math.random().toString(36).substring(2, DEFAULTS.RANDOM_ID_LENGTH);
     }
 
     /**
@@ -125,7 +159,7 @@ class AgentDashboard {
      */
     async checkAdminStatus() {
         try {
-            const token = localStorage.getItem('agent_token');
+            const token = localStorage.getItem(STORAGE_KEYS.AGENT_TOKEN);
             if (!token) {
                 return;
             }
@@ -560,11 +594,11 @@ class AgentDashboard {
             
             let tooltipContent = '';
             if (onlineAgents.length > 0) {
-                tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
+                tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
             }
             if (offlineAgents.length > 0) {
                 if (tooltipContent) tooltipContent += '\n';
-                tooltipContent += `Offline (${offlineAgents.length}): ${offlineAgents.map(a => this.getAgentDisplayName(a)).join(', ')}`;
+                tooltipContent += `Offline (${offlineAgents.length}): ${offlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
             }
             if (!tooltipContent) {
                 tooltipContent = 'No agents connected';
@@ -576,7 +610,7 @@ class AgentDashboard {
             // Show agents as small colored dots with individual tooltips
             compactContainer.innerHTML = agents.map(agent => {
                 const statusColor = agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400';
-                const displayName = this.getAgentDisplayName(agent);
+                const displayName = getAgentDisplayName(agent);
                 return `
                     <div class="w-2 h-2 rounded-full ${statusColor}" 
                          title="${displayName} (${agent.personalStatus || 'online'})">
@@ -596,7 +630,7 @@ class AgentDashboard {
                 <div class="flex items-center justify-between py-1 px-2 bg-white rounded text-xs">
                     <div class="flex items-center gap-2">
                         <div class="w-2 h-2 rounded-full ${agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400'}"></div>
-                        <span class="text-gray-700">${this.getAgentDisplayName(agent)}</span>
+                        <span class="text-gray-700">${getAgentDisplayName(agent)}</span>
                     </div>
                     <span class="text-gray-500 capitalize">${agent.personalStatus || 'online'}</span>
                 </div>
@@ -604,28 +638,6 @@ class AgentDashboard {
         }
     }
 
-    /**
-     * Get agent display name
-     * @param {Object} agent - Agent object
-     * @returns {string} Display name
-     */
-    getAgentDisplayName(agent) {
-        // If agent has a name property, use it
-        if (agent.name) {
-            return agent.name;
-        }
-        
-        // Extract a readable part from agent ID
-        const idParts = agent.id.split('-');
-        if (idParts.length > 1) {
-            const suffix = idParts[1];
-            // Create a more readable name from the suffix
-            return `Agent ${suffix.substring(0, 4).toUpperCase()}`;
-        }
-        
-        // Fallback to truncated ID
-        return `Agent ${agent.id.substring(6, 12)}`;
-    }
 
     /**
      * Update system mode display
@@ -900,7 +912,7 @@ class AgentDashboard {
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
                             </div>
                             <div class="text-xs text-gray-500">
-                                ${this.formatConversationDate(conv.startedAt)}
+                                ${formatConversationDate(conv.startedAt)}
                             </div>
                         </div>
                     </div>
@@ -912,7 +924,7 @@ class AgentDashboard {
                     </div>
                 </div>
                 <div class="text-sm truncate text-gray-600">
-                    ${conv.lastMessage ? this.escapeHtml(conv.lastMessage.content) : 'No messages yet'}
+                    ${conv.lastMessage ? escapeHtml(conv.lastMessage.content) : 'No messages yet'}
                 </div>
                 <div class="flex justify-between items-center mt-2 text-xs">
                     <div class="flex items-center gap-2">
@@ -922,7 +934,7 @@ class AgentDashboard {
                         </span>
                         ${this.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id, conv.archived)}
                     </div>
-                    <span class="text-gray-500">${this.formatConversationDate(conv.updatedAt || conv.startedAt)}</span>
+                    <span class="text-gray-500">${formatConversationDate(conv.updatedAt || conv.startedAt)}</span>
                 </div>
             </div>
         `;

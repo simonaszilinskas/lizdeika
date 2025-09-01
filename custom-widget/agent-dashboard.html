@@ -543,6 +543,7 @@
                     
                     // Then load main dashboard
                     const script = document.createElement('script');
+                    script.type = 'module';
                     script.src = 'js/agent-dashboard.js';
                     script.onload = () => console.log('✅ Dashboard JavaScript loaded successfully');
                     script.onerror = () => console.error('❌ Failed to load dashboard JavaScript');
@@ -554,6 +555,7 @@
                     // modern-websocket-manager.js removed - using direct Socket.io instead
                     await loadScript('js/modules/modern-conversation-loader.js');
                     const script = document.createElement('script');
+                    script.type = 'module';
                     script.src = 'js/agent-dashboard.js';
                     document.body.appendChild(script);
                 }
