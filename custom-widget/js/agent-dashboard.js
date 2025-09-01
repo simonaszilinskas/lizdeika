@@ -36,6 +36,10 @@ import {
     WEBSOCKET_EVENTS,
     STORAGE_KEYS
 } from './agent-dashboard/ui/constants.js';
+
+// Import core services
+import { AgentAuthManager } from './agent-dashboard/core/AgentAuthManager.js';
+import { SocketManager } from './agent-dashboard/core/SocketManager.js';
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -45,11 +49,32 @@ class AgentDashboard {
         
         this.apiUrl = apiUrl;
         this.currentChatId = null;
-        this.agentId = this.getAuthenticatedAgentId();
+        
+        // Initialize authentication manager
+        this.authManager = new AgentAuthManager({ apiUrl: this.apiUrl });
+        this.agentId = this.authManager.getAgentId();
+        
+        // Initialize socket manager
+        this.socketManager = new SocketManager({
+            apiUrl: this.apiUrl,
+            agentId: this.agentId,
+            eventHandlers: {
+                onConnect: () => this.registerInitialStatus(),
+                onDisconnect: () => console.log('Socket disconnected'),
+                onNewMessage: (data) => this.handleNewMessage(data),
+                onAgentsUpdate: (data) => this.handleAgentsUpdate(data),
+                onSystemModeUpdate: (data) => this.updateSystemMode(data.mode),
+                onTicketReassignments: (data) => this.handleTicketReassignments(data),
+                onCustomerTyping: (data) => this.handleCustomerTyping(data),
+                onNewConversation: (data) => this.handleNewConversation(data),
+                onError: (error) => this.fallbackToPolling()
+            }
+        });
+        
         this.conversations = new Map();
         this.currentSuggestion = null;
         this.pollInterval = config.pollInterval || TIMING.POLL_INTERVAL;
-        this.socket = null;
+        this.socket = null; // Keep for backward compatibility
         this.personalStatus = DEFAULTS.PERSONAL_STATUS; // Personal agent status (online/offline)
         this.systemMode = DEFAULTS.SYSTEM_MODE; // Global system mode (hitl/autopilot/off)
         this.connectedAgents = new Map(); // Track other connected agents
@@ -82,56 +107,6 @@ class AgentDashboard {
         this.init();
     }
 
-    /**
-     * Get agent ID from authenticated user
-     */
-    getAuthenticatedAgentId() {
-        try {
-            // First try the new user_data format
-            const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-            if (userData) {
-                const user = JSON.parse(userData);
-                if (user.email) {
-                    console.log(`Using agent ID from user_data: ${user.email}`);
-                    return user.email; // Use full email as agent ID
-                }
-            }
-            
-            // Try to get authenticated user from localStorage (old format)
-            const agentUser = localStorage.getItem(STORAGE_KEYS.AGENT_USER);
-            if (agentUser) {
-                const user = JSON.parse(agentUser);
-                // Use full email as agent ID
-                if (user.email) {
-                    console.log(`Using agent ID from agentUser: ${user.email}`);
-                    return user.email;
-                }
-            }
-        } catch (error) {
-            console.warn('Could not get authenticated agent ID:', error);
-        }
-        
-        // Fallback: check if running in iframe and try to communicate with parent
-        try {
-            if (window.parent && window.parent !== window) {
-                // We're in an iframe, try to get user from parent
-                const parentAgentUser = window.parent.localStorage?.getItem(STORAGE_KEYS.AGENT_USER);
-                if (parentAgentUser) {
-                    const user = JSON.parse(parentAgentUser);
-                    if (user.email) {
-                        console.log(`Using agent ID from parent: ${user.email.split('@')[0]}`);
-                        return user.email.split('@')[0];
-                    }
-                }
-            }
-        } catch (error) {
-            console.warn('Could not access parent window for agent ID:', error);
-        }
-        
-        // Final fallback: generate random ID (for development/standalone use)
-        console.warn('No authenticated user found, generating random agent ID');
-        return DEFAULTS.AGENT_ID_PREFIX + Math.random().toString(36).substring(2, DEFAULTS.RANDOM_ID_LENGTH);
-    }
 
     /**
      * Initialize browser notifications
@@ -154,42 +129,6 @@ class AgentDashboard {
         }
     }
 
-    /**
-     * Check if current user is admin and show admin bar
-     */
-    async checkAdminStatus() {
-        try {
-            const token = localStorage.getItem(STORAGE_KEYS.AGENT_TOKEN);
-            if (!token) {
-                return;
-            }
-
-            console.log('🔍 Checking admin status...');
-            const response = await fetch(`${this.apiUrl}/api/auth/profile`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const user = data.data;
-                console.log('👤 User profile:', user);
-                
-                if (user && user.role === 'admin') {
-                    console.log('✅ User is admin, showing admin bar');
-                    const adminBar = document.getElementById('adminBar');
-                    if (adminBar) {
-                        adminBar.classList.remove('hidden');
-                    }
-                } else {
-                    console.log('❌ User is not admin, role:', user?.role);
-                }
-            } else {
-                console.log('❌ Failed to get user profile:', response.status);
-            }
-        } catch (error) {
-            console.error('Error checking admin status:', error);
-        }
-    }
 
     async init() {
         console.log(`Agent Dashboard initialized for agent: ${this.agentId}`);
@@ -204,10 +143,10 @@ class AgentDashboard {
         this.startStatusRefresh();
         
         // Check if user is admin and show admin bar
-        await this.checkAdminStatus();
+        await this.authManager.checkAdminStatus();
         
         this.initializeEventListeners();
-        this.initializeWebSocket();
+        await this.socketManager.initialize();
         await this.loadConversations();
         // No need for polling anymore with WebSockets
     }
@@ -2337,7 +2276,75 @@ class AgentDashboard {
     }
 
     /**
+     * Handle new message from socket manager
+     * @param {Object} data - Message data
+     */
+    handleNewMessage(data) {
+        // Play sound notification for new messages
+        if (this.soundNotificationManager && data.sender !== 'agent') {
+            this.soundNotificationManager.onNewMessage({
+                conversationId: data.conversationId,
+                sender: data.sender,
+                content: data.content || data.message,
+                senderType: data.sender,
+                conversation: data.conversation || { assigned_agent_id: data.assignedAgentId }
+            });
+        }
+        
+        // Always do full conversation reload for reliability
+        this.loadConversations();
+        
+        // If this is the current chat, update messages and check for suggestion
+        if (data.conversationId === this.currentChatId) {
+            // Refresh conversation status (handles reopening cases)
+            this.refreshConversation(this.currentChatId);
+            this.loadChatMessages(this.currentChatId);
+            
+            // Only check for pending suggestions in HITL mode
+            if (this.systemMode === 'hitl') {
+                this.checkForPendingSuggestion(this.currentChatId);
+            }
+        }
+    }
+
+    /**
+     * Handle agents update from socket manager
+     * @param {Object} data - Agents data
+     */
+    handleAgentsUpdate(data) {
+        // Invalidate agent cache when status changes
+        this.agentCacheExpiry = 0;
+        console.log('🔄 Agent cache invalidated due to status change');
+        this.updateConnectedAgents(data.agents);
+    }
+
+    /**
+     * Handle customer typing from socket manager
+     * @param {Object} data - Typing data
+     */
+    handleCustomerTyping(data) {
+        if (data.conversationId === this.currentChatId) {
+            this.showCustomerTyping(data.isTyping);
+        }
+    }
+
+    /**
+     * Handle new conversation from socket manager
+     * @param {Object} data - Conversation data
+     */
+    handleNewConversation(data) {
+        // Play sound notification for new conversations
+        if (this.soundNotificationManager) {
+            this.soundNotificationManager.onNewConversation(data);
+        }
+        
+        // Reload conversations to show the new conversation
+        this.loadConversations();
+    }
+
+    /**
      * Initialize WebSocket connection using direct Socket.io
+     * @deprecated - Use SocketManager instead
      */
     async initializeWebSocket() {
         try {
