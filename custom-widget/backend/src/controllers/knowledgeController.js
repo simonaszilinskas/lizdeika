@@ -280,19 +280,35 @@ class KnowledgeController {
     }
 
     /**
-     * Search documents
+     * Search documents using vector search
      */
     async searchDocuments(req, res) {
         try {
-            const { query } = req.query;
+            const { query, k } = req.query;
             
-            const results = knowledgeManagerService.searchDocuments(query);
+            if (!query || query.trim().length === 0) {
+                return res.status(400).json({
+                    error: 'Query parameter is required'
+                });
+            }
+
+            console.log(`🔍 Vector search request: "${query.trim()}" (k=${k || 10})`);
+
+            // Use vector search via knowledgeService
+            const knowledgeService = require('../services/knowledgeService');
+            const numResults = parseInt(k) || 10; // Default to 10 results
+            const results = await knowledgeService.searchContext(query.trim(), numResults);
+            
+            console.log(`🔍 Vector search results: ${results?.length || 0} documents found`);
+            if (results && results.length > 0) {
+                console.log(`🔍 First result preview: ${results[0]?.content?.substring(0, 100)}...`);
+            }
             
             res.json({
                 success: true,
-                data: results,
-                count: results.length,
-                query: query || ''
+                data: results || [],
+                count: (results || []).length,
+                query: query.trim()
             });
 
         } catch (error) {

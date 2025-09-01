@@ -24,6 +24,12 @@ class KnowledgeBase {
         // Indexed documents elements
         this.indexedList = document.getElementById('indexed-list');
         this.refreshIndexedButton = document.getElementById('refresh-indexed');
+        
+        // Vector search elements
+        this.vectorSearchInput = document.getElementById('vector-search-input');
+        this.vectorSearchButton = document.getElementById('vector-search-button');
+        this.clearVectorSearchButton = document.getElementById('clear-vector-search');
+        this.vectorSearchResults = document.getElementById('vector-search-results');
     }
 
     attachEventListeners() {
@@ -39,6 +45,15 @@ class KnowledgeBase {
         
         // Indexed documents management
         this.refreshIndexedButton.addEventListener('click', () => this.refreshIndexedDocuments());
+        
+        // Vector search functionality
+        this.vectorSearchButton.addEventListener('click', () => this.performVectorSearch());
+        this.vectorSearchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.performVectorSearch();
+            }
+        });
+        this.clearVectorSearchButton.addEventListener('click', () => this.clearVectorSearch());
     }
 
     async loadDocuments() {
@@ -58,6 +73,9 @@ class KnowledgeBase {
     }
 
     renderDocuments(documents) {
+        // Update stats
+        document.getElementById('total-docs').textContent = documents.length;
+        
         if (documents.length === 0) {
             this.documentsList.innerHTML = '<p>No documents uploaded yet</p>';
             return;
@@ -229,13 +247,23 @@ class KnowledgeBase {
     }
 
     renderIndexedDocuments(data) {
+        // Update vector database status
+        const vectorStatusEl = document.getElementById('vector-status');
         if (!data.connected) {
+            vectorStatusEl.textContent = 'Disconnected';
+            const iconEl = vectorStatusEl.parentElement.parentElement.querySelector('div:last-child');
+            iconEl.className = 'text-red-500';
+            
             if (data.note) {
                 this.indexedList.innerHTML = `<div class="provider-info"><p><strong>Note:</strong> ${data.note}</p></div>`;
             } else {
                 this.indexedList.innerHTML = '<p>Vector database not connected</p>';
             }
             return;
+        } else {
+            vectorStatusEl.textContent = 'Connected';
+            const iconEl = vectorStatusEl.parentElement.parentElement.querySelector('div:last-child');
+            iconEl.className = 'text-green-500';
         }
 
         const documents = data.documents || [];
@@ -326,14 +354,22 @@ class KnowledgeBase {
             `;
         }).join('');
 
-        // Add summary info
+        // Add summary info without showing potentially inaccurate chunk counts
         const documentsWithSources = documents.filter(doc => doc.metadata && doc.metadata.source_url).length;
         const summaryDiv = document.createElement('div');
         summaryDiv.className = 'provider-info';
         summaryDiv.style.marginBottom = '15px';
+        
+        let summaryText;
+        if (documents.length >= 100) {
+            summaryText = `<p>Showing first <strong>100 chunks</strong> • With source URLs: <strong>${documentsWithSources}</strong></p>`;
+        } else {
+            summaryText = `<p>Available chunks: <strong>${documents.length}</strong> • With source URLs: <strong>${documentsWithSources}</strong></p>`;
+        }
+        
         summaryDiv.innerHTML = `
             <h4>Collection: ${data.collectionName}</h4>
-            <p>Total indexed chunks: <strong>${documents.length}</strong> • With source URLs: <strong>${documentsWithSources}</strong></p>
+            ${summaryText}
         `;
         this.indexedList.insertBefore(summaryDiv, this.indexedList.firstChild);
     }
@@ -393,6 +429,144 @@ class KnowledgeBase {
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async performVectorSearch() {
+        const query = this.vectorSearchInput.value.trim();
+        
+        if (!query) {
+            this.showAlert('Please enter a search query', 'error');
+            return;
+        }
+
+        const button = this.vectorSearchButton;
+        const originalText = button.innerHTML;
+        
+        try {
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner mr-2"></span>Searching...';
+            
+            const response = await fetch(`${this.apiUrl}/api/knowledge/documents/search?query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                this.displayVectorSearchResults(data.data, query);
+                this.clearVectorSearchButton.style.display = 'block';
+            } else {
+                throw new Error(data.error || 'Search failed');
+            }
+
+        } catch (error) {
+            console.error('Vector search failed:', error);
+            this.showAlert(`Search failed: ${error.message}`, 'error');
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+    }
+
+    displayVectorSearchResults(results, query) {
+        if (results.length === 0) {
+            this.vectorSearchResults.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-center text-yellow-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <div class="text-sm">
+                            <strong>No results found</strong>
+                            <br>No documents match your search query: "${query}"
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            this.vectorSearchResults.innerHTML = `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center text-green-800">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <div class="text-sm">
+                            <strong>Found ${results.length} result${results.length > 1 ? 's' : ''}</strong>
+                            <span class="text-xs text-green-700 ml-2">for "${query}"</span>
+                        </div>
+                    </div>
+                </div>
+                ${results.map((doc, index) => {
+                    const contentPreview = doc.content && doc.content.length > 200 
+                        ? doc.content.substring(0, 200) + '...' 
+                        : doc.content || 'No content available';
+                    
+                    const metadata = doc.metadata || {};
+                    const title = metadata.source_document_name || `Search Result ${index + 1}`;
+                    const sourceUrl = metadata.source_url;
+                    
+                    const sourceLink = sourceUrl 
+                        ? `<a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" style="color: #059669; text-decoration: none; margin-left: 8px;" title="Open source in new tab">
+                             <i class="fas fa-external-link-alt" style="font-size: 12px;"></i>
+                           </a>`
+                        : '';
+
+                    return `
+                        <div class="document-item bg-green-50 border-l-4 border-green-400" style="cursor: pointer;" onclick="knowledgeBase.toggleSearchResultDetails('search-${index}')">
+                            <div class="document-info">
+                                <h4 class="text-green-800">${title}${sourceLink}</h4>
+                                <div class="document-details">
+                                    <small style="color: #059669;">${contentPreview}</small>
+                                </div>
+                            </div>
+                            <div class="document-actions">
+                                <i class="fas fa-chevron-down text-green-600" id="chevron-search-${index}"></i>
+                            </div>
+                        </div>
+                        <div class="search-result-details" id="details-search-${index}" style="display: none; background: #f0fdf4; padding: 15px; margin: 0 0 10px 0; border-radius: 6px; border-left: 4px solid #10b981;">
+                            <div style="margin-bottom: 15px;">
+                                <h5 style="margin: 0 0 10px 0; color: #059669;">Full Content:</h5>
+                                <div style="background: white; padding: 12px; border-radius: 4px; border: 1px solid #d1fae5; max-height: 300px; overflow-y: auto; white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 13px;">${doc.content || 'No content available'}</div>
+                            </div>
+                            ${sourceUrl ? `
+                                <div style="margin-bottom: 10px;">
+                                    <h5 style="margin: 0 0 5px 0; color: #059669;">Source Link:</h5>
+                                    <a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" style="color: #059669; text-decoration: underline; display: inline-flex; align-items: center; gap: 5px;">
+                                        <i class="fas fa-external-link-alt" style="font-size: 12px;"></i>
+                                        ${sourceUrl}
+                                    </a>
+                                </div>
+                            ` : ''}
+                            <div>
+                                <h5 style="margin: 0 0 5px 0; color: #059669;">Metadata:</h5>
+                                <small style="color: #065f46;">
+                                    ${metadata.upload_source || 'unknown'} upload • 
+                                    ${metadata.language || 'unknown'} language •
+                                    ${doc.content ? doc.content.length + ' characters' : 'No content'}
+                                </small>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+        }
+        
+        this.vectorSearchResults.style.display = 'block';
+        this.indexedList.style.display = 'none';
+    }
+
+    toggleSearchResultDetails(resultId) {
+        const detailsDiv = document.getElementById(`details-${resultId}`);
+        const chevron = document.getElementById(`chevron-${resultId}`);
+        
+        if (detailsDiv.style.display === 'none') {
+            detailsDiv.style.display = 'block';
+            chevron.className = 'fas fa-chevron-up text-green-600';
+        } else {
+            detailsDiv.style.display = 'none';
+            chevron.className = 'fas fa-chevron-down text-green-600';
+        }
+    }
+
+    clearVectorSearch() {
+        this.vectorSearchInput.value = '';
+        this.vectorSearchResults.style.display = 'none';
+        this.vectorSearchResults.innerHTML = '';
+        this.clearVectorSearchButton.style.display = 'none';
+        this.indexedList.style.display = 'block';
     }
 }
 
