@@ -1,6 +1,40 @@
 /**
  * AGENT SERVICE - PostgreSQL-Only Implementation
- * Handles agent data management and business logic using PostgreSQL
+ * 
+ * Main Purpose: Manage agent authentication, status tracking, and availability for customer support
+ * 
+ * Key Responsibilities:
+ * - Agent Authentication: Validate and manage agent login/logout
+ * - Status Management: Track agent availability (online/offline/busy) and personal status
+ * - Conversation Assignment: Determine available agents for new conversations
+ * - User Management: Handle agent user accounts in PostgreSQL database
+ * - System Mode: Manage global system operational modes (normal/maintenance/emergency)
+ * - Agent Display: Format agent information for UI presentation
+ * 
+ * Database Schema:
+ * - Users: Agent user accounts with profile information
+ * - AgentStatus: Current availability and status tracking
+ * - SystemSettings: Global system configuration and modes
+ * 
+ * Status Types:
+ * - Personal Status: online, offline (agent's availability preference) 
+ * - System Status: online, busy, offline (calculated availability considering workload)
+ * - Connection Status: WebSocket connection state
+ * 
+ * Features:
+ * - Automatic agent discovery and registration
+ * - Grace period handling for temporary disconnections
+ * - Load balancing for conversation assignment
+ * - Real-time status updates via WebSocket integration
+ * - System-wide operational mode management
+ * 
+ * Dependencies:
+ * - Prisma Client for PostgreSQL database operations
+ * - UUID generation for unique identifiers
+ * - Error handling utilities for consistent error responses
+ * 
+ * @author Vilnius Assistant System
+ * @version 3.0.0 - PostgreSQL Implementation
  */
 
 const { PrismaClient } = require('@prisma/client');
@@ -9,11 +43,20 @@ const { handleServiceError, createError } = require('../utils/errors');
 
 const prisma = new PrismaClient();
 
-// System mode is now stored in database
-
 class AgentService {
     /**
-     * Generate a simple display name for an agent (simplified approach)
+     * Generate a human-readable display name for an agent from their ID
+     * 
+     * This method converts technical agent IDs into user-friendly display names
+     * for the admin dashboard and conversation interfaces.
+     * 
+     * @param {string} agentId - The unique agent identifier (email, username, or ID)
+     * @returns {string} Human-readable display name
+     * 
+     * @example
+     * getAgentDisplayName('admin@vilnius.lt') → 'Admin User'
+     * getAgentDisplayName('john.doe@support.com') → 'John Doe'
+     * getAgentDisplayName('agent_001') → 'Agent 001'
      */
     getAgentDisplayName(agentId) {
         // Simple approach: extract meaningful name from agentId
@@ -38,7 +81,23 @@ class AgentService {
     }
 
     /**
-     * Update agent personal status (online/offline) with database persistence
+     * Update agent's personal availability status and sync with database
+     * 
+     * This is the primary method for updating agent status when they manually
+     * change their availability (online/offline) or when the system detects
+     * connection changes. Updates both the database and returns formatted
+     * agent data for WebSocket broadcasting.
+     * 
+     * @param {string} agentId - Unique agent identifier
+     * @param {string} personalStatus - Desired availability: 'online' | 'offline'
+     * @param {boolean} [includeActiveChats=false] - Whether to include active conversation count
+     * @returns {Promise<Object>} Updated agent object with status, timestamps, and metadata
+     * 
+     * @example
+     * const agent = await updateAgentPersonalStatus('admin@vilnius.lt', 'online');
+     * // Returns: { id, name, status, personalStatus, lastSeen, connected, user_id }
+     * 
+     * @throws {Error} If agent user creation fails or database update fails
      */
     async updateAgentPersonalStatus(agentId, personalStatus, includeActiveChats = false) {
         try {

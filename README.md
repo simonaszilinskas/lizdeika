@@ -9,11 +9,13 @@
 | Document | Purpose |
 |----------|----------|
 | **[Developer Guide](./custom-widget/DEVELOPER_GUIDE.md)** | Complete setup and development guide |
-| **[API Documentation](./custom-widget/API_GUIDE.md)** | REST API reference (also at `/docs`) |
+| **[API Documentation](./custom-widget/API_GUIDE.md)** | REST API reference with examples |
+| **[Environment Variables](./custom-widget/ENVIRONMENT_VARIABLES.md)** | Complete environment configuration reference |
 | **[System Architecture](./custom-widget/ARCHITECTURE.md)** | Technical architecture and diagrams |
 | **[File Structure](./custom-widget/FILE_GUIDE.md)** | Complete file overview |
 | **[User Management](./custom-widget/USER_MANAGEMENT_SYSTEM.md)** | Authentication and user system |
 | **[Langfuse Integration](./custom-widget/backend/LANGFUSE_INTEGRATION.md)** | LLM observability and tracing setup |
+| **[Simplification History](./SIMPLIFICATION_HISTORY.md)** | Record of code simplification achievements |
 
 ## ⚡ Quick Start
 

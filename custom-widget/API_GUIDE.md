@@ -164,6 +164,55 @@ Authorization: Bearer <jwt_token>
 
 ## 📚 Knowledge Management API
 
+### Search Knowledge Base
+Search through indexed documents using semantic vector search powered by ChromaDB and Mistral embeddings.
+
+```http
+GET /knowledge/documents/search?query={search_term}&k={max_results}
+```
+
+**Parameters:**
+- `query` (required): Search query string for semantic search
+- `k` (optional): Maximum number of results to return (default: 10, max: 20)
+
+**Request Example:**
+```http
+GET /knowledge/documents/search?query=business registration process&k=5
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "doc-123_chunk_0",
+      "content": "To register a business in Vilnius, you need to submit the required documents to the city administration...",
+      "metadata": {
+        "source_document_name": "Business Registration Guide",
+        "source_url": "https://paslaugos.vilnius.lt/service/business-registration",
+        "chunk_index": 0,
+        "chunk_length": 1250,
+        "language": "lt",
+        "upload_time": "2024-08-22T13:59:21.679Z",
+        "category": "uploaded_document"
+      },
+      "distance": 0.23153603
+    }
+  ],
+  "count": 5,
+  "query": "business registration process"
+}
+```
+
+**Error Response:**
+```json
+{
+  "error": "Search failed",
+  "details": "Vector database connection error"
+}
+```
+
 ### Index Single Document
 Index a document with metadata for RAG system.
 
