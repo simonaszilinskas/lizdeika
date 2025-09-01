@@ -3,356 +3,233 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vilnius Assistant - Knowledge Base</title>
+    <title>Knowledge Base - Vilnius Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Custom animations */
+        .upload-hover {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
         }
-
-        .header {
-            background: linear-gradient(135deg, #2c5530 0%, #1a3d1f 100%);
-            color: white;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 600;
-        }
-
-        .header p {
-            margin: 5px 0 0;
-            opacity: 0.9;
-            font-size: 14px;
-        }
-
-        .back-button {
-            display: inline-flex;
-            align-items: center;
-            color: white;
-            text-decoration: none;
-            margin-bottom: 15px;
-            font-size: 14px;
-            opacity: 0.9;
-            transition: opacity 0.2s;
-        }
-
-        .back-button:hover {
-            opacity: 1;
-        }
-
-        .back-button::before {
-            content: '←';
-            margin-right: 8px;
-            font-size: 16px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .section {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            padding: 30px;
-            margin-bottom: 20px;
-        }
-
-        .section:last-child {
-            margin-bottom: 0;
-        }
-
-        .section h3 {
-            margin-bottom: 15px;
-            color: #2c5530;
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #555;
-        }
-
-        .form-group select,
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.2s;
-        }
-
-        .form-group select:focus,
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #2c5530;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 120px;
-            font-family: 'Courier New', monospace;
-        }
-
-        .button {
-            background-color: #2c5530;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-        }
-
-        .button:hover {
-            background-color: #1a3d1f;
-        }
-
-        .button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        .button-secondary {
-            background-color: #6c757d;
-        }
-
-        .button-secondary:hover {
-            background-color: #5a6268;
-        }
-
-        .button-danger {
-            background-color: #dc3545;
-        }
-
-        .button-danger:hover {
-            background-color: #c82333;
-        }
-
-        .file-upload-area {
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .file-upload-area:hover,
-        .file-upload-area.dragover {
-            border-color: #2c5530;
-            background-color: #f8fff8;
-        }
-
-        .file-upload-area input[type="file"] {
+        
+        /* Hide file input */
+        input[type="file"] {
             display: none;
         }
-
-        .upload-icon {
-            font-size: 48px;
-            color: #ccc;
-            margin-bottom: 15px;
-        }
-
-        .documents-list {
-            margin-top: 20px;
-        }
-
-        .document-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            background: #fafafa;
-        }
-
-        .document-info h4 {
-            margin: 0 0 5px;
-            font-size: 16px;
-            color: #333;
-        }
-
-        .document-details {
-            font-size: 12px;
-            color: #666;
-        }
-
-        .document-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-            text-transform: uppercase;
-        }
-
-        .status-indexed {
-            background-color: #d4edda;
-            color: #155724;
-        }
-
-        .status-processing {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-
-        .status-failed {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-
-        .status-stored {
-            background-color: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .alert {
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            border-left: 4px solid;
-        }
-
-        .alert-success {
-            background-color: #d4edda;
-            color: #155724;
-            border-color: #28a745;
-        }
-
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border-color: #dc3545;
-        }
-
-        .alert-info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border-color: #17a2b8;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #2c5530;
+        
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #10b981;
             border-radius: 50%;
+            width: 20px;
+            height: 20px;
             animation: spin 1s linear infinite;
-            margin-right: 8px;
         }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-
-        .provider-info {
-            background: #e7f3ff;
-            border: 1px solid #b3d9ff;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-
-        .provider-info h4 {
-            margin: 0 0 8px;
-            color: #0056b3;
-        }
-
-        .provider-info p {
-            margin: 0;
-            font-size: 14px;
-            color: #004085;
-        }
     </style>
 </head>
-<body>
-    <div class="header">
-        <a href="agent-dashboard.html" class="back-button">Back to Dashboard</a>
-        <h1>Knowledge Base Management</h1>
-        <p>Upload and manage documents for your Vilnius Assistant system</p>
-    </div>
-
-    <div class="container">
-        <div class="section">
-            <h3>Upload Documents</h3>
-            <div class="file-upload-area" id="file-upload-area">
-                <div class="upload-icon">📁</div>
-                <h4>Drop files here or click to upload</h4>
-                <p>Supported formats: .txt, .docx (max 50MB)</p>
-                <input type="file" id="file-input" accept=".txt,.docx" multiple>
-            </div>
-        </div>
-
-        <div class="section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3>File Uploads</h3>
+<body class="bg-gray-50">
+    <!-- Header with gradient matching agent dashboard -->
+    <div class="bg-gradient-to-r from-green-800 to-green-900 text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
                 <div>
-                    <button id="refresh-documents" class="button button-secondary">Refresh</button>
-                    <button id="clear-all-documents" class="button button-danger" style="margin-left: 10px;">Clear All</button>
+                    <a href="agent-dashboard.html" class="inline-flex items-center text-green-200 hover:text-white transition-colors mb-2">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Back to Dashboard
+                    </a>
+                    <h1 class="text-3xl font-bold">Knowledge Base Management</h1>
+                    <p class="text-green-200 mt-1">Upload and manage documents for the RAG system</p>
                 </div>
-            </div>
-            <div class="provider-info" style="margin-bottom: 15px;">
-                <h4>File Upload Management</h4>
-                <p>Documents uploaded through the file upload interface. These are stored locally and processed for indexing.</p>
-            </div>
-            <div class="documents-list" id="documents-list">
-                <!-- Dynamic documents list -->
-            </div>
-        </div>
-
-        <div class="section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3>Vector Database Contents</h3>
-                <div>
-                    <button id="refresh-indexed" class="button button-secondary">Refresh</button>
+                <div class="hidden md:flex items-center space-x-4">
+                    <div class="text-right">
+                        <p class="text-sm text-green-200">System Status</p>
+                        <div class="flex items-center">
+                            <span class="inline-block w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></span>
+                            <span class="text-sm font-medium">Connected</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="provider-info" style="margin-bottom: 15px;">
-                <h4>What's Actually Searchable</h4>
-                <p>These are the document chunks indexed in Chroma vector database and available for semantic search in conversations. Includes documents from file uploads and API indexing.</p>
-            </div>
-            <div class="documents-list" id="indexed-list">
-                <!-- Dynamic indexed documents list -->
             </div>
         </div>
     </div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-6 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Documents</p>
+                        <p class="text-2xl font-bold text-gray-800" id="total-docs">0</p>
+                    </div>
+                    <div class="text-blue-500">
+                        <i class="fas fa-file-alt text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Vector Chunks</p>
+                        <p class="text-2xl font-bold text-gray-800" id="total-chunks">0</p>
+                    </div>
+                    <div class="text-green-500">
+                        <i class="fas fa-database text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Last Updated</p>
+                        <p class="text-lg font-medium text-gray-800" id="last-updated">Never</p>
+                    </div>
+                    <div class="text-purple-500">
+                        <i class="fas fa-clock text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-white rounded-lg shadow mb-8">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-upload text-green-600 mr-2"></i>
+                    Upload Documents
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="file-upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-green-500 hover:bg-green-50 transition-all cursor-pointer">
+                    <div class="text-gray-400 mb-4">
+                        <i class="fas fa-cloud-upload-alt text-6xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Drop files here or click to upload</h3>
+                    <p class="text-sm text-gray-500 mb-4">Supported formats: .txt, .docx, .pdf (max 50MB)</p>
+                    <button class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        Select Files
+                    </button>
+                    <input type="file" id="file-input" accept=".txt,.docx,.pdf" multiple>
+                </div>
+                
+                <!-- Upload Progress (hidden by default) -->
+                <div id="upload-progress" class="hidden mt-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <div class="spinner mr-3"></div>
+                            <span class="text-blue-700">Uploading and processing documents...</span>
+                        </div>
+                        <div class="mt-2 bg-gray-200 rounded-full h-2">
+                            <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Uploads Section -->
+        <div class="bg-white rounded-lg shadow mb-8">
+            <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-folder-open text-blue-600 mr-2"></i>
+                    Uploaded Files
+                </h2>
+                <div class="space-x-2">
+                    <button id="refresh-documents" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                    <button id="clear-all-documents" class="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition-colors">
+                        <i class="fas fa-trash-alt mr-2"></i>Clear All
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <h3 class="font-medium text-blue-900 mb-1">
+                        <i class="fas fa-info-circle mr-2"></i>File Management
+                    </h3>
+                    <p class="text-sm text-blue-700">Documents uploaded through the interface. Files are processed and indexed for semantic search.</p>
+                </div>
+                <div id="documents-list" class="space-y-2">
+                    <!-- Documents will be loaded here -->
+                    <div class="text-gray-500 text-center py-8">
+                        <i class="fas fa-folder-open text-4xl mb-2"></i>
+                        <p>No documents uploaded yet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vector Database Section -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-database text-purple-600 mr-2"></i>
+                    Vector Database Contents
+                </h2>
+                <button id="refresh-indexed" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                    <h3 class="font-medium text-purple-900 mb-1">
+                        <i class="fas fa-search mr-2"></i>Searchable Content
+                    </h3>
+                    <p class="text-sm text-purple-700">Document chunks indexed in ChromaDB vector database, available for RAG semantic search.</p>
+                </div>
+                <div id="indexed-list" class="space-y-2">
+                    <!-- Indexed documents will be loaded here -->
+                    <div class="text-gray-500 text-center py-8">
+                        <i class="fas fa-database text-4xl mb-2"></i>
+                        <p>Loading vector database contents...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Test Section (New Feature) -->
+        <div class="bg-white rounded-lg shadow mt-8">
+            <div class="border-b border-gray-200 px-6 py-4">
+                <h2 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-search text-indigo-600 mr-2"></i>
+                    Test Knowledge Base Search
+                </h2>
+            </div>
+            <div class="p-6">
+                <div class="flex space-x-4">
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        placeholder="Enter a search query to test the RAG system..."
+                        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                    <button 
+                        id="search-button"
+                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                        <i class="fas fa-search mr-2"></i>Search
+                    </button>
+                </div>
+                <div id="search-results" class="mt-4">
+                    <!-- Search results will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
 
     <script src="js/knowledge-base.js"></script>
 </body>
