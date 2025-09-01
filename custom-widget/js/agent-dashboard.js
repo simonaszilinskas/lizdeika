@@ -3012,6 +3012,16 @@ async function logoutAgent() {
     }
 }
 
+// Placeholder function for user management (to be implemented)
+function openUserManagement() {
+    console.log('User management functionality - to be implemented');
+    alert('User management feature is not implemented yet');
+}
+
+// Expose functions globally for HTML onclick handlers
+window.logoutAgent = logoutAgent;
+window.openUserManagement = openUserManagement;
+
 // Initialize dashboard immediately when script loads (DOM is already ready at this point)
 console.log('🚀 Initializing Agent Dashboard...');
 new AgentDashboard();

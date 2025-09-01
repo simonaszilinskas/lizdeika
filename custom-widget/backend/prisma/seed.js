@@ -14,17 +14,19 @@ async function main() {
   try {
     // Create default admin user
     const adminPassword = await bcrypt.hash('admin123', 12);
-    const admin = await prisma.user.upsert({
+    const admin = await prisma.users.upsert({
       where: { email: 'admin@vilnius.lt' },
       update: {},
       create: {
+        id: 'admin_user_001',
         email: 'admin@vilnius.lt',
-        passwordHash: adminPassword,
-        firstName: 'System',
-        lastName: 'Administrator',
+        password_hash: adminPassword,
+        first_name: 'System',
+        last_name: 'Administrator',
         role: 'admin',
-        emailVerified: true,
-        isActive: true,
+        email_verified: true,
+        is_active: true,
+        updated_at: new Date(),
       },
     });
     console.log('✅ Created admin user:', admin.email);
@@ -32,52 +34,60 @@ async function main() {
     // Create sample agents
     const agentPassword = await bcrypt.hash('agent123', 12);
     
-    const agent1 = await prisma.user.upsert({
+    const agent1 = await prisma.users.upsert({
       where: { email: 'agent1@vilnius.lt' },
       update: {},
       create: {
+        id: 'agent_user_001',
         email: 'agent1@vilnius.lt',
-        passwordHash: agentPassword,
-        firstName: 'Petras',
-        lastName: 'Petraitis',
+        password_hash: agentPassword,
+        first_name: 'Petras',
+        last_name: 'Petraitis',
         role: 'agent',
-        emailVerified: true,
-        isActive: true,
+        email_verified: true,
+        is_active: true,
+        updated_at: new Date(),
       },
     });
 
-    const agent2 = await prisma.user.upsert({
+    const agent2 = await prisma.users.upsert({
       where: { email: 'agent2@vilnius.lt' },
       update: {},
       create: {
+        id: 'agent_user_002',
         email: 'agent2@vilnius.lt',
-        passwordHash: agentPassword,
-        firstName: 'Jonas',
-        lastName: 'Jonaitis',
+        password_hash: agentPassword,
+        first_name: 'Jonas',
+        last_name: 'Jonaitis',
         role: 'agent',
-        emailVerified: true,
-        isActive: true,
+        email_verified: true,
+        is_active: true,
+        updated_at: new Date(),
       },
     });
 
     console.log('✅ Created sample agents:', agent1.email, agent2.email);
 
     // Set agent statuses
-    await prisma.agentStatus.upsert({
-      where: { userId: agent1.id },
-      update: { status: 'online' },
+    await prisma.agent_status.upsert({
+      where: { user_id: agent1.id },
+      update: { status: 'online', updated_at: new Date() },
       create: {
-        userId: agent1.id,
+        id: agent1.id + '_status',
+        user_id: agent1.id,
         status: 'online',
+        updated_at: new Date(),
       },
     });
 
-    await prisma.agentStatus.upsert({
-      where: { userId: agent2.id },
-      update: { status: 'offline' },
+    await prisma.agent_status.upsert({
+      where: { user_id: agent2.id },
+      update: { status: 'offline', updated_at: new Date() },
       create: {
-        userId: agent2.id,
+        id: agent2.id + '_status',
+        user_id: agent2.id,
         status: 'offline',
+        updated_at: new Date(),
       },
     });
 
@@ -85,103 +95,121 @@ async function main() {
 
     // Create sample regular user
     const userPassword = await bcrypt.hash('user123', 12);
-    const user = await prisma.user.upsert({
+    const user = await prisma.users.upsert({
       where: { email: 'user@example.com' },
       update: {},
       create: {
+        id: 'regular_user_001',
         email: 'user@example.com',
-        passwordHash: userPassword,
-        firstName: 'Mantas',
-        lastName: 'Mankus',
+        password_hash: userPassword,
+        first_name: 'Mantas',
+        last_name: 'Mankus',
         role: 'user',
-        emailVerified: true,
-        isActive: true,
+        email_verified: true,
+        is_active: true,
+        updated_at: new Date(),
       },
     });
     console.log('✅ Created sample user:', user.email);
 
     // Create sample ticket
-    const ticket = await prisma.ticket.create({
-      data: {
-        ticketNumber: 'VIL-2024-001',
-        userId: user.id,
-        assignedAgentId: agent1.id,
-        status: 'open',
+    const ticket = await prisma.tickets.upsert({
+      where: { ticket_number: 'VIL-2024-001' },
+      update: {},
+      create: {
+        id: 'ticket_' + Date.now(),
+        ticket_number: 'VIL-2024-001',
+        user_id: user.id,
+        assigned_agent_id: agent1.id,
         priority: 'medium',
         category: 'general',
         subject: 'Klausimas dėl gyvenamosios vietos deklaravimo',
         description: 'Norėčiau sužinoti kaip deklaruoti gyvenamąją vietą Vilniuje',
         source: 'widget',
+        created_at: new Date(),
+        updated_at: new Date(),
       },
     });
-    console.log('✅ Created sample ticket:', ticket.ticketNumber);
+    console.log('✅ Created sample ticket:', ticket.ticket_number);
 
     // Create sample messages for the ticket
-    await prisma.message.createMany({
+    await prisma.messages.createMany({
       data: [
         {
-          ticketId: ticket.id,
-          senderId: user.id,
+          id: 'msg_' + Date.now() + '_1',
+          ticket_id: ticket.id,
+          sender_id: user.id,
           senderType: 'user',
           content: 'Labas, norėčiau sužinoti kaip deklaruoti gyvenamąją vietą Vilniuje?',
-          messageType: 'text',
+          message_type: 'text',
         },
         {
-          ticketId: ticket.id,
-          senderId: null, // AI response
+          id: 'msg_' + Date.now() + '_2',
+          ticket_id: ticket.id,
+          sender_id: null, // AI response
           senderType: 'ai',
           content: 'Sveiki! Gyvenamosios vietos deklaravimui Vilniuje reikia kreiptis į...',
-          messageType: 'ai_response',
+          message_type: 'ai_response',
         },
         {
-          ticketId: ticket.id,
-          senderId: agent1.id,
+          id: 'msg_' + Date.now() + '_3',
+          ticket_id: ticket.id,
+          sender_id: agent1.id,
           senderType: 'agent',
           content: 'Papildant AI atsakymą - galiu padėti su dokumentais jei reikia.',
-          messageType: 'text',
+          message_type: 'text',
         },
       ],
     });
     console.log('✅ Created sample messages');
 
     // Create ticket action log
-    await prisma.ticketAction.create({
+    await prisma.ticket_actions.create({
       data: {
-        ticketId: ticket.id,
-        performedBy: admin.id,
+        id: 'action_' + Date.now(),
+        ticket_id: ticket.id,
+        performed_by: admin.id,
         action: 'assigned',
-        newValue: agent1.id,
+        new_value: agent1.id,
         reason: 'Automatic assignment to available agent',
+        created_at: new Date(),
       },
     });
     console.log('✅ Created ticket action log');
 
     // Create system settings
-    await prisma.systemSetting.upsert({
+    await prisma.system_settings.upsert({
       where: { key: 'ticket_auto_assignment' },
-      update: { value: 'true', updatedBy: admin.id },
+      update: { value: 'true', updated_by: admin.id, updated_at: new Date() },
       create: {
+        id: 'setting_auto_assign',
         key: 'ticket_auto_assignment',
         value: 'true',
-        updatedBy: admin.id,
+        updated_by: admin.id,
+        created_at: new Date(),
+        updated_at: new Date(),
       },
     });
 
-    await prisma.systemSetting.upsert({
+    await prisma.system_settings.upsert({
       where: { key: 'data_retention_months' },
-      update: { value: '6', updatedBy: admin.id },
+      update: { value: '6', updated_by: admin.id, updated_at: new Date() },
       create: {
+        id: 'setting_retention',
         key: 'data_retention_months',
         value: '6',
-        updatedBy: admin.id,
+        updated_by: admin.id,
+        created_at: new Date(),
+        updated_at: new Date(),
       },
     });
 
     console.log('✅ Created system settings');
 
     // Create system log entry
-    await prisma.systemLog.create({
+    await prisma.system_logs.create({
       data: {
+        id: 'log_' + Date.now(),
         action: 'database_seeded',
         details: {
           users_created: 3,
