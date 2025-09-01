@@ -236,37 +236,6 @@ class LangChainRAG {
         return results;
     }
 
-    /**
-     * Legacy method compatibility - kept for reference but uses new implementation
-     */
-    async formatContextAsMarkdown(contexts) {
-        const { formatContextAsMarkdown } = require('./chains/VilniusPrompts');
-        return formatContextAsMarkdown(contexts);
-    }
-
-    /**
-     * Legacy method compatibility - uses new conversation parsing
-     */
-    convertToLangChainMessages(chatHistory, currentQuery) {
-        console.log('⚠️ Legacy convertToLangChainMessages called - now handled internally by chains');
-        return [];
-    }
-
-    /**
-     * Legacy method compatibility - uses new implementation
-     */
-    buildComprehensiveUserMessage(currentQuery, chatHistory, context) {
-        console.log('⚠️ Legacy buildComprehensiveUserMessage called - now handled by prompt templates');
-        return currentQuery;
-    }
-
-    /**
-     * Legacy method compatibility - uses new implementation
-     */
-    extractChunkInfo(metadata) {
-        const { extractChunkInfo } = require('./chains/VilniusPrompts');
-        return extractChunkInfo(metadata);
-    }
 
     /**
      * Generate session ID for Langfuse tracing
