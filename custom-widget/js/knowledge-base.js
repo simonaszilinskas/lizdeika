@@ -214,7 +214,7 @@ class KnowledgeBase {
 
     async loadIndexedDocuments() {
         try {
-            const response = await fetch(`${this.apiUrl}/api/knowledge/indexed`);
+            const response = await fetch(`${this.apiUrl}/api/knowledge/indexed?limit=100`); // Chroma Cloud limit is 100 documents
             const data = await response.json();
 
             if (response.ok) {
@@ -244,8 +244,24 @@ class KnowledgeBase {
             this.indexedList.innerHTML = '<p>No documents indexed in Chroma vector database yet</p>';
             return;
         }
+        
+        // Add notice about Chroma Cloud 100-document limit
+        let limitNotice = '';
+        if (documents.length >= 100) {
+            limitNotice = `
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center text-amber-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <div class="text-sm">
+                            <strong>Showing first 100 of ${data.count || 'many'} documents</strong>
+                            <br><span class="text-xs text-amber-700">Chroma Cloud limits queries to 100 documents per request</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
-        this.indexedList.innerHTML = documents.map((doc, index) => {
+        this.indexedList.innerHTML = limitNotice + documents.map((doc, index) => {
             const contentPreview = doc.content.length > 150 
                 ? doc.content.substring(0, 150) + '...' 
                 : doc.content;

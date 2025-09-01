@@ -261,7 +261,7 @@ class KnowledgeController {
      */
     async getIndexedDocuments(req, res) {
         try {
-            const limit = parseInt(req.query.limit) || 100;
+            const limit = parseInt(req.query.limit) || 100; // Chroma Cloud limit is 100 documents per query
             const knowledgeService = require('../services/knowledgeService');
             const result = await knowledgeService.getAllIndexedDocuments(limit);
             
