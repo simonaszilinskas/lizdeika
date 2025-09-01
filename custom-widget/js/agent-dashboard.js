@@ -437,6 +437,12 @@ class AgentDashboard {
         // Use the already loaded personal status (from loadSavedPersonalStatus)
         const currentStatus = this.personalStatus || 'online';
         
+        // Join the agent dashboard room to receive updates
+        if (this.socketManager && this.socketManager.isSocketConnected()) {
+            this.socketManager.emit('join-agent-dashboard', this.agentId);
+            console.log('📡 Joined agent dashboard room:', this.agentId);
+        }
+        
         // Update the personal status to register the agent with server (but don't save to localStorage again)
         try {
             await fetch(`${this.apiUrl}/api/agent/personal-status`, {
