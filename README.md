@@ -4,18 +4,9 @@
 
 **Current Status**: ✅ PostgreSQL database, JWT authentication, dual AI providers (OpenRouter + Flowise), document RAG with Chroma DB, automatic ticket assignment, Langfuse observability for 20 agents supporting 16,000+ conversations annually.
 
-## 📚 Documentation
+## 📚 Complete Guide
 
-| Document | Purpose |
-|----------|----------|
-| **[Developer Guide](./custom-widget/DEVELOPER_GUIDE.md)** | Complete setup and development guide |
-| **[API Documentation](./custom-widget/API_GUIDE.md)** | REST API reference with examples |
-| **[Environment Variables](./custom-widget/ENVIRONMENT_VARIABLES.md)** | Complete environment configuration reference |
-| **[System Architecture](./custom-widget/ARCHITECTURE.md)** | Technical architecture and diagrams |
-| **[File Structure](./custom-widget/FILE_GUIDE.md)** | Complete file overview |
-| **[User Management](./custom-widget/USER_MANAGEMENT_SYSTEM.md)** | Authentication and user system |
-| **[Langfuse Integration](./custom-widget/backend/LANGFUSE_INTEGRATION.md)** | LLM observability and tracing setup |
-| **[Simplification History](./SIMPLIFICATION_HISTORY.md)** | Record of code simplification achievements |
+This README contains all documentation for setup, development, deployment, and troubleshooting.
 
 ## ⚡ Quick Start
 
@@ -158,3 +149,175 @@ npm start
 **🎯 Perfect for**: Municipal customer support, enterprise ticketing, documentation-based assistance
 
 **🚀 Ready for**: Production deployment with 20 agents and 16,000+ annual conversations
+
+---
+
+## 🚀 Production Deployment
+
+### Docker Production Setup
+
+1. **Clone and configure**:
+```bash
+git clone <repository-url>
+cd vilnius-assistant
+cp .env.docker .env.docker.local
+# Edit .env.docker.local with your production values
+```
+
+2. **Deploy with production compose**:
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+3. **Initialize database**:
+```bash
+docker-compose exec backend npx prisma migrate deploy
+docker-compose exec backend npm run seed
+```
+
+### SSL Configuration
+The production setup includes Nginx with SSL. Update `docker/nginx/prod.conf` with your SSL certificates.
+
+### Monitoring
+- Container logs: `docker-compose logs -f`
+- Health check: `https://yourdomain.com/health`
+
+---
+
+## 🛠️ Development Guide
+
+### Docker Development
+```bash
+# Start development containers
+docker-compose up --build
+
+# Watch logs
+docker-compose logs -f
+
+# Access database
+docker-compose exec postgres psql -U postgres -d vilnius_support
+
+# Run commands in backend container
+docker-compose exec backend npm run seed
+docker-compose exec backend npx prisma studio
+```
+
+### Development Workflow
+1. Make code changes locally
+2. Containers auto-restart with volume mounts
+3. Database persists between restarts
+4. Access services on localhost:3002
+
+---
+
+## 🔧 Troubleshooting
+
+### Docker Issues
+```bash
+# Check container status
+docker-compose ps
+
+# Restart services
+docker-compose restart
+
+# View container logs
+docker-compose logs backend
+docker-compose logs postgres
+
+# Clean restart
+docker-compose down
+docker-compose up --build
+```
+
+### Common Issues
+
+**Database connection fails:**
+```bash
+# Check database is running
+docker-compose logs postgres
+# Reinitialize if needed
+docker-compose exec backend npx prisma migrate dev
+```
+
+**Port conflicts:**
+```bash
+# Check what's using port 3002
+lsof -i :3002
+# Kill conflicting processes
+pkill -f "node.*3002"
+```
+
+**Build failures:**
+```bash
+# Clean Docker system
+docker system prune -a
+# Rebuild without cache
+docker-compose build --no-cache
+```
+
+---
+
+## 📊 System Architecture
+
+### Components
+- **Backend**: Node.js/Express API server
+- **Database**: PostgreSQL with Prisma ORM
+- **AI**: OpenRouter (Gemini) + Flowise with failover
+- **Vector DB**: Chroma DB Cloud for document RAG
+- **Auth**: JWT with refresh tokens
+- **Real-time**: Socket.IO WebSocket communication
+- **Frontend**: Vanilla JavaScript + TailwindCSS
+
+### Docker Services
+- **backend**: Main application (port 3002)
+- **postgres**: Database (internal port 5432, external 5434)
+- **nginx**: Reverse proxy with SSL (production only)
+
+### File Structure
+```
+vilnius-assistant/
+├── custom-widget/
+│   ├── backend/           # Node.js API server
+│   ├── js/               # Frontend JavaScript
+│   ├── *.html            # UI pages
+│   └── *.css             # Styles
+├── docker/               # Docker configurations
+├── scripts/              # Utility scripts
+├── Dockerfile            # Backend container
+├── docker-compose.yml    # Development setup
+└── docker-compose.prod.yml # Production setup
+```
+
+---
+
+## 🔐 Environment Variables
+
+### Required Variables
+```bash
+# Database
+DATABASE_URL="postgresql://postgres:password@postgres:5432/vilnius_support"
+
+# AI Services
+OPENROUTER_API_KEY="your-openrouter-key"
+FLOWISE_API_URL="your-flowise-url"
+FLOWISE_API_KEY="your-flowise-key"
+
+# Authentication
+JWT_SECRET="your-jwt-secret"
+JWT_REFRESH_SECRET="your-refresh-secret"
+
+# Vector Database
+CHROMA_URL="your-chroma-url"
+CHROMA_API_KEY="your-chroma-key"
+
+# Observability (Optional)
+LANGFUSE_SECRET_KEY="your-langfuse-key"
+LANGFUSE_PUBLIC_KEY="your-langfuse-public"
+LANGFUSE_HOST="your-langfuse-host"
+```
+
+### Docker Environment Files
+- `.env.docker`: Template for Docker environment
+- `.env.docker.local`: Local overrides (not committed)
+
+---
