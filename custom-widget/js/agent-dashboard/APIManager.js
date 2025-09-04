@@ -28,6 +28,23 @@ export class APIManager {
     // ===== AGENT STATUS API METHODS =====
 
     /**
+     * Fetch all agents data
+     * @returns {Promise<Array>} Array of agent objects
+     */
+    async loadAgentsData() {
+        try {
+            const response = await fetch(`${this.apiUrl}/api/agents`, {
+                headers: this.getAuthHeaders()
+            });
+            if (!response.ok) throw new Error('Failed to fetch agents');
+            return await response.json();
+        } catch (error) {
+            console.error('Failed to load agents data:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Update personal status (online/offline)
      * @param {string} status - 'online' or 'offline'
      * @param {boolean} forceUpdate - Force status update regardless of current state

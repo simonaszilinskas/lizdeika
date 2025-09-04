@@ -301,8 +301,11 @@ export class UIHelpers {
                 // Fetch all agents from server
                 console.log('🔄 Fetching fresh agent data');
                 try {
-                    const data = await this.apiManager.loadAgentsData();
+                    const data = await this.dashboard.apiManager.loadAgentsData();
                     allAgents = data.filter(agent => agent.id !== this.agentId);
+                    // Cache the agents data
+                    this.dashboard.agentCache = data;
+                    this.dashboard.agentCacheExpiry = Date.now() + (5 * 60 * 1000); // 5 minutes
                 } catch (error) {
                     console.error('Failed to fetch agents:', error);
                     return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
