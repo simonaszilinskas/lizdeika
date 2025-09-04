@@ -1180,6 +1180,28 @@ class AgentDashboard {
 
 
     /**
+     * Show an element by ID
+     * @param {string} elementId - Element ID to show
+     */
+    showElement(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.classList.remove('hidden');
+        }
+    }
+
+    /**
+     * Hide an element by ID
+     * @param {string} elementId - Element ID to hide
+     */
+    hideElement(elementId) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.classList.add('hidden');
+        }
+    }
+
+    /**
      * Reset chat view to no selection
      */
     resetChatView() {
