@@ -1,8 +1,14 @@
 # Vilnius Assistant - AI Customer Support Platform
 
-> **Phase 3 Complete**: A production-ready customer support platform with AI-powered assistance, user management, and RAG capabilities for Vilnius city.
+An AI-powered customer support system that provides intelligent, real-time assistance for municipal services. The platform combines human agents with AI technology to handle citizen inquiries efficiently, featuring document-based knowledge retrieval, automatic ticket assignment, and multilingual support in Lithuanian.
 
-**Current Status**: ✅ PostgreSQL database, JWT authentication, dual AI providers (OpenRouter + Flowise), document RAG with Chroma DB, automatic ticket assignment, Langfuse observability for 20 agents supporting 16,000+ conversations annually.
+**Key Features:**
+- 🤖 **AI Assistant**: Powered by OpenRouter (Gemini) and Flowise with document RAG capabilities
+- 👥 **Agent Dashboard**: Real-time conversation management for up to 20 concurrent agents
+- 📚 **Knowledge Base**: Upload documents (.txt, .docx) for AI-powered responses using vector search
+- 🔄 **Smart Workflow**: Three-action system (send as-is, edit, or rewrite AI suggestions)
+- 🌍 **Lithuanian Support**: Native language interface and responses
+- 📊 **Production Scale**: Handles 16,000+ conversations annually with 6-month data retention
 
 ## 📚 Complete Guide
 
@@ -111,27 +117,8 @@ npm start
 
 ## 🚀 Next Steps: Completing Lizdeika Vision
 
-### **Phase 4: Enhanced UI & Autopilot** (Next - 2 weeks)
-- [ ] **Autopilot mode** - Immediate AI responses without human review
-- [ ] **Enhanced document management** - Search, filtering, metadata
-- [ ] **Analytics dashboard** - Conversation metrics and reporting
 - [ ] **iframe embedding** - Easy widget integration like YouTube
-- [ ] **Mobile optimization** - Improved responsive design
-
-### **Phase 5: API Integration & Analytics** (Future - 3 weeks)
-- [ ] **Document ingestion API** - External systems can upload documents
-- [ ] **Webhook support** - Status notifications to external systems
-- [ ] **Advanced analytics** - Langfuse integration for cost tracking
-- [ ] **Multi-format documents** - PDF, RTF support
-- [ ] **API key management** - Secure external system access
-
-### **Production Deployment Checklist**
-- [ ] HTTPS configuration and SSL certificates
-- [ ] Database backup and recovery procedures
-- [ ] Environment variable security review
-- [ ] Load testing for 20 concurrent agents
-- [ ] Monitoring and alerting setup
-- [ ] User training documentation 
+- [ ] **Mobile optimization** - Improved responsive design for the widget and the dashboard
 
 
 ## 🏗️ Technology Stack
