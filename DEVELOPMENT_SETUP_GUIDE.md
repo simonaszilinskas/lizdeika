@@ -3,9 +3,31 @@
 ## Overview
 Quick start guide for developers to set up the Vilnius Assistant support system locally.
 
-## Prerequisites
+## 🐳 Docker Setup (Recommended - 2 minutes)
 
-### Required Software
+### Prerequisites
+- **Docker** and **Docker Compose** ([Download](https://www.docker.com/))
+- **Git** ([Download](https://git-scm.com/))
+
+### Quick Start
+```bash
+git clone <repository-url>
+cd vilnius-assistant
+docker-compose up --build
+
+# Initialize database (first run only)
+docker-compose exec backend npx prisma migrate dev --name init
+docker-compose exec backend npm run seed
+```
+
+**Access URLs:**
+- Agent Dashboard: http://localhost:3002/agent-dashboard.html
+- Customer Widget: http://localhost:3002/embed-widget.html
+- Login: http://localhost:3002/login.html
+
+## 🔧 Traditional Setup (Alternative)
+
+### Prerequisites
 - **Node.js** v18+ ([Download](https://nodejs.org/))
 - **PostgreSQL** v13+ ([Download](https://www.postgresql.org/download/))
 - **Git** ([Download](https://git-scm.com/))
@@ -16,7 +38,7 @@ Quick start guide for developers to set up the Vilnius Assistant support system 
 - **Postman/Insomnia** - API testing
 - **Chrome DevTools** - Frontend debugging
 
-## Quick Setup (5 minutes)
+## Traditional Setup (5 minutes)
 
 ### 1. Clone Repository
 ```bash

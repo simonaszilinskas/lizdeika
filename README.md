@@ -19,11 +19,27 @@
 
 ## ⚡ Quick Start
 
-### Prerequisites
-- Node.js 18+
-- PostgreSQL 12+
+### 🐳 Docker Setup (Recommended)
 
-### Setup
+**Prerequisites**: Docker and Docker Compose
+
+1. **Clone and start**:
+```bash
+git clone <repository-url>
+cd vilnius-assistant
+docker-compose up --build
+```
+
+2. **Initialize database** (first run only):
+```bash
+docker-compose exec backend npx prisma migrate dev --name init
+docker-compose exec backend npm run seed
+```
+
+### 🔧 Traditional Setup
+
+**Prerequisites**: Node.js 18+, PostgreSQL 12+
+
 1. **Install dependencies**:
 ```bash
 cd custom-widget/backend
@@ -50,9 +66,14 @@ npm start
 - **Login**: http://localhost:3002/login.html
 - **API Documentation**: http://localhost:3002/docs
 
-Notes on hosting:
-- Preferred: run only the backend on port 3002 — it serves the UI pages above.
-- Alternative: serve static UI from root on port 3000 using `npm run dev` if you need it. Backend still runs on 3002.
+**Docker Notes**: 
+- All services run on port 3002 with Docker
+- Database runs internally on port 5434
+- For detailed Docker documentation, see [DOCKER.md](./DOCKER.md)
+
+**Traditional Setup Notes**:
+- Preferred: run only the backend on port 3002 — it serves the UI pages above
+- Alternative: serve static UI from root on port 3000 using `npm run dev` if needed
 
 ## 🧪 Testing the System
 
@@ -125,11 +146,12 @@ Notes on hosting:
 ## 🏗️ Technology Stack
 
 - **Backend**: Node.js, Express, Prisma ORM
-- **Database**: PostgreSQL + Chroma DB Cloud (vectors)
+- **Database**: PostgreSQL + Chroma DB Cloud (vectors)  
 - **AI**: OpenRouter (Gemini), Flowise, LangChain
-- **Auth**: JWT with refresh tokens, bcrypt hashing
+- **Auth**: JWT with refresh tokens, bcryptjs hashing
 - **Frontend**: Vanilla JavaScript, TailwindCSS
 - **Real-time**: Socket.IO WebSocket communication
+- **Deployment**: Docker & Docker Compose, Nginx (production)
 
 ---
 

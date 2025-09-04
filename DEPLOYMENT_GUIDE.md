@@ -3,9 +3,44 @@
 ## Overview
 This guide covers deploying the Vilnius Assistant support system to production, including database setup, environment configuration, and monitoring.
 
-## Prerequisites
+## 🐳 Docker Deployment (Recommended)
 
-### System Requirements
+### Prerequisites
+- **Docker** and **Docker Compose**
+- **SSL certificate** for HTTPS
+- **Domain name** configured
+
+### Production Deployment Steps
+
+1. **Clone and configure**:
+```bash
+git clone <repository-url>
+cd vilnius-assistant
+cp .env.docker .env.docker.local
+# Edit .env.docker.local with your production values
+```
+
+2. **Deploy with production compose**:
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+3. **Initialize database**:
+```bash
+docker-compose exec backend npx prisma migrate deploy
+docker-compose exec backend npm run seed
+```
+
+### SSL Configuration
+The production setup includes Nginx with SSL. Update `docker/nginx/prod.conf` with your SSL certificates.
+
+### Monitoring
+- Container logs: `docker-compose logs -f`
+- Health check: `https://yourdomain.com/health`
+
+## 🔧 Traditional Deployment (Alternative)
+
+### Prerequisites
 - **Node.js**: v18+ 
 - **PostgreSQL**: v13+
 - **NPM**: v8+
