@@ -81,9 +81,6 @@ class AgentDashboard {
         // Initialize UI helpers
         this.uiHelpers = new UIHelpers(this);
         
-        // Initialize chat manager
-        this.chatManager = new ChatManager(this);
-        
         this.pollInterval = config.pollInterval || TIMING.POLL_INTERVAL;
         this.socket = null; // Keep for backward compatibility
         this.personalStatus = DEFAULTS.PERSONAL_STATUS; // Personal agent status (online/offline)
@@ -117,6 +114,9 @@ class AgentDashboard {
         
         // Initialize API manager
         this.apiManager = new APIManager(this);
+        
+        // Initialize chat manager (after API manager)
+        this.chatManager = new ChatManager(this);
         
         // Initialize sound notification manager
         this.soundNotificationManager = null;
