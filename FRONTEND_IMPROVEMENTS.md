@@ -61,13 +61,92 @@ This document outlines pragmatic improvements to the Vilnius Assistant vanilla J
 - Fixed critical bugs: message display refresh, AI suggestion updates
 - Preserved all event functionality with proper delegation
 
-5. **ConversationRenderer.js** ✅ (319 lines)
-   - Extracted all conversation & message rendering logic
-   - Methods: renderQueue, renderQueueItem, renderMessages, renderMessage, markdownToHtml
-   - Centralized all UI templating and DOM manipulation for conversations
-   - Improved separation of concerns between data and presentation layers
+✅ **COMPLETED: ConversationRenderer Extraction**
+- Extracted all conversation & message rendering logic
+- Created `custom-widget/js/agent-dashboard/ConversationRenderer.js` (319 lines)
+- Methods: renderQueue, renderQueueItem, renderMessages, renderMessage, markdownToHtml
+- Centralized all UI templating and DOM manipulation for conversations
+- Improved separation of concerns between data and presentation layers
+- Reduced main file: 2,368 → 2,118 lines (250 lines saved)
 
-**Total Progress: 3,074 → 2,118 lines (956 lines saved across 5 modules)**
+✅ **COMPLETED: APIManager Extraction**  
+- Extracted all HTTP/API functionality into `APIManager.js` module
+- Created `custom-widget/js/agent-dashboard/APIManager.js` (429 lines)
+- Consolidated duplicate assignment methods (assignConversation, unassignConversation)
+- Organized 5 API categories: Agent Status, Conversation Management, Message/Chat, AI Suggestions, Agent Management
+- Added consistent error handling and authentication headers across all API calls
+- Reduced main file: 2,118 → 2,039 lines (79 lines saved)
+- **Testing**: ✅ All functionality verified working - personal status, conversations, messages, agents APIs
+
+✅ **COMPLETED: StateManager Extraction** (Commit: 55ca878)
+- Extracted all state management logic into `StateManager.js` module
+- Created `custom-widget/js/agent-dashboard/StateManager.js` (351 lines)
+- Centralized filter state, selection state, conversation state, and UI state
+- **State Properties Extracted**:
+  - `currentFilter` - Current conversation filter (mine, unassigned, others, all)
+  - `archiveFilter` - Archive filter (active, archived)
+  - `selectedConversations` - Set of selected conversation IDs for bulk operations
+  - `currentChatId` - Currently selected conversation ID
+  - `currentSuggestion` - Current AI suggestion being displayed
+  - `conversations` - Map of loaded conversation data
+  - `allConversations` - Array of all conversations for filtering
+
+- **Key Methods Extracted**:
+  - `setFilter(filter)` - Update current conversation filter with UI updates
+  - `toggleArchiveFilter()` - Toggle between active/archived views
+  - `toggleConversationSelection(id)` - Toggle conversation selection state
+  - `getCurrentChatId()`, `setCurrentChatId()` - Manage current chat state
+  - `resetChatView()` - Clear current chat selection and related state
+  - State getters, utility methods, and comprehensive state debugging
+
+- **Module Integration Fixes**:
+  - Updated BulkOperations.js to use `stateManager.getSelectedConversations()`
+  - Updated ConversationRenderer.js to use `stateManager.getCurrentChatId()`
+  - Updated DebugManager.js to use `stateManager.getCurrentChatId()`
+  - Fixed all direct state property access patterns across modules
+
+- **Benefits Achieved**:
+  - Single source of truth for all dashboard state
+  - Centralized state management with controlled access
+  - Better separation of concerns between state and business logic
+  - Enhanced debugging capabilities with state introspection methods
+  - Reduced main file: 2,039 → 1,915 lines (124 lines saved)
+
+✅ **COMPLETED: UIHelpers Extraction**
+- Extracted all UI utility functions into `UIHelpers.js` module
+- Created `custom-widget/js/agent-dashboard/UIHelpers.js` (378 lines)
+- Centralized conversation queue styling, assignment UI, and general UI utilities
+- Reduced main file: 1,915 → 1,665 lines (250 lines saved)
+
+✅ **COMPLETED: ChatManager Extraction**
+- Extracted all chat and messaging operations into `ChatManager.js` module
+- Created `custom-widget/js/agent-dashboard/ChatManager.js` (364 lines)
+- Centralized chat selection, message sending, AI suggestions, and UI helpers
+- Reduced main file: 1,665 → 1,302 lines (363 lines saved)
+
+**Chat Operations Extracted**:
+1. **Chat Selection & Loading**:
+   - `selectChat()` - Select and load conversations
+   - `showChatInterface()` - Show chat UI elements  
+   - `loadChatMessages()` - Load conversation messages
+
+2. **Message Sending**:
+   - `sendMessage()` - Send messages from input field
+   - `sendAgentResponse()` - Send agent responses with attribution
+   - Message validation and error handling
+
+3. **AI Suggestion Management**:
+   - `getAIAssistance()` - Get AI suggestions
+   - `checkForPendingSuggestion()` - Check HITL mode suggestions
+   - `showAISuggestion()` / `hideAISuggestion()` - Manage AI panel
+   - `sendAsIs()` / `editSuggestion()` / `writeFromScratch()` - Suggestion actions
+
+4. **UI Utilities**:
+   - `resizeTextarea()` - Auto-resize message input
+   - `updateElementText()` - Safe element text updates
+   - `getMessageSenderLabel()` - Generate sender labels
+
+**Total Progress: 3,074 → 1,302 lines (1,772 lines saved across 9 modules)**
 
 Break down `agent-dashboard.js` into logical modules:
 
