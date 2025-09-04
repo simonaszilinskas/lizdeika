@@ -45,6 +45,9 @@ import { UIHelpers } from './agent-dashboard/UIHelpers.js';
 // Import chat manager
 import { ChatManager } from './agent-dashboard/ChatManager.js';
 
+// Import assignment manager
+import { AssignmentManager } from './agent-dashboard/AssignmentManager.js';
+
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -117,6 +120,9 @@ class AgentDashboard {
         
         // Initialize chat manager (after API manager)
         this.chatManager = new ChatManager(this);
+        
+        // Initialize assignment manager
+        this.assignmentManager = new AssignmentManager(this);
         
         // Initialize sound notification manager
         this.soundNotificationManager = null;
@@ -545,57 +551,21 @@ class AgentDashboard {
      * Toggle assignment dropdown visibility
      */
     async toggleAssignDropdown(conversationId, event) {
-        await this.uiHelpers.toggleAssignDropdown(conversationId, event);
+        await this.assignmentManager.toggleAssignDropdown(conversationId, event);
     }
 
     /**
      * Assign conversation to specific agent
      */
     async assignToAgent(conversationId, agentId, event) {
-        if (event) {
-            event.stopPropagation();
-        }
-        
-        // Close dropdown
-        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
-        if (dropdown) {
-            dropdown.classList.add('hidden');
-        }
-        
-        try {
-            console.log('🔄 Assigning conversation:', conversationId, 'to agent:', agentId);
-            await this.apiManager.assignConversation(conversationId, agentId, false);
-            console.log('✅ Assignment to agent successful, refreshing conversation list...');
-            // Clear modern loader cache to force fresh data
-            this.modernConversationLoader.refresh();
-            await this.loadConversations();
-            console.log('✅ Conversation list refreshed after assignment to agent');
-        } catch (error) {
-            this.handleAssignmentError(error, 'assign');
-        }
+        await this.assignmentManager.assignToAgent(conversationId, agentId, event);
     }
 
     /**
      * Unassign conversation (assign to nobody)
      */
     async unassignConversation(conversationId, event) {
-        if (event) {
-            event.stopPropagation();
-        }
-        
-        // Close dropdown
-        const dropdown = document.getElementById(`assign-dropdown-${conversationId}`);
-        if (dropdown) {
-            dropdown.classList.add('hidden');
-        }
-        
-        try {
-            await this.apiManager.unassignConversation(conversationId);
-            console.log(`Unassigned conversation ${conversationId}`);
-            await this.loadConversations();
-        } catch (error) {
-            this.handleAssignmentError(error, 'unassign');
-        }
+        await this.assignmentManager.unassignFromDropdown(conversationId, event);
     }
 
     /**
@@ -604,48 +574,16 @@ class AgentDashboard {
      * @param {Event} event - Click event to prevent propagation
      */
     async assignConversation(conversationId, event) {
-        if (event) {
-            event.stopPropagation(); // Prevent selecting the chat
-        }
-        
-        try {
-            console.log('🔄 Assigning conversation:', conversationId, 'to agent:', this.agentId);
-            await this.apiManager.assignConversation(conversationId, this.agentId, true);
-            console.log('✅ Assignment successful, refreshing conversation list...');
-            // Clear modern loader cache to force fresh data
-            this.modernConversationLoader.refresh();
-            await this.loadConversations();
-            console.log('✅ Conversation list refreshed after assignment');
-        } catch (error) {
-            this.handleAssignmentError(error, 'assign');
-        }
+        await this.assignmentManager.assignConversation(conversationId, event);
     }
 
     /**
-     * Unassign conversation from current agent
+     * Unassign conversation from current agent (direct action, not dropdown)
      * @param {string} conversationId - ID of conversation to unassign
      * @param {Event} event - Click event to prevent propagation
      */
-    async unassignConversation(conversationId, event) {
-        if (event) {
-            event.stopPropagation(); // Prevent selecting the chat
-        }
-        
-        try {
-            console.log('🔄 Unassigning conversation:', conversationId, 'from agent:', this.agentId);
-            await this.apiManager.unassignConversation(conversationId);
-            console.log('✅ Unassignment successful, refreshing conversation list...');
-            // If we're unassigning the current chat, reset the view
-            if (conversationId === this.stateManager.getCurrentChatId()) {
-                this.resetChatView();
-            }
-            // Clear modern loader cache to force fresh data
-            this.modernConversationLoader.refresh();
-            await this.loadConversations();
-            console.log('✅ Conversation list refreshed after unassignment');
-        } catch (error) {
-            this.handleAssignmentError(error, 'unassign');
-        }
+    async unassignFromCurrentAgent(conversationId, event) {
+        await this.assignmentManager.unassignConversation(conversationId, event);
     }
 
     /**
@@ -654,24 +592,7 @@ class AgentDashboard {
      * @param {Event} event - Click event to prevent propagation
      */
     async archiveConversation(conversationId, event) {
-        if (event) {
-            event.stopPropagation(); // Prevent selecting the chat
-        }
-        
-        try {
-            console.log('📁 Archiving conversation:', conversationId);
-            await this.apiManager.bulkArchiveConversations([conversationId]);
-            console.log(`✅ Archived conversation successfully`);
-            console.log('✅ Archive operation successful, refreshing conversation list...');
-            
-            // Refresh the modern conversation loader cache before loading
-            this.modernConversationLoader.refresh();
-            await this.loadConversations();
-            console.log('✅ Conversation list refreshed after archive operation');
-        } catch (error) {
-            console.error('Error archiving conversation:', error);
-            this.showToast('Error archiving conversation', 'error');
-        }
+        await this.assignmentManager.archiveConversation(conversationId, event);
     }
 
     /**
@@ -680,21 +601,7 @@ class AgentDashboard {
      * @param {Event} event - Click event to prevent propagation
      */
     async unarchiveConversation(conversationId, event) {
-        if (event) {
-            event.stopPropagation(); // Prevent selecting the chat
-        }
-        
-        try {
-            console.log('📂 Unarchiving conversation:', conversationId);
-            await this.apiManager.bulkUnarchiveConversations([conversationId]);
-            console.log(`✅ Unarchived conversation successfully`);
-            console.log('✅ Unarchive operation successful, refreshing conversation list...');
-            this.modernConversationLoader.refresh();
-            await this.loadConversations();
-            console.log('✅ Conversation list refreshed after unarchive operation');
-        } catch (error) {
-            this.bulkOperations.handleBulkOperationError(error, 'unarchive');
-        }
+        await this.assignmentManager.unarchiveConversation(conversationId, event);
     }
 
     /**
@@ -859,29 +766,6 @@ class AgentDashboard {
         }, duration);
     }
 
-    /**
-     * Handle assignment operation errors with user-friendly messages
-     * @param {Error} error - The error that occurred
-     * @param {string} operation - The operation that failed ('assign' or 'unassign')
-     */
-    handleAssignmentError(error, operation = 'assign') {
-        console.error(`Error ${operation}ing conversation:`, error);
-        
-        // Show user-friendly error message
-        let errorMessage = `Failed to ${operation} conversation. Please try again.`;
-        
-        if (error.message.includes('403')) {
-            errorMessage = `You are not authorized to ${operation} this conversation.`;
-        } else if (error.message.includes('404')) {
-            errorMessage = 'This conversation no longer exists.';
-        } else if (error.message.includes('500')) {
-            errorMessage = 'Server error. Please try again in a moment.';
-        } else if (error.name === 'TypeError') {
-            errorMessage = 'Network error. Please check your connection and try again.';
-        }
-        
-        this.showToast(errorMessage, 'error');
-    }
 
     /**
      * Handle bulk operation errors with user-friendly messages
@@ -1233,21 +1117,7 @@ class AgentDashboard {
      * @param {string} conversationId - Conversation ID to refresh
      */
     async refreshConversation(conversationId) {
-        try {
-            const data = await this.apiManager.loadConversationsData();
-            const updatedConv = data.conversations.find(c => c.id === conversationId);
-            
-            if (updatedConv) {
-                // Update the conversation in our local Map
-                this.stateManager.setConversation(conversationId, updatedConv);
-                
-                // Update UI if this is the current conversation
-                if (this.stateManager.getCurrentChatId() === conversationId) {
-                }
-            }
-        } catch (error) {
-            console.error('Error refreshing conversation:', error);
-        }
+        await this.assignmentManager.refreshConversation(conversationId);
     }
 
 
