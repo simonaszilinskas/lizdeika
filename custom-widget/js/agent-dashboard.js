@@ -40,6 +40,9 @@ import {
 // Import core services
 import { AgentAuthManager } from './agent-dashboard/core/AgentAuthManager.js';
 import { SocketManager } from './agent-dashboard/core/SocketManager.js';
+
+// Import auth actions
+import { logoutAgent, openUserManagement } from './agent-dashboard/auth-actions.js';
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -3022,48 +3025,7 @@ class AgentDashboard {
     }
 }
 
-// Logout function for agent dashboard
-async function logoutAgent() {
-    if (confirm('Ar tikrai norite atsijungti?')) {
-        try {
-            // Call backend logout endpoint to invalidate refresh token
-            const refreshToken = localStorage.getItem('refresh_token');
-            if (refreshToken) {
-                await fetch('http://localhost:3002/api/auth/logout', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ refreshToken })
-                });
-            }
-        } catch (error) {
-            console.error('Logout API call failed:', error);
-        }
-        
-        // Clear all stored authentication data
-        localStorage.removeItem('agent_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('agentUser'); // Clear old system data too
-        
-        // Clear any agent status data
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('agentStatus_')) {
-                localStorage.removeItem(key);
-            }
-        });
-        
-        // Redirect to login page
-        window.location.href = 'login.html';
-    }
-}
-
-// Placeholder function for user management (to be implemented)
-function openUserManagement() {
-    console.log('User management functionality - to be implemented');
-    alert('User management feature is not implemented yet');
-}
+// Functions moved to ./agent-dashboard/auth-actions.js
 
 // Expose functions globally for HTML onclick handlers
 window.logoutAgent = logoutAgent;
