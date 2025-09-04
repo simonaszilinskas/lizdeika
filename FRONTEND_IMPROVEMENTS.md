@@ -33,6 +33,12 @@ This document outlines pragmatic improvements to the Vilnius Assistant vanilla J
 
 ### 1.1 File Splitting Strategy
 
+✅ **COMPLETED: Auth Actions Extraction** (Commit: 108821c)
+- Extracted `logoutAgent` and `openUserManagement` functions
+- Created `custom-widget/js/agent-dashboard/auth-actions.js`
+- Reduced main file: 3,074 → 3,036 lines (38 lines saved)
+- Fixed user management navigation to `settings.html#users`
+
 Break down `agent-dashboard.js` into logical modules:
 
 ```javascript

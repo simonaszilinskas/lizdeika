@@ -43,6 +43,9 @@ import { SocketManager } from './agent-dashboard/core/SocketManager.js';
 
 // Import auth actions
 import { logoutAgent, openUserManagement } from './agent-dashboard/auth-actions.js';
+
+// Import bulk operations
+import { BulkOperations } from './agent-dashboard/BulkOperations.js';
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -98,6 +101,9 @@ class AgentDashboard {
         });
         
         // ConversationUpdateManager removed - was unused infrastructure (always fell back to full reloads)
+        
+        // Initialize bulk operations manager
+        this.bulkOperations = new BulkOperations(this);
         
         // Initialize sound notification manager
         this.soundNotificationManager = null;
@@ -229,26 +235,26 @@ class AgentDashboard {
         }
 
         if (clearSelectionBtn) {
-            clearSelectionBtn.addEventListener('click', () => this.clearAllSelections());
+            clearSelectionBtn.addEventListener('click', () => this.bulkOperations.clearAllSelections());
         }
         
         if (bulkArchiveBtn) {
-            bulkArchiveBtn.addEventListener('click', () => this.bulkArchiveConversations());
+            bulkArchiveBtn.addEventListener('click', () => this.bulkOperations.bulkArchiveConversations());
         }
         
         if (bulkUnarchiveBtn) {
-            bulkUnarchiveBtn.addEventListener('click', () => this.bulkUnarchiveConversations());
+            bulkUnarchiveBtn.addEventListener('click', () => this.bulkOperations.bulkUnarchiveConversations());
         }
         
         if (bulkAssignMeBtn) {
-            bulkAssignMeBtn.addEventListener('click', () => this.bulkAssignToMe());
+            bulkAssignMeBtn.addEventListener('click', () => this.bulkOperations.bulkAssignToMe());
         }
         
         const bulkAssignAgentDropdown = document.getElementById('bulk-assign-agent');
         if (bulkAssignAgentDropdown) {
             bulkAssignAgentDropdown.addEventListener('change', (e) => {
                 if (e.target.value) {
-                    this.bulkAssignToAgent(e.target.value);
+                    this.bulkOperations.bulkAssignToAgent(e.target.value);
                     e.target.value = ''; // Reset dropdown
                 }
             });
@@ -526,7 +532,7 @@ class AgentDashboard {
         if (dropdown && dropdown.style.display !== 'none') {
             // Force refresh of dropdown options
             dropdown.innerHTML = '';
-            this.populateAgentsDropdown();
+            this.bulkOperations.populateAgentsDropdown();
         }
         
         // Update compact format in header
@@ -1371,7 +1377,7 @@ class AgentDashboard {
                 this.showToast(`Failed to unarchive conversation: ${response.status} ${response.statusText}`, 'error');
             }
         } catch (error) {
-            this.handleBulkOperationError(error, 'unarchive');
+            this.bulkOperations.handleBulkOperationError(error, 'unarchive');
         }
     }
 
@@ -2738,7 +2744,7 @@ class AgentDashboard {
             selectAllCheckbox.indeterminate = someSelected;
         }
         
-        this.updateBulkActionsPanel();
+        this.bulkOperations.updateBulkActionsPanel();
         this.updateSelectionUI();
     }
 
@@ -2759,109 +2765,15 @@ class AgentDashboard {
             this.selectedConversations.clear();
         }
         
-        this.updateBulkActionsPanel();
+        this.bulkOperations.updateBulkActionsPanel();
         this.updateSelectionUI();
     }
 
     /**
-     * Clear all conversation selections
-     */
-    clearAllSelections() {
-        this.selectedConversations.clear();
-        
-        // Also uncheck the Select All checkbox if it exists
-        const selectAllCheckbox = document.getElementById('select-all');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.checked = false;
-        }
-        
-        this.updateBulkActionsPanel();
-        this.updateSelectionUI();
-    }
-
-    /**
-     * Update the bulk actions panel visibility and content
-     */
-    updateBulkActionsPanel() {
-        const panel = document.getElementById('bulk-actions-panel');
-        const selectedCount = this.selectedConversations.size;
-        
-        if (selectedCount > 0) {
-            panel.classList.remove('hidden');
-            document.getElementById('selected-count').textContent = selectedCount;
-            // Update buttons when panel becomes visible
-            this.updateBulkActionButtons();
-        } else {
-            panel.classList.add('hidden');
-        }
-    }
-    
-    /**
-     * Update bulk action buttons based on archive filter
-     */
-    updateBulkActionButtons() {
-        const archiveBtn = document.getElementById('bulk-archive');
-        const unarchiveBtn = document.getElementById('bulk-unarchive');
-        const assignMeBtn = document.getElementById('bulk-assign-me');
-        const assignAgentDropdown = document.getElementById('bulk-assign-agent');
-        
-        if (this.archiveFilter === 'archived') {
-            // In archive view - only show unarchive button
-            if (archiveBtn) archiveBtn.style.display = 'none';
-            if (unarchiveBtn) unarchiveBtn.style.display = 'block';
-            if (assignMeBtn) assignMeBtn.style.display = 'none';
-            if (assignAgentDropdown) assignAgentDropdown.style.display = 'none';
-        } else {
-            // In active view - show archive and assign buttons
-            if (archiveBtn) archiveBtn.style.display = 'block';
-            if (unarchiveBtn) unarchiveBtn.style.display = 'none';
-            if (assignMeBtn) assignMeBtn.style.display = 'block';
-            if (assignAgentDropdown) {
-                assignAgentDropdown.style.display = 'block';
-                // Populate agents dropdown if not already populated
-                this.populateAgentsDropdown();
-            }
-        }
-    }
-    
-    /**
-     * Populate the agents dropdown with available agents
-     */
-    populateAgentsDropdown() {
-        const dropdown = document.getElementById('bulk-assign-agent');
-        if (!dropdown || dropdown.options.length > 1) return; // Already populated
-        
-        // Clear and add default option
-        dropdown.innerHTML = '<option value="">Assign to...</option>';
-        
-        // Add connected agents from our tracking
-        this.connectedAgents.forEach((status, agentEmail) => {
-            if (agentEmail !== this.agentId) { // Don't include self
-                const option = document.createElement('option');
-                option.value = agentEmail;
-                option.textContent = agentEmail.split('@')[0]; // Show just the username part
-                dropdown.appendChild(option);
-            }
-        });
-        
-        // If no other agents, add a disabled message
-        if (dropdown.options.length === 1) {
-            const option = document.createElement('option');
-            option.value = '';
-            option.textContent = 'No other agents online';
-            option.disabled = true;
-            dropdown.appendChild(option);
-        }
-    }
-
-    /**
-     * Update selection UI (checkboxes)
+     * Update selection UI (checkboxes) - delegate to bulk operations
      */
     updateSelectionUI() {
-        document.querySelectorAll('.conversation-checkbox').forEach(checkbox => {
-            const conversationId = checkbox.dataset.conversationId;
-            checkbox.checked = this.selectedConversations.has(conversationId);
-        });
+        this.bulkOperations.updateSelectionUI();
     }
 
     /**
@@ -2898,7 +2810,7 @@ class AgentDashboard {
         });
         
         // Update bulk action buttons based on archive mode
-        this.updateBulkActionButtons();
+        this.bulkOperations.updateBulkActionButtons();
         
         // Update filter button styles if we're switching back to active
         if (this.archiveFilter === 'active') {
@@ -2908,121 +2820,7 @@ class AgentDashboard {
         this.applyFilter();
     }
 
-    /**
-     * Bulk archive selected conversations
-     */
-    async bulkArchiveConversations() {
-        const selectedIds = Array.from(this.selectedConversations);
-        if (selectedIds.length === 0) return;
-
-        try {
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-archive`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
-                },
-                body: JSON.stringify({ conversationIds: selectedIds })
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log(`✅ Archived ${result.data.archivedCount} conversations`);
-                this.clearAllSelections();
-                console.log('✅ Archive operation successful, refreshing conversation list...');
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after archive operation');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to archive conversations:', response.status, errorText);
-                this.showToast(`Failed to archive conversations: ${response.status} ${response.statusText}`, 'error');
-            }
-        } catch (error) {
-            this.handleBulkOperationError(error, 'archive');
-        }
-    }
-
-    /**
-     * Bulk unarchive selected conversations
-     */
-    async bulkUnarchiveConversations() {
-        const selectedIds = Array.from(this.selectedConversations);
-        if (selectedIds.length === 0) return;
-
-        try {
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-unarchive`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
-                },
-                body: JSON.stringify({ conversationIds: selectedIds })
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log(`✅ Unarchived ${result.data.unarchivedCount} conversations`);
-                this.clearAllSelections();
-                console.log('✅ Unarchive operation successful, refreshing conversation list...');
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after unarchive operation');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to unarchive conversations:', response.status, errorText);
-                this.showToast(`Failed to unarchive conversations: ${response.status} ${response.statusText}`, 'error');
-            }
-        } catch (error) {
-            this.handleBulkOperationError(error, 'unarchive');
-        }
-    }
-
-    /**
-     * Bulk assign selected conversations to current agent
-     */
-    async bulkAssignToMe() {
-        await this.bulkAssignToAgent(this.agentId);
-    }
-    
-    /**
-     * Bulk assign selected conversations to specific agent
-     */
-    async bulkAssignToAgent(agentId) {
-        const selectedIds = Array.from(this.selectedConversations);
-        if (selectedIds.length === 0) return;
-
-        try {
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-assign`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
-                },
-                body: JSON.stringify({ 
-                    conversationIds: selectedIds,
-                    agentId: agentId
-                })
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                const assignedTo = agentId === this.agentId ? 'me' : agentId.split('@')[0];
-                console.log(`✅ Assigned ${result.data.assignedCount} conversations to ${assignedTo}`);
-                this.clearAllSelections();
-                console.log('✅ Bulk assign operation successful, refreshing conversation list...');
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after bulk assign operation');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to assign conversations:', response.status, errorText);
-                this.showToast(`Failed to assign conversations: ${response.status} ${response.statusText}`, 'error');
-            }
-        } catch (error) {
-            this.handleBulkOperationError(error, 'assign');
-        }
-    }
+    // Bulk operations methods moved to ./agent-dashboard/BulkOperations.js
 }
 
 // Functions moved to ./agent-dashboard/auth-actions.js
