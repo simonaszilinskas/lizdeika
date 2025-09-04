@@ -3,7 +3,7 @@
  * Handles password hashing, verification, and validation
  */
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 class PasswordUtils {
   constructor() {

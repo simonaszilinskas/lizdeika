@@ -933,7 +933,7 @@ class AgentDashboard {
         if (conv && conv.assignedAgent) {
             const agent = this.connectedAgents.get(conv.assignedAgent);
             if (agent) {
-                return this.getAgentDisplayName(agent).replace('Agent ', '');
+                return getAgentDisplayName(agent).replace('Agent ', '');
             }
             return conv.assignedAgent.substring(0, 6);
         }
@@ -1143,7 +1143,7 @@ class AgentDashboard {
                 `;
             } else {
                 dropdownHtml += onlineAgents.map(agent => {
-                    const displayName = agent.name || this.getAgentDisplayName(agent);
+                    const displayName = agent.name || getAgentDisplayName(agent);
                     
                     return `
                         <button onclick="dashboard.assignToAgent('${conversationId}', '${agent.id}', event)" 

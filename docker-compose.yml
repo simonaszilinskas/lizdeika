@@ -1,0 +1,90 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: vilnius-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vilnius_support
+      POSTGRES_USER: vilnius_user
+      POSTGRES_PASSWORD: secure_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vilnius_user -d vilnius_support"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Application
+  backend:
+    build:
+      context: .
+      target: development
+    container_name: vilnius-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - DATABASE_URL=postgresql://vilnius_user:secure_password@postgres:5432/vilnius_support
+      - JWT_SECRET=development-jwt-secret-change-in-production
+      - JWT_REFRESH_SECRET=development-refresh-secret-change-in-production
+      - AI_PROVIDER=openrouter
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=google/gemini-2.5-flash
+      - SITE_URL=http://localhost:3002
+      - SITE_NAME=Vilnius Assistant (Dev)
+      - WIDGET_NAME=Vilnius Assistant
+      - WIDGET_PRIMARY_COLOR=#2c5530
+      - WIDGET_ALLOWED_DOMAINS=*
+      - RAG_K=100
+      - RAG_SHOW_SOURCES=true
+      - ADMIN_RECOVERY_KEY=dev-recovery-key-123
+    volumes:
+      - ./custom-widget/backend:/app
+      - /app/node_modules
+      - ./custom-widget/js:/app/public/js
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        npx prisma migrate deploy &&
+        npx prisma generate &&
+        npm run dev
+      "
+
+  # Nginx for serving static files (optional for development)
+  nginx:
+    image: nginx:alpine
+    container_name: vilnius-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./custom-widget:/usr/share/nginx/html/custom-widget:ro
+      - ./docker/nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    profiles:
+      - with-nginx
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: vilnius-network
