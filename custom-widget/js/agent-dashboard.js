@@ -42,6 +42,9 @@ import { StateManager } from './agent-dashboard/StateManager.js';
 // Import UI helpers
 import { UIHelpers } from './agent-dashboard/UIHelpers.js';
 
+// Import chat manager
+import { ChatManager } from './agent-dashboard/ChatManager.js';
+
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -77,6 +80,9 @@ class AgentDashboard {
         
         // Initialize UI helpers
         this.uiHelpers = new UIHelpers(this);
+        
+        // Initialize chat manager
+        this.chatManager = new ChatManager(this);
         
         this.pollInterval = config.pollInterval || TIMING.POLL_INTERVAL;
         this.socket = null; // Keep for backward compatibility
@@ -172,22 +178,6 @@ class AgentDashboard {
     /**
      * Manually resize textarea (for programmatic content changes)
      */
-    resizeTextarea() {
-        const textarea = document.getElementById('message-input');
-        if (textarea) {
-            // Reset height to recalculate
-            textarea.style.height = 'auto';
-            
-            // Calculate new height with much larger range
-            const minHeight = 80;   // ~2 lines
-            const maxHeight = 300;  // ~8-10 lines  
-            const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
-            
-            textarea.style.height = newHeight + 'px';
-            
-            // console.log(`Manual textarea resize: scrollHeight=${textarea.scrollHeight}, newHeight=${newHeight}`); // Debug
-        }
-    }
 
 
 
@@ -317,12 +307,12 @@ class AgentDashboard {
             case 'autopilot':
                 // Autopilot: Backend automatically sends AI responses with disclaimer
                 console.log('System Mode: Autopilot - Automatic AI responses activated');
-                this.hideAISuggestion(); // Hide any pending suggestions since backend handles responses
+                this.chatManager.hideAISuggestion(); // Hide any pending suggestions since backend handles responses
                 break;
             case 'off':
                 // OFF: Backend sends offline messages for new messages
                 console.log('System Mode: OFF - Customer support offline mode activated');
-                this.hideAISuggestion(); // Hide any pending suggestions
+                this.chatManager.hideAISuggestion(); // Hide any pending suggestions
                 break;
         }
     }
@@ -753,48 +743,48 @@ class AgentDashboard {
      * @param {string} conversationId - ID of conversation to select
      */
     async selectChat(conversationId) {
-        this.stateManager.setCurrentChatId(conversationId);
-        
-        try {
-            // Load messages first (this also updates conversation data)
-            await this.loadChatMessages(conversationId);
-            
-            // Always check for pending suggestions in HITL mode 
-            // The API will return 404 if no suggestion exists, which is fine
-            if (this.systemMode === 'hitl') {
-                await this.checkForPendingSuggestion(conversationId);
-            }
-            
-            // Show chat interface
-            this.showChatInterface(conversationId);
-            
-            // Refresh queue to show assignment
-            this.loadConversations();
-        } catch (error) {
-            console.error('Error selecting chat:', error);
-        }
+        await this.chatManager.selectChat(conversationId);
+    }
+
+
+
+
+
+
+
+    /**
+     * Send message from input field
+     */
+    async sendMessage() {
+        await this.chatManager.sendMessage();
     }
 
     /**
-     * Show chat interface elements
-     * @param {string} conversationId - ID of current conversation
+     * Get AI assistance for current conversation
      */
-    showChatInterface(conversationId) {
-        UIHelpers.hideElement('no-chat-selected');
-        UIHelpers.showElement('chat-header');
-        UIHelpers.showElement('chat-messages');
-        UIHelpers.showElement('message-input-area');
-        
-        // Update header with conversation info
-        const conv = this.stateManager.getConversation(conversationId);
-        if (conv && conv.visitorId) {
-            UIHelpers.updateElementText('customer-name', conv.visitorId.substring(0, 16) + '...');
-            UIHelpers.updateElementText('customer-info', `Started ${new Date(conv.startedAt).toLocaleString()}`);
-            
-        } else {
-            UIHelpers.updateElementText('customer-name', '');
-            UIHelpers.updateElementText('customer-info', '');
-        }
+    async getAIAssistance() {
+        await this.chatManager.getAIAssistance();
+    }
+
+    /**
+     * Send AI suggestion as-is
+     */
+    async sendAsIs() {
+        await this.chatManager.sendAsIs();
+    }
+
+    /**
+     * Edit AI suggestion in input field
+     */
+    editSuggestion() {
+        this.chatManager.editSuggestion();
+    }
+
+    /**
+     * Clear input and write from scratch
+     */
+    writeFromScratch() {
+        this.chatManager.writeFromScratch();
     }
 
     /**
@@ -802,275 +792,16 @@ class AgentDashboard {
      * @param {string} conversationId - ID of conversation
      */
     async loadChatMessages(conversationId) {
-        try {
-            const data = await this.apiManager.loadConversationMessages(conversationId);
-            
-            this.stateManager.setConversation(conversationId, data);
-            this.conversationRenderer.renderMessages(data.messages);
-        } catch (error) {
-            console.error('Error loading messages:', error);
-        }
-    }
-
-
-
-
-
-
-
-    /**
-     * Get sender label for message
-     */
-    getMessageSenderLabel(isAI, isAgent, isSystem, msg = null) {
-        if (isAI) return 'AI Assistant';
-        if (isSystem) return 'System';
-        if (isAgent && msg && msg.metadata && msg.metadata.responseAttribution) {
-            const attr = msg.metadata.responseAttribution;
-            let label = attr.respondedBy || 'Agent';
-            
-            // Add response type annotation
-            if (attr.responseType === 'autopilot') {
-                return label; // Just "Autopilot" without redundant (autopilot)
-            } else if (attr.responseType === 'as-is') {
-                return `${label} (as-is)`;
-            } else if (attr.responseType === 'edited') {
-                return `${label} (edited)`;
-            } else if (attr.responseType === 'from-scratch' || attr.responseType === 'custom') {
-                return `${label} (custom)`;
-            }
-            
-            return label;
-        }
-        if (isAgent) return 'You';
-        return 'Customer';
+        await this.chatManager.loadChatMessages(conversationId);
     }
 
     /**
-     * Send message from input field
+     * Auto-resize textarea based on content
      */
-    async sendMessage() {
-        const input = document.getElementById('message-input');
-        if (!input) return;
-        
-        const message = input.value.trim();
-        
-        // Validate message and provide feedback
-        if (!message) {
-            this.showToast('Please enter a message before sending', 'warning');
-            input.focus();
-            return;
-        }
-        
-        if (!this.stateManager.getCurrentChatId()) {
-            this.showToast('Please select a conversation first', 'warning');
-            return;
-        }
-        
-        // Determine suggestion action
-        const suggestionAction = this.stateManager.getCurrentSuggestion() ? 
-            (message === this.stateManager.getCurrentSuggestion() ? 'as-is' : 'edited') : 
-            'from-scratch';
-        
-        await this.sendAgentResponse(message, suggestionAction);
+    resizeTextarea() {
+        this.chatManager.resizeTextarea();
     }
 
-    /**
-     * Get AI assistance for current conversation
-     */
-    async getAIAssistance() {
-        if (!this.stateManager.getCurrentChatId()) return;
-        
-        try {
-            const data = await this.apiManager.getAISuggestion(this.stateManager.getCurrentChatId());
-            if (data) {
-                this.showAISuggestion(data.suggestion, data.confidence);
-            }
-        } catch (error) {
-            console.error('Error getting AI assistance:', error);
-        }
-    }
-
-    /**
-     * Check for pending AI suggestions (HITL mode only)
-     * @param {string} conversationId - ID of conversation
-     */
-    async checkForPendingSuggestion(conversationId) {
-        try {
-            const data = await this.apiManager.getPendingSuggestion(conversationId);
-            
-            if (data) {
-                // HITL mode: Show suggestion for human validation
-                if (!this.stateManager.getCurrentSuggestion() || this.stateManager.getCurrentSuggestion() !== data.suggestion) {
-                    this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
-                }
-            } else {
-                // No pending suggestion - this is normal
-                this.hideAISuggestion();
-            }
-        } catch (error) {
-            console.error('Error checking for pending suggestion:', error);
-            this.hideAISuggestion();
-        }
-    }
-
-    /**
-     * Show AI suggestion panel
-     * @param {string} suggestion - AI suggestion text
-     * @param {number} _confidence - Confidence score (unused)
-     * @param {Object} metadata - Additional metadata
-     */
-    showAISuggestion(suggestion, _confidence, metadata = {}) {
-        const suggestionText = document.getElementById('ai-suggestion-text');
-        const panel = document.getElementById('ai-suggestion-panel');
-        
-        if (suggestionText) {
-            suggestionText.innerHTML = this.conversationRenderer.markdownToHtml(suggestion);
-        }
-        
-        // Update header based on metadata
-        const headerText = metadata.messageCount > 1 
-            ? `AI Suggestion (responding to ${metadata.messageCount} messages)`
-            : 'AI Suggestion';
-            
-        const headerElement = document.querySelector('#ai-suggestion-panel .font-semibold');
-        if (headerElement) {
-            headerElement.textContent = headerText;
-        }
-        
-        if (panel) {
-            panel.classList.remove('hidden');
-        }
-        
-        this.stateManager.setCurrentSuggestion(suggestion);
-    }
-
-    /**
-     * Hide AI suggestion panel
-     */
-    hideAISuggestion() {
-        const panel = document.getElementById('ai-suggestion-panel');
-        const suggestionText = document.getElementById('ai-suggestion-text');
-        
-        if (panel) {
-            panel.classList.add('hidden');
-        }
-        
-        if (suggestionText) {
-            suggestionText.textContent = '';
-        }
-        
-        this.stateManager.setCurrentSuggestion(null);
-    }
-
-    /**
-     * Send AI suggestion as-is
-     */
-    async sendAsIs() {
-        if (!this.stateManager.getCurrentSuggestion()) return;
-        await this.sendAgentResponse(this.stateManager.getCurrentSuggestion(), 'as-is');
-    }
-
-    /**
-     * Edit AI suggestion in input field
-     */
-    editSuggestion() {
-        if (!this.stateManager.getCurrentSuggestion()) return;
-        
-        const input = document.getElementById('message-input');
-        if (input) {
-            input.value = this.stateManager.getCurrentSuggestion();
-            input.focus();
-            // Manually resize after setting content
-            setTimeout(() => this.resizeTextarea(), 10); // Small delay to ensure content is set
-        }
-        
-        this.hideAISuggestion();
-    }
-
-    /**
-     * Clear input and write from scratch
-     */
-    writeFromScratch() {
-        const input = document.getElementById('message-input');
-        if (input) {
-            input.value = '';
-            input.focus();
-            // Resize to minimum height after clearing
-            setTimeout(() => this.resizeTextarea(), 10);
-        }
-        
-        this.hideAISuggestion();
-    }
-
-    /**
-     * Send agent response to backend
-     * @param {string} message - Message content
-     * @param {string} suggestionAction - How suggestion was used
-     */
-    async sendAgentResponse(message, suggestionAction) {
-        if (!this.stateManager.getCurrentChatId()) return;
-        
-        try {
-            const metadata = {
-                usedSuggestion: this.stateManager.getCurrentSuggestion(),
-                responseType: suggestionAction,
-                autoAssign: true  // Auto-assign to this agent when responding
-            };
-            
-            await this.apiManager.sendAgentMessage(this.stateManager.getCurrentChatId(), message, metadata);
-            
-            console.log('✅ Message sent successfully, clearing input and updating UI');
-            this.hideAISuggestion();
-            this.clearMessageInput();
-            
-            // The WebSocket event will handle updating the UI immediately
-            // Just reload conversations to update queue status
-            this.loadConversations();
-            
-            // Immediately refresh the current chat view as a fallback
-            if (this.stateManager.getCurrentChatId()) {
-                console.log('🔄 Immediately refreshing chat messages for current conversation');
-                this.loadChatMessages(this.stateManager.getCurrentChatId());
-            }
-        } catch (error) {
-            console.error('Error sending agent response:', error);
-            
-            // Show user-friendly error message
-            let errorMessage = 'Failed to send message. Please try again.';
-            
-            if (error.message.includes('403')) {
-                errorMessage = 'You are not authorized to respond to this conversation.';
-            } else if (error.message.includes('404')) {
-                errorMessage = 'This conversation no longer exists.';
-            } else if (error.message.includes('500')) {
-                errorMessage = 'Server error. Please try again in a moment.';
-            } else if (error.name === 'TypeError') {
-                errorMessage = 'Network error. Please check your connection and try again.';
-            }
-            
-            // Show error to user with toast notification
-            this.showToast(errorMessage, 'error');
-            
-            // Attempt to refresh data in case it helps
-            setTimeout(() => {
-                this.loadConversations();
-                if (this.stateManager.getCurrentChatId()) {
-                    this.loadChatMessages(this.stateManager.getCurrentChatId());
-                }
-            }, 1000);
-        }
-    }
-
-    /**
-     * Clear message input field
-     */
-    clearMessageInput() {
-        const input = document.getElementById('message-input');
-        if (input) {
-            input.value = '';
-            input.style.height = 'auto';
-        }
-    }
 
     /**
      * Show toast notification to user
@@ -1240,7 +971,7 @@ class AgentDashboard {
             if (this.systemMode === 'hitl' && data.sender === 'customer') {
                 console.log('💬 Customer message received, clearing old suggestion and checking for new one');
                 // Clear any existing suggestion first (it's now outdated)
-                this.hideAISuggestion();
+                this.chatManager.hideAISuggestion();
                 // Check for new suggestion based on updated conversation
                 this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
             } else if (this.systemMode === 'hitl') {
