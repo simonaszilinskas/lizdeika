@@ -213,6 +213,13 @@ class AgentController {
                 timestamp: new Date()
             });
             
+            // Also emit to agents room so the sending agent sees their own message immediately
+            this.io.to('agents').emit('agent-sent-message', {
+                conversationId,
+                message: agentMessage,
+                timestamp: new Date()
+            });
+            
             console.log(`Agent ${agentId} sent message to conversation ${conversationId}: ${message.substring(0, 50)}...`);
             
             res.json({ success: true, message: agentMessage });

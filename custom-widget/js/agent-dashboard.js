@@ -1538,6 +1538,35 @@ class AgentDashboard {
     }
 
     /**
+     * Append a single message to the chat UI without reloading all messages
+     * @param {Object} message - Message object to append
+     */
+    appendMessageToChat(message) {
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        
+        // Don't append system messages that should be filtered
+        if (message.sender === 'system') {
+            const shouldFilter = message.content.includes('[Message pending agent response') ||
+                               message.content.includes('Agent has joined the conversation') ||
+                               message.content.includes('Conversation assigned to agent') ||
+                               message.content.includes('[Debug information stored]') ||
+                               (message.metadata && message.metadata.debugOnly) ||
+                               message.content.trim() === '';
+            if (shouldFilter) return;
+        }
+        
+        // Create message HTML and append
+        const messageHtml = this.renderMessage(message);
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = messageHtml;
+        container.appendChild(tempDiv.firstElementChild);
+        
+        // Scroll to bottom
+        container.scrollTop = container.scrollHeight;
+    }
+
+    /**
      * Filter out unnecessary system messages
      * @param {Array} messages - Array of message objects
      * @returns {Array} Filtered messages
@@ -1815,11 +1844,9 @@ class AgentDashboard {
                 this.hideAISuggestion();
                 this.clearMessageInput();
                 
-                // Reload messages and queue with slight delay
-                setTimeout(async () => {
-                    await this.loadChatMessages(this.currentChatId);
-                    this.loadConversations();
-                }, 100);
+                // The WebSocket event will handle updating the UI immediately
+                // Just reload conversations to update queue status
+                this.loadConversations();
             } else {
                 const errorText = await response.text();
                 console.error('Failed to send message:', errorText);
@@ -2471,6 +2498,20 @@ class AgentDashboard {
             
             // Reload conversations to show the new conversation
             this.loadConversations();
+        });
+        
+        // Listen for agent-sent messages to update UI immediately
+        this.socket.on('agent-sent-message', (data) => {
+            console.log('📤 Agent sent message:', data);
+            
+            // Only update if this is the current conversation
+            if (data.conversationId === this.currentChatId) {
+                // Add the message to the chat immediately without full reload
+                this.appendMessageToChat(data.message);
+                
+                // Reload conversations to update queue status
+                this.loadConversations();
+            }
         });
         
         // Socket.io error handling (simplified - no circuit breaker needed)
