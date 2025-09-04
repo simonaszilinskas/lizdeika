@@ -46,7 +46,14 @@ This document outlines pragmatic improvements to the Vilnius Assistant vanilla J
 - Fixed method delegation issues and error handling
 - Preserved all functionality: bulk archive, unarchive, assign operations
 
-**Total Progress: 3,074 → 2,834 lines (240 lines saved so far)**
+✅ **COMPLETED: Debug Manager Extraction** (Commit: 391bc0d)
+- Extracted all debug methods into `DebugManager.js` module
+- Created `custom-widget/js/agent-dashboard/DebugManager.js`
+- Reduced main file: 2,834 → 2,543 lines (291 lines saved)
+- Handles debug modal, info rendering, and data formatting
+- Preserved all debug functionality: toggle, load info, format preview
+
+**Total Progress: 3,074 → 2,543 lines (531 lines saved so far)**
 
 Break down `agent-dashboard.js` into logical modules:
 
