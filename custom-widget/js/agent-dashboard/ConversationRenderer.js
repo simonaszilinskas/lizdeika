@@ -22,8 +22,7 @@ export class ConversationRenderer {
     constructor(dashboard) {
         this.dashboard = dashboard;
         this.agentId = dashboard.agentId;
-        this.selectedConversations = dashboard.selectedConversations;
-        this.currentChatId = dashboard.currentChatId;
+        this.stateManager = dashboard.stateManager;
     }
 
     /**
@@ -117,7 +116,7 @@ export class ConversationRenderer {
     renderQueueItem(conv) {
         const isAssignedToMe = conv.assignedAgent === this.agentId;
         const isUnassigned = !conv.assignedAgent;
-        const isActive = conv.id === this.dashboard.currentChatId;
+        const isActive = conv.id === this.stateManager.getCurrentChatId();
         const needsResponse = this.conversationNeedsResponse(conv);
         const isUnseen = this.conversationIsUnseen(conv);
         
@@ -125,7 +124,7 @@ export class ConversationRenderer {
         const statusLabel = getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv);
         const statusCss = getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
         
-        const isSelected = this.selectedConversations.has(conv.id);
+        const isSelected = this.stateManager.getSelectedConversations().has(conv.id);
         const archivedClass = conv.archived ? 'opacity-75 bg-gray-50' : '';
         
         // Calculate unread indicator

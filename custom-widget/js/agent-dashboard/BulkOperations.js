@@ -8,8 +8,7 @@ export class BulkOperations {
         this.dashboard = dashboard;
         this.apiUrl = dashboard.apiUrl;
         this.agentId = dashboard.agentId;
-        this.selectedConversations = dashboard.selectedConversations;
-        this.archiveFilter = dashboard.archiveFilter;
+        this.stateManager = dashboard.stateManager;
         this.connectedAgents = dashboard.connectedAgents;
         this.modernConversationLoader = dashboard.modernConversationLoader;
     }
@@ -18,7 +17,7 @@ export class BulkOperations {
      * Clear all conversation selections
      */
     clearAllSelections() {
-        this.selectedConversations.clear();
+        this.stateManager.clearSelection();
         
         // Also uncheck the Select All checkbox if it exists
         const selectAllCheckbox = document.getElementById('select-all');
@@ -35,7 +34,7 @@ export class BulkOperations {
      */
     updateBulkActionsPanel() {
         const panel = document.getElementById('bulk-actions-panel');
-        const selectedCount = this.selectedConversations.size;
+        const selectedCount = this.stateManager.getSelectedConversations().size;
         
         if (selectedCount > 0) {
             panel.classList.remove('hidden');
@@ -56,7 +55,7 @@ export class BulkOperations {
         const assignMeBtn = document.getElementById('bulk-assign-me');
         const assignAgentDropdown = document.getElementById('bulk-assign-agent');
         
-        if (this.dashboard.archiveFilter === 'archived') {
+        if (this.stateManager.getArchiveFilter() === 'archived') {
             // In archive view - only show unarchive button
             if (archiveBtn) archiveBtn.style.display = 'none';
             if (unarchiveBtn) unarchiveBtn.style.display = 'block';
@@ -111,7 +110,7 @@ export class BulkOperations {
     updateSelectionUI() {
         document.querySelectorAll('.conversation-checkbox').forEach(checkbox => {
             const conversationId = checkbox.dataset.conversationId;
-            checkbox.checked = this.selectedConversations.has(conversationId);
+            checkbox.checked = this.stateManager.getSelectedConversations().has(conversationId);
         });
     }
 
@@ -119,7 +118,7 @@ export class BulkOperations {
      * Bulk archive selected conversations
      */
     async bulkArchiveConversations() {
-        const selectedIds = Array.from(this.selectedConversations);
+        const selectedIds = Array.from(this.stateManager.getSelectedConversations());
         if (selectedIds.length === 0) return;
 
         try {
@@ -154,7 +153,7 @@ export class BulkOperations {
      * Bulk unarchive selected conversations
      */
     async bulkUnarchiveConversations() {
-        const selectedIds = Array.from(this.selectedConversations);
+        const selectedIds = Array.from(this.stateManager.getSelectedConversations());
         if (selectedIds.length === 0) return;
 
         try {
@@ -196,7 +195,7 @@ export class BulkOperations {
      * Bulk assign selected conversations to specific agent
      */
     async bulkAssignToAgent(agentId) {
-        const selectedIds = Array.from(this.selectedConversations);
+        const selectedIds = Array.from(this.stateManager.getSelectedConversations());
         if (selectedIds.length === 0) return;
 
         try {

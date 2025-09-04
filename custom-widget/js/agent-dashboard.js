@@ -36,6 +36,9 @@ import { ConversationRenderer } from './agent-dashboard/ConversationRenderer.js'
 // Import API manager
 import { APIManager } from './agent-dashboard/APIManager.js';
 
+// Import state manager
+import { StateManager } from './agent-dashboard/StateManager.js';
+
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -44,7 +47,6 @@ class AgentDashboard {
                       window.location.protocol + '//' + window.location.hostname + ':3002';
         
         this.apiUrl = apiUrl;
-        this.currentChatId = null;
         
         // Initialize authentication manager
         this.authManager = new AgentAuthManager({ apiUrl: this.apiUrl });
@@ -67,17 +69,14 @@ class AgentDashboard {
             }
         });
         
-        this.conversations = new Map();
-        this.currentSuggestion = null;
+        // Initialize state manager
+        this.stateManager = new StateManager(this);
+        
         this.pollInterval = config.pollInterval || TIMING.POLL_INTERVAL;
         this.socket = null; // Keep for backward compatibility
         this.personalStatus = DEFAULTS.PERSONAL_STATUS; // Personal agent status (online/offline)
         this.systemMode = DEFAULTS.SYSTEM_MODE; // Global system mode (hitl/autopilot/off)
         this.connectedAgents = new Map(); // Track other connected agents
-        this.currentFilter = FILTERS.DEFAULT_FILTER; // Current conversation filter (mine, unassigned, others, all)
-        this.allConversations = []; // Store all conversations for filtering
-        this.selectedConversations = new Set(); // Track selected conversations for bulk operations
-        this.archiveFilter = DEFAULTS.ARCHIVE_FILTER; // Archive filter (active, archived)
         
         // Agent caching to prevent rapid-fire API calls
         this.agentCache = null;
@@ -506,8 +505,8 @@ class AgentDashboard {
             console.log('📞 Loading conversations with modern loader...');
             
             const filters = {
-                archiveFilter: this.archiveFilter,
-                assignmentFilter: this.currentFilter,
+                archiveFilter: this.stateManager.getArchiveFilter(),
+                assignmentFilter: this.stateManager.getCurrentFilter(),
                 agentId: this.agentId
             };
             
@@ -518,10 +517,10 @@ class AgentDashboard {
             
             // Store conversations for backward compatibility
             const conversationData = this.modernConversationLoader.getConversations();
-            this.allConversations = conversationData.all;
+            this.stateManager.setAllConversations(conversationData.all);
             
             // Update filter button styles
-            this.updateFilterButtons();
+            this.stateManager.updateFilterButtons();
             console.log('✅ Modern conversation loading completed successfully');
             
         } catch (error) {
@@ -945,7 +944,7 @@ class AgentDashboard {
             await this.apiManager.unassignConversation(conversationId);
             console.log('✅ Unassignment successful, refreshing conversation list...');
             // If we're unassigning the current chat, reset the view
-            if (conversationId === this.currentChatId) {
+            if (conversationId === this.stateManager.getCurrentChatId()) {
                 this.resetChatView();
             }
             // Clear modern loader cache to force fresh data
@@ -1011,55 +1010,10 @@ class AgentDashboard {
      * @param {string} filter - Filter type: 'mine', 'unassigned', 'others', 'all'
      */
     setFilter(filter) {
-        console.log(`🔽 setFilter called with filter: ${filter}`);
-        this.currentFilter = filter;
-        this.updateFilterButtons();
-        this.applyFilter();
+        this.stateManager.setFilter(filter);
     }
 
-    /**
-     * Update filter button styles
-     */
-    updateFilterButtons() {
-        const buttons = ['filter-mine', 'filter-unassigned', 'filter-others', 'filter-all'];
-        const filterMap = {
-            'mine': 'filter-mine',
-            'unassigned': 'filter-unassigned',
-            'others': 'filter-others',
-            'all': 'filter-all'
-        };
 
-        buttons.forEach(buttonId => {
-            const button = document.getElementById(buttonId);
-            if (button) {
-                if (buttonId === filterMap[this.currentFilter]) {
-                    // Active button styling
-                    button.className = 'flex-1 text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-800 font-medium transition hover:bg-blue-200';
-                } else {
-                    // Inactive button styling
-                    button.className = 'flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200';
-                }
-            }
-        });
-    }
-
-    /**
-     * Apply current filter to conversations
-     */
-    applyFilter() {
-        console.log(`🔍 applyFilter called - current filter: ${this.currentFilter}, total conversations: ${this.allConversations.length}`);
-        
-        const filters = {
-            archiveFilter: this.archiveFilter,
-            assignmentFilter: this.currentFilter,
-            agentId: this.agentId
-        };
-        
-        // Use modern conversation loader for filtering
-        this.modernConversationLoader.reapplyFilters(filters, (conversations) => {
-            this.conversationRenderer.renderQueue(conversations);
-        });
-    }
 
     /**
      * Filter conversations based on assignment status
@@ -1070,9 +1024,9 @@ class AgentDashboard {
     filterConversations(conversations, filter) {
         // First apply archive filter
         let filtered = conversations;
-        if (this.archiveFilter === 'active') {
+        if (this.stateManager.getArchiveFilter() === 'active') {
             filtered = conversations.filter(conv => !conv.archived);
-        } else if (this.archiveFilter === 'archived') {
+        } else if (this.stateManager.getArchiveFilter() === 'archived') {
             filtered = conversations.filter(conv => conv.archived);
             // Archived conversations don't use assignment filters
             return filtered;
@@ -1097,7 +1051,7 @@ class AgentDashboard {
      * @param {string} conversationId - ID of conversation to select
      */
     async selectChat(conversationId) {
-        this.currentChatId = conversationId;
+        this.stateManager.setCurrentChatId(conversationId);
         
         try {
             // Load messages first (this also updates conversation data)
@@ -1130,7 +1084,7 @@ class AgentDashboard {
         this.showElement('message-input-area');
         
         // Update header with conversation info
-        const conv = this.conversations.get(conversationId);
+        const conv = this.stateManager.getConversation(conversationId);
         if (conv && conv.visitorId) {
             this.updateElementText('customer-name', conv.visitorId.substring(0, 16) + '...');
             this.updateElementText('customer-info', `Started ${new Date(conv.startedAt).toLocaleString()}`);
@@ -1149,7 +1103,7 @@ class AgentDashboard {
         try {
             const data = await this.apiManager.loadConversationMessages(conversationId);
             
-            this.conversations.set(conversationId, data);
+            this.stateManager.setConversation(conversationId, data);
             this.conversationRenderer.renderMessages(data.messages);
         } catch (error) {
             console.error('Error loading messages:', error);
@@ -1205,14 +1159,14 @@ class AgentDashboard {
             return;
         }
         
-        if (!this.currentChatId) {
+        if (!this.stateManager.getCurrentChatId()) {
             this.showToast('Please select a conversation first', 'warning');
             return;
         }
         
         // Determine suggestion action
-        const suggestionAction = this.currentSuggestion ? 
-            (message === this.currentSuggestion ? 'as-is' : 'edited') : 
+        const suggestionAction = this.stateManager.getCurrentSuggestion() ? 
+            (message === this.stateManager.getCurrentSuggestion() ? 'as-is' : 'edited') : 
             'from-scratch';
         
         await this.sendAgentResponse(message, suggestionAction);
@@ -1222,10 +1176,10 @@ class AgentDashboard {
      * Get AI assistance for current conversation
      */
     async getAIAssistance() {
-        if (!this.currentChatId) return;
+        if (!this.stateManager.getCurrentChatId()) return;
         
         try {
-            const data = await this.apiManager.getAISuggestion(this.currentChatId);
+            const data = await this.apiManager.getAISuggestion(this.stateManager.getCurrentChatId());
             if (data) {
                 this.showAISuggestion(data.suggestion, data.confidence);
             }
@@ -1244,7 +1198,7 @@ class AgentDashboard {
             
             if (data) {
                 // HITL mode: Show suggestion for human validation
-                if (!this.currentSuggestion || this.currentSuggestion !== data.suggestion) {
+                if (!this.stateManager.getCurrentSuggestion() || this.stateManager.getCurrentSuggestion() !== data.suggestion) {
                     this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
                 }
             } else {
@@ -1285,7 +1239,7 @@ class AgentDashboard {
             panel.classList.remove('hidden');
         }
         
-        this.currentSuggestion = suggestion;
+        this.stateManager.setCurrentSuggestion(suggestion);
     }
 
     /**
@@ -1303,26 +1257,26 @@ class AgentDashboard {
             suggestionText.textContent = '';
         }
         
-        this.currentSuggestion = null;
+        this.stateManager.setCurrentSuggestion(null);
     }
 
     /**
      * Send AI suggestion as-is
      */
     async sendAsIs() {
-        if (!this.currentSuggestion) return;
-        await this.sendAgentResponse(this.currentSuggestion, 'as-is');
+        if (!this.stateManager.getCurrentSuggestion()) return;
+        await this.sendAgentResponse(this.stateManager.getCurrentSuggestion(), 'as-is');
     }
 
     /**
      * Edit AI suggestion in input field
      */
     editSuggestion() {
-        if (!this.currentSuggestion) return;
+        if (!this.stateManager.getCurrentSuggestion()) return;
         
         const input = document.getElementById('message-input');
         if (input) {
-            input.value = this.currentSuggestion;
+            input.value = this.stateManager.getCurrentSuggestion();
             input.focus();
             // Manually resize after setting content
             setTimeout(() => this.resizeTextarea(), 10); // Small delay to ensure content is set
@@ -1352,16 +1306,16 @@ class AgentDashboard {
      * @param {string} suggestionAction - How suggestion was used
      */
     async sendAgentResponse(message, suggestionAction) {
-        if (!this.currentChatId) return;
+        if (!this.stateManager.getCurrentChatId()) return;
         
         try {
             const metadata = {
-                usedSuggestion: this.currentSuggestion,
+                usedSuggestion: this.stateManager.getCurrentSuggestion(),
                 responseType: suggestionAction,
                 autoAssign: true  // Auto-assign to this agent when responding
             };
             
-            await this.apiManager.sendAgentMessage(this.currentChatId, message, metadata);
+            await this.apiManager.sendAgentMessage(this.stateManager.getCurrentChatId(), message, metadata);
             
             console.log('✅ Message sent successfully, clearing input and updating UI');
             this.hideAISuggestion();
@@ -1372,9 +1326,9 @@ class AgentDashboard {
             this.loadConversations();
             
             // Immediately refresh the current chat view as a fallback
-            if (this.currentChatId) {
+            if (this.stateManager.getCurrentChatId()) {
                 console.log('🔄 Immediately refreshing chat messages for current conversation');
-                this.loadChatMessages(this.currentChatId);
+                this.loadChatMessages(this.stateManager.getCurrentChatId());
             }
         } catch (error) {
             console.error('Error sending agent response:', error);
@@ -1398,8 +1352,8 @@ class AgentDashboard {
             // Attempt to refresh data in case it helps
             setTimeout(() => {
                 this.loadConversations();
-                if (this.currentChatId) {
-                    this.loadChatMessages(this.currentChatId);
+                if (this.stateManager.getCurrentChatId()) {
+                    this.loadChatMessages(this.stateManager.getCurrentChatId());
                 }
             }, 1000);
         }
@@ -1527,12 +1481,7 @@ class AgentDashboard {
      * Reset chat view to no selection
      */
     resetChatView() {
-        this.currentChatId = null;
-        this.showElement('no-chat-selected');
-        this.hideElement('chat-header');
-        this.hideElement('chat-messages');
-        this.hideElement('message-input-area');
-        this.hideAISuggestion();
+        this.stateManager.resetChatView();
     }
 
     /**
@@ -1540,7 +1489,7 @@ class AgentDashboard {
      * @param {Object} data - Message data
      */
     handleNewMessage(data) {
-        console.log('📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.currentChatId });
+        console.log('📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
         
         // Play sound notification for new messages
         if (this.soundNotificationManager && data.sender !== 'agent') {
@@ -1557,10 +1506,10 @@ class AgentDashboard {
         this.loadConversations();
         
         // If this is the current chat, update messages and check for suggestion
-        if (data.conversationId === this.currentChatId) {
+        if (data.conversationId === this.stateManager.getCurrentChatId()) {
             console.log('🔄 WebSocket: Refreshing current chat messages');
             // Refresh conversation status (handles reopening cases)
-            this.refreshConversation(this.currentChatId);
+            this.refreshConversation(this.stateManager.getCurrentChatId());
             this.loadChatMessages(this.currentChatId);
             
             // If this is a customer message in HITL mode, refresh suggestions
@@ -1569,10 +1518,10 @@ class AgentDashboard {
                 // Clear any existing suggestion first (it's now outdated)
                 this.hideAISuggestion();
                 // Check for new suggestion based on updated conversation
-                this.checkForPendingSuggestion(this.currentChatId);
+                this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
             } else if (this.systemMode === 'hitl') {
                 // For agent messages, just check if there's still a pending suggestion
-                this.checkForPendingSuggestion(this.currentChatId);
+                this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
             }
         }
     }
@@ -1593,7 +1542,7 @@ class AgentDashboard {
      * @param {Object} data - Typing data
      */
     handleCustomerTyping(data) {
-        if (data.conversationId === this.currentChatId) {
+        if (data.conversationId === this.stateManager.getCurrentChatId()) {
             this.showCustomerTyping(data.isTyping);
         }
     }
@@ -1674,14 +1623,14 @@ class AgentDashboard {
             this.loadConversations();
             
             // If this is the current chat, update messages and check for suggestion
-            if (data.conversationId === this.currentChatId) {
+            if (data.conversationId === this.stateManager.getCurrentChatId()) {
                 // Refresh conversation status (handles reopening cases)
-                this.refreshConversation(this.currentChatId);
-                this.loadChatMessages(this.currentChatId);
+                this.refreshConversation(this.stateManager.getCurrentChatId());
+                this.loadChatMessages(this.stateManager.getCurrentChatId());
                 
                 // Only check for pending suggestions in HITL mode
                 if (this.systemMode === 'hitl') {
-                    this.checkForPendingSuggestion(this.currentChatId);
+                    this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
                 }
             }
         });
@@ -1720,7 +1669,7 @@ class AgentDashboard {
         });
         
         this.socket.on('customer-typing-status', (data) => {
-            if (data.conversationId === this.currentChatId) {
+            if (data.conversationId === this.stateManager.getCurrentChatId()) {
                 this.showCustomerTyping(data.isTyping);
             }
         });
@@ -1742,7 +1691,7 @@ class AgentDashboard {
             console.log('📤 Agent sent message:', data);
             
             // Only update if this is the current conversation
-            if (data.conversationId === this.currentChatId) {
+            if (data.conversationId === this.stateManager.getCurrentChatId()) {
                 // Add the message to the chat immediately without full reload
                 this.conversationRenderer.appendMessageToChat(data.message);
                 
@@ -1806,9 +1755,9 @@ class AgentDashboard {
      * @param {boolean} isTyping - Whether agent is typing
      */
     sendTypingStatus(isTyping) {
-        if (this.socket && this.socket.connected && this.currentChatId) {
+        if (this.socket && this.socket.connected && this.stateManager.getCurrentChatId()) {
             this.socket.emit('agent-typing', {
-                conversationId: this.currentChatId,
+                conversationId: this.stateManager.getCurrentChatId(),
                 isTyping: isTyping
             });
         }
@@ -1828,9 +1777,9 @@ class AgentDashboard {
         console.log('Starting polling fallback due to WebSocket issues');
         this.pollingInterval = setInterval(() => {
             this.loadConversations();
-            if (this.currentChatId) {
-                this.loadChatMessages(this.currentChatId);
-                this.checkForPendingSuggestion(this.currentChatId);
+            if (this.stateManager.getCurrentChatId()) {
+                this.loadChatMessages(this.stateManager.getCurrentChatId());
+                this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
             }
         }, this.pollInterval);
     }
@@ -1849,10 +1798,10 @@ class AgentDashboard {
             
             if (updatedConv) {
                 // Update the conversation in our local Map
-                this.conversations.set(conversationId, updatedConv);
+                this.stateManager.setConversation(conversationId, updatedConv);
                 
                 // Update UI if this is the current conversation
-                if (this.currentChatId === conversationId) {
+                if (this.stateManager.getCurrentChatId() === conversationId) {
                 }
             }
         } catch (error) {
@@ -1925,53 +1874,16 @@ class AgentDashboard {
      * Toggle conversation selection for bulk operations
      */
     toggleConversationSelection(conversationId) {
-        if (this.selectedConversations.has(conversationId)) {
-            this.selectedConversations.delete(conversationId);
-        } else {
-            this.selectedConversations.add(conversationId);
-        }
-        
-        // Update Select All checkbox state based on current selection
-        const selectAllCheckbox = document.getElementById('select-all');
-        if (selectAllCheckbox) {
-            // Get all filtered conversations
-            const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
-            const filteredIds = new Set(filteredConversations.map(conv => conv.id));
-            
-            // Check if all filtered conversations are selected
-            const allSelected = filteredConversations.length > 0 && 
-                filteredConversations.every(conv => this.selectedConversations.has(conv.id));
-            selectAllCheckbox.checked = allSelected;
-            
-            // Set indeterminate state if some but not all filtered conversations are selected
-            const selectedFromFilter = Array.from(this.selectedConversations).filter(id => filteredIds.has(id));
-            const someSelected = selectedFromFilter.length > 0 && selectedFromFilter.length < filteredConversations.length;
-            selectAllCheckbox.indeterminate = someSelected;
-        }
-        
+        this.stateManager.toggleConversationSelection(conversationId);
         this.bulkOperations.updateBulkActionsPanel();
-        this.updateSelectionUI();
     }
 
     /**
      * Toggle select/deselect all filtered conversations
      */
     toggleSelectAll(selectAll) {
-        if (selectAll) {
-            // Get all conversations that match current filters
-            const filteredConversations = this.filterConversations(this.allConversations, this.currentFilter);
-            
-            // Select all filtered conversations (not just visible in DOM)
-            filteredConversations.forEach(conv => {
-                this.selectedConversations.add(conv.id);
-            });
-        } else {
-            // Deselect all
-            this.selectedConversations.clear();
-        }
-        
+        this.stateManager.toggleSelectAll(selectAll);
         this.bulkOperations.updateBulkActionsPanel();
-        this.updateSelectionUI();
     }
 
     /**
@@ -1985,44 +1897,8 @@ class AgentDashboard {
      * Toggle between active and archived conversations
      */
     toggleArchiveFilter() {
-        this.archiveFilter = this.archiveFilter === 'active' ? 'archived' : 'active';
-        
-        // Update archive icon style
-        const archiveToggle = document.getElementById('archive-toggle');
-        if (archiveToggle) {
-            if (this.archiveFilter === 'archived') {
-                archiveToggle.className = 'text-orange-600 hover:text-orange-800 transition-colors';
-                archiveToggle.title = 'Switch to Active View';
-            } else {
-                archiveToggle.className = 'text-gray-400 hover:text-gray-600 transition-colors';
-                archiveToggle.title = 'Toggle Archive View';
-            }
-        }
-        
-        // Disable/enable assignment filter buttons based on archive mode
-        const assignmentButtons = ['filter-mine', 'filter-unassigned', 'filter-others', 'filter-all'];
-        assignmentButtons.forEach(buttonId => {
-            const button = document.getElementById(buttonId);
-            if (button) {
-                if (this.archiveFilter === 'archived') {
-                    button.disabled = true;
-                    button.className = button.className.replace(/bg-\w+-\d+/g, 'bg-gray-200').replace(/text-\w+-\d+/g, 'text-gray-500');
-                } else {
-                    button.disabled = false;
-                    // Restore button styles - will be handled by updateFilterButtons()
-                }
-            }
-        });
-        
-        // Update bulk action buttons based on archive mode
+        this.stateManager.toggleArchiveFilter();
         this.bulkOperations.updateBulkActionButtons();
-        
-        // Update filter button styles if we're switching back to active
-        if (this.archiveFilter === 'active') {
-            this.updateFilterButtons();
-        }
-        
-        this.applyFilter();
     }
 
     // Bulk operations methods moved to ./agent-dashboard/BulkOperations.js

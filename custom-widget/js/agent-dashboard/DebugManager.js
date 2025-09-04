@@ -7,7 +7,7 @@ export class DebugManager {
     constructor(dashboard) {
         this.dashboard = dashboard;
         this.apiUrl = dashboard.apiUrl;
-        this.currentChatId = dashboard.currentChatId;
+        this.stateManager = dashboard.stateManager;
     }
 
     /**
@@ -28,7 +28,7 @@ export class DebugManager {
      * Show debug modal and load debug information
      */
     async showDebugModal() {
-        if (!this.dashboard.currentChatId) return;
+        if (!this.stateManager.getCurrentChatId()) return;
         
         const modal = document.getElementById('debug-modal');
         if (!modal) return;
@@ -53,10 +53,10 @@ export class DebugManager {
      * Load debug information from backend
      */
     async loadDebugInfo() {
-        if (!this.dashboard.currentChatId) return;
+        if (!this.stateManager.getCurrentChatId()) return;
         
         try {
-            const response = await fetch(`${this.apiUrl}/api/conversations/${this.dashboard.currentChatId}/debug-info`);
+            const response = await fetch(`${this.apiUrl}/api/conversations/${this.stateManager.getCurrentChatId()}/debug-info`);
             
             if (response.ok) {
                 const debugInfo = await response.json();
