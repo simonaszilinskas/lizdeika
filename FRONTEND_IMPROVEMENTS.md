@@ -39,6 +39,15 @@ This document outlines pragmatic improvements to the Vilnius Assistant vanilla J
 - Reduced main file: 3,074 → 3,036 lines (38 lines saved)
 - Fixed user management navigation to `settings.html#users`
 
+✅ **COMPLETED: Bulk Operations Extraction** (Commit: 8592cb6)
+- Extracted all bulk operations methods into `BulkOperations.js` module
+- Created `custom-widget/js/agent-dashboard/BulkOperations.js`
+- Reduced main file: 3,036 → 2,834 lines (202 lines saved)
+- Fixed method delegation issues and error handling
+- Preserved all functionality: bulk archive, unarchive, assign operations
+
+**Total Progress: 3,074 → 2,834 lines (240 lines saved so far)**
+
 Break down `agent-dashboard.js` into logical modules:
 
 ```javascript
