@@ -94,7 +94,7 @@ export const CSS_CLASSES = {
     
     /** Status badges */
     STATUS_BADGES: {
-        URGENT_MINE: 'bg-red-600 text-white font-bold animate-pulse',
+        URGENT_MINE: 'bg-red-600 text-white font-bold',
         URGENT_UNASSIGNED: 'bg-red-600 text-white font-bold',
         URGENT: 'bg-red-500 text-white font-medium',
         NEEDS_REPLY: 'bg-blue-600 text-white font-medium',
@@ -134,14 +134,14 @@ export const CSS_CLASSES = {
 export const ICONS = {
     /** Urgency icons */
     URGENCY: {
-        CRITICAL: '<i class="fas fa-exclamation-triangle text-red-600 animate-pulse" title="Urgent: Unseen message assigned to you!"></i>',
+        CRITICAL: '<i class="fas fa-exclamation-triangle text-red-600" title="Urgent: Unseen message assigned to you!"></i>',
         WARNING: '<i class="fas fa-exclamation-circle text-red-500" title="New unseen message"></i>',
         NONE: ''
     },
     
     /** Time-based urgency icons */
     TIME_URGENCY: {
-        OVERDUE: '<i class="fas fa-clock text-red-500 animate-pulse" title="Unseen for over 2 hours!"></i>',
+        OVERDUE: '<i class="fas fa-clock text-red-500" title="Unseen for over 2 hours!"></i>',
         DELAYED: '<i class="fas fa-clock text-orange-500" title="Unseen for over 1 hour"></i>',
         NONE: ''
     }

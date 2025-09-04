@@ -176,7 +176,7 @@ export function getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassig
  */
 export function getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
     // High priority states with animation
-    if (isUnseen && isAssignedToMe) return 'bg-red-600 text-white font-bold animate-pulse';
+    if (isUnseen && isAssignedToMe) return 'bg-red-600 text-white font-bold';
     if (isUnseen && isUnassigned) return 'bg-red-600 text-white font-bold';
     if (isUnseen) return 'bg-red-500 text-white font-medium';
     
@@ -226,7 +226,7 @@ export function getUnreadMessageCount(conv, isAssignedToMe) {
 export function getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe) {
     // Only show urgent indicators, no regular assignment icons
     if (isUnseen && isAssignedToMe) {
-        return '<i class="fas fa-exclamation-triangle text-red-600 animate-pulse" title="Urgent: Unseen message assigned to you!"></i>';
+        return '<i class="fas fa-exclamation-triangle text-red-600" title="Urgent: Unseen message assigned to you!"></i>';
     }
     if (isUnseen) {
         return '<i class="fas fa-exclamation-circle text-red-500" title="New unseen message"></i>';
@@ -247,7 +247,7 @@ export function getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe) {
  */
 export function getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe) {
     if (isUnseen && isAssignedToMe) {
-        return 'animate-pulse'; // Most urgent
+        return ''; // Most urgent
     }
     return '';
 }
@@ -272,7 +272,7 @@ export function getTimeUrgencyIndicator(conv, conversationIsUnseenFn) {
     
     if (conversationIsUnseenFn && conversationIsUnseenFn(conv)) {
         if (hoursAgo >= 2) {
-            return '<i class="fas fa-clock text-red-500 animate-pulse" title="Unseen for over 2 hours!"></i>';
+            return '<i class="fas fa-clock text-red-500" title="Unseen for over 2 hours!"></i>';
         } else if (hoursAgo >= 1) {
             return '<i class="fas fa-clock text-orange-500" title="Unseen for over 1 hour"></i>';
         }
