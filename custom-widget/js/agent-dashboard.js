@@ -5,33 +5,13 @@
 
 // Import utility functions and constants
 import {
-    getAgentDisplayName,
-    getQueueItemCssClass,
-    getQueueItemStatusLabel,
-    getQueueItemStatusCss,
-    getUnreadMessageCount,
-    getUrgencyIcon,
-    getPriorityAnimationClass,
-    getTimeUrgencyIndicator,
-    getMessageSenderLabel,
-    formatDebugPreview
+    getAgentDisplayName
 } from './agent-dashboard/ui/utils.js';
 
 import {
     TIMING,
     FILTERS,
-    AGENT_STATUS,
-    CSS_CLASSES,
-    ICONS,
-    SENDER_LABELS,
-    RESPONSE_TYPES,
-    TIME_THRESHOLDS,
-    DEBUG_LIMITS,
-    DEFAULTS,
-    ELEMENT_IDS,
-    API_ENDPOINTS,
-    WEBSOCKET_EVENTS,
-    STORAGE_KEYS
+    DEFAULTS
 } from './agent-dashboard/ui/constants.js';
 
 // Import core services
@@ -52,6 +32,9 @@ import { EventManager } from './agent-dashboard/EventManager.js';
 
 // Import conversation renderer
 import { ConversationRenderer } from './agent-dashboard/ConversationRenderer.js';
+
+// Import API manager
+import { APIManager } from './agent-dashboard/APIManager.js';
 
 class AgentDashboard {
     constructor(config = {}) {
@@ -120,6 +103,9 @@ class AgentDashboard {
         
         // Initialize conversation renderer
         this.conversationRenderer = new ConversationRenderer(this);
+        
+        // Initialize API manager
+        this.apiManager = new APIManager(this);
         
         // Initialize sound notification manager
         this.soundNotificationManager = null;
@@ -261,12 +247,7 @@ class AgentDashboard {
         localStorage.setItem(`agentStatus_${this.agentId}`, status);
         
         try {
-            await fetch(`${this.apiUrl}/api/agent/personal-status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId, personalStatus: status })
-            });
-            
+            await this.apiManager.updatePersonalStatus(status);
             console.log(`Updated personal status to: ${status} for agent ${this.agentId}`);
         } catch (error) {
             console.error('Error updating personal status:', error);
@@ -288,12 +269,7 @@ class AgentDashboard {
         
         // Update the personal status to register the agent with server (but don't save to localStorage again)
         try {
-            await fetch(`${this.apiUrl}/api/agent/personal-status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId, personalStatus: currentStatus })
-            });
-            
+            await this.apiManager.updatePersonalStatus(currentStatus);
             console.log(`Agent ${this.agentId} registered with initial status: ${currentStatus}`);
         } catch (error) {
             console.error('Error registering initial status:', error);
@@ -314,14 +290,7 @@ class AgentDashboard {
         this.statusRefreshInterval = setInterval(async () => {
             if (this.personalStatus && this.personalStatus !== 'offline') {
                 try {
-                    await fetch(`${this.apiUrl}/api/agent/personal-status`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            agentId: this.agentId, 
-                            personalStatus: this.personalStatus 
-                        })
-                    });
+                    await this.apiManager.sendHeartbeat();
                     console.log(`Status refreshed for agent ${this.agentId} at ${new Date().toISOString()}`);
                 } catch (error) {
                     console.error('Error refreshing agent status:', error);
@@ -799,19 +768,13 @@ class AgentDashboard {
             } else {
                 // Fetch all agents from server
                 console.log('🔄 Fetching fresh agent data');
-                const response = await fetch(`${this.apiUrl}/api/agents/all`);
-                if (!response.ok) {
-                    console.error('Failed to fetch agents:', response.status);
+                try {
+                    const data = await this.apiManager.loadAgentsData();
+                    allAgents = data.filter(agent => agent.id !== this.agentId);
+                } catch (error) {
+                    console.error('Failed to fetch agents:', error);
                     return `<div class="px-3 py-2 text-xs text-gray-500">Error loading agents</div>`;
                 }
-                
-                const data = await response.json();
-                
-                // Update cache
-                this.agentCache = data.agents;
-                this.agentCacheExpiry = Date.now() + this.agentCacheDuration;
-                
-                allAgents = data.agents.filter(agent => agent.id !== this.agentId);
             }
             
             // Sort: online agents first, then offline
@@ -910,23 +873,12 @@ class AgentDashboard {
         
         try {
             console.log('🔄 Assigning conversation:', conversationId, 'to agent:', agentId);
-            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: agentId })
-            });
-            
-            if (response.ok) {
-                console.log('✅ Assignment to agent successful, refreshing conversation list...');
-                // Clear modern loader cache to force fresh data
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after assignment to agent');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to assign conversation:', response.status, errorText);
-                this.showToast(`Failed to assign conversation: ${response.status} ${response.statusText}`, 'error');
-            }
+            await this.apiManager.assignConversation(conversationId, agentId, false);
+            console.log('✅ Assignment to agent successful, refreshing conversation list...');
+            // Clear modern loader cache to force fresh data
+            this.modernConversationLoader.refresh();
+            await this.loadConversations();
+            console.log('✅ Conversation list refreshed after assignment to agent');
         } catch (error) {
             this.handleAssignmentError(error, 'assign');
         }
@@ -947,20 +899,9 @@ class AgentDashboard {
         }
         
         try {
-            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/unassign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId })
-            });
-            
-            if (response.ok) {
-                console.log(`Unassigned conversation ${conversationId}`);
-                await this.loadConversations();
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to unassign conversation:', response.status, errorText);
-                this.showToast(`Failed to unassign conversation: ${response.status} ${response.statusText}`, 'error');
-            }
+            await this.apiManager.unassignConversation(conversationId);
+            console.log(`Unassigned conversation ${conversationId}`);
+            await this.loadConversations();
         } catch (error) {
             this.handleAssignmentError(error, 'unassign');
         }
@@ -978,23 +919,12 @@ class AgentDashboard {
         
         try {
             console.log('🔄 Assigning conversation:', conversationId, 'to agent:', this.agentId);
-            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/assign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId })
-            });
-            
-            if (response.ok) {
-                console.log('✅ Assignment successful, refreshing conversation list...');
-                // Clear modern loader cache to force fresh data
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after assignment');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to assign conversation:', response.status, errorText);
-                this.showToast(`Failed to assign conversation: ${response.status} ${response.statusText}`, 'error');
-            }
+            await this.apiManager.assignConversation(conversationId, this.agentId, true);
+            console.log('✅ Assignment successful, refreshing conversation list...');
+            // Clear modern loader cache to force fresh data
+            this.modernConversationLoader.refresh();
+            await this.loadConversations();
+            console.log('✅ Conversation list refreshed after assignment');
         } catch (error) {
             this.handleAssignmentError(error, 'assign');
         }
@@ -1012,27 +942,16 @@ class AgentDashboard {
         
         try {
             console.log('🔄 Unassigning conversation:', conversationId, 'from agent:', this.agentId);
-            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/unassign`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId: this.agentId })
-            });
-            
-            if (response.ok) {
-                console.log('✅ Unassignment successful, refreshing conversation list...');
-                // If we're unassigning the current chat, reset the view
-                if (conversationId === this.currentChatId) {
-                    this.resetChatView();
-                }
-                // Clear modern loader cache to force fresh data
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after unassignment');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to unassign conversation:', response.status, errorText);
-                this.showToast(`Failed to unassign conversation: ${response.status} ${response.statusText}`, 'error');
+            await this.apiManager.unassignConversation(conversationId);
+            console.log('✅ Unassignment successful, refreshing conversation list...');
+            // If we're unassigning the current chat, reset the view
+            if (conversationId === this.currentChatId) {
+                this.resetChatView();
             }
+            // Clear modern loader cache to force fresh data
+            this.modernConversationLoader.refresh();
+            await this.loadConversations();
+            console.log('✅ Conversation list refreshed after unassignment');
         } catch (error) {
             this.handleAssignmentError(error, 'unassign');
         }
@@ -1050,30 +969,14 @@ class AgentDashboard {
         
         try {
             console.log('📁 Archiving conversation:', conversationId);
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-archive`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
-                },
-                body: JSON.stringify({ conversationIds: [conversationId] })
-            });
+            await this.apiManager.bulkArchiveConversations([conversationId]);
+            console.log(`✅ Archived conversation successfully`);
+            console.log('✅ Archive operation successful, refreshing conversation list...');
             
-            if (response.ok) {
-                const result = await response.json();
-                console.log(`✅ Archived conversation successfully`);
-                console.log('✅ Archive operation successful, refreshing conversation list...');
-                
-                // Refresh the modern conversation loader cache before loading
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after archive operation');
-                this.showToast('Conversation archived successfully', 'success');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to archive conversation:', response.status, errorText);
-                this.showToast(`Failed to archive conversation: ${response.status} ${response.statusText}`, 'error');
-            }
+            // Refresh the modern conversation loader cache before loading
+            this.modernConversationLoader.refresh();
+            await this.loadConversations();
+            console.log('✅ Conversation list refreshed after archive operation');
         } catch (error) {
             console.error('Error archiving conversation:', error);
             this.showToast('Error archiving conversation', 'error');
@@ -1092,27 +995,12 @@ class AgentDashboard {
         
         try {
             console.log('📂 Unarchiving conversation:', conversationId);
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations/bulk-unarchive`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
-                },
-                body: JSON.stringify({ conversationIds: [conversationId] })
-            });
-            
-            if (response.ok) {
-                const result = await response.json();
-                console.log(`✅ Unarchived conversation successfully`);
-                console.log('✅ Unarchive operation successful, refreshing conversation list...');
-                this.modernConversationLoader.refresh();
-                await this.loadConversations();
-                console.log('✅ Conversation list refreshed after unarchive operation');
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to unarchive conversation:', response.status, errorText);
-                this.showToast(`Failed to unarchive conversation: ${response.status} ${response.statusText}`, 'error');
-            }
+            await this.apiManager.bulkUnarchiveConversations([conversationId]);
+            console.log(`✅ Unarchived conversation successfully`);
+            console.log('✅ Unarchive operation successful, refreshing conversation list...');
+            this.modernConversationLoader.refresh();
+            await this.loadConversations();
+            console.log('✅ Conversation list refreshed after unarchive operation');
         } catch (error) {
             this.bulkOperations.handleBulkOperationError(error, 'unarchive');
         }
@@ -1259,8 +1147,7 @@ class AgentDashboard {
      */
     async loadChatMessages(conversationId) {
         try {
-            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/messages`);
-            const data = await response.json();
+            const data = await this.apiManager.loadConversationMessages(conversationId);
             
             this.conversations.set(conversationId, data);
             this.conversationRenderer.renderMessages(data.messages);
@@ -1338,10 +1225,10 @@ class AgentDashboard {
         if (!this.currentChatId) return;
         
         try {
-            const response = await fetch(`${this.apiUrl}/api/suggestions/${this.currentChatId}`);
-            const data = await response.json();
-            
-            this.showAISuggestion(data.suggestion, data.confidence);
+            const data = await this.apiManager.getAISuggestion(this.currentChatId);
+            if (data) {
+                this.showAISuggestion(data.suggestion, data.confidence);
+            }
         } catch (error) {
             console.error('Error getting AI assistance:', error);
         }
@@ -1353,19 +1240,15 @@ class AgentDashboard {
      */
     async checkForPendingSuggestion(conversationId) {
         try {
-            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/pending-suggestion`);
-            if (response.ok) {
-                const data = await response.json();
-                
+            const data = await this.apiManager.getPendingSuggestion(conversationId);
+            
+            if (data) {
                 // HITL mode: Show suggestion for human validation
                 if (!this.currentSuggestion || this.currentSuggestion !== data.suggestion) {
                     this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
                 }
-            } else if (response.status === 404) {
-                // No pending suggestion - this is normal
-                this.hideAISuggestion();
             } else {
-                console.error('Unexpected error checking suggestion:', response.status);
+                // No pending suggestion - this is normal
                 this.hideAISuggestion();
             }
         } catch (error) {
@@ -1472,37 +1355,26 @@ class AgentDashboard {
         if (!this.currentChatId) return;
         
         try {
-            const response = await fetch(`${this.apiUrl}/api/agent/respond`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    conversationId: this.currentChatId,
-                    message: message,
-                    agentId: this.agentId,
-                    usedSuggestion: this.currentSuggestion,
-                    suggestionAction: suggestionAction,
-                    autoAssign: true  // Auto-assign to this agent when responding
-                })
-            });
+            const metadata = {
+                usedSuggestion: this.currentSuggestion,
+                responseType: suggestionAction,
+                autoAssign: true  // Auto-assign to this agent when responding
+            };
             
-            if (response.ok) {
-                console.log('✅ Message sent successfully, clearing input and updating UI');
-                this.hideAISuggestion();
-                this.clearMessageInput();
-                
-                // The WebSocket event will handle updating the UI immediately
-                // Just reload conversations to update queue status
-                this.loadConversations();
-                
-                // Immediately refresh the current chat view as a fallback
-                if (this.currentChatId) {
-                    console.log('🔄 Immediately refreshing chat messages for current conversation');
-                    this.loadChatMessages(this.currentChatId);
-                }
-            } else {
-                const errorText = await response.text();
-                console.error('Failed to send message:', errorText);
-                this.showToast(`Failed to send message: ${response.status} ${response.statusText}`, 'error');
+            await this.apiManager.sendAgentMessage(this.currentChatId, message, metadata);
+            
+            console.log('✅ Message sent successfully, clearing input and updating UI');
+            this.hideAISuggestion();
+            this.clearMessageInput();
+            
+            // The WebSocket event will handle updating the UI immediately
+            // Just reload conversations to update queue status
+            this.loadConversations();
+            
+            // Immediately refresh the current chat view as a fallback
+            if (this.currentChatId) {
+                console.log('🔄 Immediately refreshing chat messages for current conversation');
+                this.loadChatMessages(this.currentChatId);
             }
         } catch (error) {
             console.error('Error sending agent response:', error);
@@ -1972,18 +1844,15 @@ class AgentDashboard {
      */
     async refreshConversation(conversationId) {
         try {
-            const response = await fetch(`${this.apiUrl}/api/admin/conversations`);
-            if (response.ok) {
-                const data = await response.json();
-                const updatedConv = data.conversations.find(c => c.id === conversationId);
+            const data = await this.apiManager.loadConversationsData();
+            const updatedConv = data.conversations.find(c => c.id === conversationId);
+            
+            if (updatedConv) {
+                // Update the conversation in our local Map
+                this.conversations.set(conversationId, updatedConv);
                 
-                if (updatedConv) {
-                    // Update the conversation in our local Map
-                    this.conversations.set(conversationId, updatedConv);
-                    
-                    // Update UI if this is the current conversation
-                    if (this.currentChatId === conversationId) {
-                    }
+                // Update UI if this is the current conversation
+                if (this.currentChatId === conversationId) {
                 }
             }
         } catch (error) {
