@@ -49,6 +49,10 @@ import { BulkOperations } from './agent-dashboard/BulkOperations.js';
 
 // Import debug manager
 import { DebugManager } from './agent-dashboard/DebugManager.js';
+
+// Import event manager
+import { EventManager } from './agent-dashboard/EventManager.js';
+
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -111,6 +115,9 @@ class AgentDashboard {
         // Initialize debug manager
         this.debugManager = new DebugManager(this);
         
+        // Initialize event manager
+        this.eventManager = new EventManager(this);
+        
         // Initialize sound notification manager
         this.soundNotificationManager = null;
         this.initializeSoundNotifications();
@@ -160,160 +167,13 @@ class AgentDashboard {
         // Check if user is admin and show admin bar
         await this.authManager.checkAdminStatus();
         
-        this.initializeEventListeners();
+        this.eventManager.initializeAllEventListeners();
         await this.socketManager.initialize();
         await this.loadConversations();
         // No need for polling anymore with WebSockets
     }
 
-    /**
-     * Setup all event listeners
-     */
-    initializeEventListeners() {
-        // Personal status change
-        const personalStatusSelect = document.getElementById('personal-status');
-        if (personalStatusSelect) {
-            personalStatusSelect.addEventListener('change', (e) => {
-                this.updatePersonalStatus(e.target.value);
-            });
-        }
 
-        // Filter buttons
-        const filterButtons = document.querySelectorAll('[data-filter]');
-        console.log(`🔘 Found ${filterButtons.length} filter buttons`);
-        filterButtons.forEach((button, index) => {
-            const filter = button.getAttribute('data-filter');
-            console.log(`🔘 Adding event listener to button ${index} with filter: ${filter}`);
-            button.addEventListener('click', (e) => {
-                const clickedFilter = e.target.getAttribute('data-filter');
-                console.log(`🔘 Filter button clicked: ${clickedFilter}`);
-                this.setFilter(clickedFilter);
-            });
-        });
-
-        // Message form submission
-        const messageForm = document.getElementById('message-form');
-        if (messageForm) {
-            messageForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.sendMessage();
-            });
-        }
-
-        // AI assistance button
-        const aiAssistBtn = document.getElementById('ai-assist-btn');
-        if (aiAssistBtn) {
-            aiAssistBtn.addEventListener('click', () => {
-                this.getAIAssistance();
-            });
-        }
-
-        // AI suggestion action buttons
-        this.setupAISuggestionListeners();
-
-        // Auto-resize textarea
-        this.setupTextareaAutoResize();
-
-        // Close assignment dropdowns when clicking elsewhere
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('[id^="assign-dropdown-"]') && !e.target.closest('button[onclick*="toggleAssignDropdown"]')) {
-                document.querySelectorAll('[id^="assign-dropdown-"]').forEach(dropdown => {
-                    dropdown.classList.add('hidden');
-                });
-            }
-        });
-
-        // Archive toggle icon
-        const archiveToggle = document.getElementById('archive-toggle');
-        if (archiveToggle) {
-            archiveToggle.addEventListener('click', () => this.toggleArchiveFilter());
-        }
-
-        // Bulk action buttons
-        const selectAllCheckbox = document.getElementById('select-all');
-        const clearSelectionBtn = document.getElementById('clear-selection');
-        const bulkArchiveBtn = document.getElementById('bulk-archive');
-        const bulkUnarchiveBtn = document.getElementById('bulk-unarchive');
-        const bulkAssignMeBtn = document.getElementById('bulk-assign-me');
-
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', (e) => this.toggleSelectAll(e.target.checked));
-        }
-
-        if (clearSelectionBtn) {
-            clearSelectionBtn.addEventListener('click', () => this.bulkOperations.clearAllSelections());
-        }
-        
-        if (bulkArchiveBtn) {
-            bulkArchiveBtn.addEventListener('click', () => this.bulkOperations.bulkArchiveConversations());
-        }
-        
-        if (bulkUnarchiveBtn) {
-            bulkUnarchiveBtn.addEventListener('click', () => this.bulkOperations.bulkUnarchiveConversations());
-        }
-        
-        if (bulkAssignMeBtn) {
-            bulkAssignMeBtn.addEventListener('click', () => this.bulkOperations.bulkAssignToMe());
-        }
-        
-        const bulkAssignAgentDropdown = document.getElementById('bulk-assign-agent');
-        if (bulkAssignAgentDropdown) {
-            bulkAssignAgentDropdown.addEventListener('change', (e) => {
-                if (e.target.value) {
-                    this.bulkOperations.bulkAssignToAgent(e.target.value);
-                    e.target.value = ''; // Reset dropdown
-                }
-            });
-        }
-
-    }
-
-    /**
-     * Setup AI suggestion panel event listeners
-     */
-    setupAISuggestionListeners() {
-        const sendAsIsBtn = document.getElementById('send-as-is-btn');
-        const editSuggestionBtn = document.getElementById('edit-suggestion-btn');
-        const writeFromScratchBtn = document.getElementById('write-from-scratch-btn');
-        const debugToggleBtn = document.getElementById('debug-toggle-btn');
-        const debugCloseBtn = document.getElementById('debug-modal-close');
-
-        if (sendAsIsBtn) {
-            sendAsIsBtn.addEventListener('click', () => this.sendAsIs());
-        }
-
-        if (editSuggestionBtn) {
-            editSuggestionBtn.addEventListener('click', () => this.editSuggestion());
-        }
-
-        if (writeFromScratchBtn) {
-            writeFromScratchBtn.addEventListener('click', () => this.writeFromScratch());
-        }
-
-        if (debugToggleBtn) {
-            debugToggleBtn.addEventListener('click', () => this.debugManager.toggleDebugPanel());
-        }
-
-        if (debugCloseBtn) {
-            debugCloseBtn.addEventListener('click', () => this.debugManager.hideDebugModal());
-        }
-        
-        // Close debug modal on escape key or click outside
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.debugManager.hideDebugModal();
-            }
-        });
-        
-        const debugModal = document.getElementById('debug-modal');
-        if (debugModal) {
-            debugModal.addEventListener('click', (e) => {
-                if (e.target === debugModal) {
-                    this.debugManager.hideDebugModal();
-                }
-            });
-        }
-    }
 
     /**
      * Manually resize textarea (for programmatic content changes)
@@ -335,41 +195,6 @@ class AgentDashboard {
         }
     }
 
-    /**
-     * Setup auto-resize functionality for textarea
-     */
-    setupTextareaAutoResize() {
-        const textarea = document.getElementById('message-input');
-        if (textarea) {
-            let typingTimer;
-            
-            // Auto-resize textarea that expands upward
-            textarea.addEventListener('input', () => {
-                this.resizeTextarea();
-            });
-            
-            // Send typing status
-            textarea.addEventListener('input', () => {
-                this.sendTypingStatus(true);
-                
-                // Clear existing timer
-                clearTimeout(typingTimer);
-                
-                // Set timer to stop typing after 1 second of inactivity
-                typingTimer = setTimeout(() => {
-                    this.sendTypingStatus(false);
-                }, 1000);
-            });
-            
-            textarea.addEventListener('blur', () => {
-                this.sendTypingStatus(false);
-                clearTimeout(typingTimer);
-            });
-            
-            // Initialize with proper height
-            textarea.style.height = '80px'; // Start with minimum height
-        }
-    }
 
 
     /**
@@ -1856,12 +1681,19 @@ class AgentDashboard {
             });
             
             if (response.ok) {
+                console.log('✅ Message sent successfully, clearing input and updating UI');
                 this.hideAISuggestion();
                 this.clearMessageInput();
                 
                 // The WebSocket event will handle updating the UI immediately
                 // Just reload conversations to update queue status
                 this.loadConversations();
+                
+                // Immediately refresh the current chat view as a fallback
+                if (this.currentChatId) {
+                    console.log('🔄 Immediately refreshing chat messages for current conversation');
+                    this.loadChatMessages(this.currentChatId);
+                }
             } else {
                 const errorText = await response.text();
                 console.error('Failed to send message:', errorText);
@@ -2031,6 +1863,8 @@ class AgentDashboard {
      * @param {Object} data - Message data
      */
     handleNewMessage(data) {
+        console.log('📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.currentChatId });
+        
         // Play sound notification for new messages
         if (this.soundNotificationManager && data.sender !== 'agent') {
             this.soundNotificationManager.onNewMessage({
@@ -2047,12 +1881,20 @@ class AgentDashboard {
         
         // If this is the current chat, update messages and check for suggestion
         if (data.conversationId === this.currentChatId) {
+            console.log('🔄 WebSocket: Refreshing current chat messages');
             // Refresh conversation status (handles reopening cases)
             this.refreshConversation(this.currentChatId);
             this.loadChatMessages(this.currentChatId);
             
-            // Only check for pending suggestions in HITL mode
-            if (this.systemMode === 'hitl') {
+            // If this is a customer message in HITL mode, refresh suggestions
+            if (this.systemMode === 'hitl' && data.sender === 'customer') {
+                console.log('💬 Customer message received, clearing old suggestion and checking for new one');
+                // Clear any existing suggestion first (it's now outdated)
+                this.hideAISuggestion();
+                // Check for new suggestion based on updated conversation
+                this.checkForPendingSuggestion(this.currentChatId);
+            } else if (this.systemMode === 'hitl') {
+                // For agent messages, just check if there's still a pending suggestion
                 this.checkForPendingSuggestion(this.currentChatId);
             }
         }
