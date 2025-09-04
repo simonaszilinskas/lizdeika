@@ -6,17 +6,11 @@
 
 // Import utility functions
 import {
-    formatConversationDate,
-    escapeHtml,
-    getQueueItemCssClass,
-    getQueueItemStatusLabel,
-    getQueueItemStatusCss,
-    getUnreadMessageCount,
-    getUrgencyIcon,
-    getPriorityAnimationClass,
-    getTimeUrgencyIndicator,
     getMessageSenderLabel
 } from './ui/utils.js';
+
+// Import UI helpers for UI utility functions
+import { UIHelpers } from './UIHelpers.js';
 
 export class ConversationRenderer {
     constructor(dashboard) {
@@ -87,26 +81,6 @@ export class ConversationRenderer {
                conv.lastMessage.metadata.pendingAgent;
     }
 
-    /**
-     * Check if conversation is unseen by current agent
-     * @param {Object} conv - Conversation object
-     * @returns {boolean} True if unseen
-     */
-    conversationIsUnseen(conv) {
-        if (!conv.lastMessage) return false;
-        
-        const isAssignedToMe = conv.assignedAgent === this.agentId;
-        if (!isAssignedToMe) return false;
-        
-        // Check if agent has seen this conversation's last message
-        const lastSeenTime = localStorage.getItem(`lastSeen_${conv.id}`);
-        if (!lastSeenTime) return true;
-        
-        const lastMessageTime = new Date(conv.lastMessage.timestamp || conv.updatedAt);
-        const agentLastSeenTime = new Date(lastSeenTime);
-        
-        return lastMessageTime > agentLastSeenTime;
-    }
 
     /**
      * Render individual queue item (conversation in the list)
@@ -118,19 +92,19 @@ export class ConversationRenderer {
         const isUnassigned = !conv.assignedAgent;
         const isActive = conv.id === this.stateManager.getCurrentChatId();
         const needsResponse = this.conversationNeedsResponse(conv);
-        const isUnseen = this.conversationIsUnseen(conv);
+        const isUnseen = this.dashboard.uiHelpers.conversationIsUnseen(conv);
         
-        const cssClass = getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen);
-        const statusLabel = getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv);
-        const statusCss = getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+        const cssClass = this.dashboard.uiHelpers.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+        const statusLabel = this.dashboard.uiHelpers.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv);
+        const statusCss = this.dashboard.uiHelpers.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
         
         const isSelected = this.stateManager.getSelectedConversations().has(conv.id);
         const archivedClass = conv.archived ? 'opacity-75 bg-gray-50' : '';
         
         // Calculate unread indicator
-        const unreadCount = getUnreadMessageCount(conv, isAssignedToMe);
-        const urgencyIcon = getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe);
-        const priorityClass = getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe);
+        const unreadCount = this.dashboard.uiHelpers.getUnreadMessageCount(conv, isAssignedToMe);
+        const urgencyIcon = this.dashboard.uiHelpers.getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe);
+        const priorityClass = this.dashboard.uiHelpers.getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe);
 
         return `
             <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass} ${priorityClass}" 
@@ -151,7 +125,7 @@ export class ConversationRenderer {
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
                             </div>
                             <div class="text-xs text-gray-500">
-                                ${formatConversationDate(conv.startedAt)}
+                                ${UIHelpers.formatConversationDate(conv.startedAt)}
                             </div>
                         </div>
                     </div>
@@ -159,15 +133,15 @@ export class ConversationRenderer {
                         <span class="text-xs px-2 py-1 rounded ${statusCss}">
                             ${statusLabel}
                         </span>
-                        ${getTimeUrgencyIndicator(conv)}
+                        ${this.dashboard.uiHelpers.getTimeUrgencyIndicator(conv)}
                     </div>
                 </div>
                 <div class="text-sm truncate text-gray-600">
-                    ${conv.lastMessage ? escapeHtml(conv.lastMessage.content) : 'No messages yet'}
+                    ${conv.lastMessage ? UIHelpers.escapeHtml(conv.lastMessage.content) : 'No messages yet'}
                 </div>
                 
                 <div class="text-xs mt-2">
-                    ${this.dashboard.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id, conv.archived)}
+                    ${this.dashboard.uiHelpers.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id, conv.archived)}
                 </div>
             </div>
         `;
@@ -248,7 +222,7 @@ export class ConversationRenderer {
         
         const formattedContent = (isAI || isAgent) ? 
             this.markdownToHtml(msg.content) : 
-            escapeHtml(msg.content);
+            UIHelpers.escapeHtml(msg.content);
         
         return `
             <div class="flex ${isCustomer ? '' : 'justify-end'} mb-4">
