@@ -201,11 +201,22 @@ export class SettingsManager {
             this.currentUser = this.stateManager.getCurrentUser();
             
             // Load system mode and agents
+            console.log('🎛️ SettingsManager: Loading system mode');
             await this.apiManager.loadSystemMode();
+            
+            const loadedMode = this.stateManager.getSystemMode();
+            console.log('🎛️ SettingsManager: System mode from state after load:', loadedMode);
+            
+            // If we have a mode but display wasn't updated, update it manually
+            if (loadedMode && this.elements.currentModeSpan && this.elements.currentModeSpan.textContent === 'Loading...') {
+                console.log('🎛️ SettingsManager: Manually updating system mode display');
+                this.updateSystemModeDisplay(loadedMode);
+            }
+            
             await this.apiManager.loadConnectedAgents();
             
             // Update legacy compatibility
-            this.currentMode = this.stateManager.getSystemMode();
+            this.currentMode = loadedMode;
             
             // Load widget configuration
             await this.apiManager.loadWidgetConfiguration();
