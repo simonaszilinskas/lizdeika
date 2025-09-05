@@ -673,6 +673,14 @@ class AgentDashboard {
     }
 
     /**
+     * Check for pending AI suggestions (HITL mode only) - delegate to ChatManager
+     * @param {string} conversationId - ID of conversation
+     */
+    async checkForPendingSuggestion(conversationId) {
+        await this.chatManager.checkForPendingSuggestion(conversationId);
+    }
+
+    /**
      * Send AI suggestion as-is
      */
     async sendAsIs() {
