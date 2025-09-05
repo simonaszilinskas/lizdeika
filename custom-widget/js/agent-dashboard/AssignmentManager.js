@@ -70,9 +70,14 @@ export class AssignmentManager {
         }
         
         try {
+            console.log('🔄 Unassigning conversation:', conversationId);
             await this.apiManager.unassignConversation(conversationId);
-            console.log(`Unassigned conversation ${conversationId}`);
+            console.log('✅ Unassignment successful, refreshing conversation list...');
+            
+            // Clear modern loader cache to force fresh data
+            this.modernConversationLoader.refresh();
             await this.dashboard.loadConversations();
+            console.log('✅ Conversation list refreshed after unassignment');
         } catch (error) {
             this.handleAssignmentError(error, 'unassign');
         }
