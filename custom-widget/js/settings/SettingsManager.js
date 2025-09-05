@@ -122,7 +122,7 @@ export class SettingsManager {
     attachEventListeners() {
         // Tab switching
         this.elements.tabButtons.forEach(button => {
-            button.addEventListener('click', () => this.switchTab(button.dataset.tab));
+            button.addEventListener('click', async () => await this.switchTab(button.dataset.tab));
         });
         
         // System mode
@@ -188,7 +188,7 @@ export class SettingsManager {
             
             // Check URL hash for direct tab navigation
             if (window.location.hash === '#users' && this.currentUser && this.currentUser.role === 'admin') {
-                this.switchTab('users');
+                await this.switchTab('users');
             }
             
             console.log('✅ SettingsManager: Initial data loaded');
@@ -236,7 +236,7 @@ export class SettingsManager {
     /**
      * Switch between tabs
      */
-    switchTab(tabName) {
+    async switchTab(tabName) {
         // Update tab buttons
         this.elements.tabButtons.forEach(button => {
             if (button.dataset.tab === tabName) {
@@ -262,6 +262,7 @@ export class SettingsManager {
             console.log('👥 SettingsManager: Switching to users tab, loading users and updating display');
             
             // User management is now handled by UserManagementModule
+            await this.userManagementModule.loadUsers();
         } else if (tabName === 'users') {
             console.log('❌ SettingsManager: Cannot switch to users tab, user not admin:', this.currentUser?.role || 'no user');
         }
