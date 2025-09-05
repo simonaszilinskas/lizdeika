@@ -82,17 +82,26 @@ export class StateManager {
      * @param {*} data - Event data
      */
     emit(event, data) {
-        if (!this.listeners.has(event)) return;
+        console.log(`📤 StateManager: Attempting to emit event: ${event}`);
+        console.log(`  - Listeners for ${event}:`, this.listeners.get(event)?.length || 0);
         
-        this.listeners.get(event).forEach(callback => {
+        if (!this.listeners.has(event)) {
+            console.log(`❌ StateManager: No listeners registered for event: ${event}`);
+            return;
+        }
+        
+        this.listeners.get(event).forEach((callback, index) => {
             try {
+                console.log(`📞 StateManager: Calling listener ${index + 1} for ${event}`);
                 callback(data);
+                console.log(`✅ StateManager: Listener ${index + 1} completed successfully`);
             } catch (error) {
+                console.error(`❌ StateManager: Listener ${index + 1} failed:`, error);
                 ErrorHandler.logError(error, `StateManager event callback failed for: ${event}`);
             }
         });
         
-        console.log(`📤 StateManager: Event emitted: ${event}`);
+        console.log(`✅ StateManager: Event emitted successfully: ${event}`);
     }
 
     // =========================
@@ -211,12 +220,20 @@ export class StateManager {
         const previousUsers = this.state.users;
         this.state.users = users || [];
         
+        console.log('🔍 StateManager: setUsers called');
+        console.log('  - Previous users:', previousUsers?.length || 'null', previousUsers);
+        console.log('  - New users:', users?.length || 'null', users);
+        
         // Check if users data actually changed
         const hasChanged = JSON.stringify(previousUsers) !== JSON.stringify(users);
+        console.log('  - Has changed:', hasChanged);
         
         if (hasChanged) {
             this.emit('usersChanged', users);
-            console.log('👥 StateManager: Users list updated:', users.length);
+            console.log('👥 StateManager: Users list updated:', users?.length || 'null');
+            console.log('  - Emitting usersChanged event');
+        } else {
+            console.log('👥 StateManager: Users unchanged, not emitting event');
         }
     }
 
