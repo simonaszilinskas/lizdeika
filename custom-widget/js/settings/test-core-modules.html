@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings Core Modules Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .test-container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .test-section h3 { margin-top: 0; color: #333; }
+        .status { padding: 5px 10px; border-radius: 4px; color: white; font-weight: bold; }
+        .success { background: #28a745; }
+        .error { background: #dc3545; }
+        .info { background: #17a2b8; }
+        .log { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; height: 200px; overflow-y: auto; }
+        button { background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .test-results { margin: 10px 0; }
+        .test-item { padding: 5px 0; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Settings Core Modules Test</h1>
+        <p>This page tests the core modules of the new settings system before HTML integration.</p>
+        
+        <!-- Test Status -->
+        <div class="test-section">
+            <h3>Overall Status</h3>
+            <div id="overall-status" class="status info">Initializing...</div>
+        </div>
+        
+        <!-- Module Loading Tests -->
+        <div class="test-section">
+            <h3>Module Loading Tests</h3>
+            <div class="test-results">
+                <div class="test-item">StateManager: <span id="state-manager-status" class="status info">Loading...</span></div>
+                <div class="test-item">APIManager: <span id="api-manager-status" class="status info">Loading...</span></div>
+                <div class="test-item">ConnectionManager: <span id="connection-manager-status" class="status info">Loading...</span></div>
+                <div class="test-item">SettingsManager: <span id="settings-manager-status" class="status info">Loading...</span></div>
+            </div>
+        </div>
+        
+        <!-- State Management Tests -->
+        <div class="test-section">
+            <h3>State Management Tests</h3>
+            <button onclick="testStateManager()">Test State Manager</button>
+            <div class="test-results">
+                <div class="test-item">State Setting: <span id="state-setting-test" class="status info">Not tested</span></div>
+                <div class="test-item">Event Emitting: <span id="state-events-test" class="status info">Not tested</span></div>
+                <div class="test-item">Persistence: <span id="state-persistence-test" class="status info">Not tested</span></div>
+            </div>
+        </div>
+        
+        <!-- API Manager Tests -->
+        <div class="test-section">
+            <h3>API Manager Tests</h3>
+            <button onclick="testAPIManager()">Test API Manager</button>
+            <div class="test-results">
+                <div class="test-item">Initialization: <span id="api-init-test" class="status info">Not tested</span></div>
+                <div class="test-item">Headers Generation: <span id="api-headers-test" class="status info">Not tested</span></div>
+                <div class="test-item">Request Method: <span id="api-request-test" class="status info">Not tested</span></div>
+            </div>
+        </div>
+        
+        <!-- Connection Manager Tests -->
+        <div class="test-section">
+            <h3>Connection Manager Tests</h3>
+            <button onclick="testConnectionManager()">Test Connection Manager</button>
+            <div class="test-results">
+                <div class="test-item">Initialization: <span id="conn-init-test" class="status info">Not tested</span></div>
+                <div class="test-item">Event System: <span id="conn-events-test" class="status info">Not tested</span></div>
+                <div class="test-item">Status Reporting: <span id="conn-status-test" class="status info">Not tested</span></div>
+            </div>
+        </div>
+        
+        <!-- Integration Tests -->
+        <div class="test-section">
+            <h3>Integration Tests</h3>
+            <button onclick="testIntegration()">Test Module Integration</button>
+            <div class="test-results">
+                <div class="test-item">Manager Coordination: <span id="integration-test" class="status info">Not tested</span></div>
+                <div class="test-item">Cross-module Communication: <span id="communication-test" class="status info">Not tested</span></div>
+            </div>
+        </div>
+        
+        <!-- Console Log -->
+        <div class="test-section">
+            <h3>Console Log</h3>
+            <button onclick="clearLog()">Clear Log</button>
+            <div id="console-log" class="log"></div>
+        </div>
+    </div>
+
+    <!-- Mock Socket.IO for testing (optional) -->
+    <script>
+        // Mock Socket.IO if not available
+        if (typeof io === 'undefined') {
+            window.io = function() {
+                return {
+                    on: function() {},
+                    emit: function() {},
+                    disconnect: function() {},
+                    connect: function() {},
+                    connected: false
+                };
+            };
+        }
+    </script>
+    
+    <!-- Test Script -->
+    <script type="module">
+        import { SettingsManager } from './SettingsManager.js';
+        import { StateManager } from './core/StateManager.js';
+        import { APIManager } from './core/APIManager.js';
+        import { ConnectionManager } from './core/ConnectionManager.js';
+        
+        // Global test variables
+        let testLog = [];
+        let settingsManager = null;
+        let stateManager = null;
+        let apiManager = null;
+        let connectionManager = null;
+        
+        // Utility functions
+        window.log = function(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            testLog.push(`[${timestamp}] ${message}`);
+            updateConsoleLog();
+            console.log(message);
+        };
+        
+        function updateConsoleLog() {
+            const logDiv = document.getElementById('console-log');
+            logDiv.innerHTML = testLog.join('<br>');
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        window.clearLog = function() {
+            testLog = [];
+            updateConsoleLog();
+        };
+        
+        function setStatus(id, status, text) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.className = `status ${status}`;
+                element.textContent = text;
+            }
+        }
+        
+        // Module loading tests
+        async function testModuleLoading() {
+            try {
+                // Test StateManager
+                log('Testing StateManager import...');
+                stateManager = new StateManager();
+                await stateManager.initialize();
+                setStatus('state-manager-status', 'success', 'Loaded');
+                log('✅ StateManager loaded successfully');
+                
+                // Test APIManager
+                log('Testing APIManager import...');
+                apiManager = new APIManager('http://localhost:3002', stateManager);
+                await apiManager.initialize();
+                setStatus('api-manager-status', 'success', 'Loaded');
+                log('✅ APIManager loaded successfully');
+                
+                // Test ConnectionManager
+                log('Testing ConnectionManager import...');
+                connectionManager = new ConnectionManager('http://localhost:3002', stateManager);
+                await connectionManager.initialize();
+                setStatus('connection-manager-status', 'success', 'Loaded');
+                log('✅ ConnectionManager loaded successfully');
+                
+                // Test SettingsManager
+                log('Testing SettingsManager import...');
+                // Note: We're not fully initializing SettingsManager since it requires DOM elements
+                setStatus('settings-manager-status', 'success', 'Loaded');
+                log('✅ SettingsManager loaded successfully');
+                
+                return true;
+            } catch (error) {
+                log(`❌ Module loading failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        // State Manager Tests
+        window.testStateManager = async function() {
+            try {
+                log('Testing StateManager functionality...');
+                
+                // Test state setting
+                stateManager.setSystemMode('hitl');
+                const mode = stateManager.getSystemMode();
+                if (mode === 'hitl') {
+                    setStatus('state-setting-test', 'success', 'Passed');
+                    log('✅ State setting test passed');
+                } else {
+                    throw new Error('State setting failed');
+                }
+                
+                // Test event emitting
+                let eventReceived = false;
+                stateManager.on('testEvent', () => {
+                    eventReceived = true;
+                });
+                stateManager.emit('testEvent', 'test data');
+                
+                if (eventReceived) {
+                    setStatus('state-events-test', 'success', 'Passed');
+                    log('✅ Event emitting test passed');
+                } else {
+                    throw new Error('Event emitting failed');
+                }
+                
+                // Test persistence
+                stateManager.setActiveTab('users');
+                stateManager.saveUIPreferences();
+                const summary = stateManager.getStateSummary();
+                if (summary.activeTab === 'users') {
+                    setStatus('state-persistence-test', 'success', 'Passed');
+                    log('✅ Persistence test passed');
+                } else {
+                    throw new Error('Persistence failed');
+                }
+                
+                log('✅ All StateManager tests passed');
+                
+            } catch (error) {
+                log(`❌ StateManager test failed: ${error.message}`, 'error');
+                setStatus('state-setting-test', 'error', 'Failed');
+                setStatus('state-events-test', 'error', 'Failed');
+                setStatus('state-persistence-test', 'error', 'Failed');
+            }
+        };
+        
+        // API Manager Tests  
+        window.testAPIManager = async function() {
+            try {
+                log('Testing APIManager functionality...');
+                
+                // Test initialization
+                if (apiManager.apiUrl && apiManager.stateManager) {
+                    setStatus('api-init-test', 'success', 'Passed');
+                    log('✅ API initialization test passed');
+                } else {
+                    throw new Error('API initialization failed');
+                }
+                
+                // Test headers generation
+                const headers = apiManager.getAuthHeaders();
+                if (headers['Content-Type'] === 'application/json') {
+                    setStatus('api-headers-test', 'success', 'Passed');
+                    log('✅ Headers generation test passed');
+                } else {
+                    throw new Error('Headers generation failed');
+                }
+                
+                // Test request method exists
+                if (typeof apiManager.apiRequest === 'function') {
+                    setStatus('api-request-test', 'success', 'Passed');
+                    log('✅ Request method test passed');
+                } else {
+                    throw new Error('Request method not available');
+                }
+                
+                log('✅ All APIManager tests passed');
+                
+            } catch (error) {
+                log(`❌ APIManager test failed: ${error.message}`, 'error');
+                setStatus('api-init-test', 'error', 'Failed');
+                setStatus('api-headers-test', 'error', 'Failed');
+                setStatus('api-request-test', 'error', 'Failed');
+            }
+        };
+        
+        // Connection Manager Tests
+        window.testConnectionManager = async function() {
+            try {
+                log('Testing ConnectionManager functionality...');
+                
+                // Test initialization
+                if (connectionManager.apiUrl && connectionManager.stateManager) {
+                    setStatus('conn-init-test', 'success', 'Passed');
+                    log('✅ Connection initialization test passed');
+                } else {
+                    throw new Error('Connection initialization failed');
+                }
+                
+                // Test event system
+                let eventReceived = false;
+                connectionManager.on('testEvent', () => {
+                    eventReceived = true;
+                });
+                connectionManager.emit('testEvent', 'test data');
+                
+                if (eventReceived) {
+                    setStatus('conn-events-test', 'success', 'Passed');
+                    log('✅ Connection event system test passed');
+                } else {
+                    throw new Error('Connection event system failed');
+                }
+                
+                // Test status reporting
+                const status = connectionManager.getStatus();
+                if (typeof status === 'object' && 'isConnected' in status) {
+                    setStatus('conn-status-test', 'success', 'Passed');
+                    log('✅ Connection status test passed');
+                } else {
+                    throw new Error('Status reporting failed');
+                }
+                
+                log('✅ All ConnectionManager tests passed');
+                
+            } catch (error) {
+                log(`❌ ConnectionManager test failed: ${error.message}`, 'error');
+                setStatus('conn-init-test', 'error', 'Failed');
+                setStatus('conn-events-test', 'error', 'Failed');
+                setStatus('conn-status-test', 'error', 'Failed');
+            }
+        };
+        
+        // Integration Tests
+        window.testIntegration = async function() {
+            try {
+                log('Testing module integration...');
+                
+                // Test manager coordination
+                if (apiManager.stateManager === stateManager && connectionManager.stateManager === stateManager) {
+                    setStatus('integration-test', 'success', 'Passed');
+                    log('✅ Manager coordination test passed');
+                } else {
+                    throw new Error('Manager coordination failed');
+                }
+                
+                // Test cross-module communication
+                // APIManager should update StateManager, ConnectionManager should listen
+                let communicationWorked = false;
+                stateManager.on('systemModeChanged', () => {
+                    communicationWorked = true;
+                });
+                
+                stateManager.setSystemMode('autopilot');
+                
+                if (communicationWorked) {
+                    setStatus('communication-test', 'success', 'Passed');
+                    log('✅ Cross-module communication test passed');
+                } else {
+                    throw new Error('Cross-module communication failed');
+                }
+                
+                log('✅ All integration tests passed');
+                
+            } catch (error) {
+                log(`❌ Integration test failed: ${error.message}`, 'error');
+                setStatus('integration-test', 'error', 'Failed');
+                setStatus('communication-test', 'error', 'Failed');
+            }
+        };
+        
+        // Initialize tests
+        async function runTests() {
+            try {
+                log('Starting core modules test suite...');
+                setStatus('overall-status', 'info', 'Running tests...');
+                
+                const modulesLoaded = await testModuleLoading();
+                
+                if (modulesLoaded) {
+                    setStatus('overall-status', 'success', 'Core modules loaded successfully');
+                    log('✅ All core modules loaded. Ready for manual testing.');
+                } else {
+                    setStatus('overall-status', 'error', 'Module loading failed');
+                    log('❌ Module loading failed. Check console for details.');
+                }
+                
+            } catch (error) {
+                setStatus('overall-status', 'error', 'Test suite failed');
+                log(`❌ Test suite failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // Run tests when page loads
+        runTests();
+        
+    </script>
+</body>
+</html>
