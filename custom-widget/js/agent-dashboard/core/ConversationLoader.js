@@ -270,7 +270,7 @@ class LoadingStateManager {
 /**
  * Modern Conversation Loader - Main orchestrator
  */
-class ModernConversationLoader {
+export class ConversationLoader {
     constructor(config = {}) {
         this.apiClient = new ConversationApiClient(config);
         this.filter = new ConversationFilter(config);
@@ -282,7 +282,7 @@ class ModernConversationLoader {
         this.allConversations = [];
         this.filteredConversations = [];
         
-        console.log('🔧 ModernConversationLoader initialized');
+        console.log('🔧 ConversationLoader initialized');
     }
 
     /**
@@ -371,24 +371,4 @@ class ModernConversationLoader {
             filtered: this.filteredConversations
         };
     }
-}
-
-// Export for use in tests and main application
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        ModernConversationLoader,
-        ConversationApiClient,
-        ConversationFilter,
-        ConversationSorter,
-        LoadingStateManager
-    };
-}
-
-// Make available globally for browser use
-if (typeof window !== 'undefined') {
-    window.ModernConversationLoader = ModernConversationLoader;
-    window.ConversationApiClient = ConversationApiClient;
-    window.ConversationFilter = ConversationFilter;
-    window.ConversationSorter = ConversationSorter;
-    window.LoadingStateManager = LoadingStateManager;
 }

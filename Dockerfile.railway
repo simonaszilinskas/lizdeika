@@ -1,0 +1,42 @@
+# Railway-optimized Dockerfile for Vilnius Assistant
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    postgresql-client \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Copy package files first for better caching
+COPY custom-widget/backend/package*.json ./
+COPY custom-widget/backend/prisma ./prisma
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy application code
+COPY custom-widget/backend ./
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S vilnius -u 1001
+
+# Change ownership
+RUN chown -R vilnius:nodejs /app
+USER vilnius
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3002/health || exit 1
+
+# Expose port
+EXPOSE 3002
+
+# Start application
+CMD ["node", "server.js"]

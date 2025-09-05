@@ -521,26 +521,16 @@
                 };
 
                 try {
-                    // Load error handling modules first
-                    await loadScript('js/modules/simpleToast.js');
-                    // Complex errorHandler.js removed - using simpleErrorHandler.js instead
-                    await loadScript('js/modules/simpleErrorHandler.js');
-                    
-                    console.log('✅ Error handling modules loaded');
-                    
-                    // Sound notification manager now integrated into agent-dashboard modules
-                    console.log('✅ Sound notifications will be loaded with dashboard modules');
-                    
-                    // ModernWebSocketManager removed - using direct Socket.io instead
+                    console.log('✅ Legacy modules migrated to agent-dashboard structure');
+                    console.log('✅ Error handling now in utils/ErrorHandler.js');
+                    console.log('✅ Toast notifications now in utils/Toast.js');
+                    console.log('✅ Conversation loader now in core/ConversationLoader.js');
+                    console.log('✅ Sound notifications integrated in agent-dashboard modules');
                     console.log('✅ Direct Socket.io WebSocket connection (simplified)');
-                    
-                    // Load modern conversation loader
-                    await loadScript('js/modules/modern-conversation-loader.js');
-                    console.log('✅ Modern conversation loader loaded');
                     
                     console.log('📜 Loading dashboard JavaScript...');
                     
-                    // Then load main dashboard
+                    // Load main dashboard with ES6 modules
                     const script = document.createElement('script');
                     script.type = 'module';
                     script.src = 'js/agent-dashboard.js';
@@ -548,11 +538,8 @@
                     script.onerror = () => console.error('❌ Failed to load dashboard JavaScript');
                     document.body.appendChild(script);
                 } catch (error) {
-                    console.error('❌ Failed to load error handling modules:', error);
-                    // Still try to load modern modules and dashboard even if error modules fail
-                    // Sound notification manager now integrated into agent-dashboard modules
-                    // modern-websocket-manager.js removed - using direct Socket.io instead
-                    await loadScript('js/modules/modern-conversation-loader.js');
+                    console.error('❌ Failed to load dashboard:', error);
+                    // Fallback: try to load dashboard anyway
                     const script = document.createElement('script');
                     script.type = 'module';
                     script.src = 'js/agent-dashboard.js';

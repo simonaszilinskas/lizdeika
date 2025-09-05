@@ -1,12 +1,12 @@
 /**
  * Simple Error Handler
  * 
- * A lightweight replacement for the complex ErrorMonitoring service.
+ * A lightweight error logging utility for the agent dashboard.
  * Provides basic error logging without the overhead of analytics, 
  * buffering, categorization, and complex monitoring features.
  */
 
-class SimpleErrorHandler {
+export class ErrorHandler {
   /**
    * Log an error to console and optionally send to logging service
    * @param {Error|string|any} error - The error to log
@@ -106,19 +106,6 @@ class SimpleErrorHandler {
     window.addEventListener('error', this.handleUncaughtError.bind(this));
     window.addEventListener('unhandledrejection', this.handleUnhandledRejection.bind(this));
     
-    console.log('SimpleErrorHandler initialized');
+    console.log('ErrorHandler initialized');
   }
-}
-
-// Make available globally for compatibility
-window.SimpleErrorHandler = SimpleErrorHandler;
-
-// Auto-initialize if not in test environment
-if (typeof window !== 'undefined' && !window.__JEST__) {
-  SimpleErrorHandler.init();
-}
-
-// Also provide as module export if needed
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = SimpleErrorHandler;
 }

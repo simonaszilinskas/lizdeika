@@ -1,12 +1,12 @@
 /**
  * Simple Toast Notification System
  * 
- * A lightweight replacement for the complex NotificationSystem.
+ * A lightweight toast notification system for the agent dashboard.
  * Provides basic toast notifications without the overhead of animations, 
  * sounds, complex positioning, and state management.
  */
 
-class SimpleToast {
+export class Toast {
     /**
      * Show a toast notification
      * @param {string} message - The message to display
@@ -209,20 +209,12 @@ class SimpleToast {
         
         document.head.appendChild(styles);
     }
-}
-
-// Make available globally for compatibility
-window.SimpleToast = SimpleToast;
-window.toast = SimpleToast; // Short alias
-
-// Auto-initialize styles when loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => SimpleToast.ensureStyles());
-} else {
-    SimpleToast.ensureStyles();
-}
-
-// Also provide as module export if needed
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = SimpleToast;
+    
+    /**
+     * Initialize toast styles when loaded
+     */
+    static init() {
+        this.ensureStyles();
+        console.log('Toast system initialized');
+    }
 }

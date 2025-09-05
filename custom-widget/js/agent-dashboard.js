@@ -51,6 +51,13 @@ import { ChatManager } from './agent-dashboard/ChatManager.js';
 // Import assignment manager
 import { AssignmentManager } from './agent-dashboard/AssignmentManager.js';
 
+// Import utils
+import { ErrorHandler } from './agent-dashboard/utils/ErrorHandler.js';
+import { Toast } from './agent-dashboard/utils/Toast.js';
+
+// Import core conversation loader
+import { ConversationLoader } from './agent-dashboard/core/ConversationLoader.js';
+
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -99,10 +106,14 @@ class AgentDashboard {
         this.agentCacheDuration = TIMING.AGENT_CACHE_DURATION;
         
         // Initialize modern conversation loader
-        this.modernConversationLoader = new ModernConversationLoader({
+        this.modernConversationLoader = new ConversationLoader({
             apiUrl: this.apiUrl,
             logger: console
         });
+        
+        // Initialize utilities
+        ErrorHandler.init();
+        Toast.init();
         
         // ConversationUpdateManager removed - was unused infrastructure (always fell back to full reloads)
         
