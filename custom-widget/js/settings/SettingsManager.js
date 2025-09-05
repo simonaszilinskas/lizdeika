@@ -11,6 +11,7 @@ import { ConnectionManager } from './core/ConnectionManager.js';
 import { SystemModeModule } from './modules/SystemModeModule.js';
 import { AgentStatusModule } from './modules/AgentStatusModule.js';
 import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
+import { UserManagementModule } from './modules/UserManagementModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
@@ -27,6 +28,7 @@ export class SettingsManager {
         this.systemModeModule = new SystemModeModule(this.apiManager, this.stateManager, this.connectionManager);
         this.agentStatusModule = new AgentStatusModule(this.apiManager, this.stateManager, this.connectionManager);
         this.widgetConfigModule = new WidgetConfigModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.userManagementModule = new UserManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         
         // DOM elements - will be initialized in initializeElements
         this.elements = {};
@@ -62,6 +64,7 @@ export class SettingsManager {
             await this.systemModeModule.initialize();
             await this.agentStatusModule.initialize();
             await this.widgetConfigModule.initialize();
+            await this.userManagementModule.initialize();
             console.log('✅ SettingsManager: Feature modules initialized');
             
             // Load initial data
@@ -107,16 +110,7 @@ export class SettingsManager {
             integrationCodeTextarea: document.getElementById('integration-code'),
             copyCodeButton: document.getElementById('copy-code'),
             
-            // User management elements
-            totalUsersSpan: document.getElementById('total-users'),
-            usersTableBody: document.getElementById('users-table-body'),
-            
-            // Modal elements
-            editUserModal: document.getElementById('edit-user-modal'),
-            newPasswordModal: document.getElementById('new-password-modal'),
-            addUserModal: document.getElementById('add-user-modal'),
-            editUserForm: document.getElementById('edit-user-form'),
-            addUserForm: document.getElementById('add-user-form')
+            // User management - handled by UserManagementModule
         };
         
         console.log('🎯 SettingsManager: DOM elements initialized');
@@ -138,63 +132,12 @@ export class SettingsManager {
         
         // Widget configuration - handled by WidgetConfigModule
         
-        // User management forms
-        if (this.elements.editUserForm) {
-            this.elements.editUserForm.addEventListener('submit', (e) => this.handleEditUserSubmit(e));
-        }
-        if (this.elements.addUserForm) {
-            this.elements.addUserForm.addEventListener('submit', (e) => this.handleAddUserSubmit(e));
-        }
-        
-        // Add user button
-        const addUserBtn = document.getElementById('add-user-btn');
-        if (addUserBtn) {
-            addUserBtn.addEventListener('click', () => this.openAddUserModal());
-        }
-        
-        // Setup modal event listeners
-        this.setupModalEventListeners();
+        // User management - handled by UserManagementModule
         
         console.log('🔗 SettingsManager: Event listeners attached');
     }
 
-    /**
-     * Setup modal event listeners
-     */
-    setupModalEventListeners() {
-        // Modal close buttons
-        const modalCloseButtons = [
-            { id: 'close-edit-modal', modal: 'edit-user-modal' },
-            { id: 'cancel-edit', modal: 'edit-user-modal' },
-            { id: 'close-password-modal', modal: 'new-password-modal' },
-            { id: 'password-modal-close', modal: 'new-password-modal' },
-            { id: 'close-add-modal', modal: 'add-user-modal' },
-            { id: 'cancel-add-user', modal: 'add-user-modal' },
-            { id: 'copy-password', action: 'copyPassword' }
-        ];
-        
-        modalCloseButtons.forEach(({ id, modal, action }) => {
-            const element = document.getElementById(id);
-            if (element) {
-                if (action === 'copyPassword') {
-                    element.addEventListener('click', () => this.copyPasswordToClipboard());
-                } else {
-                    element.addEventListener('click', () => this.closeModal(modal));
-                }
-            }
-        });
-        
-        // Close modals when clicking outside
-        [this.elements.editUserModal, this.elements.newPasswordModal, this.elements.addUserModal].forEach(modal => {
-            if (modal) {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        this.closeModal(modal.id);
-                    }
-                });
-            }
-        });
-    }
+    // Modal event listeners - handled by UserManagementModule
 
     /**
      * Load initial data for all modules
@@ -229,20 +172,14 @@ export class SettingsManager {
             
             // Widget configuration - loaded by WidgetConfigModule
             
-            // Load users if admin
+            // Users loading - handled by UserManagementModule
             if (this.currentUser && this.currentUser.role === 'admin') {
-                console.log('👑 SettingsManager: User is admin, loading users and showing admin elements');
-                await this.apiManager.loadUsers();
+                console.log('👑 SettingsManager: User is admin, showing admin elements');
                 
                 // Show admin-only elements
                 document.body.classList.add('admin-user');
                 
-                // Update users display immediately if we're on the users tab or have users data
-                const currentUsers = this.stateManager.getUsers();
-                if (currentUsers && currentUsers.length > 0) {
-                    console.log('👥 SettingsManager: Updating users display after initial load');
-                    this.updateUsersDisplay(currentUsers);
-                }
+                // User display is now handled by UserManagementModule
                 
                 console.log('✅ SettingsManager: Admin elements shown');
             } else {
@@ -275,10 +212,7 @@ export class SettingsManager {
             this.updateAgentsDisplay(agents);
         });
         
-        this.stateManager.on('usersChanged', (users) => {
-            console.log('👥 SettingsManager: Users changed event received:', users?.length || 'null');
-            this.updateUsersDisplay(users);
-        });
+        // Users changes are now handled by UserManagementModule
         
         console.log('👂 SettingsManager: State listeners setup complete');
     }
@@ -327,15 +261,7 @@ export class SettingsManager {
         if (tabName === 'users' && this.currentUser && this.currentUser.role === 'admin') {
             console.log('👥 SettingsManager: Switching to users tab, loading users and updating display');
             
-            // Always update UI with current users data when switching to users tab
-            const existingUsers = this.stateManager.getUsers();
-            if (existingUsers && existingUsers.length > 0) {
-                console.log('👥 SettingsManager: Users already in state, updating display immediately');
-                this.updateUsersDisplay(existingUsers);
-            }
-            
-            // Also trigger a refresh to get latest data
-            this.apiManager.loadUsers();
+            // User management is now handled by UserManagementModule
         } else if (tabName === 'users') {
             console.log('❌ SettingsManager: Cannot switch to users tab, user not admin:', this.currentUser?.role || 'no user');
         }
@@ -397,73 +323,7 @@ export class SettingsManager {
         if (this.elements.totalAvailable) this.elements.totalAvailable.textContent = available;
     }
 
-    /**
-     * Update users display
-     */
-    updateUsersDisplay(users) {
-        console.log('🎨 SettingsManager: updateUsersDisplay called with users:', users?.length || 'null');
-        console.log('  - Users table body element:', !!this.elements.usersTableBody);
-        
-        if (!this.elements.usersTableBody) {
-            console.log('❌ SettingsManager: No usersTableBody element found');
-            return;
-        }
-        
-        if (!users || users.length === 0) {
-            console.log('📝 SettingsManager: No users to display, showing empty state');
-            this.elements.usersTableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="px-6 py-4 text-center text-gray-500">No users found</td>
-                </tr>
-            `;
-            return;
-        }
-        
-        console.log('📝 SettingsManager: Rendering users table for', users.length, 'users');
-
-        this.elements.usersTableBody.innerHTML = users.map(user => `
-            <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${user.firstName} ${user.lastName}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">${user.email}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                    }">
-                        ${user.role}
-                    </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }">
-                        ${user.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${user.lastLogin ? this.formatDate(user.lastLogin) : 'Never'}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button onclick="settingsManager.editUser('${user.id}')" class="text-indigo-600 hover:text-indigo-900">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="settingsManager.regeneratePassword('${user.id}')" class="text-yellow-600 hover:text-yellow-900" title="Regenerate Password">
-                        <i class="fas fa-key"></i>
-                    </button>
-                    <button onclick="settingsManager.toggleUserStatus('${user.id}', ${user.isActive})" class="${user.isActive ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}" title="${user.isActive ? 'Deactivate' : 'Reactivate'} User">
-                        <i class="fas fa-${user.isActive ? 'user-slash' : 'user-check'}"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-        
-        if (this.elements.totalUsersSpan) {
-            this.elements.totalUsersSpan.textContent = users.length;
-        }
-    }
+    // User display methods - handled by UserManagementModule
 
     // =========================
     // LEGACY COMPATIBILITY METHODS
@@ -478,89 +338,9 @@ export class SettingsManager {
 
     // Widget configuration methods - handled by WidgetConfigModule
 
-    /**
-     * Edit user (legacy method)
-     */
-    async editUser(userId) {
-        return this.apiManager.editUser(userId);
-    }
+    // User management methods - handled by UserManagementModule
 
-    /**
-     * Handle edit user form submit (legacy method)
-     */
-    async handleEditUserSubmit(e) {
-        return this.apiManager.handleEditUserSubmit(e);
-    }
-
-    /**
-     * Handle add user form submit (legacy method)
-     */
-    async handleAddUserSubmit(e) {
-        return this.apiManager.handleAddUserSubmit(e);
-    }
-
-    /**
-     * Regenerate user password (legacy method)
-     */
-    async regeneratePassword(userId) {
-        return this.apiManager.regeneratePassword(userId);
-    }
-
-    /**
-     * Toggle user status (legacy method)
-     */
-    async toggleUserStatus(userId, isCurrentlyActive) {
-        return this.apiManager.toggleUserStatus(userId, isCurrentlyActive);
-    }
-
-    /**
-     * Open add user modal
-     */
-    openAddUserModal() {
-        if (this.elements.addUserForm) {
-            this.elements.addUserForm.reset();
-        }
-        
-        if (this.elements.addUserModal) {
-            this.elements.addUserModal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-    }
-
-    /**
-     * Close modal
-     */
-    closeModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-    }
-
-    /**
-     * Copy password to clipboard
-     */
-    async copyPasswordToClipboard() {
-        try {
-            const password = document.getElementById('generated-password')?.textContent;
-            if (password) {
-                await navigator.clipboard.writeText(password);
-                
-                const button = document.getElementById('copy-password');
-                if (button) {
-                    const originalHTML = button.innerHTML;
-                    button.innerHTML = '<i class="fas fa-check"></i>';
-                    
-                    setTimeout(() => {
-                        button.innerHTML = originalHTML;
-                    }, 2000);
-                }
-            }
-        } catch (error) {
-            ErrorHandler.logError(error, 'Failed to copy password to clipboard');
-        }
-    }
+    // Modal and password methods - handled by UserManagementModule
 
     // =========================
     // UTILITY METHODS
