@@ -913,8 +913,6 @@ class AgentDashboard {
      * @param {Object} data - Agent sent message data
      */
     handleAgentSentMessage(data) {
-        console.log('📤 Agent sent message:', data);
-        
         // Only update if this is the current conversation
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             // Add the message to the chat immediately without full reload

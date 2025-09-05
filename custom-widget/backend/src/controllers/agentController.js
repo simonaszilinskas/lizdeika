@@ -214,11 +214,19 @@ class AgentController {
             });
             
             // Also emit to agents room so the sending agent sees their own message immediately
+            const agentsRoom = this.io.sockets.adapter.rooms.get('agents');
+            const socketsInRoom = agentsRoom ? agentsRoom.size : 0;
+            console.log('🔥 DEBUG: Emitting agent-sent-message to agents room:', { 
+                conversationId, 
+                messageId: agentMessage.id,
+                socketsInRoom: socketsInRoom 
+            });
             this.io.to('agents').emit('agent-sent-message', {
                 conversationId,
                 message: agentMessage,
                 timestamp: new Date()
             });
+            console.log('🔥 DEBUG: agent-sent-message event emitted to', socketsInRoom, 'sockets successfully');
             
             console.log(`Agent ${agentId} sent message to conversation ${conversationId}: ${message.substring(0, 50)}...`);
             

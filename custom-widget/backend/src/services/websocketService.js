@@ -32,6 +32,7 @@ class WebSocketService {
             socket.on('join-agent-dashboard', async (agentId) => {
                 socket.join('agents');
                 socket.agentId = agentId;
+                console.log('🔥 DEBUG: Socket', socket.id, 'joined agents room for agent:', agentId);
                 
                 // Update agent status to online
                 await agentService.setAgentOnline(agentId, socket.id);

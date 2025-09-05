@@ -132,7 +132,7 @@ export class ChatManager {
                 suggestionAction
             );
             
-            if (response.status === 'sent') {
+            if (response.success === true) {
                 // Clear input and reset UI
                 if (input) {
                     input.value = '';
