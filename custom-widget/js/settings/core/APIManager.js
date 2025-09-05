@@ -320,7 +320,10 @@ export class APIManager {
      */
     async loadUsers() {
         const currentUser = this.stateManager.getCurrentUser();
+        console.log('🔍 APIManager: Checking user for loadUsers:', currentUser);
+        
         if (!currentUser || currentUser.role !== 'admin') {
+            console.log('❌ APIManager: User is not admin or not loaded, skipping loadUsers');
             return;
         }
 
@@ -328,20 +331,25 @@ export class APIManager {
             console.log('👥 APIManager: Loading users');
             
             const response = await this.apiRequest('/api/users');
+            console.log('📡 APIManager: Users API response status:', response.status);
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('📦 APIManager: Users API response data:', data);
                 
                 // Update state manager
                 this.stateManager.setUsers(data.data);
                 
-                console.log('✅ APIManager: Users loaded:', data.data.length);
+                console.log('✅ APIManager: Users loaded and set in state:', data.data?.length || 'null');
             } else {
-                throw new Error('Failed to load users');
+                const errorText = await response.text();
+                console.error('❌ APIManager: Users API error response:', errorText);
+                throw new Error(`Failed to load users: ${response.status} ${errorText}`);
             }
         } catch (error) {
             ErrorHandler.logError(error, 'Failed to load users');
             Toast.error('Failed to load users', '');
+            console.error('❌ APIManager: loadUsers error:', error);
         }
     }
 

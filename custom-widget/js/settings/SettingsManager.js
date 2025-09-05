@@ -212,10 +212,14 @@ export class SettingsManager {
             
             // Load users if admin
             if (this.currentUser && this.currentUser.role === 'admin') {
+                console.log('👑 SettingsManager: User is admin, loading users and showing admin elements');
                 await this.apiManager.loadUsers();
                 
                 // Show admin-only elements
                 document.body.classList.add('admin-user');
+                console.log('✅ SettingsManager: Admin elements shown');
+            } else {
+                console.log('❌ SettingsManager: User is not admin:', this.currentUser?.role || 'no user');
             }
             
             // Check URL hash for direct tab navigation
@@ -245,6 +249,7 @@ export class SettingsManager {
         });
         
         this.stateManager.on('usersChanged', (users) => {
+            console.log('👥 SettingsManager: Users changed event received:', users?.length || 'null');
             this.updateUsersDisplay(users);
         });
         
@@ -293,7 +298,10 @@ export class SettingsManager {
 
         // Load tab-specific data
         if (tabName === 'users' && this.currentUser && this.currentUser.role === 'admin') {
+            console.log('👥 SettingsManager: Switching to users tab, loading users');
             this.apiManager.loadUsers();
+        } else if (tabName === 'users') {
+            console.log('❌ SettingsManager: Cannot switch to users tab, user not admin:', this.currentUser?.role || 'no user');
         }
     }
 
