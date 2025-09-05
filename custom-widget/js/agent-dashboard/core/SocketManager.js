@@ -134,6 +134,14 @@ export class SocketManager {
             }
         });
         
+        // Listen for agent-sent messages to update UI immediately
+        this.socket.on('agent-sent-message', (data) => {
+            console.log('📤 Agent sent message:', data);
+            if (this.eventHandlers.onAgentSentMessage) {
+                this.eventHandlers.onAgentSentMessage(data);
+            }
+        });
+        
         // Socket.io error handling
         this.socket.on('error', (error) => {
             console.error('💥 WebSocket error:', error);

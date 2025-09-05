@@ -146,7 +146,34 @@ This document outlines pragmatic improvements to the Vilnius Assistant vanilla J
    - `updateElementText()` - Safe element text updates
    - `getMessageSenderLabel()` - Generate sender labels
 
-**Total Progress: 3,074 → 1,302 lines (1,772 lines saved across 9 modules)**
+✅ **COMPLETED: AssignmentManager Extraction** (Commit: c7a8f93)
+- Extracted all assignment operations into `AssignmentManager.js` module
+- Created `custom-widget/js/agent-dashboard/AssignmentManager.js` (239 lines)
+- Centralized assignment/unassignment, archiving, and conversation refresh operations
+- **Fixed critical cache refresh bug** in `unassignFromDropdown()` - now properly refreshes UI immediately
+- **Assignment Operations Extracted**:
+  - `assignConversation()` - Assign to current agent
+  - `unassignConversation()` - Unassign from current agent
+  - `assignToAgent()` / `unassignFromDropdown()` - Dropdown assignment operations
+  - `archiveConversation()` / `unarchiveConversation()` - Archive management
+  - `refreshConversation()` - Single conversation refresh
+  - `handleAssignmentError()` - Consistent error handling
+- Reduced main file: 1,302 → 1,172 lines (130 lines saved)
+
+✅ **COMPLETED: Legacy WebSocket Cleanup** (Commit: 4968ea5)
+- Removed all legacy/deprecated WebSocket code that duplicated SocketManager functionality
+- **Removed Legacy Methods**:
+  - `initializeWebSocket()` - Deprecated direct Socket.io initialization
+  - `setupWebSocketEventHandlers()` - Large deprecated event handler setup (116 lines)
+  - `startHeartbeat()` / `stopHeartbeat()` - Deprecated heartbeat management
+  - `sendTypingStatus()` - Deprecated typing status emission
+  - `fallbackToPolling()` - Deprecated polling fallback
+- **Cleaned Up Properties**: Removed legacy `this.socket` property
+- **Preserved All Functionality**: WebSocket features work identically via existing SocketManager
+- **Verified Working**: Real-time messaging, assignments, heartbeat, typing indicators all functional
+- Reduced main file: 1,172 → 967 lines (205 lines saved)
+
+**Total Progress: 3,074 → 967 lines (2,107 lines saved across 11 modules)**
 
 Break down `agent-dashboard.js` into logical modules:
 

@@ -74,7 +74,8 @@ class AgentDashboard {
                 onTicketReassignments: (data) => this.handleTicketReassignments(data),
                 onCustomerTyping: (data) => this.handleCustomerTyping(data),
                 onNewConversation: (data) => this.handleNewConversation(data),
-                onError: (error) => this.fallbackToPolling()
+                onAgentSentMessage: (data) => this.handleAgentSentMessage(data),
+                onError: (error) => console.error('WebSocket error:', error)
             }
         });
         
@@ -905,6 +906,23 @@ class AgentDashboard {
         
         // Reload conversations to show the new conversation
         this.loadConversations();
+    }
+
+    /**
+     * Handle agent sent message WebSocket event
+     * @param {Object} data - Agent sent message data
+     */
+    handleAgentSentMessage(data) {
+        console.log('📤 Agent sent message:', data);
+        
+        // Only update if this is the current conversation
+        if (data.conversationId === this.stateManager.getCurrentChatId()) {
+            // Add the message to the chat immediately without full reload
+            this.conversationRenderer.appendMessageToChat(data.message);
+            
+            // Reload conversations to update queue status
+            this.loadConversations();
+        }
     }
 
     
