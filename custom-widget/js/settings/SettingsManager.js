@@ -8,6 +8,9 @@
 import { APIManager } from './core/APIManager.js';
 import { StateManager } from './core/StateManager.js';
 import { ConnectionManager } from './core/ConnectionManager.js';
+import { SystemModeModule } from './modules/SystemModeModule.js';
+import { AgentStatusModule } from './modules/AgentStatusModule.js';
+import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
@@ -19,6 +22,11 @@ export class SettingsManager {
         this.stateManager = new StateManager();
         this.apiManager = new APIManager(this.apiUrl, this.stateManager);
         this.connectionManager = new ConnectionManager(this.apiUrl, this.stateManager);
+        
+        // Initialize feature modules
+        this.systemModeModule = new SystemModeModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.agentStatusModule = new AgentStatusModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.widgetConfigModule = new WidgetConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         
         // DOM elements - will be initialized in initializeElements
         this.elements = {};
@@ -48,6 +56,13 @@ export class SettingsManager {
             
             // Initialize API manager
             await this.apiManager.initialize();
+            
+            // Initialize feature modules
+            console.log('🎯 SettingsManager: Initializing feature modules');
+            await this.systemModeModule.initialize();
+            await this.agentStatusModule.initialize();
+            await this.widgetConfigModule.initialize();
+            console.log('✅ SettingsManager: Feature modules initialized');
             
             // Load initial data
             await this.loadInitialData();
@@ -121,13 +136,7 @@ export class SettingsManager {
             this.elements.saveModeButton.addEventListener('click', () => this.saveSystemMode());
         }
         
-        // Widget configuration
-        if (this.elements.generateCodeButton) {
-            this.elements.generateCodeButton.addEventListener('click', () => this.generateIntegrationCode());
-        }
-        if (this.elements.copyCodeButton) {
-            this.elements.copyCodeButton.addEventListener('click', () => this.copyCodeToClipboard());
-        }
+        // Widget configuration - handled by WidgetConfigModule
         
         // User management forms
         if (this.elements.editUserForm) {
@@ -218,8 +227,7 @@ export class SettingsManager {
             // Update legacy compatibility
             this.currentMode = loadedMode;
             
-            // Load widget configuration
-            await this.apiManager.loadWidgetConfiguration();
+            // Widget configuration - loaded by WidgetConfigModule
             
             // Load users if admin
             if (this.currentUser && this.currentUser.role === 'admin') {
@@ -468,33 +476,7 @@ export class SettingsManager {
         return this.apiManager.saveSystemMode();
     }
 
-    /**
-     * Generate integration code (legacy method)
-     */
-    async generateIntegrationCode() {
-        return this.apiManager.generateIntegrationCode();
-    }
-
-    /**
-     * Copy code to clipboard (legacy method)
-     */
-    async copyCodeToClipboard() {
-        try {
-            await navigator.clipboard.writeText(this.elements.integrationCodeTextarea.value);
-            this.showMessage('Integration code copied to clipboard!', 'success');
-            
-            const button = this.elements.copyCodeButton;
-            const originalText = button.textContent;
-            button.textContent = '✓ Copied!';
-            
-            setTimeout(() => {
-                button.textContent = originalText;
-            }, 2000);
-        } catch (error) {
-            ErrorHandler.logError(error, 'Failed to copy integration code to clipboard');
-            this.showMessage('Failed to copy to clipboard', 'error');
-        }
-    }
+    // Widget configuration methods - handled by WidgetConfigModule
 
     /**
      * Edit user (legacy method)
