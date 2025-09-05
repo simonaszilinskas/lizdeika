@@ -24,6 +24,9 @@ import { logoutAgent, openUserManagement } from './agent-dashboard/auth-actions.
 // Import bulk operations
 import { BulkOperations } from './agent-dashboard/BulkOperations.js';
 
+// Import sound notifications
+import { SoundNotificationManager } from './agent-dashboard/SoundNotificationManager.js';
+
 // Import debug manager
 import { DebugManager } from './agent-dashboard/DebugManager.js';
 
@@ -137,23 +140,15 @@ class AgentDashboard {
 
 
     /**
-     * Initialize browser notifications
+     * Initialize sound notifications
      */
     async initializeSoundNotifications() {
         try {
-            // Only initialize if SoundNotificationManager is available
-            if (typeof SoundNotificationManager !== 'undefined') {
-                this.soundNotificationManager = new SoundNotificationManager({
-                    agentId: this.agentId,
-                    logger: console
-                });
-                
-                console.log('✅ Sound notification manager initialized');
-            } else {
-                console.warn('⚠️ SoundNotificationManager not available, notifications disabled');
-            }
+            this.soundNotificationManager = new SoundNotificationManager(this);
+            console.log('✅ Sound notification manager initialized');
         } catch (error) {
             console.error('❌ Failed to initialize sound notifications:', error);
+            this.soundNotificationManager = null;
         }
     }
 

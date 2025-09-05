@@ -528,9 +528,8 @@
                     
                     console.log('✅ Error handling modules loaded');
                     
-                    // Load sound notification manager
-                    await loadScript('js/modules/soundNotificationManager.js');
-                    console.log('✅ Sound notification manager loaded');
+                    // Sound notification manager now integrated into agent-dashboard modules
+                    console.log('✅ Sound notifications will be loaded with dashboard modules');
                     
                     // ModernWebSocketManager removed - using direct Socket.io instead
                     console.log('✅ Direct Socket.io WebSocket connection (simplified)');
@@ -551,7 +550,7 @@
                 } catch (error) {
                     console.error('❌ Failed to load error handling modules:', error);
                     // Still try to load modern modules and dashboard even if error modules fail
-                    await loadScript('js/modules/soundNotificationManager.js');
+                    // Sound notification manager now integrated into agent-dashboard modules
                     // modern-websocket-manager.js removed - using direct Socket.io instead
                     await loadScript('js/modules/modern-conversation-loader.js');
                     const script = document.createElement('script');

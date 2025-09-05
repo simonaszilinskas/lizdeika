@@ -21,14 +21,11 @@ class Settings {
         // Simple error handling with SimpleErrorHandler
         this.apiRequest = null;
         
-        // Sound notification manager
-        this.soundNotificationManager = null;
         
         // Heartbeat management
         this.heartbeatInterval = null;
         
         this.initializeErrorHandling();
-        this.initializeSoundNotifications();
         this.initializeElements();
         // Delay WebSocket initialization until after user is loaded
         this.attachEventListeners();
@@ -62,24 +59,6 @@ class Settings {
         console.log('✅ Settings: Error handling initialized');
     }
 
-    /**
-     * Initialize browser notifications manager
-     */
-    initializeSoundNotifications() {
-        try {
-            if (typeof SoundNotificationManager !== 'undefined') {
-                this.soundNotificationManager = new SoundNotificationManager({
-                    agentId: this.agentId,
-                    logger: console
-                });
-                console.log('✅ Settings: Sound notification manager initialized');
-            } else {
-                console.warn('⚠️ Settings: SoundNotificationManager not available');
-            }
-        } catch (error) {
-            console.error('❌ Settings: Failed to initialize sound notifications:', error);
-        }
-    }
 
     initializeElements() {
         // Tab elements
@@ -143,26 +122,6 @@ class Settings {
         this.addUserForm.addEventListener('submit', (e) => this.handleAddUserSubmit(e));
         document.getElementById('add-user-btn').addEventListener('click', () => this.openAddUserModal());
         
-        // Sound notification settings
-        const soundNotificationsEnabled = document.getElementById('sound-notifications-enabled');
-        if (soundNotificationsEnabled) {
-            soundNotificationsEnabled.addEventListener('change', () => this.toggleNotifications());
-        }
-        
-        const soundVolume = document.getElementById('sound-volume');
-        if (soundVolume) {
-            soundVolume.addEventListener('input', (e) => this.updateSoundVolume(e.target.value));
-        }
-        
-        const testMessageSoundBtn = document.getElementById('test-message-sound-btn');
-        if (testMessageSoundBtn) {
-            testMessageSoundBtn.addEventListener('click', () => this.testMessageSound());
-        }
-        
-        const testConversationSoundBtn = document.getElementById('test-conversation-sound-btn');
-        if (testConversationSoundBtn) {
-            testConversationSoundBtn.addEventListener('click', () => this.testConversationSound());
-        }
         
         // Modal handling
         this.setupModalEventListeners();
@@ -806,114 +765,6 @@ class Settings {
         }
     }
 
-    // Notification Methods
-    async toggleNotifications() {
-        if (!this.soundNotificationManager) {
-            console.warn('Sound notification manager not available');
-            return;
-        }
-
-        const enabled = document.getElementById('sound-notifications-enabled').checked;
-        
-        try {
-            this.soundNotificationManager.setEnabled(enabled);
-            
-            this.showMessage(
-                enabled ? 'Sound notifications enabled' : 'Sound notifications disabled',
-                'success'
-            );
-        } catch (error) {
-            console.error('Error toggling sound notifications:', error);
-            document.getElementById('sound-notifications-enabled').checked = false;
-            this.showMessage('Error updating sound notification settings', 'error');
-        }
-    }
-
-    // Sound notifications don't require permissions
-    async requestNotificationPermission() {
-        this.showMessage('Sound notifications are ready - no permissions required!', 'success');
-    }
-
-    async testNotification() {
-        if (!this.soundNotificationManager) {
-            this.showMessage('Sound notification manager not available', 'error');
-            return;
-        }
-
-        try {
-            this.soundNotificationManager.testSound('newMessage');
-            this.showMessage('Test sound played!', 'success');
-        } catch (error) {
-            console.error('Error playing test sound:', error);
-            this.showMessage('Error playing test sound', 'error');
-        }
-    }
-
-    updateNotificationUI() {
-        if (!this.soundNotificationManager) {
-            return;
-        }
-
-        // Update checkbox state
-        const enabledCheckbox = document.getElementById('sound-notifications-enabled');
-        if (enabledCheckbox) {
-            enabledCheckbox.checked = this.soundNotificationManager.enabled;
-        }
-        
-        // Update volume display
-        const volumeSlider = document.getElementById('sound-volume');
-        const volumeDisplay = document.getElementById('volume-display');
-        if (volumeSlider && volumeDisplay) {
-            const volume = Math.round(this.soundNotificationManager.volume * 100);
-            volumeSlider.value = volume;
-            volumeDisplay.textContent = `${volume}%`;
-        }
-    }
-
-    updateSoundVolume(value) {
-        if (!this.soundNotificationManager) {
-            return;
-        }
-
-        const volume = parseInt(value) / 100;
-        this.soundNotificationManager.setVolume(volume);
-        
-        // Update volume display
-        const volumeDisplay = document.getElementById('volume-display');
-        if (volumeDisplay) {
-            volumeDisplay.textContent = `${value}%`;
-        }
-    }
-
-    async testMessageSound() {
-        if (!this.soundNotificationManager) {
-            this.showMessage('Sound notification manager not available', 'error');
-            return;
-        }
-
-        try {
-            this.soundNotificationManager.testSound('newMessage');
-            this.showMessage('Message sound played!', 'success');
-        } catch (error) {
-            console.error('Error playing message sound:', error);
-            this.showMessage('Error playing message sound', 'error');
-        }
-    }
-
-    async testConversationSound() {
-        if (!this.soundNotificationManager) {
-            this.showMessage('Sound notification manager not available', 'error');
-            return;
-        }
-
-        try {
-            this.soundNotificationManager.testSound('newConversation');
-            this.showMessage('Conversation sound played!', 'success');
-        } catch (error) {
-            console.error('Error playing conversation sound:', error);
-            this.showMessage('Error playing conversation sound', 'error');
-        }
-    }
 
     // Modal Methods
     closeModal(modalId) {

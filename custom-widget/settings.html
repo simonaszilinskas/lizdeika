@@ -135,92 +135,6 @@
 
         <!-- Agent Preferences Tab -->
         <div id="agent-tab" class="tab-content hidden">
-            <!-- Sound Notification Settings -->
-            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <i class="fas fa-volume-up text-indigo-600"></i>
-                    Sound Notifications
-                </h2>
-                
-                <div class="mb-4">
-                    <p class="text-gray-600 mb-4">Configure audio alerts for new messages and conversations assigned to you.</p>
-                    
-                    <div class="space-y-4">
-                        <!-- Enable/Disable Sound Notifications -->
-                        <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                            <div class="flex-1">
-                                <h3 class="font-medium text-gray-900">Sound Notifications</h3>
-                                <p class="text-sm text-gray-600">Play sound alerts when new messages or conversations arrive</p>
-                            </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="sound-notifications-enabled" class="sr-only peer" checked>
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-                        
-                        <!-- Volume Control -->
-                        <div class="p-4 border border-gray-200 rounded-lg">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex-1">
-                                    <h3 class="font-medium text-gray-900">Volume Level</h3>
-                                    <p class="text-sm text-gray-600">Adjust notification sound volume</p>
-                                </div>
-                                <span id="volume-display" class="text-sm font-medium text-gray-700">30%</span>
-                            </div>
-                            <input type="range" id="sound-volume" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" 
-                                   min="0" max="100" value="30">
-                        </div>
-                        
-                        <!-- Test Sound Notifications -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                <div class="flex-1">
-                                    <h3 class="font-medium text-gray-900">Test Message Sound</h3>
-                                    <p class="text-sm text-gray-600">High tone for new messages</p>
-                                </div>
-                                <button id="test-message-sound-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium">
-                                    <i class="fas fa-play mr-1"></i>Play
-                                </button>
-                            </div>
-                            
-                            <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                <div class="flex-1">
-                                    <h3 class="font-medium text-gray-900">Test Conversation Sound</h3>
-                                    <p class="text-sm text-gray-600">Lower tone for new conversations</p>
-                                </div>
-                                <button id="test-conversation-sound-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">
-                                    <i class="fas fa-play mr-1"></i>Play
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Sound Notification Details -->
-                <div id="sound-notification-details" class="mt-6 border-t pt-6">
-                    <h3 class="font-medium text-gray-900 mb-4">When Sound Notifications Play</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <h4 class="font-medium text-blue-800 mb-1">New Messages:</h4>
-                            <ul class="list-disc list-inside text-blue-700 space-y-1">
-                                <li>Customer messages in your assigned conversations</li>
-                                <li>Customer messages in unassigned conversations</li>
-                                <li>Only for conversations you can respond to</li>
-                            </ul>
-                        </div>
-                        
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <h4 class="font-medium text-green-800 mb-1">New Conversations:</h4>
-                            <ul class="list-disc list-inside text-green-700 space-y-1">
-                                <li>New conversations assigned to you</li>
-                                <li>Unassigned conversations you can pick up</li>
-                                <li>Conversations reassigned to you</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- Other Agent Settings -->
             <div class="bg-white rounded-lg shadow-md p-6">
@@ -486,8 +400,7 @@
     <!-- Complex errorHandler.js removed - using simpleErrorHandler.js instead -->
     <script src="js/modules/simpleErrorHandler.js"></script>
     
-    <!-- Browser Notification Manager -->
-    <script src="js/modules/soundNotificationManager.js"></script>
+    <!-- Sound notifications removed from settings page -->
     
     <script src="js/settings.js"></script>
 </body>
