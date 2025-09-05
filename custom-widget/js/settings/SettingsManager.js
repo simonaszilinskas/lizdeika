@@ -217,6 +217,14 @@ export class SettingsManager {
                 
                 // Show admin-only elements
                 document.body.classList.add('admin-user');
+                
+                // Update users display immediately if we're on the users tab or have users data
+                const currentUsers = this.stateManager.getUsers();
+                if (currentUsers && currentUsers.length > 0) {
+                    console.log('👥 SettingsManager: Updating users display after initial load');
+                    this.updateUsersDisplay(currentUsers);
+                }
+                
                 console.log('✅ SettingsManager: Admin elements shown');
             } else {
                 console.log('❌ SettingsManager: User is not admin:', this.currentUser?.role || 'no user');
@@ -298,7 +306,16 @@ export class SettingsManager {
 
         // Load tab-specific data
         if (tabName === 'users' && this.currentUser && this.currentUser.role === 'admin') {
-            console.log('👥 SettingsManager: Switching to users tab, loading users');
+            console.log('👥 SettingsManager: Switching to users tab, loading users and updating display');
+            
+            // Always update UI with current users data when switching to users tab
+            const existingUsers = this.stateManager.getUsers();
+            if (existingUsers && existingUsers.length > 0) {
+                console.log('👥 SettingsManager: Users already in state, updating display immediately');
+                this.updateUsersDisplay(existingUsers);
+            }
+            
+            // Also trigger a refresh to get latest data
             this.apiManager.loadUsers();
         } else if (tabName === 'users') {
             console.log('❌ SettingsManager: Cannot switch to users tab, user not admin:', this.currentUser?.role || 'no user');
@@ -365,9 +382,16 @@ export class SettingsManager {
      * Update users display
      */
     updateUsersDisplay(users) {
-        if (!this.elements.usersTableBody) return;
+        console.log('🎨 SettingsManager: updateUsersDisplay called with users:', users?.length || 'null');
+        console.log('  - Users table body element:', !!this.elements.usersTableBody);
         
-        if (users.length === 0) {
+        if (!this.elements.usersTableBody) {
+            console.log('❌ SettingsManager: No usersTableBody element found');
+            return;
+        }
+        
+        if (!users || users.length === 0) {
+            console.log('📝 SettingsManager: No users to display, showing empty state');
             this.elements.usersTableBody.innerHTML = `
                 <tr>
                     <td colspan="6" class="px-6 py-4 text-center text-gray-500">No users found</td>
@@ -375,6 +399,8 @@ export class SettingsManager {
             `;
             return;
         }
+        
+        console.log('📝 SettingsManager: Rendering users table for', users.length, 'users');
 
         this.elements.usersTableBody.innerHTML = users.map(user => `
             <tr class="hover:bg-gray-50">
