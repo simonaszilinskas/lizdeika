@@ -141,19 +141,37 @@ export class EventManager {
             
             // Send typing status
             textarea.addEventListener('input', () => {
-                this.dashboard.sendTypingStatus(true);
+                // Send typing status via SocketManager
+                if (this.dashboard.socketManager && this.dashboard.stateManager.getCurrentChatId()) {
+                    this.dashboard.socketManager.emit('agent-typing', {
+                        conversationId: this.dashboard.stateManager.getCurrentChatId(),
+                        isTyping: true
+                    });
+                }
                 
                 // Clear existing timer
                 clearTimeout(typingTimer);
                 
                 // Set timer to stop typing after 1 second of inactivity
                 typingTimer = setTimeout(() => {
-                    this.dashboard.sendTypingStatus(false);
+                    // Send typing stopped status via SocketManager
+                    if (this.dashboard.socketManager && this.dashboard.stateManager.getCurrentChatId()) {
+                        this.dashboard.socketManager.emit('agent-typing', {
+                            conversationId: this.dashboard.stateManager.getCurrentChatId(),
+                            isTyping: false
+                        });
+                    }
                 }, 1000);
             });
             
             textarea.addEventListener('blur', () => {
-                this.dashboard.sendTypingStatus(false);
+                // Send typing stopped status via SocketManager
+                if (this.dashboard.socketManager && this.dashboard.stateManager.getCurrentChatId()) {
+                    this.dashboard.socketManager.emit('agent-typing', {
+                        conversationId: this.dashboard.stateManager.getCurrentChatId(),
+                        isTyping: false
+                    });
+                }
                 clearTimeout(typingTimer);
             });
             
