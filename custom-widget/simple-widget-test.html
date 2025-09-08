@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Widget Test</title>
+</head>
+<body>
+    <h1>Simple Widget Loading Test</h1>
+    <div id="status">Loading...</div>
+    
+    <script>
+        console.log('🔄 Starting widget test');
+        
+        // Test widget.js loading
+        fetch('http://localhost:3002/widget.js')
+            .then(response => {
+                console.log('✅ Widget.js fetch response:', response.status, response.statusText);
+                return response.text();
+            })
+            .then(script => {
+                console.log('✅ Widget.js loaded, length:', script.length);
+                
+                // Execute the script
+                eval(script);
+                
+                // Check if VilniusChat is available
+                if (window.VilniusChat) {
+                    console.log('✅ VilniusChat is available');
+                    document.getElementById('status').textContent = 'Widget script loaded successfully!';
+                    
+                    // Try to initialize
+                    try {
+                        window.VilniusChat.init({
+                            apiUrl: 'http://localhost:3002',
+                            widgetName: 'Test Widget',
+                            primaryColor: '#2c5530',
+                            siteName: 'Test Site'
+                        });
+                        console.log('✅ VilniusChat initialized');
+                    } catch (error) {
+                        console.error('❌ VilniusChat init failed:', error);
+                        document.getElementById('status').textContent = 'Widget init failed: ' + error.message;
+                    }
+                } else {
+                    console.error('❌ VilniusChat not found in global scope');
+                    document.getElementById('status').textContent = 'VilniusChat not found';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Failed to load widget.js:', error);
+                document.getElementById('status').textContent = 'Failed to load widget: ' + error.message;
+            });
+    </script>
+</body>
+</html>

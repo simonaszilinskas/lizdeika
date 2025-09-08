@@ -1281,8 +1281,8 @@ export class BrandingConfigModule {
     var script = document.createElement('script');
     script.src = '${widgetUrl}';
     script.onload = function() {
-        if (window.VilniusWidget) {
-            window.VilniusWidget.init(config);
+        if (window.VilniusChat) {
+            window.VilniusChat.init(config);
         }
     };
     document.head.appendChild(script);

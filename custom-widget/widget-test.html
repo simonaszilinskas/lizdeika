@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="test-content">
+        <h1>Vilnius Assistant Widget Integration Test</h1>
+        <p>This page tests the generated widget integration code.</p>
+        
+        <div id="widget-status" class="status">
+            Widget Status: <span id="status-text">Loading...</span>
+        </div>
+        
+        <h2>Test Content</h2>
+        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. This content should appear normally while the widget loads in the background.</p>
+        
+        <p>The chat widget should appear as a floating button in the bottom-right corner of the page.</p>
+        
+        <h2>Integration Steps:</h2>
+        <ol>
+            <li>Widget script loads from http://localhost:3002/widget.js</li>
+            <li>VilniusWidget.init() is called with branding configuration</li>
+            <li>Widget container is created and added to DOM</li>
+            <li>Chat interface becomes available</li>
+        </ol>
+    </div>
+
+    <!-- Vilnius Assistant Chat Widget - Generated Integration Code -->
+    <script type="text/javascript">
+    (function() {
+        var config = {
+            apiUrl: 'http://localhost:3002',
+            widgetName: 'My Test Widget',
+            primaryColor: '#ff6600',
+            siteName: 'Customer Support',
+            allowedDomains: '*'
+        };
+        
+        // Create widget container
+        var widgetContainer = document.createElement('div');
+        widgetContainer.id = 'vilnius-widget-container';
+        document.body.appendChild(widgetContainer);
+        
+        // Track loading status
+        var statusText = document.getElementById('status-text');
+        var widgetStatus = document.getElementById('widget-status');
+        
+        // Load and initialize widget
+        var script = document.createElement('script');
+        script.src = 'http://localhost:3002/widget.js';
+        script.onload = function() {
+            if (window.VilniusWidget) {
+                try {
+                    window.VilniusWidget.init(config);
+                    statusText.textContent = 'Widget loaded successfully!';
+                    widgetStatus.className = 'status success';
+                } catch (error) {
+                    statusText.textContent = 'Widget initialization failed: ' + error.message;
+                    widgetStatus.className = 'status error';
+                    console.error('Widget initialization error:', error);
+                }
+            } else {
+                statusText.textContent = 'Widget script loaded but VilniusWidget not found';
+                widgetStatus.className = 'status error';
+            }
+        };
+        script.onerror = function() {
+            statusText.textContent = 'Failed to load widget script';
+            widgetStatus.className = 'status error';
+        };
+        document.head.appendChild(script);
+        
+        console.log('Widget integration code executed with config:', config);
+    })();
+    </script>
+    <!-- End Vilnius Assistant Chat Widget -->
+</body>
+</html>
