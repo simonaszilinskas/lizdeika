@@ -1258,18 +1258,18 @@ export class BrandingConfigModule {
             // Get current widget configuration URL
             const widgetUrl = `${window.location.protocol}//${window.location.hostname}:3002/widget.js`;
             
-            // Generate integration code using current branding settings
-            const currentSettings = await this.loadCurrentBrandingSettings();
+            // Use current settings from memory instead of reloading
+            const currentSettings = this.currentSettings;
             
             const integrationCode = `<!-- Vilnius Assistant Chat Widget -->
 <script type="text/javascript">
 (function() {
     var config = {
         apiUrl: '${window.location.protocol}//${window.location.hostname}:3002',
-        widgetName: '${currentSettings?.widget_name?.value || 'Vilnius Assistant'}',
-        primaryColor: '${currentSettings?.widget_primary_color?.value || '#2c5530'}',
-        siteName: '${currentSettings?.site_name?.value || 'Customer Support'}',
-        allowedDomains: '${currentSettings?.widget_allowed_domains?.value || '*'}'
+        widgetName: '${currentSettings?.widget_name || 'Vilnius Assistant'}',
+        primaryColor: '${currentSettings?.widget_primary_color || '#2c5530'}',
+        siteName: '${currentSettings?.site_name || 'Customer Support'}',
+        allowedDomains: '${currentSettings?.widget_allowed_domains || '*'}'
     };
     
     // Create widget container
