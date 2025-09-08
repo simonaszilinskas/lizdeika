@@ -225,7 +225,7 @@ export class ConversationRenderer {
             UIHelpers.escapeHtml(msg.content);
         
         return `
-            <div class="flex ${isCustomer ? '' : 'justify-end'} mb-4">
+            <div class="flex ${isCustomer ? '' : 'justify-end'} mb-4" data-message-id="${msg.id}">
                 <div class="max-w-[70%]">
                     <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem, msg)}" style="line-height: 1.6;">
                         ${formattedContent}
@@ -292,10 +292,29 @@ export class ConversationRenderer {
         console.log('🐛 Raw WebSocket message data:', JSON.stringify(messageData, null, 2));
 
         // Check if message already exists to prevent duplicates
-        const existingMessage = messagesContainer.querySelector(`[data-message-id="${messageData.id}"]`);
-        if (existingMessage) {
-            console.log('📨 Message already exists, skipping duplicate');
+        // Extract the message ID from nested structure
+        const messageId = (messageData.message && messageData.message.id) || messageData.id;
+        
+        // First check by ID
+        const existingMessageById = messagesContainer.querySelector(`[data-message-id="${messageId}"]`);
+        if (existingMessageById) {
+            console.log('📨 Message already exists by ID, skipping duplicate:', messageId);
             return;
+        }
+        
+        // Also check by content and timestamp to catch edge cases
+        const messageContent = messageData.message ? messageData.message.content : (messageData.content || '');
+        const messageTimestamp = messageData.message ? messageData.message.timestamp : messageData.timestamp;
+        const existingMessages = messagesContainer.querySelectorAll('[data-message-id]');
+        
+        for (const existing of existingMessages) {
+            const existingContent = existing.querySelector('div > div')?.textContent?.trim();
+            const existingTime = existing.querySelector('.text-xs')?.textContent;
+            
+            if (existingContent === messageContent && existingTime && existingTime.includes(new Date(messageTimestamp).toLocaleTimeString())) {
+                console.log('📨 Message already exists by content/time, skipping duplicate');
+                return;
+            }
         }
 
         // Create message object compatible with renderMessage
