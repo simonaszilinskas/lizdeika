@@ -888,7 +888,6 @@ class AgentDashboard {
             }
         }, 100); // Small delay to allow real-time update to render first
     }
-    }
 
     /**
      * Handle agents update from socket manager
