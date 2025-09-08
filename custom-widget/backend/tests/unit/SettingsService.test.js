@@ -100,8 +100,8 @@ describe('SettingsService', () => {
                 });
 
                 const result = await settingsService.getSetting('widget_name');
-                expect(result).toEqual(cachedSetting);
-                expect(mockPrisma.system_settings.findUnique).not.toHaveBeenCalled();
+                expect(result).toEqual('Cached Widget'); // getSetting returns just the value
+                expect(mockPrisma.system_settings.findFirst).not.toHaveBeenCalled();
             });
 
             test('should get setting from database when not cached', async () => {
@@ -112,29 +112,23 @@ describe('SettingsService', () => {
                     is_public: true
                 };
 
-                mockPrisma.system_settings.findUnique.mockResolvedValue(dbSetting);
+                mockPrisma.system_settings.findFirst.mockResolvedValue(dbSetting);
 
                 const result = await settingsService.getSetting('widget_name');
                 
-                expect(result).toEqual(dbSetting);
-                expect(mockPrisma.system_settings.findUnique).toHaveBeenCalledWith({
+                expect(result).toEqual('DB Widget'); // getSetting returns just the parsed value
+                expect(mockPrisma.system_settings.findFirst).toHaveBeenCalledWith({
                     where: { setting_key: 'widget_name' }
                 });
-                expect(settingsService.cache.has('widget_name')).toBe(true);
+                expect(settingsService.settingsCache.has('widget_name')).toBe(true);
             });
 
             test('should fall back to environment variable when setting not in database', async () => {
-                mockPrisma.system_settings.findUnique.mockResolvedValue(null);
+                mockPrisma.system_settings.findFirst.mockResolvedValue(null);
                 
                 const result = await settingsService.getSetting('widget_name');
                 
-                expect(result).toEqual({
-                    setting_key: 'widget_name',
-                    setting_value: 'Test Widget',
-                    category: 'branding',
-                    is_public: true,
-                    source: 'environment'
-                });
+                expect(result).toEqual('Test Widget'); // Returns env fallback value directly
             });
 
             test('should return default value when neither database nor environment has setting', async () => {
