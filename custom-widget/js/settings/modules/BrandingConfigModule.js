@@ -66,8 +66,8 @@ export class BrandingConfigModule {
             // Setup state change listeners
             this.setupStateListeners();
             
-            // Render initial UI
-            this.renderBrandingForm();
+            // Don't render initial UI - using static HTML now
+            // this.renderBrandingForm();
             
             console.log('✅ BrandingConfigModule: Initialization complete');
             
@@ -116,6 +116,24 @@ export class BrandingConfigModule {
         if (cancelBtn) {
             cancelBtn.addEventListener('click', () => this.cancelChanges());
         }
+
+        // Integration code buttons
+        const generateCodeBtn = document.getElementById('generate-integration-code');
+        if (generateCodeBtn) {
+            generateCodeBtn.addEventListener('click', () => this.generateIntegrationCode());
+        }
+        
+        const copyCodeBtn = document.getElementById('copy-integration-code');
+        if (copyCodeBtn) {
+            copyCodeBtn.addEventListener('click', () => this.copyIntegrationCode());
+        }
+
+        // Store references for later use
+        this.elements = this.elements || {};
+        this.elements.generateCodeButton = generateCodeBtn;
+        this.elements.copyCodeButton = copyCodeBtn;
+        this.elements.codeContainer = document.getElementById('integration-code-container');
+        this.elements.integrationCodeTextarea = document.getElementById('integration-code');
 
         // Live preview functionality - listen to input changes
         this.setupLivePreview();
@@ -1213,6 +1231,7 @@ export class BrandingConfigModule {
      */
     async generateIntegrationCode() {
         try {
+            console.log('📝 BrandingConfigModule: Generate Integration Code button clicked');
             console.log('📝 BrandingConfigModule: Generating integration code with branding');
             
             // Update UI to show generating state
@@ -1285,6 +1304,8 @@ export class BrandingConfigModule {
      */
     async copyIntegrationCode() {
         try {
+            console.log('📋 BrandingConfigModule: Copy Integration Code button clicked');
+            
             if (!this.elements.integrationCodeTextarea || !this.elements.integrationCodeTextarea.value) {
                 Toast.warning('Please generate the integration code first');
                 return;
