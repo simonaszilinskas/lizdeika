@@ -299,29 +299,38 @@ export class ConversationRenderer {
         }
 
         // Create message object compatible with renderMessage
-        // Handle case where content might be an object
+        // WebSocket sends nested structure: { message: { content: "...", sender: "..." } }
         let content = '';
-        if (typeof messageData.content === 'string') {
-            content = messageData.content;
-        } else if (typeof messageData.content === 'object' && messageData.content) {
-            // If content is an object, try to extract text
-            content = messageData.content.text || messageData.content.content || messageData.content.message || JSON.stringify(messageData.content);
-        } else {
-            content = messageData.message || messageData.text || '';
+        let sender = '';
+        
+        // Extract from nested message object (primary structure)
+        if (messageData.message && typeof messageData.message === 'object') {
+            content = messageData.message.content || '';
+            sender = messageData.message.sender || '';
+        }
+        // Fallback to direct properties (backup structure)
+        else {
+            if (typeof messageData.content === 'string') {
+                content = messageData.content;
+            } else if (typeof messageData.content === 'object' && messageData.content) {
+                content = messageData.content.text || messageData.content.content || messageData.content.message || JSON.stringify(messageData.content);
+            } else {
+                content = messageData.message || messageData.text || '';
+            }
+            sender = messageData.sender || '';
         }
 
         // Normalize sender type - WebSocket might send 'customer' but renderMessage expects 'visitor'
-        let sender = messageData.sender;
         if (sender === 'customer') {
             sender = 'visitor';
         }
 
         const message = {
-            id: messageData.id || `temp-${Date.now()}`,
+            id: (messageData.message && messageData.message.id) || messageData.id || `temp-${Date.now()}`,
             content: String(content),
             sender: sender,
-            timestamp: messageData.timestamp || new Date().toISOString(),
-            metadata: messageData.metadata || {}
+            timestamp: (messageData.message && messageData.message.timestamp) || messageData.timestamp || new Date().toISOString(),
+            metadata: (messageData.message && messageData.message.metadata) || messageData.metadata || {}
         };
 
         console.log('🐛 DEBUG: Processed message for rendering:', JSON.stringify(message, null, 2));
@@ -355,7 +364,9 @@ export class ConversationRenderer {
 
         // Add visual indicator for new message
         const statusBadge = queueItem.querySelector('.queue-status');
-        if (statusBadge && messageData.sender === 'customer') {
+        // Check sender from nested structure - customer messages (visitor) need agent attention
+        const messageSender = (messageData.message && messageData.message.sender) || messageData.sender;
+        if (statusBadge && (messageSender === 'customer' || messageSender === 'visitor')) {
             // Only highlight if it's a customer message (needs agent attention)
             statusBadge.textContent = 'NEW MESSAGE';
             statusBadge.className = 'queue-status bg-red-600 text-white font-bold px-2 py-1 text-xs rounded-full';
@@ -370,7 +381,14 @@ export class ConversationRenderer {
         // Update last message preview
         const messagePreview = queueItem.querySelector('.message-preview');
         if (messagePreview) {
-            const content = String(messageData.content || messageData.message || '');
+            // Extract content from nested structure like in appendMessageRealTime
+            let content = '';
+            if (messageData.message && typeof messageData.message === 'object') {
+                content = String(messageData.message.content || '');
+            } else {
+                content = String(messageData.content || messageData.message || '');
+            }
+            
             messagePreview.textContent = content.length > 50 ? 
                 content.substring(0, 50) + '...' : content;
         }
