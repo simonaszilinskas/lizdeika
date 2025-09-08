@@ -282,11 +282,13 @@ export class ConversationRenderer {
      * @param {Object} messageData - WebSocket message data
      */
     appendMessageRealTime(messageData) {
-        const messagesContainer = document.getElementById('messages-area');
+        const messagesContainer = document.getElementById('chat-messages');
         if (!messagesContainer) {
             console.warn('⚠️ Messages container not found, skipping real-time append');
             return;
         }
+
+        console.log('✅ FIXED: Using correct container #chat-messages for real-time messages');
 
         // Debug: Log the raw WebSocket message data
         console.log('🐛 Raw WebSocket message data:', JSON.stringify(messageData, null, 2));

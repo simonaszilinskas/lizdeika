@@ -873,9 +873,13 @@ class AgentDashboard {
             console.log('🔄 WebSocket: Performing deferred updates');
             this.loadConversations();
             
-            // If this is the current chat, refresh conversation state
+            // If this is the current chat, refresh conversation state but skip full message reload
             if (data.conversationId === this.stateManager.getCurrentChatId()) {
                 this.refreshConversation(this.stateManager.getCurrentChatId());
+                
+                // Skip reloading chat messages since we already added it in real-time
+                // Only reload if there was an error in real-time display
+                console.log('⏭️ Skipping chat message reload - already displayed in real-time');
                 
                 // Handle AI suggestions with loading state
                 if (this.systemMode === 'hitl' && data.sender === 'customer') {
