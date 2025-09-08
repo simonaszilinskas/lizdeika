@@ -843,6 +843,7 @@ class AgentDashboard {
      */
     handleNewMessage(data) {
         console.log('📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
+        console.log('🐛 DEBUG: Full handleNewMessage data:', JSON.stringify(data, null, 2));
         
         // Play sound notification for new messages
         if (this.soundNotificationManager && data.sender !== 'agent') {
@@ -858,7 +859,10 @@ class AgentDashboard {
         // IMMEDIATE: Show message in real-time if it's the current chat
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             console.log('⚡ WebSocket: Showing message immediately for current chat');
+            console.log('🐛 DEBUG: About to call appendMessageRealTime with:', data);
             this.conversationRenderer.appendMessageRealTime(data);
+        } else {
+            console.log('🐛 DEBUG: Not current chat, skipping immediate display. Current chat:', this.stateManager.getCurrentChatId());
         }
         
         // IMMEDIATE: Update queue item with new message indicator

@@ -324,8 +324,11 @@ export class ConversationRenderer {
             metadata: messageData.metadata || {}
         };
 
+        console.log('🐛 DEBUG: Processed message for rendering:', JSON.stringify(message, null, 2));
+
         // Render message HTML
         const messageHtml = this.renderMessage(message);
+        console.log('🐛 DEBUG: Rendered HTML:', messageHtml);
         
         // Append to messages container
         messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
