@@ -315,7 +315,7 @@ export class ConversationRenderer {
         
         console.log('⚡ Message appended in real-time:', { 
             sender: message.sender, 
-            content: message.content.substring(0, 50) + '...' 
+            content: String(message.content || '').substring(0, 50) + '...' 
         });
     }
 
@@ -347,7 +347,7 @@ export class ConversationRenderer {
         // Update last message preview
         const messagePreview = queueItem.querySelector('.message-preview');
         if (messagePreview) {
-            const content = messageData.content || messageData.message || '';
+            const content = String(messageData.content || messageData.message || '');
             messagePreview.textContent = content.length > 50 ? 
                 content.substring(0, 50) + '...' : content;
         }
