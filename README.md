@@ -89,7 +89,7 @@ npm start
    - Open http://localhost:3002/test-dashboard.html
    - Verify all components are working
 
-## ✨ Current Features (Phase 3 Complete)
+## ✨ Current Features
 
 ### 🤖 **AI & RAG**
 - **Dual AI providers**: OpenRouter (Gemini) + Flowise with failover
@@ -115,10 +115,54 @@ npm start
 - **6-month data retention** with automated cleanup
 - **Production-ready** with comprehensive error handling
 
-## 🚀 Next Steps: Completing Lizdeika Vision
+## 🚀 Development Priorities
 
+### 🧪 **Testing Implementation** (Medium Priority)
+- [ ] **Fix failing tests** - 3 tests failing due to missing modules
+- [ ] **Fix coverage reporting** - Jest shows 0% due to ES6-to-CommonJS transformation, but tests exercise real code
+- [ ] **Backend tests** - Add tests for API endpoints and database operations
+
+### 📊 **Monitoring & Observability** (High Priority)
+- [ ] **Structured logging** - Correlation IDs and centralized logs
+- [ ] **Performance metrics** - Response times, AI provider latency tracking
+- [ ] **Error monitoring** - Rate tracking and alerting system
+- [ ] **Database monitoring** - Query performance and connection health
+- [ ] **WebSocket health** - Connection monitoring and diagnostics
+
+### 🔒 **Security Hardening** (Medium Priority)
+- [ ] **Input validation** - Comprehensive sanitization audit
+- [ ] **Advanced rate limiting** - Per user/endpoint (beyond global)
+- [ ] **Security headers** - HTTPS, CSP, HSTS implementation
+- [ ] **Audit logging** - Sensitive operations tracking
+- [ ] **JWT strategy** - Token rotation and refresh policies
+
+### ⚡ **Performance Optimization** (Medium Priority)
+- [ ] **Database optimization** - Query performance, indexing
+- [ ] **Redis caching** - Frequently accessed data caching
+- [ ] **Connection pooling** - PostgreSQL optimization
+- [ ] **Asset optimization** - CDN integration, compression
+- [ ] **Vector DB tuning** - ChromaDB query optimization
+
+### 🎯 **Operational Excellence** (Medium Priority)
+- [ ] **Enhanced health checks** - Database, AI providers, vector DB
+- [ ] **Disaster recovery** - Backup procedures and restoration
+- [ ] **Log management** - Rotation, retention, analysis
+- [ ] **Config validation** - Environment setup verification
+- [ ] **Graceful shutdown** - Process management improvements
+
+### 🔧 **Developer Experience** (Low Priority)
+- [ ] **CI/CD pipeline** - Automated testing and deployment
+- [ ] **Code quality** - ESLint, Prettier, quality gates
+- [ ] **API documentation** - OpenAPI/Swagger integration
+- [ ] **Dev environment** - Container optimization
+
+### 🌐 **User Experience** (Low Priority)
 - [ ] **iframe embedding** - Easy widget integration like YouTube
-- [ ] **Mobile optimization** - Improved responsive design for the widget and the dashboard
+- [ ] **Mobile optimization** - Improved responsive design for widget and dashboard
+- [ ] **Accessibility** - WCAG 2.1 compliance
+- [ ] **Dark mode** - Theme support across platform
+- [ ] **Keyboard navigation** - Full accessibility support
+- [ ] **Multi-language** - Expansion beyond Lithuanian
 
 
 ## 🏗️ Technology Stack
