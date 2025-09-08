@@ -60,6 +60,27 @@ model system_settings {
   updated_by String
 }
 
+model application_logs {
+  id             String    @id @default(cuid())
+  timestamp      DateTime  @default(now())
+  level          String
+  correlation_id String?
+  service        String    @default("vilnius-assistant-backend")
+  module         String?
+  message        String
+  user_id        String?
+  metadata       Json?
+  stack          String?
+  created_at     DateTime  @default(now())
+
+  @@index([timestamp])
+  @@index([level])
+  @@index([correlation_id])
+  @@index([user_id])
+  @@index([module])
+  @@index([level, timestamp(sort: Desc)])
+}
+
 model user_activities {
   id          String              @id
   user_id     String?

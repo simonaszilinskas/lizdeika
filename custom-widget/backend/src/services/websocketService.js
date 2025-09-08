@@ -4,28 +4,41 @@
  */
 const agentService = require('./agentService');
 const conversationService = require('./conversationService');
+const { createLogger } = require('../utils/logger');
 
 class WebSocketService {
     constructor(io) {
         this.io = io;
+        this.logger = createLogger('websocketService');
         this.setupSocketHandlers();
     }
 
     setupSocketHandlers() {
         this.io.on('connection', (socket) => {
-            console.log('Client connected:', socket.id);
+            this.logger.info('WebSocket client connected', { 
+                socketId: socket.id,
+                correlationId: socket.correlationId 
+            });
             
             // Debug: log all events from this socket
             const originalOn = socket.on.bind(socket);
             socket.on = function(event, handler) {
-                console.log(`🐛 Socket ${socket.id} registered listener for: ${event}`);
+                this.logger.debug('Socket event listener registered', { 
+                    socketId: socket.id,
+                    event,
+                    correlationId: socket.correlationId 
+                });
                 return originalOn(event, handler);
-            };
+            }.bind(this);
             
             // Join conversation room
             socket.on('join-conversation', (conversationId) => {
                 socket.join(conversationId);
-                console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
+                this.logger.info('Socket joined conversation', { 
+                    socketId: socket.id,
+                    conversationId,
+                    correlationId: socket.correlationId 
+                });
             });
             
             // Join agent dashboard

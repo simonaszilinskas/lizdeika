@@ -7,10 +7,12 @@ const databaseClient = require('../utils/database');
 const tokenUtils = require('../utils/tokenUtils');
 const passwordUtils = require('../utils/passwordUtils');
 const { v4: uuidv4 } = require('uuid');
+const { createLogger } = require('../utils/logger');
 
 class AuthService {
   constructor() {
     this.db = null;
+    this.logger = createLogger('authService');
   }
 
   async initialize() {
@@ -19,8 +21,9 @@ class AuthService {
         // Ensure database is connected
         await databaseClient.connect();
         this.db = databaseClient.getClient();
+        this.logger.info('AuthService initialized successfully');
       } catch (error) {
-        console.error('AuthService: Database initialization failed:', error);
+        this.logger.logError(error, { context: 'Database initialization failed' });
         throw new Error('Database connection failed. Please ensure PostgreSQL is running.');
       }
     }

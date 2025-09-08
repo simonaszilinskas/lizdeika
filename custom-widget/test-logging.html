@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Frontend Logging</title>
+</head>
+<body>
+    <h1>Frontend Logging Test</h1>
+    <button onclick="testError()">Test Error</button>
+    <button onclick="testInfo()">Test Info</button>
+    <button onclick="testWarning()">Test Warning</button>
+    <button onclick="testFetch()">Test Fetch with Correlation</button>
+
+    <div id="output"></div>
+
+    <script type="module">
+        // Simulate ErrorHandler class for testing
+        class ErrorHandler {
+            static currentCorrelationId = null;
+            static sessionId = null;
+
+            static init() {
+                this.sessionId = 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                this.interceptFetchForCorrelation();
+                console.log('ErrorHandler initialized with session:', this.sessionId);
+            }
+
+            static generateCorrelationId() {
+                return 'client_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            }
+
+            static getCorrelationId() {
+                if (!this.currentCorrelationId) {
+                    this.currentCorrelationId = this.generateCorrelationId();
+                }
+                return this.currentCorrelationId;
+            }
+
+            static setCorrelationId(correlationId) {
+                this.currentCorrelationId = correlationId;
+            }
+
+            static interceptFetchForCorrelation() {
+                const originalFetch = window.fetch;
+                
+                window.fetch = async (...args) => {
+                    const [url, options = {}] = args;
+                    
+                    // Add correlation ID to request headers
+                    const correlationId = this.getCorrelationId();
+                    options.headers = {
+                        ...options.headers,
+                        'X-Correlation-ID': correlationId
+                    };
+                    
+                    try {
+                        const response = await originalFetch(url, options);
+                        
+                        // Extract correlation ID from response headers
+                        const responseCorrelationId = response.headers.get('X-Correlation-ID');
+                        if (responseCorrelationId) {
+                            this.setCorrelationId(responseCorrelationId);
+                        }
+                        
+                        return response;
+                    } catch (error) {
+                        this.logError(error, `Fetch failed: ${url}`);
+                        throw error;
+                    }
+                };
+            }
+
+            static logError(error, context = '', metadata = {}) {
+                const correlationId = this.getCorrelationId();
+                const message = error instanceof Error ? error.message : String(error);
+                const stack = error instanceof Error ? error.stack : '';
+                
+                console.error(`[ERROR] [${correlationId}] ${context ? `[${context}] ` : ''}${message}`);
+                
+                this._sendToLoggingService({
+                    level: 'error',
+                    message,
+                    correlationId,
+                    module: 'test-frontend',
+                    metadata: {
+                        context,
+                        sessionId: this.sessionId,
+                        url: window.location.href,
+                        ...metadata
+                    },
+                    stack
+                });
+            }
+
+            static logInfo(message, context = '', metadata = {}) {
+                const correlationId = this.getCorrelationId();
+                console.info(`[INFO] [${correlationId}] ${context ? `[${context}] ` : ''}${message}`);
+                
+                this._sendToLoggingService({
+                    level: 'info',
+                    message,
+                    correlationId,
+                    module: 'test-frontend',
+                    metadata: {
+                        context,
+                        sessionId: this.sessionId,
+                        url: window.location.href,
+                        ...metadata
+                    }
+                });
+            }
+
+            static logWarn(message, context = '', metadata = {}) {
+                const correlationId = this.getCorrelationId();
+                console.warn(`[WARN] [${correlationId}] ${context ? `[${context}] ` : ''}${message}`);
+                
+                this._sendToLoggingService({
+                    level: 'warn',
+                    message,
+                    correlationId,
+                    module: 'test-frontend',
+                    metadata: {
+                        context,
+                        sessionId: this.sessionId,
+                        url: window.location.href,
+                        ...metadata
+                    }
+                });
+            }
+
+            static _sendToLoggingService(logData) {
+                try {
+                    const endpoint = '/api/logs/frontend';
+                    
+                    fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-Correlation-ID': logData.correlationId
+                        },
+                        body: JSON.stringify(logData)
+                    }).catch(() => {
+                        console.error('Failed to send log to server');
+                    });
+                } catch (e) {
+                    console.error('Failed to serialize log data');
+                }
+            }
+        }
+
+        // Initialize ErrorHandler
+        ErrorHandler.init();
+
+        // Make functions globally available
+        window.testError = () => {
+            ErrorHandler.logError(new Error('Test error from frontend'), 'button-click', { buttonType: 'error' });
+            document.getElementById('output').innerHTML += '<p>Error logged with correlation ID: ' + ErrorHandler.getCorrelationId() + '</p>';
+        };
+
+        window.testInfo = () => {
+            ErrorHandler.logInfo('Test info message from frontend', 'user-action', { actionType: 'info-test' });
+            document.getElementById('output').innerHTML += '<p>Info logged with correlation ID: ' + ErrorHandler.getCorrelationId() + '</p>';
+        };
+
+        window.testWarning = () => {
+            ErrorHandler.logWarn('Test warning from frontend', 'performance', { slowOperation: true });
+            document.getElementById('output').innerHTML += '<p>Warning logged with correlation ID: ' + ErrorHandler.getCorrelationId() + '</p>';
+        };
+
+        window.testFetch = async () => {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                document.getElementById('output').innerHTML += '<p>Fetch successful with correlation ID: ' + ErrorHandler.getCorrelationId() + '</p>';
+                console.log('Health check response:', data);
+            } catch (error) {
+                ErrorHandler.logError(error, 'health-check-failed');
+            }
+        };
+    </script>
+</body>
+</html>

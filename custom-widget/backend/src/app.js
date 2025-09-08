@@ -44,6 +44,8 @@ const { Server } = require('socket.io');
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
+const { correlationMiddleware, socketCorrelationMiddleware } = require('./middleware/correlationMiddleware');
+const { createLogger } = require('./utils/logger');
 
 // Import route creators
 const createConversationRoutes = require('./routes/conversationRoutes');
@@ -54,6 +56,7 @@ const createWidgetRoutes = require('./routes/widgetRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const logsRoutes = require('./routes/logsRoutes');
 const createDocsRoutes = require('./routes/docsRoutes');
 
 // Import services
@@ -70,8 +73,15 @@ function createApp() {
         }
     });
 
-    // Middleware
+    // Create logger for app initialization
+    const logger = createLogger('app');
+
+    // Middleware - IMPORTANT: Order matters!
     app.use(cors());
+    
+    // Correlation ID middleware must be first to track all requests
+    app.use(correlationMiddleware);
+    
     app.use(express.json());
     app.use(express.static('../')); // Serve widget files
     
@@ -80,6 +90,9 @@ function createApp() {
         app.use(requestLogger);
     }
 
+    // Add correlation middleware to Socket.IO
+    io.use(socketCorrelationMiddleware);
+
     // Initialize WebSocket service
     const websocketService = new WebSocketService(io);
 
@@ -87,6 +100,7 @@ function createApp() {
     app.use('/api/auth', authRoutes); // Authentication routes
     app.use('/api/users', userRoutes); // User management routes (admin only)
     app.use('/api/activities', activityRoutes); // Activity logging routes
+    app.use('/api/logs', logsRoutes); // Centralized logging routes (admin only)
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));
     app.use('/api/knowledge', createKnowledgeRoutes()); // Knowledge management routes
