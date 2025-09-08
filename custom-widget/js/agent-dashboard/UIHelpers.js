@@ -99,7 +99,7 @@ export class UIHelpers {
         if (isUnassigned) return 'UNASSIGNED';
         
         if (conv && conv.assignedAgent) {
-            const agent = this.connectedAgents.get(conv.assignedAgent);
+            const agent = this.connectedAgents?.get(conv.assignedAgent);
             if (agent) {
                 return getAgentDisplayName(agent).replace('Agent ', '');
             }

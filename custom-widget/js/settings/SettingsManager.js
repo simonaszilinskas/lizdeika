@@ -61,6 +61,13 @@ export class SettingsManager {
             // Initialize API manager
             await this.apiManager.initialize();
             
+            // Check authentication - redirect if no token
+            if (!this.apiManager.agentToken) {
+                console.log('⚠️ No authentication token found, redirecting to login');
+                window.location.href = '/login.html';
+                return;
+            }
+            
             // Initialize feature modules
             console.log('🎯 SettingsManager: Initializing feature modules');
             await this.systemModeModule.initialize();

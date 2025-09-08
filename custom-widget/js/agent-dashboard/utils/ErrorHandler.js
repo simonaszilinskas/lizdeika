@@ -158,7 +158,7 @@ export class ErrorHandler {
    */
   static getCurrentUserId() {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('agent_token');
       if (token) {
         // Simple JWT payload extraction (without verification)
         const payload = JSON.parse(atob(token.split('.')[1]));

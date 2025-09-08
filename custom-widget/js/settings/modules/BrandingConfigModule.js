@@ -342,7 +342,7 @@ export class BrandingConfigModule {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
                 },
                 body: JSON.stringify({
                     settings: this.currentSettings
@@ -410,7 +410,7 @@ export class BrandingConfigModule {
             const response = await fetch('/api/config/branding/reset', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
                 }
             });
             
