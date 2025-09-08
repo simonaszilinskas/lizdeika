@@ -46,11 +46,9 @@
                     <i class="fas fa-user-cog mr-2"></i>Agent Preferences
                 </button>
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="branding">
-                    <i class="fas fa-palette mr-2"></i>Branding
+                    <i class="fas fa-palette mr-2"></i>Widget & Branding
                 </button>
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="widget">
-                    <i class="fas fa-code mr-2"></i>Widget Configuration
-                </button>
+                <!-- Widget Configuration merged with Branding tab -->
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="users">
                     <i class="fas fa-users mr-2"></i>User Management
                 </button>
@@ -152,66 +150,7 @@
             </div>
         </div>
 
-        <!-- Widget Configuration Tab -->
-        <div id="widget-tab" class="tab-content hidden">
-            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <i class="fas fa-paint-brush text-indigo-600"></i>
-                    Widget Configuration
-                </h2>
-                
-                <div id="current-widget-config" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h4 class="font-semibold text-blue-800">Loading...</h4>
-                    <p class="text-blue-600">Please wait while we load the current widget configuration.</p>
-                </div>
-                
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h4 class="font-semibold text-yellow-800 mb-2">How to Update Configuration</h4>
-                    <p class="text-yellow-700 mb-3">To change widget settings, update these environment variables in your <code class="bg-yellow-100 px-1 py-0.5 rounded text-sm">.env</code> file and restart the server:</p>
-                    <ul class="list-disc list-inside text-yellow-700 space-y-1">
-                        <li><strong>WIDGET_NAME</strong> - Display name for the widget</li>
-                        <li><strong>WIDGET_PRIMARY_COLOR</strong> - Hex color for buttons and highlights (e.g., #2c5530)</li>
-                        <li><strong>WIDGET_ALLOWED_DOMAINS</strong> - Comma-separated domains or * for all domains</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <i class="fas fa-code text-indigo-600"></i>
-                    Integration Code
-                </h2>
-                
-                <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                    <h4 class="font-semibold text-green-800 mb-2">Embed Widget on Your Website</h4>
-                    <p class="text-green-700">Copy and paste this code into your website's HTML to add the chat widget.</p>
-                </div>
-                
-                <button id="generate-code" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
-                    Generate Integration Code
-                </button>
-                
-                <div id="integration-code-container" class="mt-4 hidden">
-                    <div class="mb-4">
-                        <label for="integration-code" class="block text-sm font-medium text-gray-700 mb-2">HTML Integration Code</label>
-                        <textarea id="integration-code" readonly rows="12" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"></textarea>
-                    </div>
-                    <button id="copy-code" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
-                        Copy to Clipboard
-                    </button>
-                    
-                    <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h4 class="font-semibold text-blue-800 mb-2">Integration Instructions:</h4>
-                        <ol class="list-decimal list-inside text-blue-700 space-y-1">
-                            <li>Copy the integration code above</li>
-                            <li>Paste it into your website's HTML, preferably before the closing &lt;/body&gt; tag</li>
-                            <li>The widget will appear as a floating chat button in the bottom-right corner</li>
-                            <li>Users can click it to start chatting with the assistant</li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Widget Configuration merged with Branding tab -->
 
         <!-- User Management Tab -->
         <div id="users-tab" class="tab-content hidden">

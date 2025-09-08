@@ -264,7 +264,7 @@ export class BrandingConfigModule {
         try {
             console.log('📥 BrandingConfigModule: Loading branding settings');
             
-            const response = await fetch('/api/config/branding');
+            const response = await fetch(`${this.apiManager.apiUrl}/api/config/branding`);
             const data = await response.json();
             
             if (!response.ok) {
@@ -338,7 +338,7 @@ export class BrandingConfigModule {
                 throw new Error(`Validation failed: ${validationErrors.map(e => e.message).join(', ')}`);
             }
             
-            const response = await fetch('/api/config/branding', {
+            const response = await fetch(`${this.apiManager.apiUrl}/api/config/branding`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -407,7 +407,7 @@ export class BrandingConfigModule {
             console.log('🔄 BrandingConfigModule: Resetting branding settings');
             this.setResetButtonState('resetting');
             
-            const response = await fetch('/api/config/branding/reset', {
+            const response = await fetch(`${this.apiManager.apiUrl}/api/config/branding/reset`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
@@ -563,6 +563,44 @@ export class BrandingConfigModule {
                         </div>
                     </div>
                 </div>
+                
+                <!-- Integration Code Section -->
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <h4 class="font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-code text-indigo-600 mr-2"></i>
+                        Widget Integration Code
+                    </h4>
+                    
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <h5 class="font-semibold text-green-800 mb-2">Embed Widget on Your Website</h5>
+                        <p class="text-green-700">Copy and paste this code into your website's HTML to add the chat widget with your current branding.</p>
+                    </div>
+                    
+                    <button id="generate-integration-code" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors mb-4">
+                        <i class="fas fa-magic mr-2"></i>Generate Integration Code
+                    </button>
+                    
+                    <div id="integration-code-container" class="hidden">
+                        <div class="mb-4">
+                            <label for="integration-code" class="block text-sm font-medium text-gray-700 mb-2">HTML Integration Code</label>
+                            <textarea id="integration-code" readonly rows="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-sm"></textarea>
+                        </div>
+                        <button id="copy-integration-code" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-copy mr-2"></i>Copy to Clipboard
+                        </button>
+                        
+                        <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h5 class="font-semibold text-blue-800 mb-2">Integration Instructions:</h5>
+                            <ol class="list-decimal list-inside text-blue-700 space-y-1">
+                                <li>Copy the integration code above</li>
+                                <li>Paste it into your website's HTML, preferably before the closing &lt;/body&gt; tag</li>
+                                <li>The widget will appear as a floating chat button in the bottom-right corner</li>
+                                <li>Users can click it to start chatting with the assistant</li>
+                                <li>The widget will use your current branding settings automatically</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -584,12 +622,10 @@ export class BrandingConfigModule {
                 <div class="flex items-center justify-between">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Branding Configuration</h3>
-                        <p class="text-sm text-gray-600">Customize the appearance and branding of your chat widget</p>
+                        <p class="text-sm text-gray-600">Customize the appearance, branding, and integration of your chat widget</p>
                     </div>
                     <div class="flex space-x-2">
-                        <button id="preview-branding" class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
-                            <i class="fas fa-eye mr-1"></i>Preview
-                        </button>
+                        <!-- Preview button removed - live preview makes this redundant -->
                         <button id="reset-branding" class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200">
                             <i class="fas fa-undo mr-1"></i>Reset
                         </button>
@@ -707,10 +743,16 @@ export class BrandingConfigModule {
             
             saveButton: document.getElementById('save-branding'),
             resetButton: document.getElementById('reset-branding'),
-            previewButton: document.getElementById('preview-branding'),
+            // Removed: previewButton (redundant with live preview)
             
             previewContainer: document.getElementById('preview-container'),
-            statusDiv: document.getElementById('branding-form-status')
+            statusDiv: document.getElementById('branding-form-status'),
+            
+            // Integration code elements
+            generateCodeButton: document.getElementById('generate-integration-code'),
+            copyCodeButton: document.getElementById('copy-integration-code'),
+            codeContainer: document.getElementById('integration-code-container'),
+            integrationCodeTextarea: document.getElementById('integration-code')
         };
         
         // Re-setup event listeners for form elements
@@ -763,8 +805,16 @@ export class BrandingConfigModule {
             this.elements.resetButton.addEventListener('click', () => this.resetBrandingSettings());
         }
         
-        if (this.elements.previewButton) {
-            this.elements.previewButton.addEventListener('click', () => this.generatePreview());
+        // Removed: previewButton event listener (redundant with live preview)
+        
+        // Integration code event listeners
+        if (this.elements.generateCodeButton) {
+            this.elements.generateCodeButton.addEventListener('click', () => this.generateIntegrationCode());
+        }
+        
+        if (this.elements.copyCodeButton) {
+            this.elements.copyCodeButton.addEventListener('click', () => this.copyIntegrationCode());
+        }
         }
     }
 
@@ -1153,5 +1203,113 @@ export class BrandingConfigModule {
         this.eventListeners = [];
         
         console.log('🧹 BrandingConfigModule: Cleanup complete');
+    }
+    
+    // =========================
+    // INTEGRATION CODE METHODS
+    // =========================
+    
+    /**
+     * Generate integration code with current branding settings
+     */
+    async generateIntegrationCode() {
+        try {
+            console.log('📝 BrandingConfigModule: Generating integration code with branding');
+            
+            // Update UI to show generating state
+            if (this.elements.generateCodeButton) {
+                this.elements.generateCodeButton.disabled = true;
+                this.elements.generateCodeButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Generating...';
+            }
+            
+            // Get current widget configuration URL
+            const widgetUrl = `${window.location.protocol}//${window.location.hostname}:3002/widget.js`;
+            
+            // Generate integration code using current branding settings
+            const currentSettings = await this.loadCurrentBrandingSettings();
+            
+            const integrationCode = `<!-- Vilnius Assistant Chat Widget -->
+<script type="text/javascript">
+(function() {
+    var config = {
+        apiUrl: '${window.location.protocol}//${window.location.hostname}:3002',
+        widgetName: '${currentSettings?.widget_name?.value || 'Vilnius Assistant'}',
+        primaryColor: '${currentSettings?.widget_primary_color?.value || '#2c5530'}',
+        siteName: '${currentSettings?.site_name?.value || 'Customer Support'}',
+        allowedDomains: '${currentSettings?.widget_allowed_domains?.value || '*'}'
+    };
+    
+    // Create widget container
+    var widgetContainer = document.createElement('div');
+    widgetContainer.id = 'vilnius-widget-container';
+    document.body.appendChild(widgetContainer);
+    
+    // Load and initialize widget
+    var script = document.createElement('script');
+    script.src = '${widgetUrl}';
+    script.onload = function() {
+        if (window.VilniusWidget) {
+            window.VilniusWidget.init(config);
+        }
+    };
+    document.head.appendChild(script);
+})();
+</script>
+<!-- End Vilnius Assistant Chat Widget -->`;
+            
+            // Update UI with generated code
+            if (this.elements.integrationCodeTextarea) {
+                this.elements.integrationCodeTextarea.value = integrationCode;
+            }
+            
+            // Show the code container
+            if (this.elements.codeContainer) {
+                this.elements.codeContainer.classList.remove('hidden');
+            }
+            
+            Toast.success('Integration code generated with current branding!');
+            
+        } catch (error) {
+            ErrorHandler.logError(error, 'Failed to generate integration code');
+            Toast.error('Failed to generate integration code: ' + error.message);
+        } finally {
+            // Reset button state
+            if (this.elements.generateCodeButton) {
+                this.elements.generateCodeButton.disabled = false;
+                this.elements.generateCodeButton.innerHTML = '<i class="fas fa-magic mr-2"></i>Generate Integration Code';
+            }
+        }
+    }
+    
+    /**
+     * Copy integration code to clipboard
+     */
+    async copyIntegrationCode() {
+        try {
+            if (!this.elements.integrationCodeTextarea || !this.elements.integrationCodeTextarea.value) {
+                Toast.warning('Please generate the integration code first');
+                return;
+            }
+            
+            // Copy to clipboard
+            await navigator.clipboard.writeText(this.elements.integrationCodeTextarea.value);
+            Toast.success('Integration code copied to clipboard!');
+            
+            // Temporarily update button text
+            const originalText = this.elements.copyCodeButton.innerHTML;
+            this.elements.copyCodeButton.innerHTML = '<i class="fas fa-check mr-2"></i>Copied!';
+            this.elements.copyCodeButton.classList.add('bg-green-600');
+            this.elements.copyCodeButton.classList.remove('bg-gray-600');
+            
+            setTimeout(() => {
+                this.elements.copyCodeButton.innerHTML = originalText;
+                this.elements.copyCodeButton.classList.remove('bg-green-600');
+                this.elements.copyCodeButton.classList.add('bg-gray-600');
+            }, 2000);
+            
+        } catch (error) {
+            ErrorHandler.logError(error, 'Failed to copy integration code');
+            Toast.error('Failed to copy to clipboard: ' + error.message);
+        }
     }
 }
