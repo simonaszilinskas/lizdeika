@@ -53,11 +53,20 @@ model system_logs {
 }
 
 model system_settings {
-  id         String   @id
-  key        String   @unique
-  value      String
-  updated_at DateTime
-  updated_by String
+  id            String    @id @default(cuid())
+  setting_key   String    @unique
+  setting_value String?
+  setting_type  String    @default("string") // string, number, boolean, json
+  description   String?
+  category      String    @default("general") // branding, ai, security, logging, etc
+  is_public     Boolean   @default(false) // can be accessed by frontend
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  updated_by    String?
+
+  @@index([category])
+  @@index([is_public])
+  @@index([setting_key, category])
 }
 
 model application_logs {

@@ -16,6 +16,10 @@
  * - GET /config/system-prompt - Get current system prompt
  * - GET /config/system - Get full system configuration (display-only)
  * - POST /config/settings - Update system prompt (AI provider read-only from env)
+ * - GET /config/branding - Get branding settings
+ * - PUT /config/branding - Update branding settings (admin only)
+ * - GET /config/branding/preview - Get preview of branding changes
+ * - POST /config/branding/reset - Reset branding to defaults (admin only)
  * 
  * Admin Routes:
  * - POST /reset - Clear all system data (development/testing)
@@ -37,10 +41,13 @@
  */
 const express = require('express');
 const SystemController = require('../controllers/systemController');
+const { authenticateToken } = require('../middleware/authMiddleware');
+const SettingsService = require('../services/settingsService');
 
 function createSystemRoutes() {
     const router = express.Router();
     const systemController = new SystemController();
+    const settingsService = new SettingsService();
 
     // Health check
     router.get('/health', (req, res) => {
@@ -60,6 +67,130 @@ function createSystemRoutes() {
     // Update system settings (system prompt only - AI provider is read-only)
     router.post('/config/settings', (req, res) => {
         systemController.updateSettings(req, res);
+    });
+
+    // ===========================
+    // BRANDING CONFIGURATION ROUTES
+    // ===========================
+
+    // Get current branding settings (public endpoint for frontend)
+    router.get('/config/branding', async (req, res) => {
+        try {
+            const brandingSettings = await settingsService.getSettingsByCategory('branding', false); // Only public settings
+            
+            res.json({
+                success: true,
+                data: brandingSettings
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch branding settings',
+                message: error.message
+            });
+        }
+    });
+
+    // Update branding settings (admin only)
+    router.put('/config/branding', authenticateToken, async (req, res) => {
+        try {
+            // Check admin permissions
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const { settings } = req.body;
+            if (!settings || typeof settings !== 'object') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Settings object is required'
+                });
+            }
+
+            // Update settings
+            const updatedSettings = await settingsService.updateSettings(
+                settings, 
+                req.user.id, 
+                'branding'
+            );
+
+            res.json({
+                success: true,
+                data: updatedSettings,
+                message: 'Branding settings updated successfully'
+            });
+
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                error: 'Failed to update branding settings',
+                message: error.message
+            });
+        }
+    });
+
+    // Get branding preview (admin only) - returns what the settings would look like
+    router.get('/config/branding/preview', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const allBrandingSettings = await settingsService.getSettingsByCategory('branding', true); // Include private settings
+            
+            res.json({
+                success: true,
+                data: {
+                    settings: allBrandingSettings,
+                    preview: {
+                        widgetName: allBrandingSettings.widget_name?.value || 'Vilnius Assistant',
+                        primaryColor: allBrandingSettings.widget_primary_color?.value || '#2c5530',
+                        siteName: allBrandingSettings.site_name?.value || 'Customer Support',
+                        allowedDomains: allBrandingSettings.widget_allowed_domains?.value || '*'
+                    }
+                }
+            });
+
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get branding preview',
+                message: error.message
+            });
+        }
+    });
+
+    // Reset branding settings to defaults (admin only)
+    router.post('/config/branding/reset', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const resetResult = await settingsService.resetSettings('branding', req.user.id);
+            
+            res.json({
+                success: true,
+                data: resetResult,
+                message: 'Branding settings reset to defaults'
+            });
+
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to reset branding settings',
+                message: error.message
+            });
+        }
     });
 
 

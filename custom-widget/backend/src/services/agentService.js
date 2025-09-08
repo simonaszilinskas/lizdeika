@@ -368,10 +368,10 @@ class AgentService {
      */
     async getSystemMode() {
         try {
-            const setting = await prisma.system_settings.findUnique({
-                where: { key: 'system_mode' }
+            const setting = await prisma.system_settings.findFirst({
+                where: { setting_key: 'system_mode' }
             });
-            return setting?.value || 'hitl';
+            return setting?.setting_value || 'hitl';
         } catch (error) {
             throw handleServiceError(error, 'getSystemMode');
         }

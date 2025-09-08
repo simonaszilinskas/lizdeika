@@ -12,6 +12,7 @@ import { SystemModeModule } from './modules/SystemModeModule.js';
 import { AgentStatusModule } from './modules/AgentStatusModule.js';
 import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
 import { UserManagementModule } from './modules/UserManagementModule.js';
+import { BrandingConfigModule } from './modules/BrandingConfigModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
@@ -29,6 +30,7 @@ export class SettingsManager {
         this.agentStatusModule = new AgentStatusModule(this.apiManager, this.stateManager, this.connectionManager);
         this.widgetConfigModule = new WidgetConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         this.userManagementModule = new UserManagementModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.brandingConfigModule = new BrandingConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         
         // DOM elements - will be initialized in initializeElements
         this.elements = {};
@@ -65,6 +67,7 @@ export class SettingsManager {
             await this.agentStatusModule.initialize();
             await this.widgetConfigModule.initialize();
             await this.userManagementModule.initialize();
+            await this.brandingConfigModule.initialize();
             console.log('✅ SettingsManager: Feature modules initialized');
             
             // Load initial data
@@ -265,6 +268,13 @@ export class SettingsManager {
             await this.userManagementModule.loadUsers();
         } else if (tabName === 'users') {
             console.log('❌ SettingsManager: Cannot switch to users tab, user not admin:', this.currentUser?.role || 'no user');
+        } else if (tabName === 'branding' && this.currentUser && this.currentUser.role === 'admin') {
+            console.log('🎨 SettingsManager: Switching to branding tab, loading branding settings');
+            
+            // Branding configuration is handled by BrandingConfigModule
+            await this.brandingConfigModule.loadBrandingSettings();
+        } else if (tabName === 'branding') {
+            console.log('❌ SettingsManager: Cannot switch to branding tab, user not admin:', this.currentUser?.role || 'no user');
         }
     }
 
