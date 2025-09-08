@@ -119,13 +119,21 @@ export class BrandingConfigModule {
 
         // Integration code buttons
         const generateCodeBtn = document.getElementById('generate-integration-code');
+        console.log('🔍 BrandingConfigModule: Generate code button found:', !!generateCodeBtn);
         if (generateCodeBtn) {
-            generateCodeBtn.addEventListener('click', () => this.generateIntegrationCode());
+            generateCodeBtn.addEventListener('click', () => {
+                console.log('🎯 BrandingConfigModule: Generate code button clicked - event fired');
+                this.generateIntegrationCode();
+            });
         }
         
         const copyCodeBtn = document.getElementById('copy-integration-code');
+        console.log('🔍 BrandingConfigModule: Copy code button found:', !!copyCodeBtn);
         if (copyCodeBtn) {
-            copyCodeBtn.addEventListener('click', () => this.copyIntegrationCode());
+            copyCodeBtn.addEventListener('click', () => {
+                console.log('🎯 BrandingConfigModule: Copy code button clicked - event fired');
+                this.copyIntegrationCode();
+            });
         }
 
         // Store references for later use
@@ -134,6 +142,13 @@ export class BrandingConfigModule {
         this.elements.copyCodeButton = copyCodeBtn;
         this.elements.codeContainer = document.getElementById('integration-code-container');
         this.elements.integrationCodeTextarea = document.getElementById('integration-code');
+        
+        console.log('🔍 BrandingConfigModule: Integration elements stored:', {
+            generateCodeButton: !!this.elements.generateCodeButton,
+            copyCodeButton: !!this.elements.copyCodeButton,
+            codeContainer: !!this.elements.codeContainer,
+            integrationCodeTextarea: !!this.elements.integrationCodeTextarea
+        });
 
         // Live preview functionality - listen to input changes
         this.setupLivePreview();
