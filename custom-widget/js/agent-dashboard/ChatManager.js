@@ -229,6 +229,13 @@ export class ChatManager {
             headerElement.textContent = headerText;
         }
         
+        // Re-enable action buttons (in case they were disabled during loading)
+        const actionButtons = document.querySelectorAll('#ai-suggestion-panel button');
+        actionButtons.forEach(button => {
+            button.disabled = false;
+            button.style.opacity = '1';
+        });
+        
         if (panel) {
             panel.classList.remove('hidden');
         }
@@ -252,6 +259,42 @@ export class ChatManager {
         }
         
         this.stateManager.setCurrentSuggestion(null);
+    }
+
+    /**
+     * Show AI suggestion loading state
+     */
+    showAISuggestionLoading() {
+        const suggestionText = document.getElementById('ai-suggestion-text');
+        const panel = document.getElementById('ai-suggestion-panel');
+        
+        if (suggestionText) {
+            suggestionText.innerHTML = `
+                <div class="flex items-center justify-center space-x-3 py-4">
+                    <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                    <span class="text-gray-600">Generating AI suggestion...</span>
+                </div>
+            `;
+        }
+        
+        // Update header for loading state
+        const headerElement = document.querySelector('#ai-suggestion-panel .font-semibold');
+        if (headerElement) {
+            headerElement.textContent = 'AI Suggestion (Loading...)';
+        }
+        
+        // Hide action buttons during loading
+        const actionButtons = document.querySelectorAll('#ai-suggestion-panel button');
+        actionButtons.forEach(button => {
+            button.disabled = true;
+            button.style.opacity = '0.5';
+        });
+        
+        if (panel) {
+            panel.classList.remove('hidden');
+        }
+        
+        console.log('🤖 AI suggestion loading state shown');
     }
 
     /**

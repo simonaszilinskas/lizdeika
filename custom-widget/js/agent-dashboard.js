@@ -855,28 +855,39 @@ class AgentDashboard {
             });
         }
         
-        // Always do full conversation reload for reliability
-        this.loadConversations();
-        
-        // If this is the current chat, update messages and check for suggestion
+        // IMMEDIATE: Show message in real-time if it's the current chat
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
-            console.log('🔄 WebSocket: Refreshing current chat messages');
-            // Refresh conversation status (handles reopening cases)
-            this.refreshConversation(this.stateManager.getCurrentChatId());
-            this.loadChatMessages(this.currentChatId);
-            
-            // If this is a customer message in HITL mode, refresh suggestions
-            if (this.systemMode === 'hitl' && data.sender === 'customer') {
-                console.log('💬 Customer message received, clearing old suggestion and checking for new one');
-                // Clear any existing suggestion first (it's now outdated)
-                this.chatManager.hideAISuggestion();
-                // Check for new suggestion based on updated conversation
-                this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
-            } else if (this.systemMode === 'hitl') {
-                // For agent messages, just check if there's still a pending suggestion
-                this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
-            }
+            console.log('⚡ WebSocket: Showing message immediately for current chat');
+            this.conversationRenderer.appendMessageRealTime(data);
         }
+        
+        // IMMEDIATE: Update queue item with new message indicator
+        this.conversationRenderer.updateQueueItemRealTime(data);
+        
+        // DEFERRED: Full reload and AI processing to ensure consistency
+        setTimeout(() => {
+            console.log('🔄 WebSocket: Performing deferred updates');
+            this.loadConversations();
+            
+            // If this is the current chat, refresh conversation state
+            if (data.conversationId === this.stateManager.getCurrentChatId()) {
+                this.refreshConversation(this.stateManager.getCurrentChatId());
+                
+                // Handle AI suggestions with loading state
+                if (this.systemMode === 'hitl' && data.sender === 'customer') {
+                    console.log('💬 Customer message received, processing AI suggestion');
+                    // Clear any existing suggestion and show loading
+                    this.chatManager.hideAISuggestion();
+                    this.chatManager.showAISuggestionLoading();
+                    // Check for new suggestion
+                    this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
+                } else if (this.systemMode === 'hitl') {
+                    // For agent messages, just check if there's still a pending suggestion
+                    this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
+                }
+            }
+        }, 100); // Small delay to allow real-time update to render first
+    }
     }
 
     /**

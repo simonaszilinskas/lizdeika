@@ -276,4 +276,82 @@ export class ConversationRenderer {
             // Line breaks
             .replace(/\n/g, '<br>');
     }
+
+    /**
+     * Append message to chat in real-time (immediate display)
+     * @param {Object} messageData - WebSocket message data
+     */
+    appendMessageRealTime(messageData) {
+        const messagesContainer = document.getElementById('messages-area');
+        if (!messagesContainer) {
+            console.warn('⚠️ Messages container not found, skipping real-time append');
+            return;
+        }
+
+        // Check if message already exists to prevent duplicates
+        const existingMessage = messagesContainer.querySelector(`[data-message-id="${messageData.id}"]`);
+        if (existingMessage) {
+            console.log('📨 Message already exists, skipping duplicate');
+            return;
+        }
+
+        // Create message object compatible with renderMessage
+        const message = {
+            id: messageData.id || `temp-${Date.now()}`,
+            content: messageData.content || messageData.message || '',
+            sender: messageData.sender,
+            timestamp: messageData.timestamp || new Date().toISOString(),
+            metadata: messageData.metadata || {}
+        };
+
+        // Render message HTML
+        const messageHtml = this.renderMessage(message);
+        
+        // Append to messages container
+        messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
+        
+        // Scroll to bottom to show new message
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        console.log('⚡ Message appended in real-time:', { 
+            sender: message.sender, 
+            content: message.content.substring(0, 50) + '...' 
+        });
+    }
+
+    /**
+     * Update queue item in real-time to show new message indicator
+     * @param {Object} messageData - WebSocket message data
+     */
+    updateQueueItemRealTime(messageData) {
+        const queueItem = document.querySelector(`[data-conversation-id="${messageData.conversationId}"]`);
+        if (!queueItem) {
+            console.log('📋 Queue item not found, will update on next reload');
+            return;
+        }
+
+        // Add visual indicator for new message
+        const statusBadge = queueItem.querySelector('.queue-status');
+        if (statusBadge && messageData.sender === 'customer') {
+            // Only highlight if it's a customer message (needs agent attention)
+            statusBadge.textContent = 'NEW MESSAGE';
+            statusBadge.className = 'queue-status bg-red-600 text-white font-bold px-2 py-1 text-xs rounded-full';
+            
+            // Add subtle animation
+            queueItem.classList.add('animate-pulse');
+            setTimeout(() => {
+                queueItem.classList.remove('animate-pulse');
+            }, 2000);
+        }
+
+        // Update last message preview
+        const messagePreview = queueItem.querySelector('.message-preview');
+        if (messagePreview) {
+            const content = messageData.content || messageData.message || '';
+            messagePreview.textContent = content.length > 50 ? 
+                content.substring(0, 50) + '...' : content;
+        }
+
+        console.log('📋 Queue item updated in real-time for conversation:', messageData.conversationId);
+    }
 }
