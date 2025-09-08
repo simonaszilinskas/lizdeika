@@ -288,6 +288,9 @@ export class ConversationRenderer {
             return;
         }
 
+        // Debug: Log the raw WebSocket message data
+        console.log('🐛 Raw WebSocket message data:', JSON.stringify(messageData, null, 2));
+
         // Check if message already exists to prevent duplicates
         const existingMessage = messagesContainer.querySelector(`[data-message-id="${messageData.id}"]`);
         if (existingMessage) {
@@ -296,10 +299,27 @@ export class ConversationRenderer {
         }
 
         // Create message object compatible with renderMessage
+        // Handle case where content might be an object
+        let content = '';
+        if (typeof messageData.content === 'string') {
+            content = messageData.content;
+        } else if (typeof messageData.content === 'object' && messageData.content) {
+            // If content is an object, try to extract text
+            content = messageData.content.text || messageData.content.content || messageData.content.message || JSON.stringify(messageData.content);
+        } else {
+            content = messageData.message || messageData.text || '';
+        }
+
+        // Normalize sender type - WebSocket might send 'customer' but renderMessage expects 'visitor'
+        let sender = messageData.sender;
+        if (sender === 'customer') {
+            sender = 'visitor';
+        }
+
         const message = {
             id: messageData.id || `temp-${Date.now()}`,
-            content: messageData.content || messageData.message || '',
-            sender: messageData.sender,
+            content: String(content),
+            sender: sender,
             timestamp: messageData.timestamp || new Date().toISOString(),
             metadata: messageData.metadata || {}
         };
