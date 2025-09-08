@@ -815,7 +815,6 @@ export class BrandingConfigModule {
         if (this.elements.copyCodeButton) {
             this.elements.copyCodeButton.addEventListener('click', () => this.copyIntegrationCode());
         }
-        }
     }
 
     // =========================
