@@ -96,6 +96,7 @@ npm start
 - **Document RAG**: Upload .txt/.docx files with semantic search
 - **Vector database**: Chroma DB Cloud with Mistral embeddings
 - **Context-aware responses**: AI uses uploaded documents
+- **Smart suggestion polling**: Handles multiple rapid customer messages with intelligent cancellation
 
 ### 👥 **User Management**
 - **JWT authentication**: Secure login with refresh tokens
@@ -104,10 +105,18 @@ npm start
 - **Activity logging**: Complete audit trail
 
 ### 💬 **Communication**
-- **Real-time chat**: WebSocket communication
+- **Real-time chat**: WebSocket communication with immediate message display
 - **Three-action workflow**: Send/edit/rewrite AI suggestions
 - **Conversation archiving**: Bulk operations and search
 - **Lithuanian interface**: Native language support
+
+#### **AI Suggestion System**
+Smart polling system ensures agents always see the most recent AI suggestions:
+- **Immediate message display**: Customer messages appear instantly (<100ms)
+- **Background AI processing**: Suggestions generated in 6-13 seconds
+- **Intelligent cancellation**: Prevents outdated suggestions when customers send multiple messages rapidly
+- **Multi-agent safe**: Each agent polls independently with no conflicts
+- **Exponential backoff**: Efficient polling (2s → 5s) reduces server load
 
 ### 📊 **System Capabilities**
 - **20 concurrent agents** with automatic assignment

@@ -17,8 +17,20 @@ export class ChatManager {
     }
 
     /**
-     * Select and load a chat conversation
+     * Select and load a chat conversation with AI suggestion polling cancellation
+     * 
+     * This method safely switches between conversations by:
+     * - Canceling any ongoing AI suggestion polling for the previous conversation
+     * - Loading messages and conversation data for the new conversation
+     * - Setting up the UI for the selected conversation
+     * - Checking for existing pending suggestions in HITL mode
+     * 
      * @param {string} conversationId - ID of conversation to select
+     * @returns {Promise<void>} Resolves when conversation is loaded and UI is updated
+     * 
+     * @example
+     * // Switch to a different conversation
+     * await chatManager.selectChat('conversation-456');
      */
     async selectChat(conversationId) {
         // Cancel any ongoing AI suggestion polling when switching conversations
@@ -116,9 +128,30 @@ export class ChatManager {
     }
 
     /**
-     * Send agent response message
+     * Send agent response message with AI suggestion polling cancellation
+     * 
+     * This method sends an agent's response while ensuring clean state management:
+     * - Cancels any ongoing AI suggestion polling since the agent is now responding
+     * - Disables the UI during message sending to prevent duplicate sends
+     * - Sends the message with proper suggestion attribution metadata
+     * - Refreshes the conversation view and checks for new suggestions
+     * 
      * @param {string} message - Message text to send
-     * @param {string} suggestionAction - Type of suggestion action ('as-is', 'edited', 'from-scratch')
+     * @param {string} suggestionAction - Type of suggestion action:
+     *   - 'as-is': Agent sent AI suggestion unchanged
+     *   - 'edited': Agent modified AI suggestion before sending
+     *   - 'from-scratch': Agent wrote custom message without using AI suggestion
+     * @returns {Promise<void>} Resolves when message is sent and UI is updated
+     * 
+     * @example
+     * // Send AI suggestion as-is
+     * await chatManager.sendAgentResponse('Hello! How can I help?', 'as-is');
+     * 
+     * // Send edited suggestion
+     * await chatManager.sendAgentResponse('Hi there! How may I assist you?', 'edited');
+     * 
+     * // Send custom response
+     * await chatManager.sendAgentResponse('Thanks for contacting us!', 'from-scratch');
      */
     async sendAgentResponse(message, suggestionAction) {
         if (!this.stateManager.getCurrentChatId()) return;

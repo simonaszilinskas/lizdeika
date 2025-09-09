@@ -133,15 +133,17 @@ class ConversationController {
             };
             
             // First, add the user message atomically
-            await await conversationService.addMessage(conversationId, userMessage);
-            
-            // IMPORTANT: Clear any existing pending suggestions immediately when new customer message arrives
-            // This prevents confusion when customers send multiple messages quickly
-            await conversationService.removePendingMessages(conversationId);
-            console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId}`);
+            await conversationService.addMessage(conversationId, userMessage);
             
             // Get global system mode from agent service
             const currentMode = agentService ? await agentService.getSystemMode() : 'hitl';
+            
+            // IMPORTANT: Clear any existing pending suggestions ONLY in HITL mode
+            // This prevents confusion when customers send multiple messages quickly in HITL mode
+            if (currentMode === 'hitl') {
+                await conversationService.removePendingMessages(conversationId);
+                console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId} (HITL mode)`);
+            }
             
             console.log(`Processing message in mode: ${currentMode}`);
             
@@ -160,7 +162,7 @@ class ConversationController {
             }
             
             // Get conversation context for AI (don't pass currentMessage since it's already added)
-            const conversationMessages = await await conversationService.getMessages(conversationId);
+            const conversationMessages = await conversationService.getMessages(conversationId);
             const conversationContext = this.buildConversationContext(conversationMessages);
             
             // Generate AI response/suggestion based on mode

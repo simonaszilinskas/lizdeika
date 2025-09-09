@@ -986,10 +986,24 @@ class AgentDashboard {
     }
 
     /**
-     * Poll for new AI suggestion with exponential backoff
-     * @param {string} conversationId - Conversation ID
-     * @param {number} attemptCount - Current attempt number
-     * @param {string} pollingId - Unique ID for this polling session
+     * Poll for new AI suggestion with intelligent cancellation and exponential backoff
+     * 
+     * This method implements a robust polling system for AI suggestions that:
+     * - Uses unique polling IDs to prevent race conditions
+     * - Implements exponential backoff to reduce server load
+     * - Supports cancellation when newer messages arrive
+     * - Automatically times out after maximum attempts
+     * 
+     * @param {string} conversationId - Conversation ID to poll suggestions for
+     * @param {number} attemptCount - Current attempt number (0-based)
+     * @param {string} pollingId - Unique ID for this polling session (format: poll-{timestamp}-{random})
+     * @returns {Promise<void>} Resolves when suggestion is found, canceled, or timed out
+     * 
+     * @example
+     * // Start polling for a new message
+     * const pollingId = `poll-${Date.now()}-${Math.random()}`;
+     * this.currentPollingId = pollingId;
+     * await this.pollForNewSuggestion('conv-123', 0, pollingId);
      */
     async pollForNewSuggestion(conversationId, attemptCount, pollingId) {
         // Check if this polling session has been canceled
