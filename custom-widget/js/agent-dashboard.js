@@ -14,6 +14,14 @@ import {
     DEFAULTS
 } from './agent-dashboard/ui/constants.js';
 
+import { 
+    POLLING_CONFIG, 
+    UI_CONFIG, 
+    WEBSOCKET_CONFIG 
+} from './agent-dashboard/config/constants.js';
+
+import { logger } from './agent-dashboard/utils/logger.js';
+
 // Import core services
 import { AgentAuthManager } from './agent-dashboard/core/AgentAuthManager.js';
 import { SocketManager } from './agent-dashboard/core/SocketManager.js';
@@ -1008,39 +1016,39 @@ class AgentDashboard {
     async pollForNewSuggestion(conversationId, attemptCount, pollingId) {
         // Check if this polling session has been canceled
         if (this.currentPollingId !== pollingId) {
-            console.log(`🛑 Polling ${pollingId} canceled - newer message arrived (current: ${this.currentPollingId})`);
+            logger.polling('Polling canceled - newer message arrived', pollingId);
             return;
         }
         
-        const maxAttempts = 15; // Poll for up to ~30 seconds total
-        const baseDelay = 2000; // Start with 2 seconds
+        const maxAttempts = POLLING_CONFIG.MAX_ATTEMPTS;
+        const baseDelay = POLLING_CONFIG.BASE_DELAY_MS;
         
         if (attemptCount >= maxAttempts) {
-            console.log(`⚠️ AI suggestion polling timeout - stopping ${pollingId}`);
+            logger.warn('AI suggestion polling timeout', 'POLLING', { pollingId, maxAttempts });
             this.chatManager.hideAISuggestion();
             this.currentPollingId = null;
             return;
         }
         
         try {
-            console.log(`⏳ Polling attempt ${attemptCount + 1}/${maxAttempts} for AI suggestion (${pollingId}) - conversationId: ${conversationId}`);
+            logger.polling(`Attempt ${attemptCount + 1}/${maxAttempts} for conversation ${conversationId}`, pollingId);
             const data = await this.apiManager.getPendingSuggestion(conversationId);
-            console.log(`🔍 API Response for ${pollingId}:`, data);
+            logger.polling('API response received', pollingId, { hasSuggestion: !!(data && data.suggestion) });
             
             if (data && data.suggestion) {
                 // Check again if we're still the active polling session
                 if (this.currentPollingId !== pollingId) {
-                    console.log(`🛑 Polling ${pollingId} canceled before showing suggestion (current: ${this.currentPollingId})`);
+                    logger.polling('Canceled before showing suggestion', pollingId);
                     return;
                 }
                 
-                console.log(`✅ New AI suggestion found for ${pollingId}! Showing suggestion.`);
+                logger.info('AI suggestion found and displayed', 'POLLING', { conversationId });
                 this.chatManager.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
                 this.currentPollingId = null; // Clear the polling ID
             } else {
                 // No suggestion yet, wait and try again
-                const delay = Math.min(baseDelay * Math.pow(1.3, attemptCount), 5000); // Max 5 seconds
-                console.log(`⏳ No suggestion yet, retrying in ${delay}ms...`);
+                const delay = Math.min(baseDelay * Math.pow(POLLING_CONFIG.BACKOFF_MULTIPLIER, attemptCount), POLLING_CONFIG.MAX_DELAY_MS);
+                logger.polling(`No suggestion yet, retrying in ${delay}ms`, pollingId);
                 setTimeout(() => {
                     // Check if still active before scheduling next poll
                     if (this.currentPollingId === pollingId) {
@@ -1049,14 +1057,14 @@ class AgentDashboard {
                 }, delay);
             }
         } catch (error) {
-            console.error('❌ Error polling for suggestion:', error);
+            logger.error('Error polling for AI suggestion', 'POLLING', { pollingId, error: error.message });
             
             // Check if still active before retry
             if (this.currentPollingId === pollingId) {
                 // Wait and retry
                 setTimeout(() => {
                     this.pollForNewSuggestion(conversationId, attemptCount + 1, pollingId);
-                }, baseDelay);
+                }, POLLING_CONFIG.RETRY_AFTER_ERROR_MS);
             }
         }
     }

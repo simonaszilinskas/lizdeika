@@ -48,6 +48,16 @@
  * - WebSocket events ensure real-time updates to agent dashboards
  */
 const { v4: uuidv4 } = require('uuid');
+const { 
+    ValidationError, 
+    validateRequired, 
+    validateString, 
+    validateUUID, 
+    validateConversationId,
+    validateObject, 
+    validateMessage 
+} = require('../utils/validation');
+const { handleControllerError } = require('../utils/errorHandler');
 const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
@@ -63,6 +73,13 @@ class ConversationController {
      */
     async createConversation(req, res) {
         try {
+            // Input validation
+            // Skip validation for visitorId - widget uses visitor-xxx format, not UUID
+            
+            if (req.body.metadata !== undefined) {
+                validateObject(req.body.metadata, 'metadata', { allowNull: true });
+            }
+            
             const conversationId = uuidv4();
             const conversation = {
                 id: conversationId,
@@ -75,8 +92,7 @@ class ConversationController {
             
             res.json({ conversationId, conversation });
         } catch (error) {
-            console.error('Error creating conversation:', error);
-            res.status(500).json({ error: 'Failed to create conversation' });
+            return handleControllerError(error, 'Failed to create conversation', req, res);
         }
     }
 
@@ -84,9 +100,16 @@ class ConversationController {
      * Send message and get AI response
      */
     async sendMessage(req, res) {
-        const { conversationId, message, visitorId, requestHuman, enableRAG } = req.body;
-        
         try {
+            // Input validation
+            validateRequired(req.body, ['conversationId', 'message']);
+            validateConversationId(req.body.conversationId, 'conversationId');
+            const validatedMessage = validateMessage(req.body.message);
+            
+            // Skip validation for visitorId - widget uses visitor-xxx format, not UUID
+            
+            const { conversationId, visitorId, requestHuman, enableRAG } = req.body;
+            const message = validatedMessage;
             // Create conversation if doesn't exist
             if (!(await conversationService.conversationExists(conversationId))) {
                 const conversation = {
@@ -147,18 +170,14 @@ class ConversationController {
             
             console.log(`Processing message in mode: ${currentMode}`);
             
-            // 🔥 IMMEDIATE: Emit new message to agents via WebSocket (before AI processing)
+            // IMMEDIATE: Emit new message to agents via WebSocket (before AI processing)
             if (currentMode === 'hitl') {
-                console.log(`🔥 IMMEDIATE: Emitting new-message event for conversation ${conversationId}`);
-                console.log(`🔥 IMMEDIATE: userMessage:`, JSON.stringify(userMessage, null, 2));
                 this.io.to('agents').emit('new-message', {
                     conversationId,
                     message: userMessage,
                     timestamp: new Date()
                 });
-                console.log(`🔥 IMMEDIATE: new-message event emitted successfully - BEFORE AI processing`);
-            } else {
-                console.log(`🔥 IMMEDIATE: Not emitting new-message event - mode is ${currentMode}, not hitl`);
+                console.log(`New message emitted to agents for conversation ${conversationId}`);
             }
             
             // Get conversation context for AI (don't pass currentMessage since it's already added)
@@ -293,11 +312,7 @@ class ConversationController {
             });
             
         } catch (error) {
-            console.error('Error processing message:', error);
-            res.status(500).json({
-                error: 'Failed to process message',
-                details: error.message
-            });
+            return handleControllerError(error, 'Failed to process message', req, res);
         }
     }
 
@@ -366,6 +381,8 @@ class ConversationController {
      */
     async getPendingSuggestion(req, res) {
         try {
+            // Input validation
+            validateConversationId(req.params.conversationId, 'conversationId');
             const { conversationId } = req.params;
             
             const conversationMessages = await conversationService.getMessages(conversationId);
@@ -397,8 +414,7 @@ class ConversationController {
                 res.status(404).json({ error: 'No pending suggestion found' });
             }
         } catch (error) {
-            console.error('Error getting pending suggestion:', error);
-            res.status(500).json({ error: 'Failed to get pending suggestion' });
+            return handleControllerError(error, 'Failed to get pending suggestion', req, res);
         }
     }
 
@@ -407,6 +423,11 @@ class ConversationController {
      */
     async assignConversation(req, res) {
         try {
+            // Input validation
+            validateConversationId(req.params.conversationId, 'conversationId');
+            validateRequired(req.body, ['agentId']);
+            validateString(req.body.agentId, 'agentId', { minLength: 1 });
+            
             const { conversationId } = req.params;
             const { agentId } = req.body;
             
@@ -427,8 +448,7 @@ class ConversationController {
                 res.status(404).json({ error: 'Conversation not found' });
             }
         } catch (error) {
-            console.error('Error assigning conversation:', error);
-            res.status(500).json({ error: 'Failed to assign conversation' });
+            return handleControllerError(error, 'Failed to assign conversation', req, res);
         }
     }
 
