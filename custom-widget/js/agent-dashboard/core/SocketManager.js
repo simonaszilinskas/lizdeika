@@ -94,9 +94,12 @@ export class SocketManager {
         
         // Application events - delegate to dashboard handlers
         this.socket.on(WEBSOCKET_EVENTS.NEW_MESSAGE, (data) => {
-            console.log('📨 New message received:', data);
+            console.log('📨 NEW MESSAGE WEBSOCKET EVENT RECEIVED:', data);
+            console.log('🔥 DEBUG: About to call eventHandlers.onNewMessage with data:', JSON.stringify(data, null, 2));
             if (this.eventHandlers.onNewMessage) {
                 this.eventHandlers.onNewMessage(data);
+            } else {
+                console.error('❌ onNewMessage handler not found!');
             }
         });
         

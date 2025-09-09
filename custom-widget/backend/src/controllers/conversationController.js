@@ -135,10 +135,29 @@ class ConversationController {
             // First, add the user message atomically
             await await conversationService.addMessage(conversationId, userMessage);
             
+            // IMPORTANT: Clear any existing pending suggestions immediately when new customer message arrives
+            // This prevents confusion when customers send multiple messages quickly
+            await conversationService.removePendingMessages(conversationId);
+            console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId}`);
+            
             // Get global system mode from agent service
             const currentMode = agentService ? await agentService.getSystemMode() : 'hitl';
             
             console.log(`Processing message in mode: ${currentMode}`);
+            
+            // 🔥 IMMEDIATE: Emit new message to agents via WebSocket (before AI processing)
+            if (currentMode === 'hitl') {
+                console.log(`🔥 IMMEDIATE: Emitting new-message event for conversation ${conversationId}`);
+                console.log(`🔥 IMMEDIATE: userMessage:`, JSON.stringify(userMessage, null, 2));
+                this.io.to('agents').emit('new-message', {
+                    conversationId,
+                    message: userMessage,
+                    timestamp: new Date()
+                });
+                console.log(`🔥 IMMEDIATE: new-message event emitted successfully - BEFORE AI processing`);
+            } else {
+                console.log(`🔥 IMMEDIATE: Not emitting new-message event - mode is ${currentMode}, not hitl`);
+            }
             
             // Get conversation context for AI (don't pass currentMessage since it's already added)
             const conversationMessages = await await conversationService.getMessages(conversationId);
@@ -256,24 +275,14 @@ class ConversationController {
                     }
                 };
                 
-                // Only remove existing pending messages AFTER we have a new suggestion ready
-                // This ensures we don't lose suggestions if AI generation fails
-                await conversationService.removePendingMessages(conversationId);
-                
+                // Pending messages already cleared when customer message arrived
                 await conversationService.addMessage(conversationId, aiMessage);
                 console.log(`Generated AI suggestion for conversation ${conversationId} (HITL mode)`);
             }
             
-            // Emit new message to agents via WebSocket (only for HITL mode)
-            if (currentMode === 'hitl') {
-                this.io.to('agents').emit('new-message', {
-                    conversationId,
-                    message: userMessage,
-                    aiSuggestion: aiMessage,
-                    timestamp: new Date()
-                });
-            }
-            // In autopilot and off modes, agents don't need to see these messages
+            // Note: Customer message already emitted immediately above
+            // Now we could optionally emit AI suggestion completion event here
+            console.log(`🔥 DEBUG: AI processing completed for conversation ${conversationId}`);
             
             res.json({
                 userMessage,

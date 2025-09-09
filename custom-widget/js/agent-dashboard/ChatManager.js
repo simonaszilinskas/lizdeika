@@ -21,6 +21,12 @@ export class ChatManager {
      * @param {string} conversationId - ID of conversation to select
      */
     async selectChat(conversationId) {
+        // Cancel any ongoing AI suggestion polling when switching conversations
+        if (this.dashboard.currentPollingId) {
+            console.log('🛑 Canceling AI suggestion polling when switching conversations');
+            this.dashboard.currentPollingId = null;
+        }
+        
         this.stateManager.setCurrentChatId(conversationId);
         
         try {
@@ -116,6 +122,12 @@ export class ChatManager {
      */
     async sendAgentResponse(message, suggestionAction) {
         if (!this.stateManager.getCurrentChatId()) return;
+        
+        // Cancel any ongoing AI suggestion polling when sending a message
+        if (this.dashboard.currentPollingId) {
+            console.log('🛑 Canceling AI suggestion polling when sending agent response');
+            this.dashboard.currentPollingId = null;
+        }
         
         const input = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');

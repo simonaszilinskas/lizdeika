@@ -293,6 +293,35 @@ export class ConversationRenderer {
         // Debug: Log the raw WebSocket message data
         console.log('🐛 Raw WebSocket message data:', JSON.stringify(messageData, null, 2));
 
+        // Debug: Check container visibility and state
+        const isHidden = messagesContainer.classList.contains('hidden');
+        console.log('📊 Container state:', {
+            exists: !!messagesContainer,
+            isVisible: messagesContainer.style.display !== 'none',
+            hasHiddenClass: isHidden,
+            hasClass: messagesContainer.className,
+            childCount: messagesContainer.children.length,
+            scrollHeight: messagesContainer.scrollHeight
+        });
+
+        // CRITICAL FIX: Ensure container is visible for real-time messages
+        if (isHidden) {
+            console.log('🔧 CRITICAL: Container was hidden, making it visible for real-time message');
+            messagesContainer.classList.remove('hidden');
+            
+            // Also ensure the parent elements are visible
+            const noChat = document.getElementById('no-chat-selected');
+            if (noChat) {
+                noChat.style.display = 'none';
+            }
+            
+            // Show other required elements
+            const chatHeader = document.getElementById('chat-header');
+            const messageInputArea = document.getElementById('message-input-area');
+            if (chatHeader) chatHeader.classList.remove('hidden');
+            if (messageInputArea) messageInputArea.classList.remove('hidden');
+        }
+
         // Check if message already exists to prevent duplicates
         // Extract the message ID from nested structure
         const messageId = (messageData.message && messageData.message.id) || messageData.id;
@@ -366,9 +395,17 @@ export class ConversationRenderer {
         // Scroll to bottom to show new message
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
         
+        // Debug: Verify message was actually added
+        console.log('📊 After append container state:', {
+            childCount: messagesContainer.children.length,
+            scrollHeight: messagesContainer.scrollHeight,
+            lastChild: messagesContainer.lastElementChild?.getAttribute('data-message-id')
+        });
+        
         console.log('⚡ Message appended in real-time:', { 
             sender: message.sender, 
-            content: String(message.content || '').substring(0, 50) + '...' 
+            content: String(message.content || '').substring(0, 50) + '...',
+            messageId: message.id
         });
     }
 
