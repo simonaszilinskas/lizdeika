@@ -144,7 +144,6 @@ class OpenRouterProvider extends AIProvider {
         this.model = config.model;
         this.systemPrompt = config.systemPrompt;
         this.siteUrl = config.siteUrl;
-        this.siteName = config.siteName;
     }
 
     async generateResponse(conversationContext, conversationId) {
@@ -205,7 +204,6 @@ class OpenRouterProvider extends AIProvider {
             headers: {
                 "Authorization": `Bearer ${this.apiKey}`,
                 "HTTP-Referer": this.siteUrl,
-                "X-Title": this.siteName,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
@@ -238,7 +236,6 @@ class OpenRouterProvider extends AIProvider {
                 headers: {
                     "Authorization": `Bearer ${this.apiKey}`,
                     "HTTP-Referer": this.siteUrl,
-                    "X-Title": this.siteName,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
@@ -277,8 +274,7 @@ function createAIProvider(providerName, config) {
                 apiKey: config.OPENROUTER_API_KEY,
                 model: config.OPENROUTER_MODEL,
                 systemPrompt: config.SYSTEM_PROMPT,
-                siteUrl: config.SITE_URL,
-                siteName: config.SITE_NAME
+                siteUrl: config.SITE_URL
             });
         
         default:

@@ -151,7 +151,6 @@ function createSystemRoutes() {
                     preview: {
                         widgetName: allBrandingSettings.widget_name?.value || 'Vilnius Assistant',
                         primaryColor: allBrandingSettings.widget_primary_color?.value || '#2c5530',
-                        siteName: allBrandingSettings.site_name?.value || 'Customer Support',
                         allowedDomains: allBrandingSettings.widget_allowed_domains?.value || '*'
                     }
                 }

@@ -22,7 +22,6 @@ export class BrandingConfigModule {
             widgetNameInput: null,
             primaryColorInput: null,
             colorPreview: null,
-            siteNameInput: null,
             allowedDomainsTextarea: null,
             
             // Buttons
@@ -83,10 +82,34 @@ export class BrandingConfigModule {
     initializeElements() {
         this.elements = {
             brandingConfigDiv: document.getElementById('branding-config'),
-            statusDiv: document.getElementById('branding-status')
+            statusDiv: document.getElementById('branding-status'),
+            
+            // Form elements
+            widgetNameInput: document.getElementById('widget-name'),
+            primaryColorInput: document.getElementById('widget-primary-color'),
+            colorHexInput: document.getElementById('widget-primary-color-text'),
+            allowedDomainsTextarea: document.getElementById('widget-allowed-domains'),
+            
+            // Form and buttons
+            form: document.getElementById('branding-form'),
+            saveButton: document.getElementById('branding-save-btn'),
+            resetButton: document.getElementById('branding-reset-btn'),
+            previewButton: document.getElementById('branding-preview-btn'),
+            cancelButton: document.getElementById('branding-cancel-btn'),
+            
+            // Integration code elements
+            generateCodeButton: document.getElementById('generate-integration-code'),
+            copyCodeButton: document.getElementById('copy-integration-code'),
+            codeContainer: document.getElementById('integration-code-container'),
+            integrationCodeTextarea: document.getElementById('integration-code')
         };
         
-        console.log('🎯 BrandingConfigModule: DOM elements initialized');
+        console.log('🎯 BrandingConfigModule: DOM elements initialized', {
+            widgetNameInput: !!this.elements.widgetNameInput,
+            primaryColorInput: !!this.elements.primaryColorInput,
+            colorHexInput: !!this.elements.colorHexInput,
+            allowedDomainsTextarea: !!this.elements.allowedDomainsTextarea
+        });
     }
 
     /**
@@ -94,61 +117,46 @@ export class BrandingConfigModule {
      */
     setupEventListeners() {
         // Form submission
-        const form = document.getElementById('branding-form');
-        if (form) {
-            form.addEventListener('submit', (e) => this.handleFormSubmit(e));
+        if (this.elements.form) {
+            this.elements.form.addEventListener('submit', (e) => this.handleFormSubmit(e));
         }
 
         // Preview button
-        const previewBtn = document.getElementById('branding-preview-btn');
-        if (previewBtn) {
-            previewBtn.addEventListener('click', () => this.previewBrandingChanges());
+        if (this.elements.previewButton) {
+            this.elements.previewButton.addEventListener('click', () => this.previewBrandingChanges());
         }
 
         // Reset button
-        const resetBtn = document.getElementById('branding-reset-btn');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => this.resetBrandingSettings());
+        if (this.elements.resetButton) {
+            this.elements.resetButton.addEventListener('click', () => this.resetBrandingSettings());
         }
 
         // Cancel button
-        const cancelBtn = document.getElementById('branding-cancel-btn');
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => this.cancelChanges());
+        if (this.elements.cancelButton) {
+            this.elements.cancelButton.addEventListener('click', () => this.cancelChanges());
+        }
+
+        // Save button
+        if (this.elements.saveButton) {
+            this.elements.saveButton.addEventListener('click', () => this.saveBrandingSettings());
         }
 
         // Integration code buttons
-        const generateCodeBtn = document.getElementById('generate-integration-code');
-        console.log('🔍 BrandingConfigModule: Generate code button found:', !!generateCodeBtn);
-        if (generateCodeBtn) {
-            generateCodeBtn.addEventListener('click', () => {
+        console.log('🔍 BrandingConfigModule: Generate code button found:', !!this.elements.generateCodeButton);
+        if (this.elements.generateCodeButton) {
+            this.elements.generateCodeButton.addEventListener('click', () => {
                 console.log('🎯 BrandingConfigModule: Generate code button clicked - event fired');
                 this.generateIntegrationCode();
             });
         }
         
-        const copyCodeBtn = document.getElementById('copy-integration-code');
-        console.log('🔍 BrandingConfigModule: Copy code button found:', !!copyCodeBtn);
-        if (copyCodeBtn) {
-            copyCodeBtn.addEventListener('click', () => {
+        console.log('🔍 BrandingConfigModule: Copy code button found:', !!this.elements.copyCodeButton);
+        if (this.elements.copyCodeButton) {
+            this.elements.copyCodeButton.addEventListener('click', () => {
                 console.log('🎯 BrandingConfigModule: Copy code button clicked - event fired');
                 this.copyIntegrationCode();
             });
         }
-
-        // Store references for later use
-        this.elements = this.elements || {};
-        this.elements.generateCodeButton = generateCodeBtn;
-        this.elements.copyCodeButton = copyCodeBtn;
-        this.elements.codeContainer = document.getElementById('integration-code-container');
-        this.elements.integrationCodeTextarea = document.getElementById('integration-code');
-        
-        console.log('🔍 BrandingConfigModule: Integration elements stored:', {
-            generateCodeButton: !!this.elements.generateCodeButton,
-            copyCodeButton: !!this.elements.copyCodeButton,
-            codeContainer: !!this.elements.codeContainer,
-            integrationCodeTextarea: !!this.elements.integrationCodeTextarea
-        });
 
         // Live preview functionality - listen to input changes
         this.setupLivePreview();
@@ -173,7 +181,6 @@ export class BrandingConfigModule {
             'widget-name',
             'widget-primary-color',
             'widget-primary-color-text',
-            'site-name',
             'welcome-message'
         ];
 
@@ -242,7 +249,6 @@ export class BrandingConfigModule {
             widget_name: document.getElementById('widget-name')?.value || '',
             widget_primary_color: document.getElementById('widget-primary-color')?.value || '#2c5530',
             widget_allowed_domains: document.getElementById('widget-allowed-domains')?.value || '*',
-            site_name: document.getElementById('site-name')?.value || '',
             welcome_message: document.getElementById('welcome-message')?.value || ''
         };
     }
@@ -337,7 +343,6 @@ export class BrandingConfigModule {
         const defaults = {
             widget_name: 'Vilnius Assistant',
             widget_primary_color: '#2c5530',
-            site_name: 'Customer Support',
             widget_allowed_domains: '*'
         };
         
@@ -512,23 +517,23 @@ export class BrandingConfigModule {
     populateFormFromSettings() {
         const settings = this.currentSettings;
 
-        const widgetName = document.getElementById('widget-name');
-        if (widgetName) widgetName.value = settings.widget_name || '';
+        if (this.elements.widgetNameInput) {
+            this.elements.widgetNameInput.value = settings.widget_name || '';
+        }
 
-        const primaryColor = document.getElementById('widget-primary-color');
-        if (primaryColor) primaryColor.value = settings.widget_primary_color || '#2c5530';
+        if (this.elements.primaryColorInput) {
+            this.elements.primaryColorInput.value = settings.widget_primary_color || '#2c5530';
+        }
 
-        const primaryColorText = document.getElementById('widget-primary-color-text');
-        if (primaryColorText) primaryColorText.value = settings.widget_primary_color || '#2c5530';
+        if (this.elements.colorHexInput) {
+            this.elements.colorHexInput.value = settings.widget_primary_color || '#2c5530';
+        }
 
-        const siteName = document.getElementById('site-name');
-        if (siteName) siteName.value = settings.site_name || '';
+        if (this.elements.allowedDomainsTextarea) {
+            this.elements.allowedDomainsTextarea.value = settings.widget_allowed_domains || '*';
+        }
 
-        const welcomeMessage = document.getElementById('welcome-message');
-        if (welcomeMessage) welcomeMessage.value = settings.welcome_message || '';
-
-        const allowedDomains = document.getElementById('widget-allowed-domains');
-        if (allowedDomains) allowedDomains.value = settings.widget_allowed_domains || '*';
+        console.log('📝 BrandingConfigModule: Form populated from settings', settings);
     }
 
     /**
@@ -537,7 +542,7 @@ export class BrandingConfigModule {
     generatePreview() {
         if (!this.elements.previewContainer) return;
         
-        const { widget_name, widget_primary_color, site_name } = this.currentSettings;
+        const { widget_name, widget_primary_color } = this.currentSettings;
         
         this.elements.previewContainer.innerHTML = `
             <div class="border-2 border-gray-200 rounded-lg p-4 bg-white">
@@ -548,7 +553,7 @@ export class BrandingConfigModule {
                     <div class="bg-gray-50 p-4 rounded-lg">
                         <!-- Simulated website header -->
                         <div class="text-center mb-4 text-gray-600 text-sm">
-                            ${site_name || 'Your Website'}
+                            Your Website
                         </div>
                         
                         <!-- Widget preview -->
@@ -648,7 +653,7 @@ export class BrandingConfigModule {
     renderBrandingForm() {
         if (!this.elements.brandingConfigDiv) return;
         
-        const { widget_name, widget_primary_color, site_name, widget_allowed_domains } = this.currentSettings;
+        const { widget_name, widget_primary_color, widget_allowed_domains } = this.currentSettings;
         
         this.elements.brandingConfigDiv.innerHTML = `
             <div class="space-y-6">
@@ -709,18 +714,6 @@ export class BrandingConfigModule {
                                 <p class="text-xs text-gray-500 mt-1">Main color for buttons and highlights</p>
                             </div>
                             
-                            <!-- Site Name -->
-                            <div class="mb-4">
-                                <label for="site-name" class="block text-sm font-medium text-gray-700 mb-1">
-                                    Site Name
-                                </label>
-                                <input type="text" id="site-name" 
-                                       value="${site_name || ''}" 
-                                       maxlength="200"
-                                       class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                       placeholder="e.g., Customer Support">
-                                <p class="text-xs text-gray-500 mt-1">Your website or organization name</p>
-                            </div>
                         </div>
                         
                         <div class="bg-white p-4 rounded-lg border">
@@ -771,7 +764,6 @@ export class BrandingConfigModule {
             primaryColorInput: document.getElementById('primary-color'),
             colorHexInput: document.getElementById('color-hex'),
             colorPreview: document.getElementById('color-preview'),
-            siteNameInput: document.getElementById('site-name'),
             allowedDomainsTextarea: document.getElementById('allowed-domains'),
             
             saveButton: document.getElementById('save-branding'),
@@ -801,7 +793,6 @@ export class BrandingConfigModule {
             this.elements.widgetNameInput,
             this.elements.primaryColorInput,
             this.elements.colorHexInput,
-            this.elements.siteNameInput,
             this.elements.allowedDomainsTextarea
         ].forEach(element => {
             if (element) {
@@ -883,9 +874,6 @@ export class BrandingConfigModule {
             this.currentSettings.widget_primary_color = this.elements.colorHexInput.value;
         }
         
-        if (this.elements.siteNameInput) {
-            this.currentSettings.site_name = this.elements.siteNameInput.value;
-        }
         
         if (this.elements.allowedDomainsTextarea) {
             this.currentSettings.widget_allowed_domains = this.elements.allowedDomainsTextarea.value;
@@ -940,7 +928,7 @@ export class BrandingConfigModule {
      * Validate current settings
      */
     validateSettings() {
-        const { widget_name, widget_primary_color, site_name, widget_allowed_domains, welcome_message } = this.currentSettings;
+        const { widget_name, widget_primary_color, widget_allowed_domains, welcome_message } = this.currentSettings;
         const errors = [];
         
         // Widget name validation
@@ -955,12 +943,6 @@ export class BrandingConfigModule {
             errors.push({ field: 'widget_primary_color', message: 'Primary color must be a valid hex color (e.g., #2c5530)' });
         }
         
-        // Site name validation
-        if (!site_name?.trim()) {
-            errors.push({ field: 'site_name', message: 'Site name is required' });
-        } else if (site_name.length > 200) {
-            errors.push({ field: 'site_name', message: 'Site name must be 200 characters or less' });
-        }
         
         // Welcome message validation
         if (welcome_message && welcome_message.length > 500) {
@@ -1005,13 +987,6 @@ export class BrandingConfigModule {
                 }
                 break;
                 
-            case 'site_name':
-                if (!value?.trim()) {
-                    errors.push('Site name is required');
-                } else if (value.length > 200) {
-                    errors.push('Site name must be 200 characters or less');
-                }
-                break;
                 
             case 'welcome_message':
                 if (value && value.length > 500) {
@@ -1081,7 +1056,7 @@ export class BrandingConfigModule {
      * Clear all field validation errors
      */
     clearAllFieldErrors() {
-        const fields = ['widget-name', 'widget-primary-color', 'widget-primary-color-text', 'site-name', 'welcome-message', 'widget-allowed-domains'];
+        const fields = ['widget-name', 'widget-primary-color', 'widget-primary-color-text', 'welcome-message', 'widget-allowed-domains'];
         
         fields.forEach(fieldId => {
             const input = document.getElementById(fieldId);
@@ -1182,7 +1157,44 @@ export class BrandingConfigModule {
      * Setup additional event listeners
      */
     setupFormChangeListeners() {
-        // This will be called after form rendering
+        // Set up change listeners for all form inputs
+        const inputElements = [
+            this.elements.widgetNameInput,
+            this.elements.primaryColorInput,
+            this.elements.colorHexInput,
+            this.elements.allowedDomainsTextarea
+        ];
+
+        inputElements.forEach(element => {
+            if (element) {
+                const changeHandler = () => {
+                    this.updateSettingsFromForm();
+                    this.checkForChanges();
+                    this.updateSaveButton();
+                    this.updateLivePreview();
+                };
+                
+                element.addEventListener('input', changeHandler);
+                element.addEventListener('change', changeHandler);
+                element.addEventListener('blur', changeHandler);
+            }
+        });
+
+        // Special handling for color sync between color picker and text input
+        if (this.elements.primaryColorInput && this.elements.colorHexInput) {
+            this.elements.primaryColorInput.addEventListener('input', (e) => {
+                this.elements.colorHexInput.value = e.target.value;
+            });
+            
+            this.elements.colorHexInput.addEventListener('input', (e) => {
+                const color = e.target.value;
+                if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                    this.elements.primaryColorInput.value = color;
+                }
+            });
+        }
+
+        console.log('🔗 BrandingConfigModule: Form change listeners setup complete');
     }
 
     setupColorPreview() {
@@ -1268,7 +1280,6 @@ export class BrandingConfigModule {
         apiUrl: '${window.location.protocol}//${window.location.hostname}:3002',
         widgetName: '${currentSettings?.widget_name || 'Vilnius Assistant'}',
         primaryColor: '${currentSettings?.widget_primary_color || '#2c5530'}',
-        siteName: '${currentSettings?.site_name || 'Customer Support'}',
         allowedDomains: '${currentSettings?.widget_allowed_domains || '*'}'
     };
     

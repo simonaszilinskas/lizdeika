@@ -30,7 +30,6 @@ const SETTING_SCHEMAS = {
     branding: {
         widget_name: z.string().min(1).max(100),
         widget_primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color'),
-        site_name: z.string().min(1).max(200),
         widget_allowed_domains: z.string().min(1)
     },
     ai: {
@@ -49,7 +48,6 @@ const SETTING_SCHEMAS = {
 const ENV_FALLBACKS = {
     widget_name: process.env.WIDGET_NAME || 'Vilnius Assistant',
     widget_primary_color: process.env.WIDGET_PRIMARY_COLOR || '#2c5530',
-    site_name: process.env.SITE_NAME || 'Customer Support',
     widget_allowed_domains: process.env.WIDGET_ALLOWED_DOMAINS || '*',
     system_prompt: process.env.SYSTEM_PROMPT || '',
     rag_k: parseInt(process.env.RAG_K) || 100,
@@ -423,7 +421,7 @@ class SettingsService extends EventEmitter {
     isPublicSetting(key, category) {
         // Most branding settings should be public for frontend access
         if (category === 'branding') {
-            return ['widget_name', 'widget_primary_color', 'site_name'].includes(key);
+            return ['widget_name', 'widget_primary_color'].includes(key);
         }
         
         // Logging settings are typically private
