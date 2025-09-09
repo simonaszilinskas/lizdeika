@@ -36,6 +36,10 @@ export class StateManager {
     setFilter(filter) {
         console.log(`🔽 StateManager.setFilter called with filter: ${filter}`);
         this.currentFilter = filter;
+        
+        // Persist filter to localStorage
+        localStorage.setItem('agent_dashboard_filter', filter);
+        
         this.updateFilterButtons();
         this.applyFilter();
     }
@@ -53,6 +57,9 @@ export class StateManager {
      */
     toggleArchiveFilter() {
         this.archiveFilter = this.archiveFilter === 'active' ? 'archived' : 'active';
+        
+        // Persist archive filter to localStorage
+        localStorage.setItem('agent_dashboard_archive_filter', this.archiveFilter);
         
         // Update archive icon style
         const archiveToggle = document.getElementById('archive-toggle');
@@ -268,7 +275,11 @@ export class StateManager {
     setCurrentChatId(conversationId) {
         this.currentChatId = conversationId;
         
-        if (!conversationId) {
+        // Persist to localStorage
+        if (conversationId) {
+            localStorage.setItem('agent_dashboard_current_chat', conversationId);
+        } else {
+            localStorage.removeItem('agent_dashboard_current_chat');
             // Clear related state when chat is deselected
             this.currentSuggestion = null;
         }
@@ -280,6 +291,42 @@ export class StateManager {
      */
     getCurrentChatId() {
         return this.currentChatId;
+    }
+    
+    /**
+     * Restore previously selected conversation from localStorage
+     * @returns {string|null} Restored conversation ID
+     */
+    restoreCurrentChatId() {
+        const savedChatId = localStorage.getItem('agent_dashboard_current_chat');
+        if (savedChatId) {
+            // Don't use setCurrentChatId here to avoid re-saving to localStorage
+            this.currentChatId = savedChatId;
+            return savedChatId;
+        }
+        return null;
+    }
+    
+    /**
+     * Restore filter states from localStorage
+     */
+    restoreFilterStates() {
+        // Restore conversation filter
+        const savedFilter = localStorage.getItem('agent_dashboard_filter');
+        if (savedFilter) {
+            this.currentFilter = savedFilter;
+            console.log(`🔄 Restored filter: ${savedFilter}`);
+        }
+        
+        // Restore archive filter
+        const savedArchiveFilter = localStorage.getItem('agent_dashboard_archive_filter');
+        if (savedArchiveFilter) {
+            this.archiveFilter = savedArchiveFilter;
+            console.log(`🔄 Restored archive filter: ${savedArchiveFilter}`);
+        }
+        
+        // Update UI to reflect restored filters
+        this.updateFilterButtons();
     }
 
     /**

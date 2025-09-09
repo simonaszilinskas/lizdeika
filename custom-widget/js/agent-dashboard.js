@@ -192,11 +192,53 @@ class AgentDashboard {
         
         this.eventManager.initializeAllEventListeners();
         await this.socketManager.initialize();
+        
+        // Restore filter states before loading conversations
+        this.stateManager.restoreFilterStates();
+        
         await this.loadConversations();
+        
+        // Restore previously selected conversation after conversations are loaded
+        await this.restorePreviousConversation();
+        
         // No need for polling anymore with WebSockets
     }
 
-
+    /**
+     * Restore previously selected conversation from localStorage
+     */
+    async restorePreviousConversation() {
+        try {
+            const savedChatId = this.stateManager.restoreCurrentChatId();
+            console.log('🔍 Debug: Restored chat ID from localStorage:', savedChatId);
+            console.log('🔍 Debug: Available conversations count:', this.stateManager.allConversations.length);
+            console.log('🔍 Debug: First few conversation IDs:', 
+                this.stateManager.allConversations.slice(0, 3).map(conv => conv.id));
+            
+            if (savedChatId) {
+                console.log(`🔄 Restoring previous conversation: ${savedChatId}`);
+                
+                // Check if the conversation still exists in the loaded conversations
+                const conversationExists = this.stateManager.allConversations.some(conv => conv.id === savedChatId);
+                
+                if (conversationExists) {
+                    // Use the ChatManager to properly select the conversation
+                    await this.chatManager.selectChat(savedChatId);
+                    console.log(`✅ Successfully restored conversation: ${savedChatId}`);
+                } else {
+                    console.log(`⚠️ Saved conversation ${savedChatId} no longer exists, clearing from localStorage`);
+                    console.log('🔍 Debug: All available conversation IDs:', 
+                        this.stateManager.allConversations.map(conv => conv.id));
+                    // Clear the invalid conversation from localStorage
+                    this.stateManager.setCurrentChatId(null);
+                }
+            }
+        } catch (error) {
+            console.error('Error restoring previous conversation:', error);
+            // Clear invalid state
+            this.stateManager.setCurrentChatId(null);
+        }
+    }
 
     /**
      * Manually resize textarea (for programmatic content changes)
