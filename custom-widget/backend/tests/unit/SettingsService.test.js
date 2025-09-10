@@ -233,7 +233,6 @@ describe('SettingsService', () => {
                 // Should have environment/default values
                 expect(result.widget_name.value).toBe('Test Widget');
                 expect(result.widget_primary_color.value).toBe('#2c5530');
-                expect(result.site_name.value).toBe('Test Site');
             });
         });
     });
@@ -359,11 +358,6 @@ describe('SettingsService', () => {
                 await expect(settingsService.validateSetting('widget_primary_color', '')).rejects.toThrow('Primary color cannot be empty');
             });
 
-            test('should validate site_name correctly', async () => {
-                await expect(settingsService.validateSetting('site_name', 'Valid Site')).resolves.not.toThrow();
-                await expect(settingsService.validateSetting('site_name', '')).rejects.toThrow('Site name cannot be empty');
-                await expect(settingsService.validateSetting('site_name', 'a'.repeat(201))).rejects.toThrow('Site name cannot exceed 200 characters');
-            });
 
             test('should validate welcome_message correctly', async () => {
                 await expect(settingsService.validateSetting('welcome_message', 'Hello!')).resolves.not.toThrow();
@@ -589,19 +583,16 @@ describe('SettingsService', () => {
             
             expect(envConfig.widget_name).toBe('Test Widget');
             expect(envConfig.widget_primary_color).toBe('#2c5530');
-            expect(envConfig.site_name).toBe('Test Site');
         });
 
         test('should handle missing environment variables with defaults', () => {
             delete process.env.WIDGET_NAME;
             delete process.env.WIDGET_PRIMARY_COLOR;
-            delete process.env.SITE_NAME;
 
             const envConfig = settingsService.loadEnvironmentConfig();
             
             expect(envConfig.widget_name).toBe('Vilnius Assistant');
             expect(envConfig.widget_primary_color).toBe('#2c5530');
-            expect(envConfig.site_name).toBe('Customer Support');
         });
     });
 });

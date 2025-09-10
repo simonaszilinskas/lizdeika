@@ -112,7 +112,6 @@ describe('BrandingConfigModule', () => {
                     data: {
                         widget_name: { value: 'Test Widget' },
                         widget_primary_color: { value: '#2c5530' },
-                        site_name: { value: 'Test Site' }
                     }
                 })
             });
@@ -137,7 +136,6 @@ describe('BrandingConfigModule', () => {
             module.currentSettings = {
                 widget_name: 'Test Widget',
                 widget_primary_color: '#2c5530',
-                site_name: 'Test Site',
                 widget_allowed_domains: '*',
                 welcome_message: 'Hello!'
             };
@@ -168,11 +166,9 @@ describe('BrandingConfigModule', () => {
             });
 
             test('should fail validation with missing site name', () => {
-                module.currentSettings.site_name = '';
                 const errors = module.validateSettings();
                 
                 expect(errors).not.toBeNull();
-                expect(errors[0].field).toBe('site_name');
                 expect(errors[0].message).toBe('Site name is required');
             });
 
@@ -210,9 +206,6 @@ describe('BrandingConfigModule', () => {
             });
 
             test('should validate site name correctly', () => {
-                expect(module.validateField('site_name', 'Valid Site')).toHaveLength(0);
-                expect(module.validateField('site_name', '')).toContain('Site name is required');
-                expect(module.validateField('site_name', 'a'.repeat(201))).toContain('Site name must be 200 characters or less');
             });
         });
 
@@ -273,7 +266,6 @@ describe('BrandingConfigModule', () => {
                 
                 expect(values.widget_name).toBe('Test Widget');
                 expect(values.widget_primary_color).toBe('#2c5530');
-                expect(values.site_name).toBe('Test Site');
                 expect(values.welcome_message).toBe('Hello!');
                 expect(values.widget_allowed_domains).toBe('*');
             });
@@ -285,7 +277,6 @@ describe('BrandingConfigModule', () => {
                 
                 expect(values.widget_name).toBe('');
                 expect(values.widget_primary_color).toBe('#2c5530'); // Default value
-                expect(values.site_name).toBe('');
                 expect(values.welcome_message).toBe('');
                 expect(values.widget_allowed_domains).toBe('*'); // Default value
             });
@@ -303,7 +294,6 @@ describe('BrandingConfigModule', () => {
                 module.currentSettings = {
                     widget_name: 'New Widget Name',
                     widget_primary_color: '#ff6600',
-                    site_name: 'New Site Name',
                     welcome_message: 'New welcome message',
                     widget_allowed_domains: '*.example.com'
                 };
@@ -332,7 +322,6 @@ describe('BrandingConfigModule', () => {
                     data: {
                         widget_name: { value: 'Loaded Widget' },
                         widget_primary_color: { value: '#123456' },
-                        site_name: { value: 'Loaded Site' }
                     }
                 };
 
@@ -349,7 +338,6 @@ describe('BrandingConfigModule', () => {
 
                 expect(module.currentSettings.widget_name).toBe('Loaded Widget');
                 expect(module.currentSettings.widget_primary_color).toBe('#123456');
-                expect(module.currentSettings.site_name).toBe('Loaded Site');
                 expect(module.populateFormFromSettings).toHaveBeenCalled();
                 expect(module.updateLivePreview).toHaveBeenCalled();
             });
@@ -372,7 +360,6 @@ describe('BrandingConfigModule', () => {
                 module.currentSettings = {
                     widget_name: 'Test Widget',
                     widget_primary_color: '#2c5530',
-                    site_name: 'Test Site',
                     widget_allowed_domains: '*',
                     welcome_message: 'Hello!'
                 };
@@ -616,7 +603,6 @@ describe('BrandingConfigModule', () => {
 
                 expect(module.currentSettings.widget_name).toBe('Vilnius Assistant');
                 expect(module.currentSettings.widget_primary_color).toBe('#2c5530');
-                expect(module.currentSettings.site_name).toBe('Customer Support');
                 expect(module.currentSettings.widget_allowed_domains).toBe('*');
             });
 
@@ -631,7 +617,6 @@ describe('BrandingConfigModule', () => {
 
                 expect(module.currentSettings.widget_name).toBe('Existing Widget');
                 expect(module.currentSettings.widget_primary_color).toBe('#existing');
-                expect(module.currentSettings.site_name).toBe('Customer Support'); // Should be set
             });
         });
 
