@@ -280,6 +280,41 @@
                         </div>
                     </div>
 
+                    <!-- Langfuse Prompts Toggle -->
+                    <div id="langfuse-toggle-section" class="hidden">
+                        <div class="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+                            <div class="flex items-start gap-3">
+                                <i class="fas fa-cloud text-purple-600 mt-0.5"></i>
+                                <div>
+                                    <label for="use-langfuse-prompts" class="text-sm font-medium text-gray-700 cursor-pointer">
+                                        Use Langfuse Managed Prompts
+                                    </label>
+                                    <p class="text-xs text-gray-500 mt-1">Use centrally managed prompts from Langfuse instead of the local system prompt below</p>
+                                    <div class="mt-1 flex items-center gap-2 text-xs">
+                                        <span class="text-green-600">✓ Langfuse Connected</span>
+                                        <span id="langfuse-public-key" class="text-gray-400 font-mono"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <input 
+                                    type="checkbox" 
+                                    id="use-langfuse-prompts" 
+                                    name="use_langfuse_prompts"
+                                    class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2"
+                                >
+                            </div>
+                        </div>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> When enabled, the system will use prompts managed in Langfuse instead of the system prompt below.</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                <li>• <strong>Langfuse Prompts:</strong> Centralized prompt management with versioning, A/B testing, and analytics</li>
+                                <li>• <strong>Local Prompts:</strong> Direct control over prompts using the system prompt field below</li>
+                                <li>• <strong>Fallback:</strong> If Langfuse prompts fail to load, the system automatically falls back to local prompts</li>
+                                <li>• <strong>Priority:</strong> Langfuse prompts take precedence when both are available and this toggle is enabled</li>
+                            </ul>
+                        </div>
+                    </div>
 
                     <!-- System Prompt -->
                     <div>
@@ -293,19 +328,42 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-vertical"
                             placeholder="Enter the system prompt that defines AI behavior and instructions..."
                         ></textarea>
-                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
-                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Sets the foundational instructions that shape how the AI behaves and responds to all questions.</p>
-                            <div class="text-xs text-gray-500 space-y-2">
-                                <div>
-                                    <p class="font-medium">Examples of what to include:</p>
-                                    <ul class="ml-3 space-y-1">
-                                        <li>• Role definition: "You are a helpful Vilnius city services assistant"</li>
-                                        <li>• Communication style: "Be friendly, professional, and concise"</li>
-                                        <li>• Response guidelines: "Always provide accurate information based on official documents"</li>
-                                        <li>• Language preferences: "Respond in Lithuanian unless asked otherwise"</li>
-                                    </ul>
+                        <div class="mt-2 space-y-3">
+                            <!-- Variable Documentation -->
+                            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div class="flex items-start gap-3">
+                                    <i class="fas fa-code text-blue-600 mt-0.5"></i>
+                                    <div class="text-sm text-blue-800">
+                                        <p class="font-medium mb-2">Template Variables</p>
+                                        <p class="mb-2">Insert these variables into your system prompt to dynamically include context and conversation data:</p>
+                                        <div class="space-y-1 text-xs bg-blue-100 p-2 rounded font-mono">
+                                            <div><strong>{context}</strong> - Retrieved documents from knowledge base (formatted as markdown)</div>
+                                            <div><strong>{question}</strong> - Current user question</div>
+                                            <div><strong>{formatted_history}</strong> - Previous conversation exchanges</div>
+                                        </div>
+                                        <p class="mt-2 text-xs">💡 Variables are automatically replaced when the AI processes each question.</p>
+                                    </div>
                                 </div>
-                                <p class="italic">💡 Tip: Leave empty to use the default system behavior, or customize to match your organization's tone and requirements.</p>
+                            </div>
+                            
+                            <!-- Usage Examples -->
+                            <div class="p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-2"><strong>System Prompt Template Examples:</strong></p>
+                                <div class="text-xs text-gray-500 space-y-2">
+                                    <div class="bg-white p-2 rounded border font-mono text-xs">
+                                        <div class="text-gray-700 mb-1"><strong>Basic Template:</strong></div>
+                                        <div>You are a helpful assistant. Use the following context to answer questions:</div>
+                                        <div class="text-blue-600">{context}</div>
+                                        <div class="mt-1">Question: <span class="text-blue-600">{question}</span></div>
+                                    </div>
+                                    <div class="bg-white p-2 rounded border font-mono text-xs">
+                                        <div class="text-gray-700 mb-1"><strong>With History:</strong></div>
+                                        <div>Previous conversation: <span class="text-blue-600">{formatted_history}</span></div>
+                                        <div>Current context: <span class="text-blue-600">{context}</span></div>
+                                        <div>Answer the question: <span class="text-blue-600">{question}</span></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2 italic">💡 Leave empty to use the default Lithuanian city services template, or customize for your specific use case.</p>
                             </div>
                         </div>
                     </div>
@@ -342,6 +400,96 @@
                     <div>
                         <span class="font-medium text-gray-700">Max Tokens:</span>
                         <span id="preview-max-tokens" class="text-gray-900">2000</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Langfuse Prompt Management Section -->
+            <div id="langfuse-prompts-section" class="bg-white rounded-lg shadow-md p-6 mt-6 hidden">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-cloud text-purple-600"></i>
+                        Langfuse Prompt Management
+                    </h3>
+                    <div class="flex items-center gap-3">
+                        <button 
+                            id="refresh-prompts" 
+                            class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                        >
+                            <i class="fas fa-sync-alt"></i>Refresh
+                        </button>
+                        <button 
+                            id="create-new-prompt" 
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2"
+                        >
+                            <i class="fas fa-plus"></i>New Prompt
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Connection Status -->
+                <div class="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-info-circle text-purple-600"></i>
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-sm font-medium text-gray-700">Langfuse Connection:</span>
+                                <span id="langfuse-connection-status" class="text-green-600 text-sm">✓ Connected</span>
+                                <span id="langfuse-connection-key" class="text-gray-400 text-xs font-mono"></span>
+                            </div>
+                            <p class="text-xs text-gray-600">Manage your AI prompts centrally with versioning, A/B testing, and analytics.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompts List -->
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-medium text-gray-900">Available Prompts</h4>
+                        <div class="text-sm text-gray-500">
+                            <span id="prompt-count">Loading...</span> prompts
+                        </div>
+                    </div>
+                    
+                    <!-- Loading State -->
+                    <div id="prompts-loading" class="text-center py-8">
+                        <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-purple-300 border-t-purple-600"></div>
+                        <p class="text-gray-600 text-sm mt-2">Loading prompts...</p>
+                    </div>
+
+                    <!-- Prompts Table -->
+                    <div id="prompts-table-container" class="hidden">
+                        <div class="overflow-hidden border border-gray-200 rounded-lg">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Language</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prompts-table-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- Dynamically populated -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- No Prompts State -->
+                    <div id="no-prompts-message" class="hidden text-center py-8">
+                        <div class="text-gray-400 mb-4">
+                            <i class="fas fa-file-text text-4xl"></i>
+                        </div>
+                        <p class="text-gray-600 text-sm">No prompts found.</p>
+                        <p class="text-gray-500 text-xs mt-1">Create your first prompt or initialize default prompts.</p>
+                        <button 
+                            id="initialize-default-prompts" 
+                            class="mt-3 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-lg text-sm font-medium"
+                        >
+                            Initialize Default Prompts
+                        </button>
                     </div>
                 </div>
             </div>
@@ -688,5 +836,225 @@
     
     <!-- Legacy settings.js preserved as backup during migration -->
     <!-- <script src="js/settings.js"></script> -->
+
+    <!-- Prompt View Modal -->
+    <div id="prompt-view-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="prompt-view-title">Prompt Details</h3>
+                <button id="close-prompt-view-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Prompt Metadata -->
+                <div class="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Name:</label>
+                        <p id="prompt-view-name" class="text-gray-900 font-mono text-sm"></p>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Source:</label>
+                        <p id="prompt-view-source" class="text-gray-900 text-sm"></p>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Version:</label>
+                        <p id="prompt-view-version" class="text-gray-900 text-sm"></p>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">From Langfuse:</label>
+                        <p id="prompt-view-langfuse" class="text-gray-900 text-sm"></p>
+                    </div>
+                </div>
+
+                <!-- Prompt Content -->
+                <div>
+                    <label class="text-sm font-medium text-gray-700 mb-2 block">Prompt Content:</label>
+                    <div class="relative">
+                        <pre id="prompt-view-content" class="bg-gray-100 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap max-h-96 overflow-y-auto"></pre>
+                        <button 
+                            id="copy-prompt-content" 
+                            class="absolute top-2 right-2 bg-white hover:bg-gray-50 border border-gray-300 px-2 py-1 rounded text-xs"
+                        >
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Template Variables Preview -->
+                <div class="border-t pt-4">
+                    <label class="text-sm font-medium text-gray-700 mb-2 block">Template Variables Found:</label>
+                    <div id="prompt-variables-list" class="flex flex-wrap gap-2">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-between pt-4 border-t">
+                    <button 
+                        id="test-prompt-btn" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                        <i class="fas fa-play"></i> Test Prompt
+                    </button>
+                    <div class="flex gap-2">
+                        <button 
+                            id="edit-prompt-btn" 
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                        >
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button 
+                            id="close-prompt-view" 
+                            class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Edit Modal -->
+    <div id="prompt-edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="prompt-edit-title">Edit Prompt</h3>
+                <button id="close-prompt-edit-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <form id="prompt-edit-form" class="space-y-6">
+                <!-- Prompt Name -->
+                <div>
+                    <label for="prompt-edit-name" class="block text-sm font-medium text-gray-700 mb-2">
+                        Prompt Name
+                    </label>
+                    <input 
+                        type="text" 
+                        id="prompt-edit-name" 
+                        readonly
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                    >
+                </div>
+
+                <!-- Template Variables Help -->
+                <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-info-circle text-blue-600 mt-0.5"></i>
+                        <div class="text-sm text-blue-800">
+                            <p class="font-medium mb-2">Template Variables</p>
+                            <div class="space-y-1 text-xs bg-blue-100 p-2 rounded font-mono">
+                                <div><strong>{{context}}</strong> - Retrieved documents from knowledge base</div>
+                                <div><strong>{{question}}</strong> - Current user question</div>
+                                <div><strong>{{formatted_history}}</strong> - Previous conversation history</div>
+                            </div>
+                            <p class="mt-2 text-xs">Use double curly braces for variables in Langfuse prompts.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompt Content Editor -->
+                <div>
+                    <label for="prompt-edit-content" class="block text-sm font-medium text-gray-700 mb-2">
+                        Prompt Content
+                    </label>
+                    <textarea 
+                        id="prompt-edit-content"
+                        rows="12"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-vertical font-mono text-sm"
+                        placeholder="Enter your prompt content with template variables like {{context}}, {{question}}, {{formatted_history}}..."
+                    ></textarea>
+                </div>
+
+                <!-- Live Preview -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Live Preview (with sample data)
+                    </label>
+                    <div class="border border-gray-200 rounded-lg p-4 bg-gray-50 max-h-48 overflow-y-auto">
+                        <pre id="prompt-edit-preview" class="text-sm whitespace-pre-wrap text-gray-700"></pre>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-2 pt-4 border-t">
+                    <button 
+                        type="button"
+                        id="test-prompt-edit-btn" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                        <i class="fas fa-play"></i> Test
+                    </button>
+                    <button 
+                        type="button"
+                        id="cancel-prompt-edit" 
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        type="submit"
+                        id="save-prompt-btn" 
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Test Results Modal -->
+    <div id="prompt-test-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Prompt Test Results</h3>
+                <button id="close-prompt-test-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <!-- Test Variables -->
+                <div>
+                    <label class="text-sm font-medium text-gray-700 mb-2 block">Test Variables:</label>
+                    <div class="grid grid-cols-1 gap-3 p-4 bg-gray-50 rounded-lg text-sm">
+                        <div>
+                            <strong>Context:</strong> <span id="test-var-context" class="font-mono text-xs"></span>
+                        </div>
+                        <div>
+                            <strong>Question:</strong> <span id="test-var-question" class="font-mono text-xs"></span>
+                        </div>
+                        <div>
+                            <strong>History:</strong> <span id="test-var-history" class="font-mono text-xs"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compiled Result -->
+                <div>
+                    <label class="text-sm font-medium text-gray-700 mb-2 block">Compiled Prompt:</label>
+                    <div class="border border-gray-200 rounded-lg p-4 bg-white max-h-96 overflow-y-auto">
+                        <pre id="test-compiled-content" class="text-sm whitespace-pre-wrap"></pre>
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-4 border-t">
+                    <button 
+                        id="close-test-results" 
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

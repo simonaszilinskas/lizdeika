@@ -621,6 +621,199 @@ Based on the relevant information provided above, please respond to the user's q
     }
 
     /**
+     * List all available Langfuse prompts
+     * GET /prompts/list
+     */
+    async listPrompts(req, res) {
+        try {
+            const promptManager = require('../services/promptManager');
+            
+            // Check if Langfuse is available
+            if (!promptManager.enabled) {
+                return res.json({
+                    success: true,
+                    prompts: [],
+                    langfuseEnabled: false,
+                    message: 'Langfuse not configured - no prompts available'
+                });
+            }
+
+            // For now, return the predefined prompts since Langfuse doesn't have a direct "list all prompts" API
+            // In a real implementation, you'd maintain a registry or fetch from Langfuse API
+            const predefinedPrompts = [
+                {
+                    name: 'vilnius-rag-system',
+                    description: 'Main system prompt for Vilnius RAG assistant',
+                    category: 'system',
+                    language: 'lithuanian'
+                },
+                {
+                    name: 'vilnius-query-rephrase', 
+                    description: 'Query rephrasing for better document retrieval',
+                    category: 'processing',
+                    language: 'multilingual'
+                },
+                {
+                    name: 'vilnius-context-format',
+                    description: 'Context formatting template for RAG responses', 
+                    category: 'formatting',
+                    language: 'lithuanian'
+                }
+            ];
+            
+            res.json({
+                success: true,
+                prompts: predefinedPrompts,
+                langfuseEnabled: true,
+                count: predefinedPrompts.length
+            });
+            
+        } catch (error) {
+            console.error('Failed to list prompts:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to list prompts',
+                message: error.message
+            });
+        }
+    }
+
+    /**
+     * Get specific prompt content with versions
+     * GET /prompts/:name
+     */
+    async getPrompt(req, res) {
+        try {
+            const { name } = req.params;
+            const promptManager = require('../services/promptManager');
+            
+            if (!promptManager.enabled) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Langfuse not configured'
+                });
+            }
+
+            // Get the prompt with fallback
+            const prompt = await promptManager.getPrompt(name, 'Fallback content not available');
+            
+            res.json({
+                success: true,
+                prompt: {
+                    name: prompt.name,
+                    content: prompt.content,
+                    version: prompt.version,
+                    fromLangfuse: prompt.fromLangfuse,
+                    source: prompt.source,
+                    config: prompt.config
+                }
+            });
+            
+        } catch (error) {
+            console.error(`Failed to get prompt ${req.params.name}:`, error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get prompt',
+                message: error.message
+            });
+        }
+    }
+
+    /**
+     * Update or create a prompt in Langfuse
+     * POST /prompts/:name
+     */
+    async updatePrompt(req, res) {
+        try {
+            const { name } = req.params;
+            const { content, config = {}, labels = ['production'] } = req.body;
+            
+            if (!content) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Prompt content is required'
+                });
+            }
+
+            const promptManager = require('../services/promptManager');
+            
+            if (!promptManager.enabled) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Langfuse not configured'
+                });
+            }
+
+            const result = await promptManager.createPrompt(name, content, config, labels);
+            
+            if (result) {
+                res.json({
+                    success: true,
+                    prompt: result,
+                    message: `Prompt '${name}' updated successfully`
+                });
+            } else {
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to update prompt'
+                });
+            }
+            
+        } catch (error) {
+            console.error(`Failed to update prompt ${req.params.name}:`, error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to update prompt',
+                message: error.message
+            });
+        }
+    }
+
+    /**
+     * Test prompt compilation with sample data
+     * POST /prompts/:name/test
+     */
+    async testPrompt(req, res) {
+        try {
+            const { name } = req.params;
+            const { variables = {} } = req.body;
+            
+            const promptManager = require('../services/promptManager');
+            
+            // Sample default variables for testing
+            const testVariables = {
+                context: 'Sample context: Vilnius city services information...',
+                question: 'What are the opening hours for city services?',
+                formatted_history: 'User: Previous question\nAssistant: Previous response',
+                ...variables
+            };
+
+            const prompt = await promptManager.getPrompt(name, 'Default test prompt');
+            const compiledContent = prompt.compile(testVariables);
+            
+            res.json({
+                success: true,
+                test: {
+                    name: prompt.name,
+                    originalContent: prompt.content,
+                    compiledContent: compiledContent,
+                    variables: testVariables,
+                    fromLangfuse: prompt.fromLangfuse,
+                    source: prompt.source
+                }
+            });
+            
+        } catch (error) {
+            console.error(`Failed to test prompt ${req.params.name}:`, error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to test prompt',
+                message: error.message
+            });
+        }
+    }
+
+    /**
      * Static method to get RAG settings for use in other services
      */
     static getRagConfig() {

@@ -84,10 +84,12 @@ function createSystemRoutes() {
             }
 
             const aiSettings = await settingsService.getSettingsByCategory('ai', true); // Include private settings
+            const langfuseStatus = settingsService.getLangfuseStatus();
             
             res.json({
                 success: true,
-                settings: aiSettings
+                settings: aiSettings,
+                langfuse: langfuseStatus
             });
         } catch (error) {
             res.status(500).json({
@@ -308,6 +310,23 @@ function createSystemRoutes() {
 
     router.get('/prompts/health', (req, res) => {
         systemController.getPromptHealth(req, res);
+    });
+
+    // New Langfuse prompt management endpoints
+    router.get('/prompts/list', (req, res) => {
+        systemController.listPrompts(req, res);
+    });
+
+    router.get('/prompts/:name', (req, res) => {
+        systemController.getPrompt(req, res);
+    });
+
+    router.post('/prompts/:name', authenticateToken, (req, res) => {
+        systemController.updatePrompt(req, res);
+    });
+
+    router.post('/prompts/:name/test', (req, res) => {
+        systemController.testPrompt(req, res);
     });
 
     return router;

@@ -38,7 +38,8 @@ const SETTING_SCHEMAS = {
         system_prompt: z.string().min(10).optional().or(z.literal('')),
         rag_k: z.number().int().min(1).max(200),
         rag_similarity_threshold: z.number().min(0.0).max(1.0).optional(),
-        rag_max_tokens: z.number().int().min(500).max(4000).optional()
+        rag_max_tokens: z.number().int().min(500).max(4000).optional(),
+        use_langfuse_prompts: z.boolean().optional()
     },
     logging: {
         log_level: z.enum(['debug', 'info', 'warn', 'error']),
@@ -58,6 +59,7 @@ const ENV_FALLBACKS = {
     rag_k: parseInt(process.env.RAG_K) || 100,
     rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,
     rag_max_tokens: parseInt(process.env.RAG_MAX_TOKENS) || 2000,
+    use_langfuse_prompts: process.env.USE_LANGFUSE_PROMPTS === 'true',
     log_level: process.env.LOG_LEVEL || 'info',
     log_to_file: process.env.LOG_TO_FILE === 'true',
     log_to_database: process.env.LOG_TO_DATABASE !== 'false'
@@ -432,7 +434,7 @@ class SettingsService extends EventEmitter {
         
         // AI settings should be accessible to admins for context engineering
         if (category === 'ai') {
-            return ['rag_k', 'rag_similarity_threshold', 'rag_max_tokens'].includes(key);
+            return ['rag_k', 'rag_similarity_threshold', 'rag_max_tokens', 'use_langfuse_prompts'].includes(key);
         }
         
         // Logging settings are typically private
@@ -493,6 +495,26 @@ class SettingsService extends EventEmitter {
     }
 
     /**
+     * Check if Langfuse credentials are configured
+     */
+    isLangfuseAvailable() {
+        return !!(process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY);
+    }
+
+    /**
+     * Get Langfuse configuration status
+     */
+    getLangfuseStatus() {
+        const isAvailable = this.isLangfuseAvailable();
+        return {
+            available: isAvailable,
+            publicKey: isAvailable ? process.env.LANGFUSE_PUBLIC_KEY?.substring(0, 8) + '...' : null,
+            baseUrl: process.env.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com',
+            enabled: isAvailable && process.env.LANGFUSE_DEBUG === 'true'
+        };
+    }
+
+    /**
      * Get service status for health checks
      */
     getStatus() {
@@ -500,7 +522,8 @@ class SettingsService extends EventEmitter {
             cacheSize: this.settingsCache.size,
             cacheTTL: this.cacheTTL,
             isInitialized: this.settingsCache.size > 0,
-            lastCacheRefresh: Math.max(...this.cacheExpiry.values()) - this.cacheTTL
+            lastCacheRefresh: Math.max(...this.cacheExpiry.values()) - this.cacheTTL,
+            langfuse: this.getLangfuseStatus()
         };
     }
 
