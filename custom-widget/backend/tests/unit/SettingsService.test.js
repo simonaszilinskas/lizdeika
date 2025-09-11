@@ -299,8 +299,8 @@ describe('SettingsService', () => {
             await expect(settingsService.validateSetting('system_prompt', 'Valid system prompt here', 'ai')).resolves.not.toThrow();
             await expect(settingsService.validateSetting('system_prompt', 'Short prompt', 'ai')).resolves.not.toThrow();
             await expect(settingsService.validateSetting('system_prompt', 'A'.repeat(10), 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('system_prompt', '', 'ai')).resolves.not.toThrow(); // Empty is allowed
             await expect(settingsService.validateSetting('system_prompt', 'Too short', 'ai')).rejects.toThrow();
-            await expect(settingsService.validateSetting('system_prompt', '', 'ai')).rejects.toThrow();
         });
 
         test('should validate rag_show_sources correctly', async () => {

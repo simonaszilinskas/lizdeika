@@ -35,7 +35,7 @@ const SETTING_SCHEMAS = {
         user_message_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color').optional()
     },
     ai: {
-        system_prompt: z.string().min(10),
+        system_prompt: z.string().min(10).optional().or(z.literal('')),
         rag_k: z.number().int().min(1).max(200),
         rag_show_sources: z.boolean(),
         rag_similarity_threshold: z.number().min(0.0).max(1.0).optional(),
