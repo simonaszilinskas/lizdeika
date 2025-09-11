@@ -162,7 +162,15 @@
                     <i class="fas fa-brain text-indigo-600"></i>
                     AI Context Engineering
                 </h2>
-                <p class="text-gray-600 mb-6">Fine-tune AI response generation parameters for optimal performance and accuracy.</p>
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-info-circle text-blue-600 mt-0.5"></i>
+                        <div class="text-sm text-blue-800">
+                            <p class="font-medium mb-1">What is Context Engineering?</p>
+                            <p>Fine-tune how the AI retrieves and uses information from your knowledge base. These settings control the RAG (Retrieval-Augmented Generation) system that helps the AI provide accurate, contextual responses based on your documents.</p>
+                        </div>
+                    </div>
+                </div>
 
                 <form id="context-engineering-form" class="space-y-6">
                     <!-- RAG Top-K Setting -->
@@ -189,7 +197,14 @@
                                 class="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             >
                         </div>
-                        <p class="text-sm text-gray-500 mt-1">Number of relevant document chunks to retrieve for context (1-200)</p>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Controls how many document chunks the AI retrieves from your knowledge base to answer each question.</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                <li>• <strong>Lower values (20-50):</strong> Faster responses, more focused answers, but may miss relevant information</li>
+                                <li>• <strong>Medium values (50-100):</strong> Balanced performance and comprehensiveness (recommended)</li>
+                                <li>• <strong>Higher values (100-200):</strong> More thorough but slower responses, better for complex topics</li>
+                            </ul>
+                        </div>
                     </div>
 
                     <!-- RAG Similarity Threshold -->
@@ -218,7 +233,14 @@
                                 class="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             >
                         </div>
-                        <p class="text-sm text-gray-500 mt-1">Minimum similarity score for document relevance (0.0-1.0)</p>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Sets the minimum relevance score for documents to be included in the AI's context.</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                <li>• <strong>Lower values (0.3-0.5):</strong> Include more documents, even loosely related ones - good for broad topics</li>
+                                <li>• <strong>Medium values (0.6-0.7):</strong> Balanced relevance filtering (recommended for most cases)</li>
+                                <li>• <strong>Higher values (0.8-1.0):</strong> Only highly relevant documents - good for precise, technical queries</li>
+                            </ul>
+                        </div>
                     </div>
 
                     <!-- RAG Max Tokens -->
@@ -247,7 +269,15 @@
                                 class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                             >
                         </div>
-                        <p class="text-sm text-gray-500 mt-1">Maximum tokens for context information (500-4000)</p>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Limits the total amount of context text sent to the AI model from retrieved documents.</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                <li>• <strong>Lower values (500-1000):</strong> Faster processing, less context - good for simple questions</li>
+                                <li>• <strong>Medium values (1500-2500):</strong> Balanced context size - handles most complex questions well</li>
+                                <li>• <strong>Higher values (3000-4000):</strong> Maximum context - best for very complex or multi-part questions</li>
+                                <li>• <strong>Note:</strong> Higher values may increase response time but improve answer quality for complex topics</li>
+                            </ul>
+                        </div>
                     </div>
 
 
@@ -263,7 +293,21 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-vertical"
                             placeholder="Enter the system prompt that defines AI behavior and instructions..."
                         ></textarea>
-                        <p class="text-sm text-gray-500 mt-1">Base instructions that guide AI response generation</p>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Sets the foundational instructions that shape how the AI behaves and responds to all questions.</p>
+                            <div class="text-xs text-gray-500 space-y-2">
+                                <div>
+                                    <p class="font-medium">Examples of what to include:</p>
+                                    <ul class="ml-3 space-y-1">
+                                        <li>• Role definition: "You are a helpful Vilnius city services assistant"</li>
+                                        <li>• Communication style: "Be friendly, professional, and concise"</li>
+                                        <li>• Response guidelines: "Always provide accurate information based on official documents"</li>
+                                        <li>• Language preferences: "Respond in Lithuanian unless asked otherwise"</li>
+                                    </ul>
+                                </div>
+                                <p class="italic">💡 Tip: Leave empty to use the default system behavior, or customize to match your organization's tone and requirements.</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Save Button -->
