@@ -88,7 +88,10 @@ export class BrandingConfigModule {
             widgetNameInput: document.getElementById('widget-name'),
             primaryColorInput: document.getElementById('widget-primary-color'),
             colorHexInput: document.getElementById('widget-primary-color-text'),
+            userMessageColorInput: document.getElementById('user-message-color'),
+            userMessageColorHexInput: document.getElementById('user-message-color-text'),
             allowedDomainsTextarea: document.getElementById('widget-allowed-domains'),
+            welcomeMessageInput: document.getElementById('welcome-message'),
             
             // Form and buttons
             form: document.getElementById('branding-form'),
@@ -181,6 +184,8 @@ export class BrandingConfigModule {
             'widget-name',
             'widget-primary-color',
             'widget-primary-color-text',
+            'user-message-color',
+            'user-message-color-text',
             'welcome-message'
         ];
 
@@ -204,6 +209,20 @@ export class BrandingConfigModule {
                 } else if (inputId === 'widget-primary-color-text') {
                     input.addEventListener('input', () => {
                         const colorInput = document.getElementById('widget-primary-color');
+                        if (colorInput && this.isValidHexColor(input.value)) {
+                            colorInput.value = input.value;
+                        }
+                    });
+                } else if (inputId === 'user-message-color') {
+                    input.addEventListener('change', () => {
+                        const colorTextInput = document.getElementById('user-message-color-text');
+                        if (colorTextInput) {
+                            colorTextInput.value = input.value;
+                        }
+                    });
+                } else if (inputId === 'user-message-color-text') {
+                    input.addEventListener('input', () => {
+                        const colorInput = document.getElementById('user-message-color');
                         if (colorInput && this.isValidHexColor(input.value)) {
                             colorInput.value = input.value;
                         }
@@ -242,12 +261,19 @@ export class BrandingConfigModule {
         if (previewWelcomeMessage) {
             previewWelcomeMessage.textContent = settings.welcome_message || 'Hello! How can I help you today?';
         }
+
+        // Update user message color in preview
+        const previewUserMessage = document.getElementById('preview-user-message');
+        if (previewUserMessage && settings.user_message_color) {
+            previewUserMessage.style.backgroundColor = settings.user_message_color;
+        }
     }
 
     getCurrentFormValues() {
         return {
             widget_name: document.getElementById('widget-name')?.value || '',
             widget_primary_color: document.getElementById('widget-primary-color')?.value || '#2c5530',
+            user_message_color: document.getElementById('user-message-color')?.value || '#3b82f6',
             widget_allowed_domains: document.getElementById('widget-allowed-domains')?.value || '*',
             welcome_message: document.getElementById('welcome-message')?.value || ''
         };
@@ -315,6 +341,8 @@ export class BrandingConfigModule {
             this.originalSettings = {};
             
             for (const [key, setting] of Object.entries(data.data)) {
+                // Skip site_name as it's been removed from the system
+                if (key === 'site_name') continue;
                 this.currentSettings[key] = setting.value;
                 this.originalSettings[key] = setting.value;
             }
@@ -343,7 +371,9 @@ export class BrandingConfigModule {
         const defaults = {
             widget_name: 'Vilnius Assistant',
             widget_primary_color: '#2c5530',
-            widget_allowed_domains: '*'
+            user_message_color: '#3b82f6',
+            widget_allowed_domains: '*',
+            welcome_message: 'Hello! How can I help you today?'
         };
         
         for (const [key, defaultValue] of Object.entries(defaults)) {
@@ -376,6 +406,10 @@ export class BrandingConfigModule {
                 throw new Error(`Validation failed: ${validationErrors.map(e => e.message).join(', ')}`);
             }
             
+            // Filter out site_name before sending to server
+            const settingsToSave = { ...this.currentSettings };
+            delete settingsToSave.site_name;
+            
             const response = await fetch(`${this.apiManager.apiUrl}/api/config/branding`, {
                 method: 'PUT',
                 headers: {
@@ -383,7 +417,7 @@ export class BrandingConfigModule {
                     'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
                 },
                 body: JSON.stringify({
-                    settings: this.currentSettings
+                    settings: settingsToSave
                 })
             });
             
@@ -396,8 +430,10 @@ export class BrandingConfigModule {
             // Clear any validation errors on successful save
             this.clearAllFieldErrors();
             
-            // Update original settings
+            // Update original settings (excluding site_name)
             this.originalSettings = { ...this.currentSettings };
+            delete this.originalSettings.site_name;
+            delete this.currentSettings.site_name;
             this.hasUnsavedChanges = false;
             
             Toast.success('Branding settings saved successfully', 'Settings will take effect immediately');
@@ -529,8 +565,20 @@ export class BrandingConfigModule {
             this.elements.colorHexInput.value = settings.widget_primary_color || '#2c5530';
         }
 
+        if (this.elements.userMessageColorInput) {
+            this.elements.userMessageColorInput.value = settings.user_message_color || '#3b82f6';
+        }
+
+        if (this.elements.userMessageColorHexInput) {
+            this.elements.userMessageColorHexInput.value = settings.user_message_color || '#3b82f6';
+        }
+
         if (this.elements.allowedDomainsTextarea) {
             this.elements.allowedDomainsTextarea.value = settings.widget_allowed_domains || '*';
+        }
+
+        if (this.elements.welcomeMessageInput) {
+            this.elements.welcomeMessageInput.value = settings.welcome_message || 'Hello! How can I help you today?';
         }
 
         console.log('📝 BrandingConfigModule: Form populated from settings', settings);
@@ -874,6 +922,13 @@ export class BrandingConfigModule {
             this.currentSettings.widget_primary_color = this.elements.colorHexInput.value;
         }
         
+        if (this.elements.userMessageColorHexInput) {
+            this.currentSettings.user_message_color = this.elements.userMessageColorHexInput.value;
+        }
+        
+        if (this.elements.welcomeMessageInput) {
+            this.currentSettings.welcome_message = this.elements.welcomeMessageInput.value;
+        }
         
         if (this.elements.allowedDomainsTextarea) {
             this.currentSettings.widget_allowed_domains = this.elements.allowedDomainsTextarea.value;
@@ -1162,6 +1217,9 @@ export class BrandingConfigModule {
             this.elements.widgetNameInput,
             this.elements.primaryColorInput,
             this.elements.colorHexInput,
+            this.elements.userMessageColorInput,
+            this.elements.userMessageColorHexInput,
+            this.elements.welcomeMessageInput,
             this.elements.allowedDomainsTextarea
         ];
 
@@ -1190,6 +1248,20 @@ export class BrandingConfigModule {
                 const color = e.target.value;
                 if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
                     this.elements.primaryColorInput.value = color;
+                }
+            });
+        }
+
+        // Color sync for user message color
+        if (this.elements.userMessageColorInput && this.elements.userMessageColorHexInput) {
+            this.elements.userMessageColorInput.addEventListener('input', (e) => {
+                this.elements.userMessageColorHexInput.value = e.target.value;
+            });
+            
+            this.elements.userMessageColorHexInput.addEventListener('input', (e) => {
+                const color = e.target.value;
+                if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                    this.elements.userMessageColorInput.value = color;
                 }
             });
         }
