@@ -13,6 +13,7 @@ import { AgentStatusModule } from './modules/AgentStatusModule.js';
 import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
 import { UserManagementModule } from './modules/UserManagementModule.js';
 import { BrandingConfigModule } from './modules/BrandingConfigModule.js';
+import ContextEngineeringModule from './modules/ContextEngineeringModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
@@ -31,6 +32,7 @@ export class SettingsManager {
         this.widgetConfigModule = new WidgetConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         this.userManagementModule = new UserManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         this.brandingConfigModule = new BrandingConfigModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.contextEngineeringModule = new ContextEngineeringModule(this.apiManager, this.stateManager, this.connectionManager);
         
         // DOM elements - will be initialized in initializeElements
         this.elements = {};
@@ -75,6 +77,7 @@ export class SettingsManager {
             await this.widgetConfigModule.initialize();
             await this.userManagementModule.initialize();
             await this.brandingConfigModule.initialize();
+            await this.contextEngineeringModule.initialize();
             console.log('✅ SettingsManager: Feature modules initialized');
             
             // Load initial data

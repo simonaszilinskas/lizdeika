@@ -48,6 +48,9 @@
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="branding">
                     <i class="fas fa-palette mr-2"></i>Widget & Branding
                 </button>
+                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="context-engineering">
+                    <i class="fas fa-brain mr-2"></i>Context Engineering
+                </button>
                 <!-- Widget Configuration merged with Branding tab -->
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="users">
                     <i class="fas fa-users mr-2"></i>User Management
@@ -151,6 +154,173 @@
         </div>
 
         <!-- Widget Configuration merged with Branding tab -->
+
+        <!-- Context Engineering Tab -->
+        <div id="context-engineering-tab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-brain text-indigo-600"></i>
+                    AI Context Engineering
+                </h2>
+                <p class="text-gray-600 mb-6">Fine-tune AI response generation parameters for optimal performance and accuracy.</p>
+
+                <form id="context-engineering-form" class="space-y-6">
+                    <!-- RAG Top-K Setting -->
+                    <div>
+                        <label for="rag-k" class="block text-sm font-medium text-gray-700 mb-2">
+                            Document Retrieval Count (Top-K)
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input 
+                                type="range" 
+                                id="rag-k" 
+                                name="rag_k" 
+                                min="1" 
+                                max="200" 
+                                value="100" 
+                                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                            >
+                            <input 
+                                type="number" 
+                                id="rag-k-value" 
+                                min="1" 
+                                max="200" 
+                                value="100" 
+                                class="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Number of relevant document chunks to retrieve for context (1-200)</p>
+                    </div>
+
+                    <!-- RAG Similarity Threshold -->
+                    <div>
+                        <label for="rag-similarity-threshold" class="block text-sm font-medium text-gray-700 mb-2">
+                            Similarity Threshold
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input 
+                                type="range" 
+                                id="rag-similarity-threshold" 
+                                name="rag_similarity_threshold" 
+                                min="0" 
+                                max="1" 
+                                step="0.1" 
+                                value="0.7" 
+                                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                            >
+                            <input 
+                                type="number" 
+                                id="rag-similarity-threshold-value" 
+                                min="0" 
+                                max="1" 
+                                step="0.1" 
+                                value="0.7" 
+                                class="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Minimum similarity score for document relevance (0.0-1.0)</p>
+                    </div>
+
+                    <!-- RAG Max Tokens -->
+                    <div>
+                        <label for="rag-max-tokens" class="block text-sm font-medium text-gray-700 mb-2">
+                            Maximum Context Tokens
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input 
+                                type="range" 
+                                id="rag-max-tokens" 
+                                name="rag_max_tokens" 
+                                min="500" 
+                                max="4000" 
+                                step="100" 
+                                value="2000" 
+                                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                            >
+                            <input 
+                                type="number" 
+                                id="rag-max-tokens-value" 
+                                min="500" 
+                                max="4000" 
+                                step="100" 
+                                value="2000" 
+                                class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">Maximum tokens for context information (500-4000)</p>
+                    </div>
+
+                    <!-- RAG Show Sources -->
+                    <div>
+                        <label class="flex items-center gap-3">
+                            <input 
+                                type="checkbox" 
+                                id="rag-show-sources" 
+                                name="rag_show_sources" 
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                            >
+                            <div>
+                                <div class="text-sm font-medium text-gray-700">Show Source Attribution</div>
+                                <div class="text-sm text-gray-500">Include document sources in AI responses</div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- System Prompt -->
+                    <div>
+                        <label for="system-prompt" class="block text-sm font-medium text-gray-700 mb-2">
+                            System Prompt
+                        </label>
+                        <textarea 
+                            id="system-prompt" 
+                            name="system_prompt" 
+                            rows="8" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-vertical"
+                            placeholder="Enter the system prompt that defines AI behavior and instructions..."
+                        ></textarea>
+                        <p class="text-sm text-gray-500 mt-1">Base instructions that guide AI response generation</p>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="flex justify-end">
+                        <button 
+                            type="submit" 
+                            id="save-context-engineering" 
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg focus:ring-4 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled
+                        >
+                            <i class="fas fa-save mr-2"></i>Save Context Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Live Preview Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-eye text-green-600 mr-2"></i>
+                    Current Configuration Preview
+                </h3>
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="font-medium text-gray-700">Document Count:</span>
+                        <span id="preview-rag-k" class="text-gray-900">100</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Similarity Threshold:</span>
+                        <span id="preview-similarity" class="text-gray-900">0.7</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Max Tokens:</span>
+                        <span id="preview-max-tokens" class="text-gray-900">2000</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">Show Sources:</span>
+                        <span id="preview-show-sources" class="text-gray-900">Yes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- User Management Tab -->
         <div id="users-tab" class="tab-content hidden">

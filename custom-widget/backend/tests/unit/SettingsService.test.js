@@ -160,6 +160,50 @@ describe('SettingsService', () => {
                 expect(result).toBeDefined();
                 expect(result.widget_name).toBeDefined();
             });
+
+            test('should get AI settings category', async () => {
+                const aiSettings = [
+                    {
+                        setting_key: 'rag_k',
+                        setting_value: '100',
+                        setting_type: 'number',
+                        category: 'ai',
+                        is_public: true,
+                        description: 'Number of documents to retrieve',
+                        updated_at: new Date()
+                    },
+                    {
+                        setting_key: 'rag_show_sources',
+                        setting_value: 'true',
+                        setting_type: 'boolean',
+                        category: 'ai',
+                        is_public: true,
+                        description: 'Show source attribution',
+                        updated_at: new Date()
+                    },
+                    {
+                        setting_key: 'system_prompt',
+                        setting_value: 'Test system prompt',
+                        setting_type: 'string',
+                        category: 'ai',
+                        is_public: false,
+                        description: 'AI system prompt',
+                        updated_at: new Date()
+                    }
+                ];
+
+                mockPrismaInstance.system_settings.findMany.mockResolvedValue(aiSettings);
+
+                const result = await settingsService.getSettingsByCategory('ai');
+                
+                expect(result).toBeDefined();
+                expect(result.rag_k).toBeDefined();
+                expect(result.rag_k.value).toBe(100);
+                expect(result.rag_show_sources).toBeDefined();
+                expect(result.rag_show_sources.value).toBe(true);
+                expect(result.system_prompt).toBeDefined();
+                expect(result.system_prompt.value).toBe('Test system prompt');
+            });
         });
     });
 
@@ -222,6 +266,48 @@ describe('SettingsService', () => {
             await expect(settingsService.validateSetting('widget_allowed_domains', '*', 'branding')).resolves.not.toThrow();
             await expect(settingsService.validateSetting('widget_allowed_domains', 'example.com', 'branding')).resolves.not.toThrow();
             await expect(settingsService.validateSetting('widget_allowed_domains', '', 'branding')).rejects.toThrow();
+        });
+
+        test('should validate rag_k correctly', async () => {
+            await expect(settingsService.validateSetting('rag_k', 50, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_k', 1, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_k', 200, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_k', 0, 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('rag_k', 201, 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('rag_k', 'invalid', 'ai')).rejects.toThrow();
+        });
+
+        test('should validate rag_similarity_threshold correctly', async () => {
+            await expect(settingsService.validateSetting('rag_similarity_threshold', 0.5, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_similarity_threshold', 0.0, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_similarity_threshold', 1.0, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_similarity_threshold', -0.1, 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('rag_similarity_threshold', 1.1, 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('rag_similarity_threshold', 'invalid', 'ai')).rejects.toThrow();
+        });
+
+        test('should validate rag_max_tokens correctly', async () => {
+            await expect(settingsService.validateSetting('rag_max_tokens', 1000, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_max_tokens', 500, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_max_tokens', 4000, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_max_tokens', 499, 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('rag_max_tokens', 4001, 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('rag_max_tokens', 'invalid', 'ai')).rejects.toThrow();
+        });
+
+        test('should validate system_prompt correctly', async () => {
+            await expect(settingsService.validateSetting('system_prompt', 'Valid system prompt here', 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('system_prompt', 'Short prompt', 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('system_prompt', 'A'.repeat(10), 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('system_prompt', 'Too short', 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('system_prompt', '', 'ai')).rejects.toThrow();
+        });
+
+        test('should validate rag_show_sources correctly', async () => {
+            await expect(settingsService.validateSetting('rag_show_sources', true, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_show_sources', false, 'ai')).resolves.not.toThrow();
+            await expect(settingsService.validateSetting('rag_show_sources', 'invalid', 'ai')).rejects.toThrow();
+            await expect(settingsService.validateSetting('rag_show_sources', 1, 'ai')).rejects.toThrow();
         });
     });
 

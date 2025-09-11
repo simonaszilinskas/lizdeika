@@ -24,9 +24,13 @@ const { Langfuse } = require("langfuse");
 
 class LangChainRAG {
     constructor() {
+        // Initialize settings service for dynamic configuration
+        this.settingsService = null;
+        this.initializeSettingsService();
+        
         // Initialize the main RAG chain with all components
         this.ragChain = new VilniusRAGChain({
-            k: parseInt(process.env.RAG_K) || 3,
+            k: parseInt(process.env.RAG_K) || 100,
             enableRephrasing: process.env.ENABLE_QUERY_REPHRASING !== 'false',
             showSources: process.env.RAG_SHOW_SOURCES !== 'false',
             includeDebug: true,
@@ -53,6 +57,53 @@ class LangChainRAG {
     }
 
     /**
+     * Initialize settings service for dynamic configuration
+     */
+    async initializeSettingsService() {
+        try {
+            const SettingsService = require('./settingsService');
+            this.settingsService = new SettingsService();
+            console.log('🎯 LangChain RAG: Settings service initialized for dynamic configuration');
+        } catch (error) {
+            console.warn('⚠️ LangChain RAG: Could not initialize settings service, using env defaults:', error.message);
+        }
+    }
+
+    /**
+     * Get current RAG settings from database or environment
+     */
+    async getCurrentSettings() {
+        if (!this.settingsService) {
+            return {
+                rag_k: parseInt(process.env.RAG_K) || 100,
+                rag_show_sources: process.env.RAG_SHOW_SOURCES !== 'false',
+                rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,
+                rag_max_tokens: parseInt(process.env.RAG_MAX_TOKENS) || 2000,
+                system_prompt: process.env.SYSTEM_PROMPT || ''
+            };
+        }
+
+        try {
+            return {
+                rag_k: await this.settingsService.getSetting('rag_k', 'ai') || 100,
+                rag_show_sources: await this.settingsService.getSetting('rag_show_sources', 'ai') !== false,
+                rag_similarity_threshold: await this.settingsService.getSetting('rag_similarity_threshold', 'ai') || 0.7,
+                rag_max_tokens: await this.settingsService.getSetting('rag_max_tokens', 'ai') || 2000,
+                system_prompt: await this.settingsService.getSetting('system_prompt', 'ai') || ''
+            };
+        } catch (error) {
+            console.warn('⚠️ LangChain RAG: Error getting settings from service, using defaults:', error.message);
+            return {
+                rag_k: 100,
+                rag_show_sources: true,
+                rag_similarity_threshold: 0.7,
+                rag_max_tokens: 2000,
+                system_prompt: ''
+            };
+        }
+    }
+
+    /**
      * Main method - maintains exact same API as original
      * 
      * @param {string} query - User question
@@ -64,6 +115,17 @@ class LangChainRAG {
         const startTime = Date.now();
 
         try {
+            // Get current settings from database
+            const currentSettings = await this.getCurrentSettings();
+            
+            // Update RAG chain configuration with current settings
+            if (this.ragChain.retriever) {
+                this.ragChain.retriever.k = currentSettings.rag_k;
+            }
+            this.ragChain.showSources = currentSettings.rag_show_sources;
+            
+            console.log(`🔧 LangChain RAG: Using dynamic settings - K:${currentSettings.rag_k}, Sources:${currentSettings.rag_show_sources}`);
+            
             // Validate inputs
             if (!query || typeof query !== 'string') {
                 throw new Error('Query must be a non-empty string');

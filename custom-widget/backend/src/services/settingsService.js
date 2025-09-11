@@ -37,7 +37,9 @@ const SETTING_SCHEMAS = {
     ai: {
         system_prompt: z.string().min(10),
         rag_k: z.number().int().min(1).max(200),
-        rag_show_sources: z.boolean()
+        rag_show_sources: z.boolean(),
+        rag_similarity_threshold: z.number().min(0.0).max(1.0).optional(),
+        rag_max_tokens: z.number().int().min(500).max(4000).optional()
     },
     logging: {
         log_level: z.enum(['debug', 'info', 'warn', 'error']),
@@ -56,6 +58,8 @@ const ENV_FALLBACKS = {
     system_prompt: process.env.SYSTEM_PROMPT || '',
     rag_k: parseInt(process.env.RAG_K) || 100,
     rag_show_sources: process.env.RAG_SHOW_SOURCES === 'true',
+    rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,
+    rag_max_tokens: parseInt(process.env.RAG_MAX_TOKENS) || 2000,
     log_level: process.env.LOG_LEVEL || 'info',
     log_to_file: process.env.LOG_TO_FILE === 'true',
     log_to_database: process.env.LOG_TO_DATABASE !== 'false'
@@ -426,6 +430,11 @@ class SettingsService extends EventEmitter {
         // Most branding settings should be public for frontend access
         if (category === 'branding') {
             return ['widget_name', 'widget_primary_color', 'welcome_message', 'user_message_color'].includes(key);
+        }
+        
+        // AI settings should be accessible to admins for context engineering
+        if (category === 'ai') {
+            return ['rag_k', 'rag_show_sources', 'rag_similarity_threshold', 'rag_max_tokens'].includes(key);
         }
         
         // Logging settings are typically private
