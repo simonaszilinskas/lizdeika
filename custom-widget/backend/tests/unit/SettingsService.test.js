@@ -173,15 +173,6 @@ describe('SettingsService', () => {
                         updated_at: new Date()
                     },
                     {
-                        setting_key: 'rag_show_sources',
-                        setting_value: 'true',
-                        setting_type: 'boolean',
-                        category: 'ai',
-                        is_public: true,
-                        description: 'Show source attribution',
-                        updated_at: new Date()
-                    },
-                    {
                         setting_key: 'system_prompt',
                         setting_value: 'Test system prompt',
                         setting_type: 'string',
@@ -199,8 +190,6 @@ describe('SettingsService', () => {
                 expect(result).toBeDefined();
                 expect(result.rag_k).toBeDefined();
                 expect(result.rag_k.value).toBe(100);
-                expect(result.rag_show_sources).toBeDefined();
-                expect(result.rag_show_sources.value).toBe(true);
                 expect(result.system_prompt).toBeDefined();
                 expect(result.system_prompt.value).toBe('Test system prompt');
             });
@@ -303,12 +292,6 @@ describe('SettingsService', () => {
             await expect(settingsService.validateSetting('system_prompt', 'Too short', 'ai')).rejects.toThrow();
         });
 
-        test('should validate rag_show_sources correctly', async () => {
-            await expect(settingsService.validateSetting('rag_show_sources', true, 'ai')).resolves.not.toThrow();
-            await expect(settingsService.validateSetting('rag_show_sources', false, 'ai')).resolves.not.toThrow();
-            await expect(settingsService.validateSetting('rag_show_sources', 'invalid', 'ai')).rejects.toThrow();
-            await expect(settingsService.validateSetting('rag_show_sources', 1, 'ai')).rejects.toThrow();
-        });
     });
 
     describe('Value Type Handling', () => {

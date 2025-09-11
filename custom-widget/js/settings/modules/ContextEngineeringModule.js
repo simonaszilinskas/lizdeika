@@ -29,7 +29,6 @@ class ContextEngineeringModule {
             rag_k: 100,
             rag_similarity_threshold: 0.7,
             rag_max_tokens: 2000,
-            rag_show_sources: true,
             system_prompt: ''
         };
         this.originalSettings = {};
@@ -76,14 +75,12 @@ class ContextEngineeringModule {
             maxTokensValue: document.getElementById('rag-max-tokens-value'),
             
             // Other elements
-            showSourcesCheckbox: document.getElementById('rag-show-sources'),
             systemPromptTextarea: document.getElementById('system-prompt'),
             
             // Preview elements
             previewRagK: document.getElementById('preview-rag-k'),
             previewSimilarity: document.getElementById('preview-similarity'),
-            previewMaxTokens: document.getElementById('preview-max-tokens'),
-            previewShowSources: document.getElementById('preview-show-sources')
+            previewMaxTokens: document.getElementById('preview-max-tokens')
         };
 
         // Validate all elements exist
@@ -157,13 +154,6 @@ class ContextEngineeringModule {
             });
         }
 
-        // Show sources checkbox
-        if (this.elements.showSourcesCheckbox) {
-            this.elements.showSourcesCheckbox.addEventListener('change', () => {
-                this.updateSettingsFromForm();
-                this.updatePreview();
-            });
-        }
 
         // System prompt textarea
         if (this.elements.systemPromptTextarea) {
@@ -202,7 +192,6 @@ class ContextEngineeringModule {
                     rag_k: settings.rag_k?.value || 100,
                     rag_similarity_threshold: settings.rag_similarity_threshold?.value || 0.7,
                     rag_max_tokens: settings.rag_max_tokens?.value || 2000,
-                    rag_show_sources: settings.rag_show_sources?.value !== false,
                     system_prompt: settings.system_prompt?.value || ''
                 };
                 
@@ -288,9 +277,6 @@ class ContextEngineeringModule {
             this.currentSettings.rag_max_tokens = parseInt(this.elements.maxTokensValue.value) || 2000;
         }
         
-        if (this.elements.showSourcesCheckbox) {
-            this.currentSettings.rag_show_sources = this.elements.showSourcesCheckbox.checked;
-        }
         
         if (this.elements.systemPromptTextarea) {
             this.currentSettings.system_prompt = this.elements.systemPromptTextarea.value;
@@ -321,9 +307,6 @@ class ContextEngineeringModule {
             this.elements.maxTokensValue.value = maxTokens;
         }
         
-        if (this.elements.showSourcesCheckbox) {
-            this.elements.showSourcesCheckbox.checked = this.currentSettings.rag_show_sources !== false;
-        }
         
         if (this.elements.systemPromptTextarea) {
             this.elements.systemPromptTextarea.value = this.currentSettings.system_prompt || '';
@@ -346,9 +329,6 @@ class ContextEngineeringModule {
             this.elements.previewMaxTokens.textContent = this.currentSettings.rag_max_tokens || 2000;
         }
         
-        if (this.elements.previewShowSources) {
-            this.elements.previewShowSources.textContent = this.currentSettings.rag_show_sources ? 'Yes' : 'No';
-        }
     }
 
     /**

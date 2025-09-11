@@ -37,7 +37,6 @@ const SETTING_SCHEMAS = {
     ai: {
         system_prompt: z.string().min(10).optional().or(z.literal('')),
         rag_k: z.number().int().min(1).max(200),
-        rag_show_sources: z.boolean(),
         rag_similarity_threshold: z.number().min(0.0).max(1.0).optional(),
         rag_max_tokens: z.number().int().min(500).max(4000).optional()
     },
@@ -57,7 +56,6 @@ const ENV_FALLBACKS = {
     user_message_color: process.env.USER_MESSAGE_COLOR || '#3b82f6',
     system_prompt: process.env.SYSTEM_PROMPT || '',
     rag_k: parseInt(process.env.RAG_K) || 100,
-    rag_show_sources: process.env.RAG_SHOW_SOURCES === 'true',
     rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,
     rag_max_tokens: parseInt(process.env.RAG_MAX_TOKENS) || 2000,
     log_level: process.env.LOG_LEVEL || 'info',
@@ -434,7 +432,7 @@ class SettingsService extends EventEmitter {
         
         // AI settings should be accessible to admins for context engineering
         if (category === 'ai') {
-            return ['rag_k', 'rag_show_sources', 'rag_similarity_threshold', 'rag_max_tokens'].includes(key);
+            return ['rag_k', 'rag_similarity_threshold', 'rag_max_tokens'].includes(key);
         }
         
         // Logging settings are typically private

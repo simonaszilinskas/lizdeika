@@ -76,7 +76,6 @@ class LangChainRAG {
         if (!this.settingsService) {
             return {
                 rag_k: parseInt(process.env.RAG_K) || 100,
-                rag_show_sources: process.env.RAG_SHOW_SOURCES !== 'false',
                 rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,
                 rag_max_tokens: parseInt(process.env.RAG_MAX_TOKENS) || 2000,
                 system_prompt: process.env.SYSTEM_PROMPT || ''
@@ -86,7 +85,6 @@ class LangChainRAG {
         try {
             return {
                 rag_k: await this.settingsService.getSetting('rag_k', 'ai') || 100,
-                rag_show_sources: await this.settingsService.getSetting('rag_show_sources', 'ai') !== false,
                 rag_similarity_threshold: await this.settingsService.getSetting('rag_similarity_threshold', 'ai') || 0.7,
                 rag_max_tokens: await this.settingsService.getSetting('rag_max_tokens', 'ai') || 2000,
                 system_prompt: await this.settingsService.getSetting('system_prompt', 'ai') || ''
@@ -95,7 +93,6 @@ class LangChainRAG {
             console.warn('⚠️ LangChain RAG: Error getting settings from service, using defaults:', error.message);
             return {
                 rag_k: 100,
-                rag_show_sources: true,
                 rag_similarity_threshold: 0.7,
                 rag_max_tokens: 2000,
                 system_prompt: ''
@@ -122,9 +119,8 @@ class LangChainRAG {
             if (this.ragChain.retriever) {
                 this.ragChain.retriever.k = currentSettings.rag_k;
             }
-            this.ragChain.showSources = currentSettings.rag_show_sources;
             
-            console.log(`🔧 LangChain RAG: Using dynamic settings - K:${currentSettings.rag_k}, Sources:${currentSettings.rag_show_sources}`);
+            console.log(`🔧 LangChain RAG: Using dynamic settings - K:${currentSettings.rag_k}`);
             
             // Validate inputs
             if (!query || typeof query !== 'string') {
