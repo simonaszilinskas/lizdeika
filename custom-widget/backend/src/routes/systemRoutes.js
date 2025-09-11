@@ -70,6 +70,76 @@ function createSystemRoutes() {
     });
 
     // ===========================
+    // AI CONFIGURATION ROUTES
+    // ===========================
+
+    // Get current AI settings (admin only for security)
+    router.get('/config/ai', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const aiSettings = await settingsService.getSettingsByCategory('ai', true); // Include private settings
+            
+            res.json({
+                success: true,
+                settings: aiSettings
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch AI settings',
+                message: error.message
+            });
+        }
+    });
+
+    // Update AI settings (admin only)
+    router.put('/config/ai', authenticateToken, async (req, res) => {
+        try {
+            // Check admin permissions
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const settings = req.body;
+            if (!settings || typeof settings !== 'object') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Settings object is required'
+                });
+            }
+
+            // Update settings
+            const updatedSettings = await settingsService.updateSettings(
+                settings, 
+                req.user.id, 
+                'ai'
+            );
+
+            res.json({
+                success: true,
+                data: updatedSettings,
+                message: 'AI settings updated successfully'
+            });
+
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                error: 'Failed to update AI settings',
+                message: error.message
+            });
+        }
+    });
+
+    // ===========================
     // BRANDING CONFIGURATION ROUTES
     // ===========================
 

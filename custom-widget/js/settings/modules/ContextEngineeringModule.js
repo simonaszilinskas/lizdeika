@@ -187,11 +187,24 @@ class ContextEngineeringModule {
      */
     async loadSettings() {
         try {
-            const response = await this.apiManager.get('/api/settings/ai');
+            const response = await fetch(`${this.apiManager.apiUrl}/api/config/ai`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
             
-            if (response.success) {
-                // Update current settings with server values
-                Object.assign(this.currentSettings, response.settings);
+            if (response.ok && data.success) {
+                // Transform settings from backend format to current format
+                const settings = data.settings;
+                this.currentSettings = {
+                    rag_k: settings.rag_k?.value || 100,
+                    rag_similarity_threshold: settings.rag_similarity_threshold?.value || 0.7,
+                    rag_max_tokens: settings.rag_max_tokens?.value || 2000,
+                    rag_show_sources: settings.rag_show_sources?.value !== false,
+                    system_prompt: settings.system_prompt?.value || ''
+                };
                 
                 // Store original settings for change detection
                 this.originalSettings = { ...this.currentSettings };
@@ -203,7 +216,7 @@ class ContextEngineeringModule {
                 
                 console.log('Context engineering settings loaded:', this.currentSettings);
             } else {
-                throw new Error(response.error || 'Failed to load settings');
+                throw new Error(data.error || 'Failed to load settings');
             }
         } catch (error) {
             console.error('Error loading context engineering settings:', error);
@@ -223,9 +236,17 @@ class ContextEngineeringModule {
                 this.elements.saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
             }
 
-            const response = await this.apiManager.put('/api/settings/ai', this.currentSettings);
+            const response = await fetch(`${this.apiManager.apiUrl}/api/config/ai`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.currentSettings)
+            });
+            const data = await response.json();
             
-            if (response.success) {
+            if (response.ok && data.success) {
                 // Update original settings to new saved state
                 this.originalSettings = { ...this.currentSettings };
                 this.updateSaveButtonState();
@@ -238,7 +259,7 @@ class ContextEngineeringModule {
                 
                 console.log('Context engineering settings saved successfully');
             } else {
-                throw new Error(response.error || 'Failed to save settings');
+                throw new Error(data.error || 'Failed to save settings');
             }
         } catch (error) {
             console.error('Error saving context engineering settings:', error);
