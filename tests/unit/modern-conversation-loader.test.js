@@ -8,7 +8,7 @@ const {
     ConversationFilter,
     ConversationSorter,
     LoadingStateManager
-} = require('../../custom-widget/js/modules/modern-conversation-loader');
+} = require('../../custom-widget/js/agent-dashboard/core/ConversationLoader');
 
 // Mock fetch globally
 global.fetch = jest.fn();

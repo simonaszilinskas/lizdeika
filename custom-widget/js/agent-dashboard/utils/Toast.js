@@ -6,7 +6,7 @@
  * sounds, complex positioning, and state management.
  */
 
-export class Toast {
+class Toast {
     /**
      * Show a toast notification
      * @param {string} message - The message to display
@@ -217,4 +217,9 @@ export class Toast {
         this.ensureStyles();
         console.log('Toast system initialized');
     }
+}
+
+// CommonJS exports for tests
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = Toast;
 }

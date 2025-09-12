@@ -1,8 +1,8 @@
 /**
- * Tests for ModernWebSocketManager
+ * Tests for SocketManager
  */
 
-const ModernWebSocketManager = require('../../custom-widget/js/modules/modern-websocket-manager');
+const { SocketManager } = require('../../custom-widget/js/agent-dashboard/core/SocketManager');
 
 // Mock Socket.IO
 global.io = jest.fn(() => ({
@@ -12,7 +12,7 @@ global.io = jest.fn(() => ({
     connected: true
 }));
 
-describe('ModernWebSocketManager', () => {
+describe('SocketManager', () => {
     let manager;
     let mockSocket;
     
@@ -31,7 +31,7 @@ describe('ModernWebSocketManager', () => {
         global.io.mockReturnValue(mockSocket);
         
         // Create manager instance
-        manager = new ModernWebSocketManager({
+        manager = new SocketManager({
             url: 'ws://test:3002',
             agentId: 'test-agent',
             logger: {
@@ -50,7 +50,7 @@ describe('ModernWebSocketManager', () => {
     
     describe('Initialization', () => {
         test('should initialize with correct default config', () => {
-            const defaultManager = new ModernWebSocketManager();
+            const defaultManager = new SocketManager();
             
             expect(defaultManager.config.url).toBe('ws://localhost:3002');
             expect(defaultManager.config.agentId).toBe('unknown');

@@ -1,5 +1,5 @@
 /**
- * SimpleToast Test Suite
+ * Toast Test Suite
  * Tests the simplified toast notification system
  */
 
@@ -10,10 +10,10 @@ global.document = dom.window.document;
 global.window = dom.window;
 global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
 
-// Load the SimpleToast module
-const SimpleToast = require('../../custom-widget/js/modules/simpleToast.js');
+// Load the Toast module
+const Toast = require('../../custom-widget/js/agent-dashboard/utils/Toast');
 
-describe('SimpleToast', () => {
+describe('Toast', () => {
     beforeEach(() => {
         // Clear the DOM
         document.body.innerHTML = '';
@@ -21,7 +21,7 @@ describe('SimpleToast', () => {
     });
 
     test('creates toast element with correct structure', () => {
-        const toast = SimpleToast.show('Test message', 'info');
+        const toast = Toast.show('Test message', 'info');
         
         expect(toast.classList.contains('simple-toast')).toBe(true);
         expect(toast.classList.contains('toast-info')).toBe(true);
@@ -30,42 +30,42 @@ describe('SimpleToast', () => {
     });
 
     test('success method works correctly', () => {
-        const toast = SimpleToast.success('Success message', 'Success');
+        const toast = Toast.success('Success message', 'Success');
         
         expect(toast.classList.contains('toast-success')).toBe(true);
         expect(toast.querySelector('.toast-message').textContent).toBe('Success: Success message');
     });
 
     test('error method works correctly', () => {
-        const toast = SimpleToast.error('Error message', 'Error');
+        const toast = Toast.error('Error message', 'Error');
         
         expect(toast.classList.contains('toast-error')).toBe(true);
         expect(toast.querySelector('.toast-message').textContent).toBe('Error: Error message');
     });
 
     test('warning method works correctly', () => {
-        const toast = SimpleToast.warning('Warning message', 'Warning');
+        const toast = Toast.warning('Warning message', 'Warning');
         
         expect(toast.classList.contains('toast-warning')).toBe(true);
         expect(toast.querySelector('.toast-message').textContent).toBe('Warning: Warning message');
     });
 
     test('info method works correctly', () => {
-        const toast = SimpleToast.info('Info message', 'Info');
+        const toast = Toast.info('Info message', 'Info');
         
         expect(toast.classList.contains('toast-info')).toBe(true);
         expect(toast.querySelector('.toast-message').textContent).toBe('Info: Info message');
     });
 
     test('escapes HTML in messages', () => {
-        const toast = SimpleToast.show('<script>alert("xss")</script>', 'info');
+        const toast = Toast.show('<script>alert("xss")</script>', 'info');
         
         expect(toast.querySelector('.toast-message').textContent).toBe('<script>alert("xss")</script>');
         expect(toast.querySelector('.toast-message').innerHTML).toBe('&lt;script&gt;alert("xss")&lt;/script&gt;');
     });
 
     test('adds styles to document head', () => {
-        SimpleToast.show('Test message');
+        Toast.show('Test message');
         
         const styles = document.getElementById('simple-toast-styles');
         expect(styles).toBeTruthy();
@@ -73,11 +73,11 @@ describe('SimpleToast', () => {
     });
 
     test('hide method removes toast', (done) => {
-        const toast = SimpleToast.show('Test message');
+        const toast = Toast.show('Test message');
         
         expect(document.body.contains(toast)).toBe(true);
         
-        SimpleToast.hide(toast);
+        Toast.hide(toast);
         
         // Check that hiding class is added
         expect(toast.classList.contains('hiding')).toBe(true);
@@ -90,7 +90,7 @@ describe('SimpleToast', () => {
     });
 
     test('auto-hides after duration', (done) => {
-        const toast = SimpleToast.show('Test message', 'info', 100);
+        const toast = Toast.show('Test message', 'info', 100);
         
         expect(document.body.contains(toast)).toBe(true);
         
@@ -101,7 +101,7 @@ describe('SimpleToast', () => {
     });
 
     test('does not auto-hide when duration is 0', (done) => {
-        const toast = SimpleToast.show('Test message', 'info', 0);
+        const toast = Toast.show('Test message', 'info', 0);
         
         setTimeout(() => {
             expect(document.body.contains(toast)).toBe(true);
@@ -111,8 +111,8 @@ describe('SimpleToast', () => {
     });
 
     test('multiple toasts can coexist', () => {
-        const toast1 = SimpleToast.show('Message 1');
-        const toast2 = SimpleToast.show('Message 2');
+        const toast1 = Toast.show('Message 1');
+        const toast2 = Toast.show('Message 2');
         
         expect(document.body.contains(toast1)).toBe(true);
         expect(document.body.contains(toast2)).toBe(true);
@@ -120,7 +120,7 @@ describe('SimpleToast', () => {
     });
 
     test('handles missing title parameter gracefully', () => {
-        const toast = SimpleToast.success('Just message');
+        const toast = Toast.success('Just message');
         
         expect(toast.querySelector('.toast-message').textContent).toBe('Just message');
     });

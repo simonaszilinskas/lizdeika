@@ -270,7 +270,7 @@ class LoadingStateManager {
 /**
  * Modern Conversation Loader - Main orchestrator
  */
-export class ConversationLoader {
+class ConversationLoader {
     constructor(config = {}) {
         this.apiClient = new ConversationApiClient(config);
         this.filter = new ConversationFilter(config);
@@ -371,4 +371,16 @@ export class ConversationLoader {
             filtered: this.filteredConversations
         };
     }
+}
+
+// CommonJS exports for tests
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        ModernConversationLoader: ConversationLoader,
+        ConversationLoader,
+        ConversationApiClient,
+        ConversationFilter,
+        ConversationSorter,
+        LoadingStateManager
+    };
 }

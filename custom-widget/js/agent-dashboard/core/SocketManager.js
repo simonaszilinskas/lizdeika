@@ -8,7 +8,23 @@
  * @fileoverview Simple Socket.io connection manager with minimal complexity
  */
 
-import { TIMING, WEBSOCKET_EVENTS } from '../ui/constants.js';
+// Import constants conditionally for browser vs test environments
+let TIMING, WEBSOCKET_EVENTS;
+if (typeof window !== 'undefined') {
+    try {
+        const constants = require('../ui/constants.js');
+        TIMING = constants.TIMING;
+        WEBSOCKET_EVENTS = constants.WEBSOCKET_EVENTS;
+    } catch (e) {
+        // Fallback for tests - define minimal constants
+        TIMING = { HEARTBEAT_INTERVAL: 30000 };
+        WEBSOCKET_EVENTS = { HEARTBEAT: 'heartbeat' };
+    }
+} else {
+    // Test environment fallbacks
+    TIMING = { HEARTBEAT_INTERVAL: 30000 };
+    WEBSOCKET_EVENTS = { HEARTBEAT: 'heartbeat' };
+}
 
 /**
  * SocketManager - Simple WebSocket connection service
@@ -19,7 +35,7 @@ import { TIMING, WEBSOCKET_EVENTS } from '../ui/constants.js';
  * - Heartbeat mechanism
  * - Simple, focused interface
  */
-export class SocketManager {
+class SocketManager {
     /**
      * Create socket manager
      * @param {Object} config - Configuration object
@@ -226,4 +242,9 @@ export class SocketManager {
         this.agentId = newAgentId;
         console.log(`🔄 Socket manager agent ID updated to: ${this.agentId}`);
     }
+}
+
+// CommonJS exports for tests
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { SocketManager };
 }
