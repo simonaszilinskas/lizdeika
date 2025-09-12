@@ -439,6 +439,12 @@ export class ConversationRenderer {
             content: String(message.content || '').substring(0, 50) + '...',
             messageId: message.id
         });
+        
+        // Update conversation preview immediately
+        const currentChatId = this.stateManager.getCurrentChatId();
+        if (currentChatId) {
+            this.updateConversationPreview(currentChatId, message);
+        }
     }
 
     /**

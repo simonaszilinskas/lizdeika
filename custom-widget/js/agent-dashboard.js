@@ -916,6 +916,9 @@ class AgentDashboard {
             this.conversationRenderer.appendMessageRealTime(data);
         } else {
             console.log('🐛 DEBUG: Not current chat, skipping immediate display. Current chat:', this.stateManager.getCurrentChatId());
+            // For non-current conversations, update preview directly
+            const message = data.message || data;
+            this.conversationRenderer.updateConversationPreview(data.conversationId, message);
         }
         
         // Check if conversation exists in queue - if not, clear cache for new conversation
@@ -925,12 +928,11 @@ class AgentDashboard {
             this.modernConversationLoader.refresh();
         }
         
-        // DEFERRED: Full reload and AI processing to ensure consistency
+        // DEFERRED: Handle AI processing for current chat only
         setTimeout(() => {
             console.log('🔄 WebSocket: Performing deferred updates');
-            this.loadConversations();
             
-            // If this is the current chat, refresh conversation state but skip full message reload
+            // If this is the current chat, handle AI suggestions
             if (data.conversationId === this.stateManager.getCurrentChatId()) {
                 this.refreshConversation(this.stateManager.getCurrentChatId());
                 
@@ -1029,11 +1031,6 @@ class AgentDashboard {
             // For non-current conversations, update preview directly
             this.conversationRenderer.updateConversationPreview(data.conversationId, data.message);
         }
-        
-        // Still reload conversations but with lower priority to ensure data consistency
-        setTimeout(() => {
-            this.loadConversations();
-        }, 100);
     }
 
     
