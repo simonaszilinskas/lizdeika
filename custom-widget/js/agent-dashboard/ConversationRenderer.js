@@ -176,6 +176,15 @@ export class ConversationRenderer {
         
         container.innerHTML = filteredMessages.map(msg => this.renderMessage(msg)).join('');
         container.scrollTop = container.scrollHeight;
+        
+        // Update conversation preview with the last message
+        if (filteredMessages.length > 0) {
+            const lastMessage = filteredMessages[filteredMessages.length - 1];
+            const currentChatId = this.stateManager.getCurrentChatId();
+            if (currentChatId) {
+                this.updateConversationPreview(currentChatId, lastMessage);
+            }
+        }
     }
 
     /**
@@ -205,6 +214,12 @@ export class ConversationRenderer {
         
         // Scroll to bottom
         container.scrollTop = container.scrollHeight;
+        
+        // Update conversation preview immediately
+        const currentChatId = this.stateManager.getCurrentChatId();
+        if (currentChatId) {
+            this.updateConversationPreview(currentChatId, message);
+        }
     }
 
     /**
@@ -427,86 +442,28 @@ export class ConversationRenderer {
     }
 
     /**
-     * Update queue item in real-time to show new message indicator
-     * @param {Object} messageData - WebSocket message data
+     * Update conversation preview in queue - Simple, reliable method
+     * @param {string} conversationId - Conversation ID
+     * @param {Object} message - Message object with content and sender
      */
-    updateQueueItemRealTime(messageData) {
-        console.log('🔄 updateQueueItemRealTime called with:', {
-            conversationId: messageData.conversationId,
-            sender: messageData.sender || (messageData.message && messageData.message.sender),
-            content: messageData.content || (messageData.message && messageData.message.content)
-        });
-        
-        const queueItem = document.querySelector(`[data-conversation-id="${messageData.conversationId}"]`);
+    updateConversationPreview(conversationId, message) {
+        const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
         if (!queueItem) {
-            console.log('📋 Queue item not found for conversation:', messageData.conversationId);
-            // Debug: List all conversation IDs currently in the queue
-            const allQueueItems = document.querySelectorAll('[data-conversation-id]');
-            const allIds = Array.from(allQueueItems).map(item => item.getAttribute('data-conversation-id'));
-            console.log('📋 Available conversation IDs in queue:', allIds);
-            console.log('📋 Will update on next reload');
-            return;
-        }
-        
-        console.log('📋 Queue item found, updating preview for:', messageData.conversationId);
-
-        // Add visual indicator for new message
-        const statusBadge = queueItem.querySelector('.queue-status');
-        // Check sender from nested structure - customer messages (visitor) need agent attention
-        const messageSender = (messageData.message && messageData.message.sender) || messageData.sender;
-        if (statusBadge && (messageSender === 'customer' || messageSender === 'visitor')) {
-            // Only highlight if it's a customer message (needs agent attention)
-            statusBadge.textContent = 'NEW MESSAGE';
-            statusBadge.className = 'queue-status bg-red-600 text-white font-bold px-2 py-1 text-xs rounded-full';
-            
-            // Add subtle animation
-            queueItem.classList.add('animate-pulse');
-            setTimeout(() => {
-                queueItem.classList.remove('animate-pulse');
-            }, 2000);
+            return; // Queue item not visible, no update needed
         }
 
-        // Update last message preview
         const messagePreview = queueItem.querySelector('.message-preview');
-        console.log('📋 Looking for .message-preview element:', !!messagePreview);
-        
-        if (messagePreview) {
-            // Extract content and sender from nested structure
-            let content = '';
-            let sender = '';
-            
-            if (messageData.message && typeof messageData.message === 'object') {
-                content = String(messageData.message.content || '');
-                sender = messageData.message.sender || '';
-            } else {
-                content = String(messageData.content || messageData.message || '');
-                sender = messageData.sender || '';
-            }
-            
-            // Normalize sender type
-            if (sender === 'customer') {
-                sender = 'visitor';
-            }
-            
-            console.log('📋 Updating preview with:', { content, sender });
-            
-            // Create preview with sender prefix
-            const senderPrefix = this.getSenderPrefix(sender);
-            const fullPreview = senderPrefix ? `${senderPrefix} ${content}` : content;
-            
-            console.log('📋 Final preview text:', fullPreview.length > 50 ? 
-                fullPreview.substring(0, 50) + '...' : fullPreview);
-            
-            messagePreview.textContent = fullPreview.length > 50 ? 
-                fullPreview.substring(0, 50) + '...' : fullPreview;
-                
-            console.log('📋 Preview updated successfully');
-        } else {
-            console.log('📋 .message-preview element not found in queue item');
-            // Debug: Show what elements are available
-            console.log('📋 Available elements in queue item:', Array.from(queueItem.querySelectorAll('*')).map(el => el.className));
+        if (!messagePreview) {
+            return; // No preview element found
         }
 
-        console.log('📋 Queue item updated in real-time for conversation:', messageData.conversationId);
+        // Get sender prefix and content
+        const senderPrefix = this.getSenderPrefix(message.sender);
+        const content = String(message.content || '');
+        const fullPreview = senderPrefix ? `${senderPrefix} ${content}` : content;
+        
+        // Update preview text
+        messagePreview.textContent = fullPreview.length > 50 ? 
+            fullPreview.substring(0, 50) + '...' : fullPreview;
     }
 }

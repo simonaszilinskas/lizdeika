@@ -918,15 +918,12 @@ class AgentDashboard {
             console.log('🐛 DEBUG: Not current chat, skipping immediate display. Current chat:', this.stateManager.getCurrentChatId());
         }
         
-        // IMMEDIATE: Update queue item with new message indicator
         // Check if conversation exists in queue - if not, clear cache for new conversation
         const queueItem = document.querySelector(`[data-conversation-id="${data.conversationId}"]`);
         if (!queueItem) {
             console.log('🔄 New conversation detected, clearing cache for:', data.conversationId);
             this.modernConversationLoader.refresh();
         }
-        
-        this.conversationRenderer.updateQueueItemRealTime(data);
         
         // DEFERRED: Full reload and AI processing to ensure consistency
         setTimeout(() => {
@@ -1026,12 +1023,12 @@ class AgentDashboard {
         // Only update if this is the current conversation
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             // Add the message to the chat immediately without full reload
+            // This will automatically update the preview via appendMessageToChat
             this.conversationRenderer.appendMessageToChat(data.message);
+        } else {
+            // For non-current conversations, update preview directly
+            this.conversationRenderer.updateConversationPreview(data.conversationId, data.message);
         }
-        
-        // Update queue item preview in real-time for all conversations
-        console.log('🔥 About to call updateQueueItemRealTime for agent message');
-        this.conversationRenderer.updateQueueItemRealTime(data);
         
         // Still reload conversations but with lower priority to ensure data consistency
         setTimeout(() => {
