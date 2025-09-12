@@ -17,6 +17,9 @@ export class ConversationRenderer {
         this.dashboard = dashboard;
         this.agentId = dashboard.agentId;
         this.stateManager = dashboard.stateManager;
+        
+        // Pending preview updates cache - survives queue reloads
+        this.pendingPreviewUpdates = new Map();
     }
 
     /**
@@ -52,6 +55,13 @@ export class ConversationRenderer {
 
         queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
         console.log('✅ Queue rendered successfully');
+        
+        // Apply any pending preview updates that should survive queue reloads
+        // Use setTimeout to ensure DOM is fully updated before applying preview updates
+        setTimeout(() => {
+            console.log('🔄 Applying pending preview updates after DOM render...');
+            this.applyPendingPreviewUpdates();
+        }, 0);
     }
 
     /**
@@ -123,6 +133,7 @@ export class ConversationRenderer {
 
         return `
             <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass} ${priorityClass}" 
+                 data-conversation-id="${conv.id}"
                  onclick="dashboard.selectChat('${conv.id}')">
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center gap-2">
@@ -448,28 +459,112 @@ export class ConversationRenderer {
     }
 
     /**
-     * Update conversation preview in queue - Simple, reliable method
+     * Update conversation preview in queue - Now with persistent caching
      * @param {string} conversationId - Conversation ID
      * @param {Object} message - Message object with content and sender
      */
     updateConversationPreview(conversationId, message) {
+        console.log(`🔄 Caching preview update for ${conversationId}:`, {
+            sender: message.sender,
+            content: String(message.content || '').substring(0, 50) + '...'
+        });
+        
+        // Cache this update so it persists through queue reloads
+        this.pendingPreviewUpdates.set(conversationId, {
+            message: message,
+            timestamp: Date.now()
+        });
+        
+        // Also apply immediately if queue item exists
+        this.applyPreviewUpdate(conversationId, message);
+        
+        console.log(`💾 Preview cache now has ${this.pendingPreviewUpdates.size} items`);
+    }
+    
+    /**
+     * Apply a single preview update to DOM
+     * @param {string} conversationId - Conversation ID
+     * @param {Object} message - Message object with content and sender
+     */
+    applyPreviewUpdate(conversationId, message, retryCount = 0) {
+        const maxRetries = 3;
+        const retryDelay = 100; // 100ms delay between retries
+        
+        console.log(`🔍 DEBUG: Attempting to update preview for ${conversationId} (retry: ${retryCount})`, {
+            sender: message.sender,
+            content: String(message.content || '').substring(0, 50)
+        });
+        
         const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
         if (!queueItem) {
-            return; // Queue item not visible, no update needed
+            console.log(`❌ DEBUG: No queue item found for ${conversationId}`);
+            return; // Queue item not visible, will be applied after next render
         }
 
+        console.log(`✅ DEBUG: Found queue item for ${conversationId}`);
         const messagePreview = queueItem.querySelector('.message-preview');
         if (!messagePreview) {
-            return; // No preview element found
+            console.log(`❌ DEBUG: No message preview element found for ${conversationId} (retry: ${retryCount})`);
+            console.log(`🔍 DEBUG: Queue item HTML:`, queueItem.innerHTML);
+            
+            // Retry if DOM is not ready yet and we haven't exceeded max retries
+            if (retryCount < maxRetries) {
+                console.log(`🔄 DEBUG: Retrying preview update for ${conversationId} in ${retryDelay}ms`);
+                setTimeout(() => {
+                    this.applyPreviewUpdate(conversationId, message, retryCount + 1);
+                }, retryDelay);
+                return;
+            }
+            
+            console.log(`❌ DEBUG: Max retries exceeded for ${conversationId}, giving up`);
+            return; // No preview element found after retries
         }
+
+        console.log(`✅ DEBUG: Found message preview element for ${conversationId} (retry: ${retryCount})`);
 
         // Get sender prefix and content
         const senderPrefix = this.getSenderPrefix(message.sender);
         const content = String(message.content || '');
         const fullPreview = senderPrefix ? `${senderPrefix} ${content}` : content;
         
+        console.log(`🔍 DEBUG: Preview will be set to: "${fullPreview}"`);
+        
         // Update preview text
         messagePreview.textContent = fullPreview.length > 50 ? 
             fullPreview.substring(0, 50) + '...' : fullPreview;
+            
+        console.log(`✅ Preview updated for ${conversationId}: ${fullPreview.substring(0, 30)}... (after ${retryCount} retries)`);
+    }
+    
+    /**
+     * Apply all pending preview updates after queue render
+     * This ensures updates survive queue reloads
+     */
+    applyPendingPreviewUpdates() {
+        if (this.pendingPreviewUpdates.size === 0) {
+            console.log('💾 No pending preview updates to apply');
+            return;
+        }
+        
+        const updatesApplied = [];
+        
+        for (const [conversationId, updateData] of this.pendingPreviewUpdates) {
+            // Only apply recent updates (within last 60 seconds - increased from 30)
+            if (Date.now() - updateData.timestamp < 60000) {
+                this.applyPreviewUpdate(conversationId, updateData.message, 0);
+                updatesApplied.push(conversationId);
+            }
+        }
+        
+        // Clean up old updates (older than 60 seconds)
+        for (const [conversationId, updateData] of this.pendingPreviewUpdates) {
+            if (Date.now() - updateData.timestamp >= 60000) {
+                console.log(`🗑️ Cleaning up old preview update for: ${conversationId}`);
+                this.pendingPreviewUpdates.delete(conversationId);
+            }
+        }
+        
+        console.log(`🔄 Applied ${updatesApplied.length} pending preview updates:`, updatesApplied);
+        console.log(`💾 Preview updates cache status: ${this.pendingPreviewUpdates.size} items remaining`);
     }
 }

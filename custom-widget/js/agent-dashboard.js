@@ -917,7 +917,14 @@ class AgentDashboard {
         } else {
             console.log('🐛 DEBUG: Not current chat, skipping immediate display. Current chat:', this.stateManager.getCurrentChatId());
             // For non-current conversations, update preview directly
-            const message = data.message || data;
+            // Create proper message object with consistent structure
+            const message = {
+                id: (data.message && data.message.id) || data.id,
+                content: (data.message && data.message.content) || data.content || '',
+                sender: (data.message && data.message.sender) || data.sender || '',
+                timestamp: (data.message && data.message.timestamp) || data.timestamp || new Date().toISOString()
+            };
+            console.log('🔥 DEBUG: User message preview update with message:', JSON.stringify(message, null, 2));
             this.conversationRenderer.updateConversationPreview(data.conversationId, message);
         }
         
@@ -934,11 +941,8 @@ class AgentDashboard {
             
             // If this is the current chat, handle AI suggestions
             if (data.conversationId === this.stateManager.getCurrentChatId()) {
-                this.refreshConversation(this.stateManager.getCurrentChatId());
-                
-                // Skip reloading chat messages since we already added it in real-time
-                // Only reload if there was an error in real-time display
-                console.log('⏭️ Skipping chat message reload - already displayed in real-time');
+                // Skip conversation refresh to avoid overriding preview updates
+                console.log('⏭️ Skipping conversation refresh to preserve preview updates');
                 
                 // Handle AI suggestions with loading state
                 const messageSender = (data.message && data.message.sender) || data.sender;
@@ -1006,12 +1010,13 @@ class AgentDashboard {
             this.soundNotificationManager.onNewConversation(data);
         }
         
-        // Clear cache to ensure new conversation appears immediately
-        console.log('🔄 Clearing conversation cache for new conversation:', data.conversationId);
-        this.modernConversationLoader.refresh();
-        
-        // Reload conversations to show the new conversation
-        this.loadConversations();
+        // Check if conversation already exists in queue - if not, it will appear via preview system
+        const queueItem = document.querySelector(`[data-conversation-id="${data.conversationId}"]`);
+        if (!queueItem) {
+            console.log('🔄 New conversation will be shown via preview system:', data.conversationId);
+            // Preview system will handle showing new conversations via WebSocket events
+            // No need for full queue reload which would override preview updates
+        }
     }
 
     /**
