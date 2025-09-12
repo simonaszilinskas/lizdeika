@@ -126,8 +126,8 @@ export class ConversationRenderer {
         const isSelected = this.stateManager.getSelectedConversations().has(conv.id);
         const archivedClass = conv.archived ? 'opacity-75 bg-gray-50' : '';
         
-        // Calculate unread indicator
-        const unreadCount = this.dashboard.uiHelpers.getUnreadMessageCount(conv, isAssignedToMe);
+        // Calculate unseen indicator (shows 1 if conversation is unseen, 0 otherwise)
+        const unseenCount = this.dashboard.uiHelpers.getUnseenIndicatorCount(conv, isAssignedToMe);
         const urgencyIcon = this.dashboard.uiHelpers.getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe);
         const priorityClass = this.dashboard.uiHelpers.getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe);
 
@@ -147,7 +147,7 @@ export class ConversationRenderer {
                         <div class="flex-1">
                             <div class="font-medium text-sm flex items-center gap-2">
                                 <span>User #${conv.userNumber || 'Unknown'}</span>
-                                ${unreadCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unreadCount}</span>` : ''}
+                                ${unseenCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unseenCount}</span>` : ''}
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
                             </div>
                             <div class="text-xs text-gray-500">
@@ -159,7 +159,7 @@ export class ConversationRenderer {
                         <span class="text-xs px-2 py-1 rounded ${statusCss}">
                             ${statusLabel}
                         </span>
-                        ${this.dashboard.uiHelpers.getTimeUrgencyIndicator(conv)}
+                        ${this.dashboard.uiHelpers.getTimeUrgencyIndicator(conv, needsResponse, isAssignedToMe)}
                     </div>
                 </div>
                 <div class="text-sm truncate text-gray-600 message-preview">
@@ -455,6 +455,10 @@ export class ConversationRenderer {
         const currentChatId = this.stateManager.getCurrentChatId();
         if (currentChatId) {
             this.updateConversationPreview(currentChatId, message);
+            
+            // CRITICAL FIX: Mark conversation as seen when receiving real-time messages for active conversation
+            // This ensures the conversation doesn't show as "unseen" when agent is actively viewing it
+            this.markConversationAsSeen(currentChatId);
         }
     }
 
@@ -566,5 +570,21 @@ export class ConversationRenderer {
         
         console.log(`🔄 Applied ${updatesApplied.length} pending preview updates:`, updatesApplied);
         console.log(`💾 Preview updates cache status: ${this.pendingPreviewUpdates.size} items remaining`);
+    }
+    
+    /**
+     * Mark conversation as seen by current agent
+     * Updates localStorage with current timestamp and immediately refreshes UI
+     * @param {string} conversationId - ID of conversation to mark as seen
+     */
+    markConversationAsSeen(conversationId) {
+        const timestamp = new Date().toISOString();
+        localStorage.setItem(`lastSeen_${conversationId}`, timestamp);
+        console.log(`👁️ Marked conversation ${conversationId} as seen at ${timestamp}`);
+        
+        // Trigger immediate queue refresh for real-time updates
+        if (this.dashboard && typeof this.dashboard.loadConversations === 'function') {
+            this.dashboard.loadConversations();
+        }
     }
 }
