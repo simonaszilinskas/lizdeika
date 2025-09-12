@@ -633,10 +633,12 @@ export class ContextEngineeringModule {
                 });
             }
 
-            const response = await this.apiManager.apiRequest('/api/config/prompts', {
+            const rawResponse = await this.apiManager.apiRequest('/api/config/prompts', {
                 method: 'PUT',
                 body: JSON.stringify(settings)
             });
+
+            const response = await rawResponse.json();
 
             if (response.success) {
                 // Update current settings
@@ -651,14 +653,22 @@ export class ContextEngineeringModule {
                     }, 3000);
                 }
             } else {
-                throw new Error('Failed to save configuration');
+                const errorMessage = response.error || response.message || 'Unknown error';
+                throw new Error(`Failed to save configuration: ${errorMessage}`);
             }
 
         } catch (error) {
             console.error('Failed to save configuration:', error);
             const statusElement = document.getElementById('prompt-save-status');
             if (statusElement) {
-                statusElement.textContent = '✗ Failed to save configuration';
+                let errorMsg = 'Failed to save configuration';
+                
+                // Add more specific error information
+                if (error.message) {
+                    errorMsg += `: ${error.message}`;
+                }
+                
+                statusElement.textContent = `✗ ${errorMsg}`;
                 statusElement.className = 'text-sm text-red-600';
             }
         } finally {
