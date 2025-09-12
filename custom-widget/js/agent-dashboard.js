@@ -919,6 +919,13 @@ class AgentDashboard {
         }
         
         // IMMEDIATE: Update queue item with new message indicator
+        // Check if conversation exists in queue - if not, clear cache for new conversation
+        const queueItem = document.querySelector(`[data-conversation-id="${data.conversationId}"]`);
+        if (!queueItem) {
+            console.log('🔄 New conversation detected, clearing cache for:', data.conversationId);
+            this.modernConversationLoader.refresh();
+        }
+        
         this.conversationRenderer.updateQueueItemRealTime(data);
         
         // DEFERRED: Full reload and AI processing to ensure consistency
@@ -999,6 +1006,10 @@ class AgentDashboard {
         if (this.soundNotificationManager) {
             this.soundNotificationManager.onNewConversation(data);
         }
+        
+        // Clear cache to ensure new conversation appears immediately
+        console.log('🔄 Clearing conversation cache for new conversation:', data.conversationId);
+        this.modernConversationLoader.refresh();
         
         // Reload conversations to show the new conversation
         this.loadConversations();
