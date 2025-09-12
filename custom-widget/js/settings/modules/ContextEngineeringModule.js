@@ -148,12 +148,7 @@ export class ContextEngineeringModule {
      * Initialize save button event listeners
      */
     initializeSaveListeners() {
-        const testBtn = document.getElementById('test-prompts');
         const saveBtn = document.getElementById('save-prompt-config');
-        
-        if (testBtn) {
-            testBtn.addEventListener('click', () => this.testConfiguration());
-        }
         
         if (saveBtn) {
             saveBtn.addEventListener('click', () => this.saveConfiguration());
@@ -201,7 +196,8 @@ export class ContextEngineeringModule {
      */
     async loadRAGSettings() {
         try {
-            const response = await this.apiManager.apiRequest('/api/config/ai');
+            const rawResponse = await this.apiManager.apiRequest('/api/config/ai');
+            const response = await rawResponse.json();
             const aiSettings = response.data.settings;
             
             this.ragSettings = {
@@ -265,10 +261,12 @@ export class ContextEngineeringModule {
                 rag_max_tokens: parseInt(tokensValue)
             };
 
-            const response = await this.apiManager.apiRequest('/api/config/ai', {
+            const rawResponse = await this.apiManager.apiRequest('/api/config/ai', {
                 method: 'PUT',
                 body: JSON.stringify(settings)
             });
+
+            const response = await rawResponse.json();
 
             if (response.success) {
                 this.ragSettings = settings;
@@ -356,8 +354,9 @@ export class ContextEngineeringModule {
      */
     async loadPromptSettings() {
         try {
-            const response = await this.apiManager.apiRequest('/api/config/prompts');
-            if (response.success && response.data.settings) {
+            const rawResponse = await this.apiManager.apiRequest('/api/config/prompts');
+            const response = await rawResponse.json();
+            if (response.success && response.data) {
                 const settings = response.data.settings;
                 
                 // Determine current mode
@@ -547,57 +546,6 @@ export class ContextEngineeringModule {
     }
 
 
-    /**
-     * Test current configuration
-     */
-    async testConfiguration() {
-        try {
-            const statusElement = document.getElementById('prompt-save-status');
-            if (statusElement) {
-                statusElement.textContent = 'Testing configuration...';
-                statusElement.className = 'text-sm text-blue-600';
-            }
-
-            const response = await this.apiManager.apiRequest('/api/simple-rag-test', {
-                method: 'POST',
-                body: JSON.stringify({
-                    question: 'Test question for prompt configuration',
-                    variables: {
-                        context: 'Sample context for testing',
-                        question: 'What is this test about?',
-                        formatted_history: 'User: Previous question\nAssistant: Previous response'
-                    }
-                })
-            });
-
-            if (response.success) {
-                if (statusElement) {
-                    statusElement.textContent = '✓ Configuration test passed successfully';
-                    statusElement.className = 'text-sm text-green-600';
-                }
-            } else {
-                if (statusElement) {
-                    statusElement.textContent = '✗ Configuration test failed';
-                    statusElement.className = 'text-sm text-red-600';
-                }
-            }
-            
-            setTimeout(() => {
-                if (statusElement) {
-                    statusElement.textContent = '';
-                    statusElement.className = 'text-sm text-gray-500';
-                }
-            }, 3000);
-
-        } catch (error) {
-            console.error('Failed to test configuration:', error);
-            const statusElement = document.getElementById('prompt-save-status');
-            if (statusElement) {
-                statusElement.textContent = '✗ Test failed: ' + error.message;
-                statusElement.className = 'text-sm text-red-600';
-            }
-        }
-    }
 
     /**
      * Save current configuration
