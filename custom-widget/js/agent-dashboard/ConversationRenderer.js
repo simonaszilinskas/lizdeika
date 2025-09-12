@@ -431,11 +431,24 @@ export class ConversationRenderer {
      * @param {Object} messageData - WebSocket message data
      */
     updateQueueItemRealTime(messageData) {
+        console.log('🔄 updateQueueItemRealTime called with:', {
+            conversationId: messageData.conversationId,
+            sender: messageData.sender || (messageData.message && messageData.message.sender),
+            content: messageData.content || (messageData.message && messageData.message.content)
+        });
+        
         const queueItem = document.querySelector(`[data-conversation-id="${messageData.conversationId}"]`);
         if (!queueItem) {
-            console.log('📋 Queue item not found, will update on next reload');
+            console.log('📋 Queue item not found for conversation:', messageData.conversationId);
+            // Debug: List all conversation IDs currently in the queue
+            const allQueueItems = document.querySelectorAll('[data-conversation-id]');
+            const allIds = Array.from(allQueueItems).map(item => item.getAttribute('data-conversation-id'));
+            console.log('📋 Available conversation IDs in queue:', allIds);
+            console.log('📋 Will update on next reload');
             return;
         }
+        
+        console.log('📋 Queue item found, updating preview for:', messageData.conversationId);
 
         // Add visual indicator for new message
         const statusBadge = queueItem.querySelector('.queue-status');
@@ -455,6 +468,8 @@ export class ConversationRenderer {
 
         // Update last message preview
         const messagePreview = queueItem.querySelector('.message-preview');
+        console.log('📋 Looking for .message-preview element:', !!messagePreview);
+        
         if (messagePreview) {
             // Extract content and sender from nested structure
             let content = '';
@@ -473,12 +488,23 @@ export class ConversationRenderer {
                 sender = 'visitor';
             }
             
+            console.log('📋 Updating preview with:', { content, sender });
+            
             // Create preview with sender prefix
             const senderPrefix = this.getSenderPrefix(sender);
             const fullPreview = senderPrefix ? `${senderPrefix} ${content}` : content;
             
+            console.log('📋 Final preview text:', fullPreview.length > 50 ? 
+                fullPreview.substring(0, 50) + '...' : fullPreview);
+            
             messagePreview.textContent = fullPreview.length > 50 ? 
                 fullPreview.substring(0, 50) + '...' : fullPreview;
+                
+            console.log('📋 Preview updated successfully');
+        } else {
+            console.log('📋 .message-preview element not found in queue item');
+            // Debug: Show what elements are available
+            console.log('📋 Available elements in queue item:', Array.from(queueItem.querySelectorAll('*')).map(el => el.className));
         }
 
         console.log('📋 Queue item updated in real-time for conversation:', messageData.conversationId);
