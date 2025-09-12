@@ -114,14 +114,14 @@ describe('Context Engineering Components', () => {
                 const result = validator.validatePrompt('', 'system');
                 
                 expect(result.isValid).toBe(false);
-                expect(result.errors.some(error => error.includes('empty'))).toBe(true);
+                expect(result.errors.some(error => error.includes('cannot be empty'))).toBe(true);
             });
 
             test('should reject whitespace-only prompts', () => {
-                const result = validator.validatePrompt('   \\n\\t  ', 'system');
+                const result = validator.validatePrompt('   \n\t  ', 'system');
                 
                 expect(result.isValid).toBe(false);
-                expect(result.errors.some(error => error.includes('empty'))).toBe(true);
+                expect(result.errors.some(error => error.includes('cannot be empty'))).toBe(true);
             });
 
             test('should detect unknown variables', () => {
@@ -420,6 +420,43 @@ describe('Context Engineering Components', () => {
             // Reset DOM
             document.body.innerHTML = '';
             
+            // Mock document.createElement to return proper DOM elements
+            global.document.createElement = jest.fn((tagName) => {
+                const element = {
+                    tagName: tagName.toUpperCase(),
+                    id: '',
+                    className: '',
+                    style: { zIndex: '' },
+                    innerHTML: '',
+                    appendChild: jest.fn(),
+                    parentNode: null,
+                    classList: {
+                        add: jest.fn(),
+                        remove: jest.fn(),
+                        toggle: jest.fn(),
+                        contains: jest.fn()
+                    }
+                };
+                // Allow setting id and className
+                Object.defineProperty(element, 'id', {
+                    get() { return this._id || ''; },
+                    set(value) { this._id = value; },
+                    configurable: true
+                });
+                Object.defineProperty(element, 'className', {
+                    get() { return this._className || ''; },
+                    set(value) { this._className = value; },
+                    configurable: true
+                });
+                return element;
+            });
+            
+            // Mock document.body.appendChild
+            global.document.body.appendChild = jest.fn();
+            
+            // Mock getElementById to return null by default (no existing container)
+            global.document.getElementById = jest.fn(() => null);
+            
             // Create fresh notification service
             notificationService = new NotificationService();
             
@@ -441,10 +478,19 @@ describe('Context Engineering Components', () => {
             });
 
             test('should not create duplicate container if exists', () => {
-                // Add existing container
-                const existingContainer = document.createElement('div');
-                existingContainer.id = 'notification-container';
-                document.body.appendChild(existingContainer);
+                // Mock getElementById to return existing container
+                const existingContainer = {
+                    id: 'notification-container',
+                    appendChild: jest.fn(),
+                    classList: {
+                        add: jest.fn(),
+                        remove: jest.fn(),
+                        toggle: jest.fn(),
+                        contains: jest.fn()
+                    }
+                };
+                
+                global.document.getElementById = jest.fn(() => existingContainer);
                 
                 const service = new NotificationService();
                 expect(service.container).toBe(existingContainer);
@@ -520,7 +566,7 @@ describe('Context Engineering Components', () => {
         });
 
         describe('notification management', () => {
-            test('should hide all notifications', () => {
+            test('should hide all notifications', (done) => {
                 const id1 = notificationService.showInfo('Message 1');
                 const id2 = notificationService.showError('Message 2');
                 
@@ -528,7 +574,11 @@ describe('Context Engineering Components', () => {
                 
                 notificationService.hideAll();
                 
-                expect(notificationService.notifications.size).toBe(0);
+                // Wait for setTimeout to complete (300ms + buffer)
+                setTimeout(() => {
+                    expect(notificationService.notifications.size).toBe(0);
+                    done();
+                }, 350);
             });
 
             test('should get active notification IDs', () => {
