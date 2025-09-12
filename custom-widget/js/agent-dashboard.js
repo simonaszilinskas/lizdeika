@@ -1024,10 +1024,15 @@ class AgentDashboard {
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             // Add the message to the chat immediately without full reload
             this.conversationRenderer.appendMessageToChat(data.message);
-            
-            // Reload conversations to update queue status
-            this.loadConversations();
         }
+        
+        // Update queue item preview in real-time for all conversations
+        this.conversationRenderer.updateQueueItemRealTime(data);
+        
+        // Still reload conversations but with lower priority to ensure data consistency
+        setTimeout(() => {
+            this.loadConversations();
+        }, 100);
     }
 
     

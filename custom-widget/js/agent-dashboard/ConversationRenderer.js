@@ -20,6 +20,21 @@ export class ConversationRenderer {
     }
 
     /**
+     * Get sender prefix for message preview
+     * @param {string} sender - Message sender (visitor, agent, ai, admin)
+     * @returns {string} Prefix string
+     */
+    getSenderPrefix(sender) {
+        if (sender === 'visitor' || sender === 'customer') {
+            return 'U:';
+        }
+        if (sender === 'agent' || sender === 'admin' || sender === 'ai') {
+            return 'A:';
+        }
+        return '';
+    }
+
+    /**
      * Render conversation queue
      * @param {Array} conversations - Array of conversation objects
      */
@@ -136,8 +151,10 @@ export class ConversationRenderer {
                         ${this.dashboard.uiHelpers.getTimeUrgencyIndicator(conv)}
                     </div>
                 </div>
-                <div class="text-sm truncate text-gray-600">
-                    ${conv.lastMessage ? UIHelpers.escapeHtml(conv.lastMessage.content) : 'No messages yet'}
+                <div class="text-sm truncate text-gray-600 message-preview">
+                    ${conv.lastMessage ? 
+                        this.getSenderPrefix(conv.lastMessage.sender) + ' ' + UIHelpers.escapeHtml(conv.lastMessage.content) : 
+                        'No messages yet'}
                 </div>
                 
                 <div class="text-xs mt-2">
@@ -439,16 +456,29 @@ export class ConversationRenderer {
         // Update last message preview
         const messagePreview = queueItem.querySelector('.message-preview');
         if (messagePreview) {
-            // Extract content from nested structure like in appendMessageRealTime
+            // Extract content and sender from nested structure
             let content = '';
+            let sender = '';
+            
             if (messageData.message && typeof messageData.message === 'object') {
                 content = String(messageData.message.content || '');
+                sender = messageData.message.sender || '';
             } else {
                 content = String(messageData.content || messageData.message || '');
+                sender = messageData.sender || '';
             }
             
-            messagePreview.textContent = content.length > 50 ? 
-                content.substring(0, 50) + '...' : content;
+            // Normalize sender type
+            if (sender === 'customer') {
+                sender = 'visitor';
+            }
+            
+            // Create preview with sender prefix
+            const senderPrefix = this.getSenderPrefix(sender);
+            const fullPreview = senderPrefix ? `${senderPrefix} ${content}` : content;
+            
+            messagePreview.textContent = fullPreview.length > 50 ? 
+                fullPreview.substring(0, 50) + '...' : fullPreview;
         }
 
         console.log('📋 Queue item updated in real-time for conversation:', messageData.conversationId);
