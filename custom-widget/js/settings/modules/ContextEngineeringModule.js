@@ -1,891 +1,677 @@
 /**
  * CONTEXT ENGINEERING MODULE
  * 
- * Main Purpose: Manage AI context engineering settings for RAG optimization
- * 
- * Key Responsibilities:
- * - RAG parameter configuration (top-k, similarity threshold, max tokens)
- * - System prompt management
- * - Source attribution settings
- * - Real-time preview updates
- * - Settings validation and persistence
+ * Simplified Context Engineering and Prompt Management System
  * 
  * Features:
- * - Slider/input synchronization for numeric parameters
- * - Live preview of current configuration
- * - Form change detection for save button state
- * - Admin-only access control
- * - Real-time updates via WebSocket integration
+ * - RAG (Retrieval-Augmented Generation) configuration
+ * - Toggle-based prompt management (Langfuse vs Local)
+ * - Langfuse integration with prompt assignment
+ * - Local prompt editing interface
+ * 
+ * Architecture:
+ * - Master toggle between Langfuse and Local prompt modes
+ * - Simplified prompt assignment for Langfuse mode
+ * - Direct editing interface for Local mode
+ * - Real-time Langfuse status detection
+ * 
+ * @version 3.0.0 - Simplified Toggle-Based Management
  */
-
-class ContextEngineeringModule {
-    constructor(apiManager, stateManager, connectionManager) {
+export class ContextEngineeringModule {
+    constructor(apiManager, stateManager) {
         this.apiManager = apiManager;
         this.stateManager = stateManager;
-        this.connectionManager = connectionManager;
         
-        this.elements = {};
-        this.currentSettings = {
-            rag_k: 100,
-            rag_similarity_threshold: 0.7,
-            rag_max_tokens: 2000,
-            system_prompt: '',
-            use_langfuse_prompts: false
-        };
+        // Module state
+        this.ragSettings = {};
+        this.promptMode = 'local'; // 'langfuse' or 'local'
+        this.currentSettings = {};
         this.langfuseStatus = {
             available: false,
-            publicKey: null,
-            baseUrl: null,
-            enabled: false
+            connected: false,
+            endpoint: null
         };
-        this.originalSettings = {};
+        this.availablePrompts = [];
         
-        console.log('ContextEngineeringModule initialized');
+        this.initializeEventListeners();
     }
 
     /**
-     * Initialize the module
+     * Initialize all event listeners for the simplified interface
+     */
+    initializeEventListeners() {
+        // RAG Settings Event Listeners
+        this.initializeRAGListeners();
+        
+        // Toggle and Prompt Management Event Listeners
+        this.initializeToggleListeners();
+        
+        // Save Button Event Listeners
+        this.initializeSaveListeners();
+    }
+
+    /**
+     * Initialize RAG configuration event listeners
+     */
+    initializeRAGListeners() {
+        // Range slider synchronization
+        const ragKSlider = document.getElementById('rag-k');
+        const ragKValue = document.getElementById('rag-k-value');
+        const similaritySlider = document.getElementById('similarity-threshold');
+        const similarityValue = document.getElementById('similarity-threshold-value');
+        const tokensSlider = document.getElementById('max-tokens');
+        const tokensValue = document.getElementById('max-tokens-value');
+
+        // Sync sliders with number inputs
+        if (ragKSlider && ragKValue) {
+            ragKSlider.addEventListener('input', (e) => {
+                ragKValue.value = e.target.value;
+            });
+            ragKValue.addEventListener('input', (e) => {
+                ragKSlider.value = e.target.value;
+            });
+        }
+
+        if (similaritySlider && similarityValue) {
+            similaritySlider.addEventListener('input', (e) => {
+                similarityValue.value = e.target.value;
+            });
+            similarityValue.addEventListener('input', (e) => {
+                similaritySlider.value = e.target.value;
+            });
+        }
+
+        if (tokensSlider && tokensValue) {
+            tokensSlider.addEventListener('input', (e) => {
+                tokensValue.value = e.target.value;
+            });
+            tokensValue.addEventListener('input', (e) => {
+                tokensSlider.value = e.target.value;
+            });
+        }
+
+        // RAG Settings form submission
+        const ragForm = document.getElementById('context-engineering-form');
+        const saveRAGBtn = document.getElementById('save-rag-settings');
+        
+        if (ragForm) {
+            ragForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveRAGSettings();
+            });
+        }
+        
+        if (saveRAGBtn) {
+            saveRAGBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.saveRAGSettings();
+            });
+        }
+    }
+
+    /**
+     * Initialize toggle and prompt management event listeners
+     */
+    initializeToggleListeners() {
+        // Master toggle between Langfuse and Local modes
+        const langfuseRadio = document.getElementById('mode-langfuse');
+        const localRadio = document.getElementById('mode-local');
+        
+        if (langfuseRadio) {
+            langfuseRadio.addEventListener('change', () => {
+                if (langfuseRadio.checked) {
+                    this.switchToMode('langfuse');
+                }
+            });
+        }
+        
+        if (localRadio) {
+            localRadio.addEventListener('change', () => {
+                if (localRadio.checked) {
+                    this.switchToMode('local');
+                }
+            });
+        }
+        
+        // Langfuse prompt selectors with preview
+        ['system', 'processing', 'formatting'].forEach(type => {
+            const select = document.getElementById(`${type}-langfuse-prompt`);
+            if (select) {
+                select.addEventListener('change', () => {
+                    this.handleLangfusePromptSelect(type, select.value);
+                });
+            }
+        });
+    }
+
+    /**
+     * Initialize save button event listeners
+     */
+    initializeSaveListeners() {
+        const testBtn = document.getElementById('test-prompts');
+        const saveBtn = document.getElementById('save-prompt-config');
+        
+        if (testBtn) {
+            testBtn.addEventListener('click', () => this.testConfiguration());
+        }
+        
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveConfiguration());
+        }
+    }
+
+    /**
+     * Initialize the module (required by SettingsManager)
      */
     async initialize() {
+        await this.loadInitialData();
+    }
+
+    /**
+     * Load initial data for the module
+     */
+    async loadInitialData() {
         try {
-            this.initializeElements();
-            this.attachEventListeners();
-            await this.loadSettings();
-            this.updatePreview();
+            // Load RAG settings
+            await this.loadRAGSettings();
             
-            console.log('ContextEngineeringModule initialized successfully');
-            console.log('Langfuse status:', this.langfuseStatus);
+            // Check Langfuse status
+            await this.checkLangfuseStatus();
+            
+            // Load current prompt settings
+            await this.loadPromptSettings();
+            
+            // If Langfuse is available, load available prompts
+            if (this.langfuseStatus.available) {
+                await this.loadAvailablePrompts();
+            }
+            
+            // Initialize UI based on current mode
+            this.updateModeUI();
+            
+            console.log('Context Engineering module initialized successfully');
+            
         } catch (error) {
-            console.error('Failed to initialize ContextEngineeringModule:', error);
-            throw error;
+            console.error('Failed to initialize Context Engineering module:', error);
         }
     }
 
     /**
-     * Initialize DOM elements
+     * Load RAG settings from the backend
      */
-    initializeElements() {
-        this.elements = {
-            // Form elements
-            form: document.getElementById('context-engineering-form'),
-            saveButton: document.getElementById('save-context-engineering'),
-            
-            // RAG K elements
-            ragKSlider: document.getElementById('rag-k'),
-            ragKValue: document.getElementById('rag-k-value'),
-            
-            // Similarity threshold elements
-            similaritySlider: document.getElementById('rag-similarity-threshold'),
-            similarityValue: document.getElementById('rag-similarity-threshold-value'),
-            
-            // Max tokens elements
-            maxTokensSlider: document.getElementById('rag-max-tokens'),
-            maxTokensValue: document.getElementById('rag-max-tokens-value'),
-            
-            // Other elements
-            systemPromptTextarea: document.getElementById('system-prompt'),
-            
-            // Langfuse elements
-            langfuseToggleSection: document.getElementById('langfuse-toggle-section'),
-            langfuseToggle: document.getElementById('use-langfuse-prompts'),
-            langfusePublicKey: document.getElementById('langfuse-public-key'),
-            
-            // Langfuse Prompt Management elements
-            langfusePromptsSection: document.getElementById('langfuse-prompts-section'),
-            refreshPrompts: document.getElementById('refresh-prompts'),
-            createNewPrompt: document.getElementById('create-new-prompt'),
-            langfuseConnectionStatus: document.getElementById('langfuse-connection-status'),
-            langfuseConnectionKey: document.getElementById('langfuse-connection-key'),
-            promptCount: document.getElementById('prompt-count'),
-            promptsLoading: document.getElementById('prompts-loading'),
-            promptsTableContainer: document.getElementById('prompts-table-container'),
-            promptsTableBody: document.getElementById('prompts-table-body'),
-            noPromptsMessage: document.getElementById('no-prompts-message'),
-            initializeDefaultPrompts: document.getElementById('initialize-default-prompts'),
-            
-            // Modal elements
-            promptViewModal: document.getElementById('prompt-view-modal'),
-            promptEditModal: document.getElementById('prompt-edit-modal'),
-            promptTestModal: document.getElementById('prompt-test-modal'),
-            
-            // Preview elements
-            previewRagK: document.getElementById('preview-rag-k'),
-            previewSimilarity: document.getElementById('preview-similarity'),
-            previewMaxTokens: document.getElementById('preview-max-tokens')
-        };
-
-        // Validate all elements exist
-        for (const [key, element] of Object.entries(this.elements)) {
-            if (!element) {
-                console.warn(`Element not found: ${key}`);
-            }
-        }
-    }
-
-    /**
-     * Attach event listeners
-     */
-    attachEventListeners() {
-        // Form submission
-        if (this.elements.form) {
-            this.elements.form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.saveSettings();
-            });
-        }
-
-        // Slider/input synchronization for RAG K
-        if (this.elements.ragKSlider && this.elements.ragKValue) {
-            this.elements.ragKSlider.addEventListener('input', (e) => {
-                this.elements.ragKValue.value = e.target.value;
-                this.updateSettingsFromForm();
-                this.updatePreview();
-            });
-            
-            this.elements.ragKValue.addEventListener('input', (e) => {
-                const value = Math.max(1, Math.min(200, parseInt(e.target.value) || 1));
-                this.elements.ragKSlider.value = value;
-                this.elements.ragKValue.value = value;
-                this.updateSettingsFromForm();
-                this.updatePreview();
-            });
-        }
-
-        // Slider/input synchronization for similarity threshold
-        if (this.elements.similaritySlider && this.elements.similarityValue) {
-            this.elements.similaritySlider.addEventListener('input', (e) => {
-                this.elements.similarityValue.value = parseFloat(e.target.value).toFixed(1);
-                this.updateSettingsFromForm();
-                this.updatePreview();
-            });
-            
-            this.elements.similarityValue.addEventListener('input', (e) => {
-                const value = Math.max(0, Math.min(1, parseFloat(e.target.value) || 0));
-                this.elements.similaritySlider.value = value;
-                this.elements.similarityValue.value = value.toFixed(1);
-                this.updateSettingsFromForm();
-                this.updatePreview();
-            });
-        }
-
-        // Slider/input synchronization for max tokens
-        if (this.elements.maxTokensSlider && this.elements.maxTokensValue) {
-            this.elements.maxTokensSlider.addEventListener('input', (e) => {
-                this.elements.maxTokensValue.value = e.target.value;
-                this.updateSettingsFromForm();
-                this.updatePreview();
-            });
-            
-            this.elements.maxTokensValue.addEventListener('input', (e) => {
-                const value = Math.max(500, Math.min(4000, parseInt(e.target.value) || 500));
-                this.elements.maxTokensSlider.value = value;
-                this.elements.maxTokensValue.value = value;
-                this.updateSettingsFromForm();
-                this.updatePreview();
-            });
-        }
-
-
-        // System prompt textarea
-        if (this.elements.systemPromptTextarea) {
-            this.elements.systemPromptTextarea.addEventListener('input', () => {
-                this.updateSettingsFromForm();
-            });
-        }
-
-        // Langfuse toggle
-        if (this.elements.langfuseToggle) {
-            this.elements.langfuseToggle.addEventListener('change', () => {
-                this.updateSettingsFromForm();
-            });
-        }
-
-        // Langfuse prompt management event listeners
-        if (this.elements.refreshPrompts) {
-            this.elements.refreshPrompts.addEventListener('click', () => {
-                this.loadPrompts();
-            });
-        }
-
-        if (this.elements.createNewPrompt) {
-            this.elements.createNewPrompt.addEventListener('click', () => {
-                this.showCreatePromptModal();
-            });
-        }
-
-        if (this.elements.initializeDefaultPrompts) {
-            this.elements.initializeDefaultPrompts.addEventListener('click', () => {
-                this.initializeDefaultPrompts();
-            });
-        }
-
-        // WebSocket updates
-        if (this.connectionManager && this.connectionManager.socket) {
-            this.connectionManager.socket.on('settingsUpdated', (data) => {
-                if (data.category === 'ai') {
-                    this.loadSettings();
-                }
-            });
-        }
-    }
-
-    /**
-     * Load settings from server
-     */
-    async loadSettings() {
+    async loadRAGSettings() {
         try {
-            const response = await fetch(`${this.apiManager.apiUrl}/api/config/ai`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            const data = await response.json();
+            const response = await this.apiManager.apiRequest('/api/config/ai');
+            const aiSettings = response.data.settings;
             
-            if (response.ok && data.success) {
-                // Transform settings from backend format to current format
-                const settings = data.settings;
-                this.currentSettings = {
-                    rag_k: settings.rag_k?.value || 100,
-                    rag_similarity_threshold: settings.rag_similarity_threshold?.value || 0.7,
-                    rag_max_tokens: settings.rag_max_tokens?.value || 2000,
-                    system_prompt: settings.system_prompt?.value || '',
-                    use_langfuse_prompts: settings.use_langfuse_prompts?.value || false
-                };
-                
-                // Update Langfuse status
-                this.langfuseStatus = data.langfuse || {
-                    available: false,
-                    publicKey: null,
-                    baseUrl: null,
-                    enabled: false
-                };
-                
-                // Store original settings for change detection
-                this.originalSettings = { ...this.currentSettings };
-                
-                // Populate form with loaded settings
-                this.populateFormFromSettings();
-                this.updateLangfuseUI();
-                this.updatePreview();
-                this.updateSaveButtonState();
-                
-                console.log('Context engineering settings loaded:', this.currentSettings);
-            } else {
-                throw new Error(data.error || 'Failed to load settings');
-            }
+            this.ragSettings = {
+                rag_k: aiSettings.rag_k?.value || 100,
+                rag_similarity_threshold: aiSettings.rag_similarity_threshold?.value || 0.7,
+                rag_max_tokens: aiSettings.rag_max_tokens?.value || 2000
+            };
+            
+            this.updateRAGUI();
+            
         } catch (error) {
-            console.error('Error loading context engineering settings:', error);
-            // Use default values on error
-            this.populateFormFromSettings();
-            this.updateLangfuseUI(); // Ensure UI update even on error
-            this.updatePreview();
+            console.error('Failed to load RAG settings:', error);
         }
     }
 
     /**
-     * Save settings to server
+     * Update RAG UI elements with loaded values
      */
-    async saveSettings() {
-        try {
-            if (this.elements.saveButton) {
-                this.elements.saveButton.disabled = true;
-                this.elements.saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
-            }
+    updateRAGUI() {
+        const ragKSlider = document.getElementById('rag-k');
+        const ragKValue = document.getElementById('rag-k-value');
+        const similaritySlider = document.getElementById('similarity-threshold');
+        const similarityValue = document.getElementById('similarity-threshold-value');
+        const tokensSlider = document.getElementById('max-tokens');
+        const tokensValue = document.getElementById('max-tokens-value');
 
-            const response = await fetch(`${this.apiManager.apiUrl}/api/config/ai`, {
+        if (ragKSlider && ragKValue) {
+            ragKSlider.value = this.ragSettings.rag_k;
+            ragKValue.value = this.ragSettings.rag_k;
+        }
+
+        if (similaritySlider && similarityValue) {
+            similaritySlider.value = this.ragSettings.rag_similarity_threshold;
+            similarityValue.value = this.ragSettings.rag_similarity_threshold;
+        }
+
+        if (tokensSlider && tokensValue) {
+            tokensSlider.value = this.ragSettings.rag_max_tokens;
+            tokensValue.value = this.ragSettings.rag_max_tokens;
+        }
+    }
+
+    /**
+     * Save RAG settings to the backend
+     */
+    async saveRAGSettings() {
+        try {
+            const statusElement = document.getElementById('rag-save-status');
+            const saveButton = document.getElementById('save-rag-settings');
+            
+            if (statusElement) statusElement.textContent = 'Saving...';
+            if (saveButton) saveButton.disabled = true;
+
+            const ragKValue = document.getElementById('rag-k-value').value;
+            const similarityValue = document.getElementById('similarity-threshold-value').value;
+            const tokensValue = document.getElementById('max-tokens-value').value;
+
+            const settings = {
+                rag_k: parseInt(ragKValue),
+                rag_similarity_threshold: parseFloat(similarityValue),
+                rag_max_tokens: parseInt(tokensValue)
+            };
+
+            const response = await this.apiManager.apiRequest('/api/config/ai', {
                 method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(this.currentSettings)
+                body: JSON.stringify(settings)
             });
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                // Update original settings to new saved state
-                this.originalSettings = { ...this.currentSettings };
-                this.updateSaveButtonState();
-                
-                // Emit state change event
-                this.stateManager.emit('contextEngineeringUpdated', this.currentSettings);
-                
-                // Show success message
-                this.showNotification('Context engineering settings saved successfully!', 'success');
-                
-                console.log('Context engineering settings saved successfully');
+
+            if (response.success) {
+                this.ragSettings = settings;
+                if (statusElement) {
+                    statusElement.textContent = '✓ RAG settings saved successfully';
+                    statusElement.className = 'text-sm text-green-600';
+                }
+                setTimeout(() => {
+                    if (statusElement) {
+                        statusElement.textContent = '';
+                        statusElement.className = 'text-sm text-gray-500';
+                    }
+                }, 3000);
             } else {
-                throw new Error(data.error || 'Failed to save settings');
+                throw new Error('Failed to save RAG settings');
+            }
+
+        } catch (error) {
+            console.error('Error saving RAG settings:', error);
+            const statusElement = document.getElementById('rag-save-status');
+            if (statusElement) {
+                statusElement.textContent = '✗ Failed to save RAG settings';
+                statusElement.className = 'text-sm text-red-600';
+            }
+        } finally {
+            const saveButton = document.getElementById('save-rag-settings');
+            if (saveButton) saveButton.disabled = false;
+        }
+    }
+
+    /**
+     * Check Langfuse connection status
+     */
+    async checkLangfuseStatus() {
+        try {
+            const response = await fetch(`${this.apiManager.apiUrl}/api/config/ai`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.langfuseStatus = data.langfuse || { available: false };
+                this.updateLangfuseStatusUI();
+            }
+
+        } catch (error) {
+            console.error('Failed to check Langfuse status:', error);
+            this.langfuseStatus = { available: false };
+        }
+    }
+
+    /**
+     * Update Langfuse status in the UI
+     */
+    updateLangfuseStatusUI() {
+        const statusBadge = document.getElementById('langfuse-status-badge');
+        
+        if (statusBadge) {
+            if (this.langfuseStatus.available) {
+                statusBadge.classList.remove('hidden');
+                statusBadge.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Langfuse Connected';
+                statusBadge.className = 'ml-2 px-2 py-1 text-xs rounded-full bg-green-100 text-green-800';
+            } else {
+                statusBadge.classList.add('hidden');
+            }
+        }
+
+        // Show/hide Langfuse selectors based on availability
+        ['system', 'processing', 'formatting'].forEach(type => {
+            const selector = document.getElementById(`${type}-langfuse-selector`);
+            if (selector) {
+                if (this.langfuseStatus.available) {
+                    selector.classList.remove('hidden');
+                } else {
+                    selector.classList.add('hidden');
+                }
+            }
+        });
+    }
+
+    /**
+     * Load current prompt settings from backend
+     */
+    async loadPromptSettings() {
+        try {
+            const response = await this.apiManager.apiRequest('/api/config/prompts');
+            if (response.success && response.data.settings) {
+                const settings = response.data.settings;
+                
+                // Determine current mode
+                this.promptMode = settings.prompt_mode?.value || 'local';
+                
+                // Load current prompt assignments/content
+                this.currentSettings = {
+                    active_system_prompt: settings.active_system_prompt?.value || '',
+                    active_processing_prompt: settings.active_processing_prompt?.value || '',
+                    active_formatting_prompt: settings.active_formatting_prompt?.value || '',
+                    custom_system_prompt_content: settings.custom_system_prompt_content?.value || '',
+                    custom_processing_prompt_content: settings.custom_processing_prompt_content?.value || '',
+                    custom_formatting_prompt_content: settings.custom_formatting_prompt_content?.value || ''
+                };
             }
         } catch (error) {
-            console.error('Error saving context engineering settings:', error);
-            this.showNotification('Failed to save settings: ' + error.message, 'error');
-        } finally {
-            if (this.elements.saveButton) {
-                this.elements.saveButton.disabled = false;
-                this.elements.saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Save Context Settings';
-            }
+            console.error('Failed to load prompt settings:', error);
         }
     }
 
     /**
-     * Update current settings from form values
+     * Update mode UI based on current prompt mode
      */
-    updateSettingsFromForm() {
-        if (this.elements.ragKValue) {
-            this.currentSettings.rag_k = parseInt(this.elements.ragKValue.value) || 100;
+    updateModeUI() {
+        const langfuseRadio = document.getElementById('mode-langfuse');
+        const localRadio = document.getElementById('mode-local');
+        const langfuseConfig = document.getElementById('langfuse-config');
+        const localConfig = document.getElementById('local-config');
+        
+        // Set radio button based on current mode
+        if (langfuseRadio) langfuseRadio.checked = (this.promptMode === 'langfuse');
+        if (localRadio) localRadio.checked = (this.promptMode === 'local');
+        
+        // Show/hide configuration sections
+        if (langfuseConfig) {
+            langfuseConfig.classList.toggle('hidden', this.promptMode !== 'langfuse');
+        }
+        if (localConfig) {
+            localConfig.classList.toggle('hidden', this.promptMode !== 'local');
         }
         
-        if (this.elements.similarityValue) {
-            this.currentSettings.rag_similarity_threshold = parseFloat(this.elements.similarityValue.value) || 0.7;
-        }
-        
-        if (this.elements.maxTokensValue) {
-            this.currentSettings.rag_max_tokens = parseInt(this.elements.maxTokensValue.value) || 2000;
-        }
-        
-        
-        if (this.elements.systemPromptTextarea) {
-            this.currentSettings.system_prompt = this.elements.systemPromptTextarea.value;
-        }
-        
-        if (this.elements.langfuseToggle) {
-            this.currentSettings.use_langfuse_prompts = this.elements.langfuseToggle.checked;
-        }
-        
-        this.updateSaveButtonState();
-    }
-
-    /**
-     * Populate form from current settings
-     */
-    populateFormFromSettings() {
-        if (this.elements.ragKSlider && this.elements.ragKValue) {
-            const ragK = this.currentSettings.rag_k || 100;
-            this.elements.ragKSlider.value = ragK;
-            this.elements.ragKValue.value = ragK;
-        }
-        
-        if (this.elements.similaritySlider && this.elements.similarityValue) {
-            const similarity = this.currentSettings.rag_similarity_threshold || 0.7;
-            this.elements.similaritySlider.value = similarity;
-            this.elements.similarityValue.value = similarity.toFixed(1);
-        }
-        
-        if (this.elements.maxTokensSlider && this.elements.maxTokensValue) {
-            const maxTokens = this.currentSettings.rag_max_tokens || 2000;
-            this.elements.maxTokensSlider.value = maxTokens;
-            this.elements.maxTokensValue.value = maxTokens;
-        }
-        
-        
-        if (this.elements.systemPromptTextarea) {
-            this.elements.systemPromptTextarea.value = this.currentSettings.system_prompt || '';
-        }
-        
-        if (this.elements.langfuseToggle) {
-            this.elements.langfuseToggle.checked = this.currentSettings.use_langfuse_prompts || false;
+        // Populate UI based on mode
+        if (this.promptMode === 'langfuse') {
+            this.updateLangfuseUI();
+        } else {
+            this.updateLocalUI();
         }
     }
-
+    
     /**
-     * Update Langfuse UI based on availability
+     * Update Langfuse mode UI
      */
     updateLangfuseUI() {
-        console.log('updateLangfuseUI called with status:', this.langfuseStatus);
-        console.log('langfuseToggleSection element:', this.elements.langfuseToggleSection);
-        
-        if (this.elements.langfuseToggleSection) {
-            if (this.langfuseStatus.available) {
-                console.log('Langfuse available - showing toggle section');
-                // Show the Langfuse toggle section
-                this.elements.langfuseToggleSection.classList.remove('hidden');
-                
-                // Update the public key display
-                if (this.elements.langfusePublicKey && this.langfuseStatus.publicKey) {
-                    this.elements.langfusePublicKey.textContent = this.langfuseStatus.publicKey;
-                }
-                
-                // Show the prompt management section
-                if (this.elements.langfusePromptsSection) {
-                    this.elements.langfusePromptsSection.classList.remove('hidden');
-                }
-                
-                // Update connection status in prompt management section
-                if (this.elements.langfuseConnectionStatus) {
-                    this.elements.langfuseConnectionStatus.textContent = '✓ Connected';
-                    this.elements.langfuseConnectionStatus.className = 'text-green-600 text-sm';
-                }
-                
-                if (this.elements.langfuseConnectionKey && this.langfuseStatus.publicKey) {
-                    this.elements.langfuseConnectionKey.textContent = this.langfuseStatus.publicKey;
-                }
-                
-                // Load prompts
-                this.loadPrompts();
-                
-            } else {
-                console.log('Langfuse not available - hiding toggle section');
-                // Hide the Langfuse toggle section
-                this.elements.langfuseToggleSection.classList.add('hidden');
-                
-                // Hide the prompt management section
-                if (this.elements.langfusePromptsSection) {
-                    this.elements.langfusePromptsSection.classList.add('hidden');
+        ['system', 'processing', 'formatting'].forEach(async (type) => {
+            const select = document.getElementById(`${type}-langfuse-prompt`);
+            if (select) {
+                const activePrompt = this.currentSettings[`active_${type}_prompt`];
+                if (activePrompt) {
+                    select.value = activePrompt;
+                    await this.showPromptPreview(type, activePrompt);
                 }
             }
+        });
+    }
+    
+    /**
+     * Update Local mode UI
+     */
+    updateLocalUI() {
+        ['system', 'processing', 'formatting'].forEach(type => {
+            const textarea = document.getElementById(`local-${type}-prompt`);
+            if (textarea) {
+                textarea.value = this.currentSettings[`custom_${type}_prompt_content`] || '';
+            }
+        });
+    }
+
+    /**
+     * Switch between Langfuse and Local modes
+     */
+    switchToMode(mode) {
+        this.promptMode = mode;
+        this.updateModeUI();
+    }
+
+
+    /**
+     * Handle Langfuse prompt selection with preview
+     */
+    handleLangfusePromptSelect(type, promptName) {
+        if (promptName) {
+            this.showPromptPreview(type, promptName);
         } else {
-            console.warn('langfuseToggleSection element not found');
+            this.hidePromptPreview(type);
         }
     }
-
+    
     /**
-     * Update live preview display
+     * Show prompt preview
      */
-    updatePreview() {
-        if (this.elements.previewRagK) {
-            this.elements.previewRagK.textContent = this.currentSettings.rag_k || 100;
-        }
+    async showPromptPreview(type, promptName) {
+        const prompt = this.availablePrompts.find(p => p.name === promptName);
+        if (!prompt) return;
         
-        if (this.elements.previewSimilarity) {
-            this.elements.previewSimilarity.textContent = (this.currentSettings.rag_similarity_threshold || 0.7).toFixed(1);
-        }
+        const previewDiv = document.getElementById(`${type}-prompt-preview`);
+        const contentDiv = previewDiv?.querySelector('.text-sm.font-mono.text-gray-700');
         
-        if (this.elements.previewMaxTokens) {
-            this.elements.previewMaxTokens.textContent = this.currentSettings.rag_max_tokens || 2000;
-        }
-        
-    }
-
-    /**
-     * Update save button state based on changes
-     */
-    updateSaveButtonState() {
-        if (!this.elements.saveButton) return;
-        
-        const hasChanges = this.hasUnsavedChanges();
-        this.elements.saveButton.disabled = !hasChanges;
-    }
-
-    /**
-     * Check if there are unsaved changes
-     */
-    hasUnsavedChanges() {
-        return JSON.stringify(this.currentSettings) !== JSON.stringify(this.originalSettings);
-    }
-
-    /**
-     * Show notification message
-     */
-    showNotification(message, type = 'info') {
-        // Create notification element if it doesn't exist
-        let notification = document.getElementById('context-engineering-notification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'context-engineering-notification';
-            notification.className = 'fixed top-4 right-4 z-50 max-w-md';
-            document.body.appendChild(notification);
-        }
-        
-        const colorClass = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
-        
-        notification.innerHTML = `
-            <div class="${colorClass} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
-                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
-                <span>${message}</span>
-            </div>
-        `;
-        
-        // Auto-remove after 3 seconds
-        setTimeout(() => {
-            if (notification) {
-                notification.remove();
+        if (previewDiv && contentDiv) {
+            // Show loading state
+            contentDiv.textContent = 'Loading prompt content...';
+            previewDiv.classList.remove('hidden');
+            
+            try {
+                // Fetch full prompt content from the backend
+                const response = await fetch(`${this.apiManager.apiUrl}/api/prompts/${promptName}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const content = data.prompt?.content || 'No content available';
+                    contentDiv.textContent = content;
+                } else {
+                    contentDiv.textContent = 'Failed to load prompt content';
+                }
+            } catch (error) {
+                console.error('Failed to fetch prompt content:', error);
+                contentDiv.textContent = 'Error loading prompt content';
             }
-        }, 3000);
+        }
+    }
+    
+    /**
+     * Hide prompt preview
+     */
+    hidePromptPreview(type) {
+        const previewDiv = document.getElementById(`${type}-prompt-preview`);
+        if (previewDiv) {
+            previewDiv.classList.add('hidden');
+        }
     }
 
-    /**
-     * Get current settings
-     */
-    getCurrentSettings() {
-        return { ...this.currentSettings };
-    }
-
-    // =========================
-    // LANGFUSE PROMPT MANAGEMENT METHODS
-    // =========================
 
     /**
-     * Load prompts from Langfuse
+     * Load available Langfuse prompts
      */
-    async loadPrompts() {
+    async loadAvailablePrompts() {
         if (!this.langfuseStatus.available) return;
 
         try {
-            this.showLoadingState();
-
             const response = await fetch(`${this.apiManager.apiUrl}/api/prompts/list`, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`
                 }
             });
-            const data = await response.json();
 
-            if (response.ok && data.success) {
-                this.renderPromptsTable(data.prompts);
-                this.updatePromptCount(data.prompts.length);
-            } else {
-                throw new Error(data.error || 'Failed to load prompts');
+            if (response.ok) {
+                const data = await response.json();
+                this.availablePrompts = data.prompts || [];
+                this.updatePromptSelectors();
             }
+
         } catch (error) {
-            console.error('Error loading prompts:', error);
-            this.showNoPromptsState();
-            this.showNotification('Failed to load prompts: ' + error.message, 'error');
+            console.error('Failed to load available prompts:', error);
         }
     }
 
     /**
-     * Render prompts table
+     * Update prompt selectors with available prompts
      */
-    renderPromptsTable(prompts) {
-        if (prompts.length === 0) {
-            this.showNoPromptsState();
-            return;
-        }
+    updatePromptSelectors() {
+        ['system', 'processing', 'formatting'].forEach(type => {
+            const select = document.getElementById(`${type}-langfuse-prompt`);
+            if (!select) return;
 
-        this.hideLoadingState();
-        this.elements.promptsTableContainer.classList.remove('hidden');
-        this.elements.noPromptsMessage.classList.add('hidden');
-
-        const tbody = this.elements.promptsTableBody;
-        tbody.innerHTML = '';
-
-        prompts.forEach(prompt => {
-            const row = document.createElement('tr');
-            row.className = 'hover:bg-gray-50';
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${prompt.name}</td>
-                <td class="px-6 py-4 text-sm text-gray-500">${prompt.description || 'No description'}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        ${prompt.category}
-                    </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${prompt.language}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div class="flex justify-end gap-2">
-                        <button 
-                            class="text-indigo-600 hover:text-indigo-900 text-sm view-prompt-btn" 
-                            data-prompt-name="${prompt.name}"
-                        >
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                        <button 
-                            class="text-purple-600 hover:text-purple-900 text-sm test-prompt-btn" 
-                            data-prompt-name="${prompt.name}"
-                        >
-                            <i class="fas fa-play"></i> Test
-                        </button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        // Add event listeners for action buttons
-        tbody.querySelectorAll('.view-prompt-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const promptName = e.currentTarget.dataset.promptName;
-                this.viewPrompt(promptName);
-            });
-        });
-
-        tbody.querySelectorAll('.test-prompt-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const promptName = e.currentTarget.dataset.promptName;
-                this.testPrompt(promptName);
+            select.innerHTML = `<option value="">Select a Langfuse ${type} prompt...</option>`;
+            
+            this.availablePrompts.forEach(prompt => {
+                const option = document.createElement('option');
+                option.value = prompt.name;
+                option.textContent = `${prompt.name} (v${prompt.version || 'latest'})`;
+                select.appendChild(option);
             });
         });
     }
 
-    /**
-     * Show loading state
-     */
-    showLoadingState() {
-        this.elements.promptsLoading.classList.remove('hidden');
-        this.elements.promptsTableContainer.classList.add('hidden');
-        this.elements.noPromptsMessage.classList.add('hidden');
-    }
 
     /**
-     * Hide loading state
+     * Test current configuration
      */
-    hideLoadingState() {
-        this.elements.promptsLoading.classList.add('hidden');
-    }
-
-    /**
-     * Show no prompts state
-     */
-    showNoPromptsState() {
-        this.hideLoadingState();
-        this.elements.promptsTableContainer.classList.add('hidden');
-        this.elements.noPromptsMessage.classList.remove('hidden');
-    }
-
-    /**
-     * Update prompt count display
-     */
-    updatePromptCount(count) {
-        if (this.elements.promptCount) {
-            this.elements.promptCount.textContent = count;
-        }
-    }
-
-    /**
-     * View prompt details
-     */
-    async viewPrompt(promptName) {
+    async testConfiguration() {
         try {
-            const response = await fetch(`${this.apiManager.apiUrl}/api/prompts/${promptName}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                this.showPromptViewModal(data.prompt);
-            } else {
-                throw new Error(data.error || 'Failed to load prompt');
+            const statusElement = document.getElementById('prompt-save-status');
+            if (statusElement) {
+                statusElement.textContent = 'Testing configuration...';
+                statusElement.className = 'text-sm text-blue-600';
             }
-        } catch (error) {
-            console.error('Error viewing prompt:', error);
-            this.showNotification('Failed to load prompt: ' + error.message, 'error');
-        }
-    }
 
-    /**
-     * Show prompt view modal
-     */
-    showPromptViewModal(prompt) {
-        // Populate modal with prompt data
-        document.getElementById('prompt-view-name').textContent = prompt.name;
-        document.getElementById('prompt-view-source').textContent = prompt.source || 'Unknown';
-        document.getElementById('prompt-view-version').textContent = prompt.version || 'N/A';
-        document.getElementById('prompt-view-langfuse').textContent = prompt.fromLangfuse ? 'Yes' : 'No';
-        document.getElementById('prompt-view-content').textContent = prompt.content;
-
-        // Extract and display variables
-        this.displayPromptVariables(prompt.content);
-
-        // Show modal
-        this.elements.promptViewModal.classList.remove('hidden');
-
-        // Add event listeners for modal actions
-        this.setupPromptViewModalEvents(prompt);
-    }
-
-    /**
-     * Display template variables found in prompt
-     */
-    displayPromptVariables(content) {
-        const variableRegex = /\{\{([^}]+)\}\}/g;
-        const variables = new Set();
-        let match;
-        
-        while ((match = variableRegex.exec(content)) !== null) {
-            variables.add(match[1].trim());
-        }
-
-        const container = document.getElementById('prompt-variables-list');
-        container.innerHTML = '';
-
-        if (variables.size === 0) {
-            container.innerHTML = '<span class="text-gray-500 text-sm">No template variables found</span>';
-        } else {
-            variables.forEach(variable => {
-                const badge = document.createElement('span');
-                badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800';
-                badge.textContent = `{{${variable}}}`;
-                container.appendChild(badge);
-            });
-        }
-    }
-
-    /**
-     * Setup prompt view modal events
-     */
-    setupPromptViewModalEvents(prompt) {
-        // Close modal events
-        const closeButtons = [
-            document.getElementById('close-prompt-view-modal'),
-            document.getElementById('close-prompt-view')
-        ];
-        
-        closeButtons.forEach(btn => {
-            if (btn) {
-                btn.onclick = () => this.hidePromptViewModal();
-            }
-        });
-
-        // Copy content button
-        const copyBtn = document.getElementById('copy-prompt-content');
-        if (copyBtn) {
-            copyBtn.onclick = () => {
-                navigator.clipboard.writeText(prompt.content).then(() => {
-                    this.showNotification('Prompt content copied to clipboard', 'success');
-                });
-            };
-        }
-
-        // Test prompt button
-        const testBtn = document.getElementById('test-prompt-btn');
-        if (testBtn) {
-            testBtn.onclick = () => {
-                this.hidePromptViewModal();
-                this.testPrompt(prompt.name);
-            };
-        }
-
-        // Edit prompt button
-        const editBtn = document.getElementById('edit-prompt-btn');
-        if (editBtn) {
-            editBtn.onclick = () => {
-                this.hidePromptViewModal();
-                this.editPrompt(prompt);
-            };
-        }
-    }
-
-    /**
-     * Hide prompt view modal
-     */
-    hidePromptViewModal() {
-        this.elements.promptViewModal.classList.add('hidden');
-    }
-
-    /**
-     * Test prompt with sample data
-     */
-    async testPrompt(promptName) {
-        try {
-            const response = await fetch(`${this.apiManager.apiUrl}/api/prompts/${promptName}/test`, {
+            const response = await this.apiManager.apiRequest('/api/simple-rag-test', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
-                    'Content-Type': 'application/json'
-                },
                 body: JSON.stringify({
-                    variables: {} // Use default test variables
+                    question: 'Test question for prompt configuration',
+                    variables: {
+                        context: 'Sample context for testing',
+                        question: 'What is this test about?',
+                        formatted_history: 'User: Previous question\nAssistant: Previous response'
+                    }
                 })
             });
-            const data = await response.json();
 
-            if (response.ok && data.success) {
-                this.showPromptTestResults(data.test);
-            } else {
-                throw new Error(data.error || 'Failed to test prompt');
-            }
-        } catch (error) {
-            console.error('Error testing prompt:', error);
-            this.showNotification('Failed to test prompt: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Show prompt test results modal
-     */
-    showPromptTestResults(testData) {
-        // Populate test results
-        document.getElementById('test-var-context').textContent = testData.variables.context;
-        document.getElementById('test-var-question').textContent = testData.variables.question;
-        document.getElementById('test-var-history').textContent = testData.variables.formatted_history;
-        document.getElementById('test-compiled-content').textContent = testData.compiledContent;
-
-        // Show modal
-        this.elements.promptTestModal.classList.remove('hidden');
-
-        // Add close event listeners
-        const closeButtons = [
-            document.getElementById('close-prompt-test-modal'),
-            document.getElementById('close-test-results')
-        ];
-        
-        closeButtons.forEach(btn => {
-            if (btn) {
-                btn.onclick = () => this.hidePromptTestModal();
-            }
-        });
-    }
-
-    /**
-     * Hide prompt test modal
-     */
-    hidePromptTestModal() {
-        this.elements.promptTestModal.classList.add('hidden');
-    }
-
-    /**
-     * Initialize default prompts in Langfuse
-     */
-    async initializeDefaultPrompts() {
-        try {
-            const initBtn = this.elements.initializeDefaultPrompts;
-            const originalText = initBtn.innerHTML;
-            initBtn.disabled = true;
-            initBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Initializing...';
-
-            const response = await fetch(`${this.apiManager.apiUrl}/api/prompts/initialize`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
-                    'Content-Type': 'application/json'
+            if (response.success) {
+                if (statusElement) {
+                    statusElement.textContent = '✓ Configuration test passed successfully';
+                    statusElement.className = 'text-sm text-green-600';
                 }
-            });
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                this.showNotification('Default prompts initialized successfully', 'success');
-                this.loadPrompts(); // Reload the prompts list
             } else {
-                throw new Error(data.error || 'Failed to initialize prompts');
+                if (statusElement) {
+                    statusElement.textContent = '✗ Configuration test failed';
+                    statusElement.className = 'text-sm text-red-600';
+                }
             }
+            
+            setTimeout(() => {
+                if (statusElement) {
+                    statusElement.textContent = '';
+                    statusElement.className = 'text-sm text-gray-500';
+                }
+            }, 3000);
+
         } catch (error) {
-            console.error('Error initializing prompts:', error);
-            this.showNotification('Failed to initialize prompts: ' + error.message, 'error');
-        } finally {
-            const initBtn = this.elements.initializeDefaultPrompts;
-            initBtn.disabled = false;
-            initBtn.innerHTML = 'Initialize Default Prompts';
+            console.error('Failed to test configuration:', error);
+            const statusElement = document.getElementById('prompt-save-status');
+            if (statusElement) {
+                statusElement.textContent = '✗ Test failed: ' + error.message;
+                statusElement.className = 'text-sm text-red-600';
+            }
         }
     }
 
     /**
-     * Show create prompt modal (placeholder for future implementation)
+     * Save current configuration
      */
-    showCreatePromptModal() {
-        this.showNotification('Create new prompt feature coming soon!', 'info');
+    async saveConfiguration() {
+        try {
+            const statusElement = document.getElementById('prompt-save-status');
+            const saveButton = document.getElementById('save-prompt-config');
+            
+            if (statusElement) statusElement.textContent = 'Saving configuration...';
+            if (saveButton) saveButton.disabled = true;
+
+            // Collect settings based on current mode
+            const settings = {
+                prompt_mode: this.promptMode
+            };
+            
+            if (this.promptMode === 'langfuse') {
+                // Save Langfuse prompt assignments (only include if there's a value)
+                ['system', 'processing', 'formatting'].forEach(type => {
+                    const select = document.getElementById(`${type}-langfuse-prompt`);
+                    if (select && select.value) {
+                        settings[`active_${type}_prompt`] = select.value;
+                    }
+                });
+            } else {
+                // Save local prompt content (only include if there's content)
+                ['system', 'processing', 'formatting'].forEach(type => {
+                    const textarea = document.getElementById(`local-${type}-prompt`);
+                    if (textarea && textarea.value) {
+                        settings[`custom_${type}_prompt_content`] = textarea.value;
+                    }
+                });
+            }
+
+            const response = await this.apiManager.apiRequest('/api/config/prompts', {
+                method: 'PUT',
+                body: JSON.stringify(settings)
+            });
+
+            if (response.success) {
+                // Update current settings
+                Object.assign(this.currentSettings, settings);
+                
+                if (statusElement) {
+                    statusElement.textContent = '✓ Configuration saved successfully';
+                    statusElement.className = 'text-sm text-green-600';
+                    setTimeout(() => {
+                        statusElement.textContent = '';
+                        statusElement.className = 'text-sm text-gray-500';
+                    }, 3000);
+                }
+            } else {
+                throw new Error('Failed to save configuration');
+            }
+
+        } catch (error) {
+            console.error('Failed to save configuration:', error);
+            const statusElement = document.getElementById('prompt-save-status');
+            if (statusElement) {
+                statusElement.textContent = '✗ Failed to save configuration';
+                statusElement.className = 'text-sm text-red-600';
+            }
+        } finally {
+            const saveButton = document.getElementById('save-prompt-config');
+            if (saveButton) saveButton.disabled = false;
+        }
     }
 
     /**
-     * Edit prompt (placeholder for future implementation)
-     */
-    editPrompt(prompt) {
-        this.showNotification('Edit prompt feature coming soon!', 'info');
-    }
-
-    /**
-     * Cleanup method
+     * Module cleanup
      */
     destroy() {
         // Remove event listeners if needed
-        // Clean up resources
-        console.log('ContextEngineeringModule destroyed');
+        console.log('Context Engineering module destroyed');
     }
 }
-
-export default ContextEngineeringModule;

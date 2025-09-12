@@ -1,0 +1,401 @@
+        <!-- Context Engineering Tab -->
+        <div id="context-engineering-tab" class="tab-content hidden">
+            <!-- RAG Configuration Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-brain text-indigo-600"></i>
+                    AI Context Engineering
+                </h2>
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-info-circle text-blue-600 mt-0.5"></i>
+                        <div class="text-sm text-blue-800">
+                            <p class="font-medium mb-1">What is Context Engineering?</p>
+                            <p>Fine-tune how the AI retrieves and uses information from your knowledge base. Configure RAG (Retrieval-Augmented Generation) settings and manage specialized prompts for different AI processing stages.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="context-engineering-form" class="space-y-6">
+                    <!-- RAG Top-K Setting -->
+                    <div>
+                        <label for="rag-k" class="block text-sm font-medium text-gray-700 mb-2">
+                            Document Retrieval Count (Top-K)
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input 
+                                type="range" 
+                                id="rag-k" 
+                                name="rag_k" 
+                                min="1" 
+                                max="200" 
+                                value="100" 
+                                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                            >
+                            <input 
+                                type="number" 
+                                id="rag-k-value" 
+                                min="1" 
+                                max="200" 
+                                value="100" 
+                                class="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                        </div>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Controls how many document chunks the AI retrieves from your knowledge base to answer each question.</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                <li>• <strong>Lower values (20-50):</strong> Faster responses, more focused answers</li>
+                                <li>• <strong>Medium values (50-100):</strong> Balanced performance (recommended)</li>
+                                <li>• <strong>Higher values (100-200):</strong> More comprehensive responses</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Similarity Threshold -->
+                    <div>
+                        <label for="similarity-threshold" class="block text-sm font-medium text-gray-700 mb-2">
+                            Similarity Threshold
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input 
+                                type="range" 
+                                id="similarity-threshold" 
+                                name="rag_similarity_threshold" 
+                                min="0.0" 
+                                max="1.0" 
+                                step="0.05" 
+                                value="0.7" 
+                                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                            >
+                            <input 
+                                type="number" 
+                                id="similarity-threshold-value" 
+                                min="0.0" 
+                                max="1.0" 
+                                step="0.05" 
+                                value="0.7" 
+                                class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                        </div>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Sets minimum similarity score for document relevance.</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                <li>• <strong>Lower (0.3-0.6):</strong> More permissive, includes loosely related documents</li>
+                                <li>• <strong>Medium (0.6-0.8):</strong> Balanced relevance filtering (recommended)</li>
+                                <li>• <strong>Higher (0.8-1.0):</strong> Very strict, only highly relevant documents</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Max Context Tokens -->
+                    <div>
+                        <label for="max-tokens" class="block text-sm font-medium text-gray-700 mb-2">
+                            Max Context Tokens
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input 
+                                type="range" 
+                                id="max-tokens" 
+                                name="rag_max_tokens" 
+                                min="500" 
+                                max="4000" 
+                                step="100" 
+                                value="2000" 
+                                class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                            >
+                            <input 
+                                type="number" 
+                                id="max-tokens-value" 
+                                min="500" 
+                                max="4000" 
+                                step="100" 
+                                value="2000" 
+                                class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                        </div>
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg">
+                            <p class="text-sm text-gray-600 mb-2"><strong>What this does:</strong> Limits context information sent to the AI model.</p>
+                            <ul class="text-xs text-gray-500 space-y-1">
+                                <li>• <strong>Lower (500-1000):</strong> Faster processing, more focused responses</li>
+                                <li>• <strong>Medium (1000-2500):</strong> Good balance (recommended)</li>
+                                <li>• <strong>Higher (2500-4000):</strong> Maximum context, comprehensive responses</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Save RAG Settings Button -->
+                    <div class="flex items-center justify-between pt-4 border-t border-gray-200">
+                        <div id="rag-save-status" class="text-sm text-gray-500"></div>
+                        <button 
+                            type="submit" 
+                            id="save-rag-settings" 
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2"
+                        >
+                            <i class="fas fa-save"></i>
+                            Save RAG Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Integrated Prompt Management Section -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-code text-purple-600"></i>
+                        Prompt Management
+                        <span id="langfuse-status-badge" class="ml-2 px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 hidden">
+                            <i class="fas fa-check-circle mr-1"></i>Langfuse Connected
+                        </span>
+                    </h3>
+                    <div class="flex items-center gap-3">
+                        <button id="create-new-prompt" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                            <i class="fas fa-plus"></i>
+                            Create Prompt
+                        </button>
+                        <button id="refresh-prompts" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium">
+                            <i class="fas fa-refresh"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-info-circle text-purple-600 mt-0.5"></i>
+                        <div class="text-sm text-purple-800">
+                            <p class="font-medium mb-1">Prompt Types & Usage</p>
+                            <p><strong>System Prompts:</strong> Define AI behavior and personality</p>
+                            <p><strong>Processing Prompts:</strong> Transform user queries before retrieval</p>
+                            <p><strong>Formatting Prompts:</strong> Structure and format AI responses</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Prompts Section -->
+                <div class="space-y-8">
+                    <div class="border border-gray-200 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                <i class="fas fa-robot text-blue-600"></i>
+                                System Prompts
+                            </h4>
+                            <div class="flex items-center gap-3">
+                                <div class="text-sm">
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" id="enable-system-prompts" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                                        <span class="ml-2 text-gray-700">Active</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4" id="system-prompt-config">
+                            <!-- Langfuse Prompt Selector -->
+                            <div id="system-langfuse-selector" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Langfuse Prompt</label>
+                                <select id="system-langfuse-prompt" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Choose a Langfuse prompt...</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Custom Prompt Editor -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-sm font-medium text-gray-700">Custom System Prompt</label>
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" id="use-custom-system" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                                        <span class="ml-2 text-sm text-gray-600">Use Custom</span>
+                                    </label>
+                                </div>
+                                <textarea 
+                                    id="custom-system-prompt" 
+                                    rows="6" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                                    placeholder="Enter your custom system prompt here..."
+                                ></textarea>
+                                <div class="mt-2 text-xs text-gray-500">
+                                    Use template variables: <code>{context}</code>, <code>{question}</code>, <code>{formatted_history}</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Processing Prompts Section -->
+                    <div class="border border-gray-200 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                <i class="fas fa-cogs text-green-600"></i>
+                                Processing Prompts
+                            </h4>
+                            <div class="flex items-center gap-3">
+                                <div class="text-sm">
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" id="enable-processing-prompts" class="form-checkbox h-4 w-4 text-green-600 rounded">
+                                        <span class="ml-2 text-gray-700">Active</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4" id="processing-prompt-config">
+                            <!-- Langfuse Prompt Selector -->
+                            <div id="processing-langfuse-selector" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Langfuse Prompt</label>
+                                <select id="processing-langfuse-prompt" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                                    <option value="">Choose a Langfuse prompt...</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Custom Prompt Editor -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-sm font-medium text-gray-700">Custom Processing Prompt</label>
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" id="use-custom-processing" class="form-checkbox h-4 w-4 text-green-600 rounded">
+                                        <span class="ml-2 text-sm text-gray-600">Use Custom</span>
+                                    </label>
+                                </div>
+                                <textarea 
+                                    id="custom-processing-prompt" 
+                                    rows="4" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 font-mono text-sm"
+                                    placeholder="Enter your query processing prompt here..."
+                                ></textarea>
+                                <div class="mt-2 text-xs text-gray-500">
+                                    Used for query rephrasing and enhancement before document retrieval
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formatting Prompts Section -->
+                    <div class="border border-gray-200 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                <i class="fas fa-palette text-orange-600"></i>
+                                Formatting Prompts
+                            </h4>
+                            <div class="flex items-center gap-3">
+                                <div class="text-sm">
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" id="enable-formatting-prompts" class="form-checkbox h-4 w-4 text-orange-600 rounded">
+                                        <span class="ml-2 text-gray-700">Active</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4" id="formatting-prompt-config">
+                            <!-- Langfuse Prompt Selector -->
+                            <div id="formatting-langfuse-selector" class="hidden">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Select Langfuse Prompt</label>
+                                <select id="formatting-langfuse-prompt" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500">
+                                    <option value="">Choose a Langfuse prompt...</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Custom Prompt Editor -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-sm font-medium text-gray-700">Custom Formatting Prompt</label>
+                                    <label class="inline-flex items-center">
+                                        <input type="checkbox" id="use-custom-formatting" class="form-checkbox h-4 w-4 text-orange-600 rounded">
+                                        <span class="ml-2 text-sm text-gray-600">Use Custom</span>
+                                    </label>
+                                </div>
+                                <textarea 
+                                    id="custom-formatting-prompt" 
+                                    rows="4" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500 font-mono text-sm"
+                                    placeholder="Enter your response formatting prompt here..."
+                                ></textarea>
+                                <div class="mt-2 text-xs text-gray-500">
+                                    Used for structuring and formatting final AI responses
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save All Prompts Button -->
+                <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                    <div id="prompt-save-status" class="text-sm text-gray-500"></div>
+                    <div class="flex items-center gap-3">
+                        <button id="test-prompts" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                            <i class="fas fa-vial"></i>
+                            Test Prompts
+                        </button>
+                        <button id="save-all-prompts" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2">
+                            <i class="fas fa-save"></i>
+                            Save All Prompts
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create/Edit Prompt Modal -->
+            <div id="prompt-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
+                <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+                    <div class="flex items-center justify-between pb-4 border-b border-gray-200">
+                        <h3 id="prompt-modal-title" class="text-lg font-semibold text-gray-900">Create New Prompt</h3>
+                        <button id="close-prompt-modal" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="mt-6 space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Prompt Name</label>
+                                <input 
+                                    type="text" 
+                                    id="prompt-name" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    placeholder="e.g., system-main"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Prompt Type</label>
+                                <select id="prompt-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
+                                    <option value="system">System Prompt</option>
+                                    <option value="processing">Processing Prompt</option>
+                                    <option value="formatting">Formatting Prompt</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Prompt Content</label>
+                            <textarea 
+                                id="prompt-content" 
+                                rows="12" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
+                                placeholder="Enter your prompt content here..."
+                            ></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Labels (comma-separated)</label>
+                                <input 
+                                    type="text" 
+                                    id="prompt-labels" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                                    placeholder="production, testing"
+                                    value="production"
+                                >
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 flex items-center justify-end space-x-3">
+                        <button id="cancel-prompt-modal" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button id="save-prompt-modal" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                            <i class="fas fa-save mr-2"></i>Save Prompt
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>

@@ -264,6 +264,76 @@ function createSystemRoutes() {
         }
     });
 
+    // ===========================
+    // PROMPTS CONFIGURATION ROUTES
+    // ===========================
+
+    // Get current prompt settings (admin only)
+    router.get('/config/prompts', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const promptSettings = await settingsService.getSettingsByCategory('prompts', true); // Include private settings
+            
+            res.json({
+                success: true,
+                data: promptSettings
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch prompt settings',
+                message: error.message
+            });
+        }
+    });
+
+    // Update prompt settings (admin only)
+    router.put('/config/prompts', authenticateToken, async (req, res) => {
+        try {
+            // Check admin permissions
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const settings = req.body;
+            if (!settings || typeof settings !== 'object') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Settings object is required'
+                });
+            }
+
+            // Update settings
+            const updatedSettings = await settingsService.updateSettings(
+                settings, 
+                req.user.id, 
+                'prompts'
+            );
+
+            res.json({
+                success: true,
+                data: updatedSettings,
+                message: 'Prompt settings updated successfully'
+            });
+
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                error: 'Failed to update prompt settings',
+                message: error.message
+            });
+        }
+    });
+
 
     // Reset endpoint for testing (clears all data)
     router.post('/reset', (req, res) => {
@@ -287,6 +357,7 @@ function createSystemRoutes() {
     router.post('/test-rag', (req, res) => {
         systemController.testRAG(req, res);
     });
+
 
     // Debug RAG context generation only
     router.post('/debug-rag', (req, res) => {
@@ -327,6 +398,19 @@ function createSystemRoutes() {
 
     router.post('/prompts/:name/test', (req, res) => {
         systemController.testPrompt(req, res);
+    });
+
+    // Langfuse prompt management endpoints (for direct prompt creation)
+    router.post('/prompts/create', authenticateToken, (req, res) => {
+        systemController.createPrompt(req, res);
+    });
+
+    router.delete('/prompts/:name', authenticateToken, (req, res) => {
+        systemController.deletePrompt(req, res);
+    });
+
+    router.get('/prompts/stats', (req, res) => {
+        systemController.getPromptStats(req, res);
     });
 
     return router;

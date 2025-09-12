@@ -45,6 +45,27 @@ const SETTING_SCHEMAS = {
         log_level: z.enum(['debug', 'info', 'warn', 'error']),
         log_to_file: z.boolean(),
         log_to_database: z.boolean()
+    },
+    prompts: {
+        // Master prompt mode toggle
+        prompt_mode: z.enum(['langfuse', 'local']).optional(),
+        
+        // System prompt settings
+        active_system_prompt: z.string().optional(),
+        custom_system_prompt_content: z.string().optional(),
+        
+        // Processing prompt settings (for query rephrasing/processing)
+        active_processing_prompt: z.string().optional(),
+        custom_processing_prompt_content: z.string().optional(),
+        
+        // Formatting prompt settings (for response formatting)
+        active_formatting_prompt: z.string().optional(),
+        custom_formatting_prompt_content: z.string().optional(),
+        
+        // Global prompt management settings
+        enable_prompt_management: z.boolean().optional(),
+        default_prompt_labels: z.array(z.string()).optional(),
+        prompt_cache_ttl: z.number().int().min(60).max(86400).optional()
     }
 };
 
@@ -62,7 +83,23 @@ const ENV_FALLBACKS = {
     use_langfuse_prompts: process.env.USE_LANGFUSE_PROMPTS === 'true',
     log_level: process.env.LOG_LEVEL || 'info',
     log_to_file: process.env.LOG_TO_FILE === 'true',
-    log_to_database: process.env.LOG_TO_DATABASE !== 'false'
+    log_to_database: process.env.LOG_TO_DATABASE !== 'false',
+    
+    // Prompt management fallbacks
+    prompt_mode: process.env.PROMPT_MODE || 'langfuse',
+    
+    active_system_prompt: process.env.ACTIVE_SYSTEM_PROMPT || null,
+    custom_system_prompt_content: process.env.CUSTOM_SYSTEM_PROMPT || '',
+    
+    active_processing_prompt: process.env.ACTIVE_PROCESSING_PROMPT || null,
+    custom_processing_prompt_content: process.env.CUSTOM_PROCESSING_PROMPT || '',
+    
+    active_formatting_prompt: process.env.ACTIVE_FORMATTING_PROMPT || null,
+    custom_formatting_prompt_content: process.env.CUSTOM_FORMATTING_PROMPT || '',
+    
+    enable_prompt_management: process.env.ENABLE_PROMPT_MANAGEMENT === 'true',
+    default_prompt_labels: process.env.DEFAULT_PROMPT_LABELS ? JSON.parse(process.env.DEFAULT_PROMPT_LABELS) : ['production'],
+    prompt_cache_ttl: parseInt(process.env.PROMPT_CACHE_TTL) || 300
 };
 
 class SettingsService extends EventEmitter {
@@ -435,6 +472,17 @@ class SettingsService extends EventEmitter {
         // AI settings should be accessible to admins for context engineering
         if (category === 'ai') {
             return ['rag_k', 'rag_similarity_threshold', 'rag_max_tokens', 'use_langfuse_prompts'].includes(key);
+        }
+        
+        // Prompt settings should be accessible to admins for prompt management
+        if (category === 'prompts') {
+            return [
+                'prompt_mode',
+                'active_system_prompt', 'custom_system_prompt_content',
+                'active_processing_prompt', 'custom_processing_prompt_content',
+                'active_formatting_prompt', 'custom_formatting_prompt_content',
+                'enable_prompt_management'
+            ].includes(key);
         }
         
         // Logging settings are typically private

@@ -13,7 +13,7 @@ import { AgentStatusModule } from './modules/AgentStatusModule.js';
 import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
 import { UserManagementModule } from './modules/UserManagementModule.js';
 import { BrandingConfigModule } from './modules/BrandingConfigModule.js';
-import ContextEngineeringModule from './modules/ContextEngineeringModule.js';
+import { ContextEngineeringModule } from './modules/ContextEngineeringModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 

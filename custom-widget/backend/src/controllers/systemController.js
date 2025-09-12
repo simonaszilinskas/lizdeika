@@ -813,6 +813,172 @@ Based on the relevant information provided above, please respond to the user's q
         }
     }
 
+
+    /**
+     * Create a new prompt in Langfuse
+     * POST /prompts/create
+     */
+    async createPrompt(req, res) {
+        try {
+            const { name, content, config = {}, labels = ['production'], type = 'system' } = req.body;
+            
+            if (!name || !content) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Prompt name and content are required'
+                });
+            }
+
+            const promptManager = require('../services/promptManager');
+            
+            if (!promptManager.enabled) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Langfuse not configured - cannot create prompts'
+                });
+            }
+
+            // Add type to config
+            config.promptType = type;
+            config.createdBy = req.user?.email || 'system';
+            config.createdAt = new Date().toISOString();
+
+            const result = await promptManager.createPrompt(name, content, config, labels);
+            
+            if (result) {
+                res.json({
+                    success: true,
+                    prompt: {
+                        name: result.name,
+                        version: result.version,
+                        content: result.prompt,
+                        config: result.config,
+                        labels: result.labels
+                    },
+                    message: `Prompt '${name}' created successfully in Langfuse`
+                });
+            } else {
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to create prompt in Langfuse'
+                });
+            }
+            
+        } catch (error) {
+            console.error('Failed to create prompt:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to create prompt',
+                message: error.message
+            });
+        }
+    }
+
+    /**
+     * Delete a prompt from Langfuse (archive it)
+     * DELETE /prompts/:name
+     */
+    async deletePrompt(req, res) {
+        try {
+            const { name } = req.params;
+            
+            const promptManager = require('../services/promptManager');
+            
+            if (!promptManager.enabled) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Langfuse not configured'
+                });
+            }
+
+            // In Langfuse, we can't actually delete prompts, but we can archive them
+            // by creating a new version with archived status
+            const archivedPrompt = await promptManager.createPrompt(
+                name, 
+                '[ARCHIVED] This prompt has been archived',
+                { archived: true, archivedAt: new Date().toISOString() },
+                ['archived']
+            );
+            
+            if (archivedPrompt) {
+                res.json({
+                    success: true,
+                    message: `Prompt '${name}' has been archived`
+                });
+            } else {
+                res.status(500).json({
+                    success: false,
+                    error: 'Failed to archive prompt'
+                });
+            }
+            
+        } catch (error) {
+            console.error(`Failed to delete prompt ${req.params.name}:`, error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to delete prompt',
+                message: error.message
+            });
+        }
+    }
+
+    /**
+     * Get detailed prompt statistics and usage
+     * GET /prompts/stats
+     */
+    async getPromptStats(req, res) {
+        try {
+            const SettingsService = require('../services/settingsService');
+            const settingsService = new SettingsService();
+            const promptManager = require('../services/promptManager');
+            
+            // Get all prompt settings
+            const promptSettings = await settingsService.getSettingsByCategory('prompts', true);
+            
+            // Count active prompts by type
+            const promptTypes = ['system', 'processing', 'formatting'];
+            const stats = {
+                langfuseEnabled: promptManager.enabled,
+                totalPromptSettings: Object.keys(promptSettings).length,
+                promptTypes: {}
+            };
+
+            // Analyze each type
+            for (const type of promptTypes) {
+                const activePrompt = promptSettings[`active_${type}_prompt`]?.value;
+                const useCustom = promptSettings[`use_custom_${type}_prompt`]?.value === 'true';
+                const customContent = promptSettings[`custom_${type}_prompt_content`]?.value;
+                
+                stats.promptTypes[type] = {
+                    hasActivePrompt: !!activePrompt,
+                    activePrompt: activePrompt,
+                    useCustom: useCustom,
+                    hasCustomContent: !!customContent,
+                    customContentLength: customContent?.length || 0
+                };
+            }
+
+            // Get cache stats if available
+            if (promptManager.enabled) {
+                const cacheStats = promptManager.getCacheStats();
+                stats.cache = cacheStats;
+            }
+
+            res.json({
+                success: true,
+                stats: stats
+            });
+
+        } catch (error) {
+            console.error('Failed to get prompt stats:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get prompt statistics',
+                message: error.message
+            });
+        }
+    }
+
     /**
      * Static method to get RAG settings for use in other services
      */
