@@ -397,46 +397,77 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             <i class="fas fa-robot text-blue-600 mr-1"></i>System Prompt
                         </label>
+                        <div class="mb-2 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                            <p class="text-sm text-blue-800"><strong>Role:</strong> Sets the AI's core identity, behavior, and capabilities</p>
+                            <p class="text-xs text-blue-600 mt-1">This is the foundational prompt that defines who the AI is and how it should behave across all interactions.</p>
+                        </div>
                         <textarea 
                             id="local-system-prompt" 
                             rows="6" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                            placeholder="Enter your system prompt here..."
+                            placeholder="Tu esi naudingas Vilniaus miesto savivaldybės gyventojų aptarnavimo pokalbių robotas. Pasitelkdamas tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą jo klausimo kalba.
+
+SVARBU: Jei tai ne pirmoji žinutė pokalbyje, atsižvelk į ankstesnį kontekstą ir negrįžk prie pasisveikinimo.
+
+Jei klausimas neaiškus, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Gali cituoti tik nuorodas (URL) kurias turi kontekste.
+
+Kontekstas:
+------------
+{context}
+------------"
                         ></textarea>
                         <div class="mt-2 text-xs text-gray-500">
-                            Use template variables: <code>{context}</code>, <code>{question}</code>, <code>{formatted_history}</code>
+                            <strong>Variables:</strong> <code>{context}</code> • <strong>Required:</strong> Context variable must be included
                         </div>
                     </div>
 
-                    <!-- Processing Prompt Editor -->
+                    <!-- Query Rephrasing Prompt Editor -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-cogs text-green-600 mr-1"></i>Processing Prompt
+                            <i class="fas fa-sync-alt text-green-600 mr-1"></i>Query Rephrasing Prompt
                         </label>
+                        <div class="mb-2 p-3 bg-green-50 rounded-lg border-l-4 border-green-500">
+                            <p class="text-sm text-green-800"><strong>Role:</strong> Enhances user questions for better document retrieval</p>
+                            <p class="text-xs text-green-600 mt-1">This prompt reformulates user questions using conversation history to improve RAG document matching before retrieval.</p>
+                        </div>
                         <textarea 
                             id="local-processing-prompt" 
                             rows="4" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                            placeholder="Enter your query processing prompt here..."
+                            placeholder="Šis pokalbis yra tarp piliečio ir Vilniaus miesto savivaldybės gyventojų aptarnavimo skyriaus. Atsižvelgdamas į visą pokalbį ir paskutinį klausimą, perfrazuok viską į vieną follow-up klausimą. Išskyrus jei klausimas nesusijęs su buvusiu kontekstu - tada tiesiog perrašyk naudotojo klausimą.
+
+Poklabio istorija:
+{chat_history}
+
+Paskutinis klausimas: {question}
+
+Tavo suformuluotas klausimas:"
                         ></textarea>
                         <div class="mt-2 text-xs text-gray-500">
-                            Used for query rephrasing and enhancement before document retrieval
+                            <strong>Variables:</strong> <code>{chat_history}</code>, <code>{question}</code> • <strong>Required:</strong> Both variables must be included
                         </div>
                     </div>
 
-                    <!-- Formatting Prompt Editor -->
+                    <!-- Context Template Prompt Editor -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-palette text-orange-600 mr-1"></i>Formatting Prompt
+                            <i class="fas fa-file-alt text-orange-600 mr-1"></i>Context Template Prompt
                         </label>
+                        <div class="mb-2 p-3 bg-orange-50 rounded-lg border-l-4 border-orange-500">
+                            <p class="text-sm text-orange-800"><strong>Role:</strong> Structures how context and questions are presented to the AI</p>
+                            <p class="text-xs text-orange-600 mt-1">This template formats the retrieved documents and user question before sending to the main AI system prompt for response generation.</p>
+                        </div>
                         <textarea 
                             id="local-formatting-prompt" 
                             rows="4" 
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-orange-500 focus:border-orange-500 font-mono text-sm"
-                            placeholder="Enter your response formatting prompt here..."
+                            placeholder="TURIMI DUOMENYS:
+{context}
+
+KLAUSIMAS: {question}"
                         ></textarea>
                         <div class="mt-2 text-xs text-gray-500">
-                            Used for structuring and formatting final AI responses
+                            <strong>Variables:</strong> <code>{context}</code>, <code>{question}</code> • <strong>Required:</strong> Both variables must be included
                         </div>
                     </div>
                 </div>

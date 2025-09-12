@@ -479,10 +479,111 @@ export class ContextEngineeringModule {
             
             if (textarea) {
                 textarea.value = settingValue;
+                // Add validation event listener
+                this.addPromptValidation(textarea, type);
             } else {
                 console.warn(`Textarea element not found: local-${type}-prompt`);
             }
         });
+    }
+
+    /**
+     * Add validation to prompt textareas
+     */
+    addPromptValidation(textarea, type) {
+        // Remove existing event listeners to avoid duplicates
+        textarea.removeEventListener('input', this.validatePrompt);
+        textarea.removeEventListener('blur', this.validatePrompt);
+        
+        const validateHandler = () => this.validatePrompt(textarea, type);
+        textarea.addEventListener('input', validateHandler);
+        textarea.addEventListener('blur', validateHandler);
+    }
+
+    /**
+     * Validate prompt content for required variables and structure
+     */
+    validatePrompt(textarea, type) {
+        const content = textarea.value.trim();
+        const validationResults = this.getPromptValidation(content, type);
+        
+        // Get or create validation display element
+        let validationDiv = textarea.parentElement.querySelector('.prompt-validation');
+        if (!validationDiv) {
+            validationDiv = document.createElement('div');
+            validationDiv.className = 'prompt-validation mt-2 text-sm';
+            textarea.parentElement.appendChild(validationDiv);
+        }
+        
+        if (validationResults.isValid) {
+            textarea.classList.remove('border-red-500');
+            textarea.classList.add('border-green-500');
+            validationDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check-circle mr-1"></i>Prompt structure looks good</span>';
+        } else {
+            textarea.classList.remove('border-green-500');
+            textarea.classList.add('border-red-500');
+            
+            const errorList = validationResults.errors.map(error => `<li>${error}</li>`).join('');
+            validationDiv.innerHTML = `
+                <div class="text-red-600">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>Validation Issues:
+                    <ul class="list-disc list-inside mt-1 ml-4 text-xs">${errorList}</ul>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Get validation results for a prompt
+     */
+    getPromptValidation(content, type) {
+        const errors = [];
+        
+        // Define required variables for each prompt type
+        const requiredVars = {
+            system: ['{context}'], // System prompt includes context
+            processing: ['{chat_history}', '{question}'], // Query rephrasing uses chat history
+            formatting: ['{context}', '{question}'] // Context template uses both
+        };
+        
+        // Check for required variables
+        const required = requiredVars[type] || [];
+        required.forEach(variable => {
+            if (!content.includes(variable)) {
+                errors.push(`Missing required variable: <code>${variable}</code>`);
+            }
+        });
+        
+        // Check for basic prompt structure
+        if (content.length === 0) {
+            errors.push('Prompt cannot be empty');
+        } else if (content.length < 10) {
+            errors.push('Prompt seems too short for effective AI instruction');
+        }
+        
+        // Check for common formatting issues
+        if (type === 'processing' && !content.toLowerCase().includes('klausim')) {
+            errors.push('Query rephrasing prompt should reference the user question (klausimas)');
+        }
+        
+        if (type === 'processing' && !content.toLowerCase().includes('poklab')) {
+            errors.push('Query rephrasing prompt should reference conversation history (pokalbio istorija)');
+        }
+        
+        // Check for placeholder variables that weren't replaced
+        const unusedPlaceholders = content.match(/\{[^}]*\}/g);
+        if (unusedPlaceholders) {
+            const validVars = ['{context}', '{question}', '{chat_history}'];
+            const invalid = unusedPlaceholders.filter(placeholder => !validVars.includes(placeholder));
+            if (invalid.length > 0) {
+                errors.push(`Unknown variable(s): ${invalid.map(v => `<code>${v}</code>`).join(', ')}`);
+            }
+        }
+        
+        return {
+            isValid: errors.length === 0,
+            errors: errors
+        };
     }
 
     /**
@@ -599,9 +700,42 @@ export class ContextEngineeringModule {
 
 
     /**
+     * Validate all prompts before saving
+     */
+    validateAllPrompts() {
+        const errors = [];
+        const types = ['system', 'processing', 'formatting'];
+        
+        types.forEach(type => {
+            const textarea = document.getElementById(`local-${type}-prompt`);
+            if (textarea) {
+                const validation = this.getPromptValidation(textarea.value.trim(), type);
+                if (!validation.isValid) {
+                    errors.push(`${type.charAt(0).toUpperCase() + type.slice(1)} Prompt: ${validation.errors.join(', ')}`);
+                }
+            }
+        });
+        
+        return {
+            isValid: errors.length === 0,
+            errors: errors
+        };
+    }
+
+    /**
      * Save current configuration
      */
     async saveConfiguration() {
+        // Validate all prompts before saving
+        if (this.promptMode === 'local') {
+            const validationResults = this.validateAllPrompts();
+            if (!validationResults.isValid) {
+                const errorMessage = `Cannot save configuration due to validation errors:\n\n${validationResults.errors.join('\n')}`;
+                alert(errorMessage);
+                return;
+            }
+        }
+        
         try {
             const statusElement = document.getElementById('prompt-save-status');
             const saveButton = document.getElementById('save-prompt-config');
