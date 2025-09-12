@@ -554,20 +554,9 @@ export class ContextEngineeringModule {
             }
         });
         
-        // Check for basic prompt structure
+        // Only check if prompt is not empty
         if (content.length === 0) {
             errors.push('Prompt cannot be empty');
-        } else if (content.length < 10) {
-            errors.push('Prompt seems too short for effective AI instruction');
-        }
-        
-        // Check for common formatting issues
-        if (type === 'processing' && !content.toLowerCase().includes('klausim')) {
-            errors.push('Query rephrasing prompt should reference the user question (klausimas)');
-        }
-        
-        if (type === 'processing' && !content.toLowerCase().includes('poklab')) {
-            errors.push('Query rephrasing prompt should reference conversation history (pokalbio istorija)');
         }
         
         // Check for placeholder variables that weren't replaced
