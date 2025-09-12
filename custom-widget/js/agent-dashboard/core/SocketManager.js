@@ -244,6 +244,9 @@ class SocketManager {
     }
 }
 
+// ES6 exports for browser
+export { SocketManager };
+
 // CommonJS exports for tests
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { SocketManager };

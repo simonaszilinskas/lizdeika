@@ -373,6 +373,15 @@ class ConversationLoader {
     }
 }
 
+// ES6 exports for browser
+export {
+    ConversationLoader,
+    ConversationApiClient,
+    ConversationFilter,
+    ConversationSorter,
+    LoadingStateManager
+};
+
 // CommonJS exports for tests
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {

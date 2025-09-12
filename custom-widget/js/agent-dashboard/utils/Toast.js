@@ -219,6 +219,9 @@ class Toast {
     }
 }
 
+// ES6 exports for browser
+export { Toast };
+
 // CommonJS exports for tests
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = Toast;
