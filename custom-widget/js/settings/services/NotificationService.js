@@ -80,8 +80,9 @@ export class NotificationService {
      * @returns {number} Notification ID
      */
     showValidationErrors(errors, duration = 10000) {
-        const errorList = errors.map(error => `• ${error.replace(/<\/?code>/g, '')}`).join('\\n');
-        const message = `Validation Errors:\\n\\n${errorList}`;\n        
+        const errorList = errors.map(error => `• ${error.replace(/<\/?code>/g, '')}`).join('\n');
+        const message = `Validation Errors:\n\n${errorList}`;
+        
         return this.show(message, 'error', duration, true);
     }
     
@@ -94,7 +95,8 @@ export class NotificationService {
      * @returns {number} Notification ID
      */
     show(message, type = 'info', duration = 5000, multiline = false) {
-        const id = this.nextId++;\n        
+        const id = this.nextId++;
+        
         // Create notification element
         const notification = this.createNotificationElement(id, message, type, multiline);
         
@@ -261,7 +263,8 @@ export class NotificationService {
         if (type && type !== notification.type) {
             // Update type-specific styles
             notification.element.className = notification.element.className
-                .replace(this.getTypeStyles(notification.type), this.getTypeStyles(type));\n            
+                .replace(this.getTypeStyles(notification.type), this.getTypeStyles(type));
+            
             if (iconElement) {
                 iconElement.className = iconElement.className
                     .replace(this.getTypeIcon(notification.type), this.getTypeIcon(type))
