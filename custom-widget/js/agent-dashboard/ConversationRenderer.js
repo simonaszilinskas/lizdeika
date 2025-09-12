@@ -482,6 +482,10 @@ export class ConversationRenderer {
         // Also apply immediately if queue item exists
         this.applyPreviewUpdate(conversationId, message);
         
+        // CRITICAL FIX: Refresh visual styling to show unseen state instantly
+        // This ensures new messages immediately show unseen styling without waiting for queue reload
+        this.refreshConversationStyling(conversationId);
+        
         console.log(`💾 Preview cache now has ${this.pendingPreviewUpdates.size} items`);
     }
     
@@ -586,5 +590,55 @@ export class ConversationRenderer {
         if (this.dashboard && typeof this.dashboard.loadConversations === 'function') {
             this.dashboard.loadConversations();
         }
+    }
+
+    /**
+     * Refresh visual styling for a single conversation item in the queue
+     * Updates CSS classes to reflect current seen/unseen state without full reload
+     * @param {string} conversationId - Conversation ID to refresh
+     */
+    refreshConversationStyling(conversationId) {
+        const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+        if (!queueItem) {
+            console.log(`⚠️ Queue item not found for ${conversationId}, cannot refresh styling`);
+            return false;
+        }
+
+        // Get the conversation data from the modern loader
+        const conversationData = this.dashboard.modernConversationLoader.getConversations();
+        const conversation = conversationData.all.find(conv => conv.id === conversationId);
+        
+        if (!conversation) {
+            console.log(`⚠️ Conversation data not found for ${conversationId}, cannot refresh styling`);
+            return false;
+        }
+
+        // Calculate current state values
+        const currentChatId = this.stateManager.getCurrentChatId();
+        const isActive = conversation.id === currentChatId;
+        const needsResponse = !!(conversation.lastMessage && 
+                                conversation.lastMessage.metadata && 
+                                conversation.lastMessage.metadata.pendingAgent === true);
+        const isAssignedToMe = conversation.assignedAgent === this.dashboard.agentId;
+        const isUnassigned = !conversation.assignedAgent;
+        const isUnseen = this.dashboard.uiHelpers.conversationIsUnseen(conversation);
+
+        // Get updated CSS classes
+        const newCssClass = this.dashboard.uiHelpers.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+        const newStatusLabel = this.dashboard.uiHelpers.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conversation);
+        const newStatusCss = this.dashboard.uiHelpers.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+
+        // Update the queue item's CSS classes
+        queueItem.className = `queue-item ${newCssClass}`;
+        
+        // Update status label and styling
+        const statusElement = queueItem.querySelector('.queue-item-status');
+        if (statusElement) {
+            statusElement.textContent = newStatusLabel;
+            statusElement.className = `queue-item-status ${newStatusCss}`;
+        }
+
+        console.log(`✨ Refreshed styling for ${conversationId}: isUnseen=${isUnseen}, CSS=${newCssClass}`);
+        return true;
     }
 }
