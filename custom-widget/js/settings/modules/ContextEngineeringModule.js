@@ -198,7 +198,7 @@ export class ContextEngineeringModule {
         try {
             const rawResponse = await this.apiManager.apiRequest('/api/config/ai');
             const response = await rawResponse.json();
-            const aiSettings = response.data.settings;
+            const aiSettings = response.settings; // AI endpoint uses 'settings' property
             
             this.ragSettings = {
                 rag_k: aiSettings.rag_k?.value || 100,
@@ -356,11 +356,15 @@ export class ContextEngineeringModule {
         try {
             const rawResponse = await this.apiManager.apiRequest('/api/config/prompts');
             const response = await rawResponse.json();
+            console.log('Loaded prompt settings from backend:', response);
+            
             if (response.success && response.data) {
-                const settings = response.data.settings;
+                const settings = response.data; // Direct access to settings object
+                console.log('Raw settings from backend:', settings);
                 
                 // Determine current mode
                 this.promptMode = settings.prompt_mode?.value || 'local';
+                console.log('Set prompt mode to:', this.promptMode);
                 
                 // Load current prompt assignments/content
                 this.currentSettings = {
@@ -371,6 +375,9 @@ export class ContextEngineeringModule {
                     custom_processing_prompt_content: settings.custom_processing_prompt_content?.value || '',
                     custom_formatting_prompt_content: settings.custom_formatting_prompt_content?.value || ''
                 };
+                console.log('Loaded currentSettings:', this.currentSettings);
+            } else {
+                console.warn('No prompt settings data received from backend');
             }
         } catch (error) {
             console.error('Failed to load prompt settings:', error);
@@ -378,32 +385,64 @@ export class ContextEngineeringModule {
     }
 
     /**
+     * Ensure DOM elements are ready before updating UI
+     */
+    ensureDOMReady(callback, maxRetries = 10) {
+        let retries = 0;
+        
+        const checkDOM = () => {
+            const langfuseRadio = document.getElementById('mode-langfuse');
+            const localRadio = document.getElementById('mode-local');
+            const systemTextarea = document.getElementById('local-system-prompt');
+            
+            if (langfuseRadio && localRadio && systemTextarea) {
+                // DOM is ready
+                callback();
+                return;
+            }
+            
+            retries++;
+            if (retries < maxRetries) {
+                console.log(`DOM not ready, retrying (${retries}/${maxRetries})...`);
+                setTimeout(checkDOM, 100);
+            } else {
+                console.warn('DOM elements not found after maximum retries, proceeding anyway');
+                callback();
+            }
+        };
+        
+        checkDOM();
+    }
+
+    /**
      * Update mode UI based on current prompt mode
      */
     updateModeUI() {
-        const langfuseRadio = document.getElementById('mode-langfuse');
-        const localRadio = document.getElementById('mode-local');
-        const langfuseConfig = document.getElementById('langfuse-config');
-        const localConfig = document.getElementById('local-config');
-        
-        // Set radio button based on current mode
-        if (langfuseRadio) langfuseRadio.checked = (this.promptMode === 'langfuse');
-        if (localRadio) localRadio.checked = (this.promptMode === 'local');
-        
-        // Show/hide configuration sections
-        if (langfuseConfig) {
-            langfuseConfig.classList.toggle('hidden', this.promptMode !== 'langfuse');
-        }
-        if (localConfig) {
-            localConfig.classList.toggle('hidden', this.promptMode !== 'local');
-        }
-        
-        // Populate UI based on mode
-        if (this.promptMode === 'langfuse') {
-            this.updateLangfuseUI();
-        } else {
-            this.updateLocalUI();
-        }
+        this.ensureDOMReady(() => {
+            const langfuseRadio = document.getElementById('mode-langfuse');
+            const localRadio = document.getElementById('mode-local');
+            const langfuseConfig = document.getElementById('langfuse-config');
+            const localConfig = document.getElementById('local-config');
+            
+            // Set radio button based on current mode
+            if (langfuseRadio) langfuseRadio.checked = (this.promptMode === 'langfuse');
+            if (localRadio) localRadio.checked = (this.promptMode === 'local');
+            
+            // Show/hide configuration sections
+            if (langfuseConfig) {
+                langfuseConfig.classList.toggle('hidden', this.promptMode !== 'langfuse');
+            }
+            if (localConfig) {
+                localConfig.classList.toggle('hidden', this.promptMode !== 'local');
+            }
+            
+            // Populate UI based on mode
+            if (this.promptMode === 'langfuse') {
+                this.updateLangfuseUI();
+            } else {
+                this.updateLocalUI();
+            }
+        });
     }
     
     /**
@@ -426,10 +465,22 @@ export class ContextEngineeringModule {
      * Update Local mode UI
      */
     updateLocalUI() {
+        console.log('updateLocalUI called with currentSettings:', this.currentSettings);
+        
         ['system', 'processing', 'formatting'].forEach(type => {
             const textarea = document.getElementById(`local-${type}-prompt`);
+            const settingValue = this.currentSettings[`custom_${type}_prompt_content`] || '';
+            
+            console.log(`Updating ${type} textarea:`, {
+                elementFound: !!textarea,
+                settingValue: settingValue,
+                settingKey: `custom_${type}_prompt_content`
+            });
+            
             if (textarea) {
-                textarea.value = this.currentSettings[`custom_${type}_prompt_content`] || '';
+                textarea.value = settingValue;
+            } else {
+                console.warn(`Textarea element not found: local-${type}-prompt`);
             }
         });
     }
