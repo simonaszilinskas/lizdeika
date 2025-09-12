@@ -895,8 +895,8 @@ class AgentDashboard {
      * @param {Object} data - Message data
      */
     handleNewMessage(data) {
-        console.log('📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
-        console.log('🐛 DEBUG: Full handleNewMessage data:', JSON.stringify(data, null, 2));
+        console.log('🔥 📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
+        console.log('🔥 🐛 DEBUG: Full handleNewMessage data:', JSON.stringify(data, null, 2));
         
         // Play sound notification for new messages
         if (this.soundNotificationManager && data.sender !== 'agent') {
@@ -1020,6 +1020,9 @@ class AgentDashboard {
      * @param {Object} data - Agent sent message data
      */
     handleAgentSentMessage(data) {
+        console.log('🔥 📤 WebSocket: Agent sent message received', { conversationId: data.conversationId, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
+        console.log('🔥 🐛 DEBUG: Full handleAgentSentMessage data:', JSON.stringify(data, null, 2));
+        
         // Only update if this is the current conversation
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             // Add the message to the chat immediately without full reload
@@ -1027,6 +1030,7 @@ class AgentDashboard {
         }
         
         // Update queue item preview in real-time for all conversations
+        console.log('🔥 About to call updateQueueItemRealTime for agent message');
         this.conversationRenderer.updateQueueItemRealTime(data);
         
         // Still reload conversations but with lower priority to ensure data consistency
