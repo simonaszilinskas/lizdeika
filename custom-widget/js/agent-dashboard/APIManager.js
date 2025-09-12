@@ -288,10 +288,11 @@ export class APIManager {
      * Send message as agent
      * @param {string} conversationId - Conversation ID
      * @param {string} content - Message content
+     * @param {string} suggestionAction - Response type ('as-is', 'edited', 'custom', 'from-scratch')
      * @param {Object} metadata - Additional message metadata
      * @returns {Object} Response data
      */
-    async sendAgentMessage(conversationId, content, metadata = {}) {
+    async sendAgentMessage(conversationId, content, suggestionAction = 'custom', metadata = {}) {
         try {
             const response = await fetch(`${this.apiUrl}/api/agent/respond`, {
                 method: 'POST',
@@ -301,7 +302,7 @@ export class APIManager {
                     message: content,
                     agentId: this.dashboard.agentId,
                     usedSuggestion: metadata.usedSuggestion,
-                    suggestionAction: metadata.responseType || 'custom',
+                    suggestionAction: suggestionAction,
                     autoAssign: metadata.autoAssign || false
                 })
             });

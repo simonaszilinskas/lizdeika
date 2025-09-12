@@ -174,7 +174,8 @@ export class ChatManager {
             const response = await this.apiManager.sendAgentMessage(
                 this.stateManager.getCurrentChatId(), 
                 message, 
-                suggestionAction
+                suggestionAction,
+                {} // Empty metadata object
             );
             
             if (response.success === true) {
