@@ -10,7 +10,7 @@ class ConversationApiClient {
     constructor(config = {}) {
         this.apiUrl = config.apiUrl || 'http://localhost:3002';
         this.cache = new Map();
-        this.cacheTTL = config.cacheTTL || 30000; // 30 seconds
+        // SIMPLIFIED: No TTL cache - real-time updates need fresh data
         this.logger = config.logger || console;
     }
 
@@ -33,13 +33,11 @@ class ConversationApiClient {
         const cacheKey = 'conversations';
         const cached = this.cache.get(cacheKey);
         
-        if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
-            this.logger.log('📦 Using cached conversation data');
-            return cached.data;
-        }
-
+        // SIMPLIFIED: Always fetch fresh data for real-time accuracy
+        // No TTL check - WebSocket events need to work with current state
+        
         try {
-            this.logger.log('🌐 Fetching conversations from API...');
+            this.logger.log('🌐 Fetching fresh conversations from API...');
             const response = await fetch(`${this.apiUrl}/api/admin/conversations`, {
                 headers: this.getAuthHeaders()
             });
@@ -51,7 +49,7 @@ class ConversationApiClient {
             const data = await response.json();
             const conversations = data.conversations || [];
 
-            // Cache the result
+            // Cache without TTL - just for reference
             this.cache.set(cacheKey, {
                 data: conversations,
                 timestamp: Date.now()

@@ -18,8 +18,7 @@ export class ConversationRenderer {
         this.agentId = dashboard.agentId;
         this.stateManager = dashboard.stateManager;
         
-        // Pending preview updates cache - survives queue reloads
-        this.pendingPreviewUpdates = new Map();
+        // SIMPLIFIED: No preview cache - direct state updates from WebSocket
     }
 
     /**
@@ -534,37 +533,7 @@ export class ConversationRenderer {
         console.log(`✅ Preview updated for ${conversationId}: ${fullPreview.substring(0, 30)}... (after ${retryCount} retries)`);
     }
     
-    /**
-     * Apply all pending preview updates after queue render
-     * This ensures updates survive queue reloads
-     */
-    applyPendingPreviewUpdates() {
-        if (this.pendingPreviewUpdates.size === 0) {
-            console.log('💾 No pending preview updates to apply');
-            return;
-        }
-        
-        const updatesApplied = [];
-        
-        for (const [conversationId, updateData] of this.pendingPreviewUpdates) {
-            // Only apply recent updates (within last 60 seconds - increased from 30)
-            if (Date.now() - updateData.timestamp < 60000) {
-                this.applyPreviewUpdate(conversationId, updateData.message, 0);
-                updatesApplied.push(conversationId);
-            }
-        }
-        
-        // Clean up old updates (older than 60 seconds)
-        for (const [conversationId, updateData] of this.pendingPreviewUpdates) {
-            if (Date.now() - updateData.timestamp >= 60000) {
-                console.log(`🗑️ Cleaning up old preview update for: ${conversationId}`);
-                this.pendingPreviewUpdates.delete(conversationId);
-            }
-        }
-        
-        console.log(`🔄 Applied ${updatesApplied.length} pending preview updates:`, updatesApplied);
-        console.log(`💾 Preview updates cache status: ${this.pendingPreviewUpdates.size} items remaining`);
-    }
+    // SIMPLIFIED: Preview cache methods removed - state is updated directly via WebSocket
     
     /**
      * Mark conversation as seen by current agent
