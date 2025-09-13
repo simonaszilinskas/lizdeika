@@ -126,7 +126,6 @@ class AgentDashboard {
         ErrorHandler.init();
         Toast.init();
         
-        // ConversationUpdateManager removed - was unused infrastructure (always fell back to full reloads)
         
         // Initialize bulk operations manager
         this.bulkOperations = new BulkOperations(this);
@@ -1006,10 +1005,7 @@ class AgentDashboard {
      */
     handleNewMessage(data) {
         console.log('🔥 📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.message?.sender });
-        console.log('🔥 🐛 DEBUG: Simplified WebSocket data:', JSON.stringify(data, null, 2));
 
-        // TEMPORARY DEBUG: Alert to confirm WebSocket reception
-        console.log('🚨 WEBSOCKET EVENT RECEIVED - BROWSER CACHE UPDATED!', data);
         
         // SIMPLIFIED: Single path for updating conversation state and UI
         this.updateConversationFromWebSocket(data);
@@ -1091,7 +1087,6 @@ class AgentDashboard {
                 const messageSender = (data.message && data.message.sender) || data.sender;
                 if (this.systemMode === 'hitl' && (messageSender === 'customer' || messageSender === 'visitor')) {
                     console.log('💬 Customer/visitor message received, processing AI suggestion');
-                    console.log('🔥 DEBUG: messageSender:', messageSender, 'data:', data);
                     
                     // Clear any existing suggestion and show loading immediately
                     this.chatManager.hideAISuggestion();
@@ -1115,7 +1110,6 @@ class AgentDashboard {
                     
                 } else if (this.systemMode === 'hitl') {
                     // For agent messages, just check if there's still a pending suggestion
-                    console.log('🔥 DEBUG: Not showing AI loading - messageSender:', messageSender);
                     this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
                 }
             }
@@ -1168,7 +1162,6 @@ class AgentDashboard {
      */
     handleAgentSentMessage(data) {
         console.log('🔥 📤 WebSocket: Agent sent message received', { conversationId: data.conversationId, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
-        console.log('🔥 🐛 DEBUG: Full handleAgentSentMessage data:', JSON.stringify(data, null, 2));
         
         // Only update if this is the current conversation
         if (data.conversationId === this.stateManager.getCurrentChatId()) {

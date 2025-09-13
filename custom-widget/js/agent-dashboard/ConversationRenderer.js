@@ -18,7 +18,23 @@ export class ConversationRenderer {
         this.agentId = dashboard.agentId;
         this.stateManager = dashboard.stateManager;
         
-        // SIMPLIFIED: No preview cache - direct state updates from WebSocket
+        // Direct state updates from WebSocket
+    }
+
+    /**
+     * Check if a system message should be filtered out
+     * @param {Object} message - Message object
+     * @returns {boolean} True if message should be filtered
+     */
+    isSystemMessageFiltered(message) {
+        if (message.sender !== 'system') return false;
+
+        return message.content.includes('[Message pending agent response') ||
+               message.content.includes('Agent has joined the conversation') ||
+               message.content.includes('Conversation assigned to agent') ||
+               message.content.includes('[Debug information stored]') ||
+               (message.metadata && message.metadata.debugOnly) ||
+               message.content.trim() === '';
     }
 
     /**
@@ -55,7 +71,7 @@ export class ConversationRenderer {
         queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
         console.log('✅ Queue rendered successfully');
         
-        // SIMPLIFIED: No preview updates needed - state is managed by WebSocket events
+        // State is managed by WebSocket events
     }
 
     /**
@@ -201,14 +217,8 @@ export class ConversationRenderer {
         if (!container) return;
         
         // Don't append system messages that should be filtered
-        if (message.sender === 'system') {
-            const shouldFilter = message.content.includes('[Message pending agent response') ||
-                               message.content.includes('Agent has joined the conversation') ||
-                               message.content.includes('Conversation assigned to agent') ||
-                               message.content.includes('[Debug information stored]') ||
-                               (message.metadata && message.metadata.debugOnly) ||
-                               message.content.trim() === '';
-            if (shouldFilter) return;
+        if (this.isSystemMessageFiltered(message)) {
+            return;
         }
         
         // Create message HTML and append
@@ -233,17 +243,7 @@ export class ConversationRenderer {
      * @returns {Array} Filtered messages
      */
     filterSystemMessages(messages) {
-        return messages.filter(msg => {
-            if (msg.sender === 'system') {
-                return !msg.content.includes('[Message pending agent response') &&
-                       !msg.content.includes('Agent has joined the conversation') &&
-                       !msg.content.includes('Conversation assigned to agent') &&
-                       !msg.content.includes('[Debug information stored]') &&
-                       !(msg.metadata && msg.metadata.debugOnly) &&  // Hide debug-only messages
-                       msg.content.trim() !== '';  // Hide empty system messages
-            }
-            return true;
-        });
+        return messages.filter(msg => !this.isSystemMessageFiltered(msg));
     }
 
     /**
@@ -420,11 +420,8 @@ export class ConversationRenderer {
             metadata: (messageData.message && messageData.message.metadata) || messageData.metadata || {}
         };
 
-        console.log('🐛 DEBUG: Processed message for rendering:', JSON.stringify(message, null, 2));
-
         // Render message HTML
         const messageHtml = this.renderMessage(message);
-        console.log('🐛 DEBUG: Rendered HTML:', messageHtml);
         
         // Append to messages container
         messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
@@ -467,7 +464,7 @@ export class ConversationRenderer {
             content: String(message.content || '').substring(0, 50) + '...'
         });
         
-        // SIMPLIFIED: Just update the DOM preview text and refresh styling
+        // Update DOM preview text and refresh styling
         // State updates are handled by the main WebSocket event handler
         this.applyPreviewUpdate(conversationId, message);
         this.refreshConversationStyling(conversationId);
@@ -528,7 +525,7 @@ export class ConversationRenderer {
         console.log(`✅ Preview updated for ${conversationId}: ${fullPreview.substring(0, 30)}... (after ${retryCount} retries)`);
     }
     
-    // SIMPLIFIED: Preview cache methods removed - state is updated directly via WebSocket
+    // State is updated directly via WebSocket
     
     /**
      * Mark conversation as seen by current agent
