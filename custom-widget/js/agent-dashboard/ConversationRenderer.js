@@ -55,12 +55,7 @@ export class ConversationRenderer {
         queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
         console.log('✅ Queue rendered successfully');
         
-        // Apply any pending preview updates that should survive queue reloads
-        // Use setTimeout to ensure DOM is fully updated before applying preview updates
-        setTimeout(() => {
-            console.log('🔄 Applying pending preview updates after DOM render...');
-            this.applyPendingPreviewUpdates();
-        }, 0);
+        // SIMPLIFIED: No preview updates needed - state is managed by WebSocket events
     }
 
     /**
