@@ -175,20 +175,28 @@ class ConversationController {
                 // Get current conversation details for proper assignment info
                 const conversation = await conversationService.getConversation(conversationId);
                 
+                // Calculate unseen status: message is unseen if conversation has an assigned agent
+                // (for unassigned conversations, unseen status is handled by assignment logic)
+                const unseenByAgent = !!conversation?.assignedAgent;
+                
+                // SIMPLIFIED: Standard WebSocket event structure
                 this.io.to('agents').emit('new-message', {
+                    type: 'new-message',
                     conversationId,
-                    message: userMessage,
-                    // Also include flat structure for frontend compatibility
-                    id: userMessage.id,
-                    content: userMessage.content,
-                    sender: userMessage.sender,
-                    timestamp: userMessage.timestamp,
-                    // Include conversation assignment info for proper filtering
-                    assignedAgentId: conversation?.assignedAgent,
-                    conversation: conversation,
-                    messageTimestamp: new Date()
+                    message: {
+                        id: userMessage.id,
+                        content: userMessage.content,
+                        sender: userMessage.sender,
+                        timestamp: userMessage.timestamp
+                    },
+                    conversation: {
+                        id: conversationId,
+                        assignedAgent: conversation?.assignedAgent || null,
+                        lastMessageTimestamp: userMessage.timestamp,
+                        unseenByAgent: unseenByAgent
+                    }
                 });
-                console.log(`📨 New message emitted to agents for conversation ${conversationId}, assigned to: ${conversation?.assignedAgent || 'unassigned'}`);
+                console.log(`📨 New message emitted to agents for conversation ${conversationId}, assigned to: ${conversation?.assignedAgent || 'unassigned'}, unseenByAgent: ${unseenByAgent}`);
             }
             
             // Get conversation context for AI (don't pass currentMessage since it's already added)

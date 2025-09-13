@@ -29,7 +29,12 @@ export class UIHelpers {
     conversationIsUnseen(conv) {
         if (!conv.lastMessage) return false;
         
-        // Check if agent has seen this conversation's last message
+        // SIMPLIFIED: Use backend-provided unseen status if available
+        if (conv.hasOwnProperty('_unseenByAgent')) {
+            return conv._unseenByAgent;
+        }
+        
+        // FALLBACK: Check localStorage for conversations not yet updated by WebSocket
         const lastSeenTime = localStorage.getItem(`lastSeen_${conv.id}`);
         if (!lastSeenTime) return true;
         

@@ -468,39 +468,15 @@ export class ConversationRenderer {
      * @param {Object} message - Message object with content and sender
      */
     updateConversationPreview(conversationId, message) {
-        console.log(`🔄 Caching preview update for ${conversationId}:`, {
+        console.log(`🔄 SIMPLIFIED: Updating preview for ${conversationId}:`, {
             sender: message.sender,
             content: String(message.content || '').substring(0, 50) + '...'
         });
         
-        // Cache this update so it persists through queue reloads
-        this.pendingPreviewUpdates.set(conversationId, {
-            message: message,
-            timestamp: Date.now()
-        });
-        
-        // Also apply immediately if queue item exists
+        // SIMPLIFIED: Just update the DOM preview text and refresh styling
+        // State updates are handled by the main WebSocket event handler
         this.applyPreviewUpdate(conversationId, message);
-        
-        // CRITICAL FIX: Update conversation's lastMessage in state to enable unseen detection
-        // This ensures conversationIsUnseen() will detect the new message timestamp
-        const conversationData = this.dashboard.modernConversationLoader.getConversations();
-        const conversation = conversationData.all.find(conv => conv.id === conversationId);
-        if (conversation) {
-            // Update the conversation's lastMessage with the new message data
-            conversation.lastMessage = {
-                ...conversation.lastMessage,
-                ...message,
-                timestamp: message.timestamp || new Date().toISOString()
-            };
-            console.log(`✅ Updated conversation ${conversationId} lastMessage timestamp to ${conversation.lastMessage.timestamp}`);
-        }
-        
-        // CRITICAL FIX: Refresh visual styling to show unseen state instantly
-        // This ensures new messages immediately show unseen styling without waiting for queue reload
         this.refreshConversationStyling(conversationId);
-        
-        console.log(`💾 Preview cache now has ${this.pendingPreviewUpdates.size} items`);
     }
     
     /**
