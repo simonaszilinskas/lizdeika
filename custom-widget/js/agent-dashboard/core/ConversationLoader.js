@@ -60,7 +60,7 @@ class ConversationApiClient {
 
         } catch (error) {
             this.logger.error('💥 API Error:', error);
-            
+
             // Return cached data if available, even if expired
             if (cached) {
                 this.logger.warn('⚠️ Using expired cache due to API error');
@@ -70,6 +70,8 @@ class ConversationApiClient {
             throw error;
         }
     }
+
+
 
     /**
      * Clear conversation cache

@@ -186,6 +186,9 @@ class AgentDashboard {
         
         // Set up periodic status refresh to keep agent appearing as connected (every 30 minutes)
         this.startStatusRefresh();
+
+        // Set up auto-refresh for conversations every 5 seconds
+        this.startQueueAutoRefresh();
         
         // Check if user is admin and show admin bar
         await this.authManager.checkAdminStatus();
@@ -357,6 +360,113 @@ class AgentDashboard {
                 }
             }
         }, 30 * 60 * 1000); // 30 minutes
+    }
+
+    /**
+     * Start smart auto-refresh for conversation queue every 5 seconds
+     * Only updates UI when there are actual changes to prevent visual flicker
+     */
+    startQueueAutoRefresh() {
+        // Clear any existing interval
+        if (this.queueRefreshInterval) {
+            clearInterval(this.queueRefreshInterval);
+        }
+
+        // Refresh conversations every 5 seconds with smart diff detection
+        this.queueRefreshInterval = setInterval(async () => {
+            try {
+                console.log('🔄 Smart auto-refresh: checking for changes...');
+                await this.smartRefreshConversations();
+            } catch (error) {
+                console.error('Error in smart auto-refresh:', error);
+            }
+        }, 5000); // 5 seconds
+
+        console.log('✅ Smart auto-refresh started - UI only updates when changes detected');
+    }
+
+    /**
+     * Smart refresh that only updates UI when conversations actually changed
+     */
+    async smartRefreshConversations() {
+        try {
+            // Get fresh data from API directly
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const freshConversations = data.conversations || [];
+
+            // Compare with current state to detect changes
+            const hasChanges = this.detectConversationChanges(freshConversations);
+
+            if (hasChanges) {
+                console.log('🔄 Changes detected, updating UI...');
+
+                // Prepare filters
+                const filters = {
+                    archiveFilter: this.stateManager.getArchiveFilter(),
+                    assignmentFilter: this.stateManager.getCurrentFilter(),
+                    agentId: this.agentId
+                };
+
+                // Use the existing load method
+                await this.modernConversationLoader.load(filters, (conversations) => {
+                    this.conversationRenderer.renderQueue(conversations);
+                });
+            } else {
+                console.log('✅ No changes detected, UI stays stable');
+            }
+        } catch (error) {
+            console.error('Error in smart refresh:', error);
+        }
+    }
+
+    /**
+     * Detect if conversations have actually changed
+     * @param {Array} newConversations - Fresh conversation data
+     * @returns {boolean} Whether changes were detected
+     */
+    detectConversationChanges(newConversations) {
+        const currentConversations = this.stateManager.allConversations;
+
+        // Quick checks for obvious changes
+        if (currentConversations.length !== newConversations.length) {
+            return true;
+        }
+
+        // Check each conversation for changes
+        for (let i = 0; i < newConversations.length; i++) {
+            const current = currentConversations[i];
+            const fresh = newConversations[i];
+
+            if (!current || current.id !== fresh.id) {
+                return true;
+            }
+
+            // Check for message changes
+            const currentLastMsg = current.lastMessage?.timestamp || current.updatedAt;
+            const freshLastMsg = fresh.lastMessage?.timestamp || fresh.updatedAt;
+
+            if (currentLastMsg !== freshLastMsg) {
+                return true;
+            }
+
+            // Check assignment changes
+            if (current.assignedAgent !== fresh.assignedAgent) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -897,6 +1007,9 @@ class AgentDashboard {
     handleNewMessage(data) {
         console.log('🔥 📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.message?.sender });
         console.log('🔥 🐛 DEBUG: Simplified WebSocket data:', JSON.stringify(data, null, 2));
+
+        // TEMPORARY DEBUG: Alert to confirm WebSocket reception
+        console.log('🚨 WEBSOCKET EVENT RECEIVED - BROWSER CACHE UPDATED!', data);
         
         // SIMPLIFIED: Single path for updating conversation state and UI
         this.updateConversationFromWebSocket(data);
