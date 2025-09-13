@@ -172,12 +172,23 @@ class ConversationController {
             
             // IMMEDIATE: Emit new message to agents via WebSocket (before AI processing)
             if (currentMode === 'hitl') {
+                // Get current conversation details for proper assignment info
+                const conversation = await conversationService.getConversation(conversationId);
+                
                 this.io.to('agents').emit('new-message', {
                     conversationId,
                     message: userMessage,
-                    timestamp: new Date()
+                    // Also include flat structure for frontend compatibility
+                    id: userMessage.id,
+                    content: userMessage.content,
+                    sender: userMessage.sender,
+                    timestamp: userMessage.timestamp,
+                    // Include conversation assignment info for proper filtering
+                    assignedAgentId: conversation?.assignedAgent,
+                    conversation: conversation,
+                    messageTimestamp: new Date()
                 });
-                console.log(`New message emitted to agents for conversation ${conversationId}`);
+                console.log(`📨 New message emitted to agents for conversation ${conversationId}, assigned to: ${conversation?.assignedAgent || 'unassigned'}`);
             }
             
             // Get conversation context for AI (don't pass currentMessage since it's already added)
