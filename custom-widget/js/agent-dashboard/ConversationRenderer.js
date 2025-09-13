@@ -53,7 +53,7 @@ export class ConversationRenderer {
     }
 
     /**
-     * Render conversation queue
+     * Render conversation queue with scroll position preservation
      * @param {Array} conversations - Array of conversation objects
      */
     renderQueue(conversations) {
@@ -63,15 +63,45 @@ export class ConversationRenderer {
             console.error('❌ chat-queue element not found!');
             return;
         }
-        
-        // Sort conversations by priority
-        const sorted = this.sortConversationsByPriority(conversations);
-        console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
 
-        queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
-        console.log('✅ Queue rendered successfully');
-        
-        // State is managed by WebSocket events
+        // Preserve scroll position during re-render
+        this.preserveScrollPosition(queueContainer, () => {
+            // Sort conversations by priority
+            const sorted = this.sortConversationsByPriority(conversations);
+            console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
+
+            queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
+            console.log('✅ Queue rendered successfully');
+        });
+    }
+
+    /**
+     * Preserve scroll position during DOM operations
+     * @param {Element} container - Scrollable container element
+     * @param {Function} operation - Function that modifies the DOM
+     */
+    preserveScrollPosition(container, operation) {
+        // Save current scroll position
+        const scrollTop = container.scrollTop;
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+
+        // Perform the DOM operation
+        operation();
+
+        // Restore scroll position after DOM settles
+        requestAnimationFrame(() => {
+            // Validate scroll position is still valid
+            const newScrollHeight = container.scrollHeight;
+            const maxScrollTop = Math.max(0, newScrollHeight - clientHeight);
+
+            // Restore original position, or adjust if content shrunk
+            const targetScrollTop = Math.min(scrollTop, maxScrollTop);
+
+            container.scrollTop = targetScrollTop;
+
+            console.log(`📍 Scroll position preserved: ${scrollTop} → ${targetScrollTop}`);
+        });
     }
 
     /**
