@@ -1018,23 +1018,31 @@ class AgentDashboard {
             });
         }
 
-        // IMMEDIATE: Show message in real-time if it's the current chat
+        // Create proper message object with consistent structure for both current and non-current chats
+        const message = {
+            id: (data.message && data.message.id) || data.id,
+            content: (data.message && data.message.content) || data.content || '',
+            sender: (data.message && data.message.sender) || data.sender || '',
+            timestamp: (data.message && data.message.timestamp) || data.timestamp || new Date().toISOString()
+        };
+        console.log('🔥 DEBUG: Standardized message object:', JSON.stringify(message, null, 2));
+
+        // Update preview for all conversations (this always works)
+        this.conversationRenderer.updateConversationPreview(data.conversationId, message);
+
+        // For current chat: quickly reload messages to show new message and generate suggestions
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
-            console.log('⚡ WebSocket: Showing message immediately for current chat');
-            console.log('🐛 DEBUG: About to call appendMessageRealTime with:', data);
-            this.conversationRenderer.appendMessageRealTime(data);
+            console.log('⚡ WebSocket: Current chat - reloading messages to show new message');
+            setTimeout(async () => {
+                try {
+                    await this.chatManager.loadChatMessages(data.conversationId);
+                    console.log('✅ Chat messages reloaded successfully for current conversation');
+                } catch (error) {
+                    console.error('❌ Error reloading chat messages:', error);
+                }
+            }, 50); // Small delay to ensure message is saved in backend
         } else {
-            console.log('🐛 DEBUG: Not current chat, skipping immediate display. Current chat:', this.stateManager.getCurrentChatId());
-            // For non-current conversations, update preview directly
-            // Create proper message object with consistent structure
-            const message = {
-                id: (data.message && data.message.id) || data.id,
-                content: (data.message && data.message.content) || data.content || '',
-                sender: (data.message && data.message.sender) || data.sender || '',
-                timestamp: (data.message && data.message.timestamp) || data.timestamp || new Date().toISOString()
-            };
-            console.log('🔥 DEBUG: User message preview update with message:', JSON.stringify(message, null, 2));
-            this.conversationRenderer.updateConversationPreview(data.conversationId, message);
+            console.log('🐛 DEBUG: Not current chat, preview update only. Current chat:', this.stateManager.getCurrentChatId());
         }
 
         // Check if conversation exists in queue - if not, clear cache for new conversation
