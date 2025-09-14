@@ -1004,120 +1004,90 @@ class AgentDashboard {
      * @param {Object} data - Message data
      */
     handleNewMessage(data) {
-        console.log('🔥 📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.message?.sender });
+        console.log('🔥 📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
+        console.log('🔥 🐛 DEBUG: Full handleNewMessage data:', JSON.stringify(data, null, 2));
 
-        
-        // SIMPLIFIED: Single path for updating conversation state and UI
-        this.updateConversationFromWebSocket(data);
-        
-        // Play sound notification for customer messages
-        if (this.soundNotificationManager && data.message.sender === 'visitor') {
+        // Play sound notification for new messages
+        if (this.soundNotificationManager && data.sender !== 'agent') {
             this.soundNotificationManager.onNewMessage({
                 conversationId: data.conversationId,
-                sender: data.message.sender,
-                content: data.message.content,
-                senderType: data.message.sender,
-                conversation: { assigned_agent_id: data.conversation.assignedAgent }
+                sender: data.sender,
+                content: data.content || data.message,
+                senderType: data.sender,
+                conversation: data.conversation || { assigned_agent_id: data.assignedAgentId }
             });
         }
-        
-        // Check if this is a new conversation
+
+        // IMMEDIATE: Show message in real-time if it's the current chat
+        if (data.conversationId === this.stateManager.getCurrentChatId()) {
+            console.log('⚡ WebSocket: Showing message immediately for current chat');
+            console.log('🐛 DEBUG: About to call appendMessageRealTime with:', data);
+            this.conversationRenderer.appendMessageRealTime(data);
+        } else {
+            console.log('🐛 DEBUG: Not current chat, skipping immediate display. Current chat:', this.stateManager.getCurrentChatId());
+            // For non-current conversations, update preview directly
+            // Create proper message object with consistent structure
+            const message = {
+                id: (data.message && data.message.id) || data.id,
+                content: (data.message && data.message.content) || data.content || '',
+                sender: (data.message && data.message.sender) || data.sender || '',
+                timestamp: (data.message && data.message.timestamp) || data.timestamp || new Date().toISOString()
+            };
+            console.log('🔥 DEBUG: User message preview update with message:', JSON.stringify(message, null, 2));
+            this.conversationRenderer.updateConversationPreview(data.conversationId, message);
+        }
+
+        // Check if conversation exists in queue - if not, clear cache for new conversation
         const queueItem = document.querySelector(`[data-conversation-id="${data.conversationId}"]`);
         if (!queueItem) {
-            console.log('🔄 New conversation detected, refreshing queue');
+            console.log('🔄 New conversation detected, clearing cache for:', data.conversationId);
             this.modernConversationLoader.refresh();
-        } else {
-            // Move existing conversation to top for immediate visual feedback
-            this.conversationRenderer.reorderConversationList(data.conversationId);
         }
-    }
 
-    /**
-     * Update conversation state and UI from WebSocket event
-     * SIMPLIFIED: Single atomic operation for state + UI updates
-     */
-    updateConversationFromWebSocket(data) {
-        const { conversationId, message, conversation } = data;
-        const isCurrentChat = conversationId === this.stateManager.getCurrentChatId();
-        
-        console.log(`🔄 Updating conversation ${conversationId}, isCurrentChat: ${isCurrentChat}, unseenByAgent: ${conversation.unseenByAgent}`);
-        
-        // 1. Update conversation state
-        this.updateConversationInState(conversationId, message, conversation);
-        
-        // 2. Update UI
-        if (isCurrentChat) {
-            console.log('⚡ Showing message in current chat');
-            this.conversationRenderer.appendMessageToChat(message);
-        }
-        
-        // 3. Update conversation preview and styling (for all conversations)
-        this.conversationRenderer.updateConversationPreview(conversationId, message);
-    }
-
-    /**
-     * Update conversation data in state
-     * SIMPLIFIED: Direct state update without cache conflicts
-     */
-    updateConversationInState(conversationId, message, conversationData) {
-        const allConversations = this.modernConversationLoader.getConversations();
-        const conversation = allConversations.all.find(conv => conv.id === conversationId);
-        
-        if (conversation) {
-            // Update conversation with new message and metadata
-            conversation.lastMessage = message;
-            conversation.assignedAgent = conversationData.assignedAgent;
-            conversation.updatedAt = message.timestamp;
-            
-            // Store unseen status from backend
-            conversation._unseenByAgent = conversationData.unseenByAgent;
-            
-            console.log(`✅ Updated conversation ${conversationId} in state: lastMessage=${message.timestamp}, unseenByAgent=${conversationData.unseenByAgent}`);
-        } else {
-            console.log(`⚠️ Conversation ${conversationId} not found in state - will be handled by queue refresh`);
-        }
-        
         // DEFERRED: Handle AI processing for current chat only
         setTimeout(() => {
             console.log('🔄 WebSocket: Performing deferred updates');
-            
+
             // If this is the current chat, handle AI suggestions
             if (data.conversationId === this.stateManager.getCurrentChatId()) {
                 // Skip conversation refresh to avoid overriding preview updates
                 console.log('⏭️ Skipping conversation refresh to preserve preview updates');
-                
+
                 // Handle AI suggestions with loading state
                 const messageSender = (data.message && data.message.sender) || data.sender;
                 if (this.systemMode === 'hitl' && (messageSender === 'customer' || messageSender === 'visitor')) {
                     console.log('💬 Customer/visitor message received, processing AI suggestion');
-                    
+                    console.log('🔥 DEBUG: messageSender:', messageSender, 'data:', data);
+
                     // Clear any existing suggestion and show loading immediately
                     this.chatManager.hideAISuggestion();
                     this.chatManager.showAISuggestionLoading();
-                    
+
                     // Cancel any existing polling
                     if (this.currentPollingId) {
                         console.log(`🛑 Canceling previous AI suggestion polling: ${this.currentPollingId}`);
                         this.currentPollingId = null;
                     }
-                    
+
                     // Create new polling ID for this message
                     const pollingId = `poll-${Date.now()}-${Math.random()}`;
                     console.log(`🆕 Starting new AI suggestion polling: ${pollingId} for conversationId: ${this.stateManager.getCurrentChatId()}`);
                     this.currentPollingId = pollingId;
-                    
+
                     // Wait for the AI suggestion to be generated (polling approach)
                     // The backend takes 6-13 seconds to generate, so we need to wait
                     console.log('⏳ Waiting for AI suggestion to be generated...');
                     this.pollForNewSuggestion(this.stateManager.getCurrentChatId(), 0, pollingId);
-                    
+
                 } else if (this.systemMode === 'hitl') {
                     // For agent messages, just check if there's still a pending suggestion
+                    console.log('🔥 DEBUG: Not showing AI loading - messageSender:', messageSender);
                     this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
                 }
             }
         }, 100); // Small delay to allow real-time update to render first
     }
+
 
     /**
      * Handle agents update from socket manager
