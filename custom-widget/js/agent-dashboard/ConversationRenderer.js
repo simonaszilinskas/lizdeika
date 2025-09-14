@@ -243,22 +243,45 @@ export class ConversationRenderer {
      * @param {Object} message - Message object to append
      */
     appendMessageToChat(message) {
+        console.log('📨 appendMessageToChat called with message:', message);
+
         const container = document.getElementById('chat-messages');
-        if (!container) return;
-        
+        if (!container) {
+            console.log('⚠️ Chat messages container not found');
+            return;
+        }
+
         // Don't append system messages that should be filtered
         if (this.isSystemMessageFiltered(message)) {
+            console.log('🚫 Message filtered out (system message)');
             return;
         }
         
+        // Check if user is at the bottom before adding message
+        const wasAtBottom = container.scrollTop >= (container.scrollHeight - container.clientHeight - 50); // 50px tolerance
+
         // Create message HTML and append
         const messageHtml = this.renderMessage(message);
+        console.log('🎨 Rendered message HTML length:', messageHtml.length);
+
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = messageHtml;
-        container.appendChild(tempDiv.firstElementChild);
-        
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
+        const messageElement = tempDiv.firstElementChild;
+
+        if (messageElement) {
+            container.appendChild(messageElement);
+            console.log('✅ Message appended to chat, new message count:', container.children.length);
+        } else {
+            console.log('⚠️ No message element created from HTML');
+        }
+
+        // Smart scroll: only scroll to bottom if user was already at bottom
+        if (wasAtBottom) {
+            container.scrollTop = container.scrollHeight;
+            console.log('📜 Auto-scrolled to bottom');
+        } else {
+            console.log('📜 Staying at current scroll position');
+        }
         
         // Update conversation preview immediately
         const currentChatId = this.stateManager.getCurrentChatId();

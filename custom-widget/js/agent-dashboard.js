@@ -1048,7 +1048,7 @@ class AgentDashboard {
         // 2. Update UI
         if (isCurrentChat) {
             console.log('⚡ Showing message in current chat');
-            this.conversationRenderer.appendMessageRealTime(data);
+            this.conversationRenderer.appendMessageToChat(message);
         }
         
         // 3. Update conversation preview and styling (for all conversations)
