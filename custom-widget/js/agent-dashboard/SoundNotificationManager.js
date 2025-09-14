@@ -165,33 +165,75 @@ export class SoundNotificationManager {
 
     /**
      * Check if we should notify for this message
-     * @param {Object} messageData - Message data
+     * Handles various WebSocket message structures: nested message objects, direct properties, etc.
+     * @param {Object} messageData - Message data from WebSocket
      * @returns {boolean} Whether to notify
      */
     shouldNotify(messageData) {
         if (!this.enabled) return false;
 
-        // Only notify for messages in conversations assigned to this agent
-        // or for customer messages in unassigned conversations
-        if (messageData.conversation && messageData.conversation.assigned_agent_id) {
-            return messageData.conversation.assigned_agent_id === this.agentId;
+        // Extract sender information from various possible structures
+        let sender = '';
+        if (messageData.message && messageData.message.sender) {
+            sender = messageData.message.sender;
+        } else if (messageData.sender) {
+            sender = messageData.sender;
+        } else if (messageData.senderType) {
+            sender = messageData.senderType;
         }
 
-        // For customer messages in unassigned conversations, notify all agents
-        return messageData.senderType === 'user';
+        // Extract conversation assignment information
+        let assignedAgentId = null;
+        if (messageData.conversation && messageData.conversation.assigned_agent_id) {
+            assignedAgentId = messageData.conversation.assigned_agent_id;
+        } else if (messageData.conversation && messageData.conversation.assignedAgent) {
+            assignedAgentId = messageData.conversation.assignedAgent;
+        } else if (messageData.assignedAgent) {
+            assignedAgentId = messageData.assignedAgent;
+        }
+
+        // Only notify for customer/visitor messages, not agent messages
+        const isCustomerMessage = sender === 'visitor' || sender === 'customer' || sender === 'user';
+        if (!isCustomerMessage) {
+            return false;
+        }
+
+        // If conversation is assigned to this agent, always notify
+        if (assignedAgentId === this.agentId) {
+            return true;
+        }
+
+        // For unassigned conversations, notify all agents about customer messages
+        if (!assignedAgentId && isCustomerMessage) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
      * Check if we should notify for this conversation
+     * Handles various WebSocket conversation structures: nested properties, direct properties, etc.
      * @param {Object} conversationData - Conversation data  
      * @returns {boolean} Whether to notify
      */
     shouldNotifyForConversation(conversationData) {
         if (!this.enabled) return false;
 
+        // Extract assignment information from various possible structures
+        let assignedAgentId = null;
+        if (conversationData.assigned_agent_id !== undefined) {
+            assignedAgentId = conversationData.assigned_agent_id;
+        } else if (conversationData.assignedAgent !== undefined) {
+            assignedAgentId = conversationData.assignedAgent;
+        } else if (conversationData.conversation && conversationData.conversation.assigned_agent_id !== undefined) {
+            assignedAgentId = conversationData.conversation.assigned_agent_id;
+        } else if (conversationData.conversation && conversationData.conversation.assignedAgent !== undefined) {
+            assignedAgentId = conversationData.conversation.assignedAgent;
+        }
+
         // Notify for new conversations that get assigned to this agent
         // or for unassigned conversations (so agents can pick them up)
-        return !conversationData.assigned_agent_id || 
-               conversationData.assigned_agent_id === this.agentId;
+        return !assignedAgentId || assignedAgentId === this.agentId;
     }
 }

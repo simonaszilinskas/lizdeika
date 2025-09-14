@@ -18,8 +18,23 @@ export class ConversationRenderer {
         this.agentId = dashboard.agentId;
         this.stateManager = dashboard.stateManager;
         
-        // Pending preview updates cache - survives queue reloads
-        this.pendingPreviewUpdates = new Map();
+        // Direct state updates from WebSocket
+    }
+
+    /**
+     * Check if a system message should be filtered out
+     * @param {Object} message - Message object
+     * @returns {boolean} True if message should be filtered
+     */
+    isSystemMessageFiltered(message) {
+        if (message.sender !== 'system') return false;
+
+        return message.content.includes('[Message pending agent response') ||
+               message.content.includes('Agent has joined the conversation') ||
+               message.content.includes('Conversation assigned to agent') ||
+               message.content.includes('[Debug information stored]') ||
+               (message.metadata && message.metadata.debugOnly) ||
+               message.content.trim() === '';
     }
 
     /**
@@ -38,7 +53,7 @@ export class ConversationRenderer {
     }
 
     /**
-     * Render conversation queue
+     * Render conversation queue with scroll position preservation
      * @param {Array} conversations - Array of conversation objects
      */
     renderQueue(conversations) {
@@ -48,20 +63,45 @@ export class ConversationRenderer {
             console.error('❌ chat-queue element not found!');
             return;
         }
-        
-        // Sort conversations by priority
-        const sorted = this.sortConversationsByPriority(conversations);
-        console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
 
-        queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
-        console.log('✅ Queue rendered successfully');
-        
-        // Apply any pending preview updates that should survive queue reloads
-        // Use setTimeout to ensure DOM is fully updated before applying preview updates
-        setTimeout(() => {
-            console.log('🔄 Applying pending preview updates after DOM render...');
-            this.applyPendingPreviewUpdates();
-        }, 0);
+        // Preserve scroll position during re-render
+        this.preserveScrollPosition(queueContainer, () => {
+            // Sort conversations by priority
+            const sorted = this.sortConversationsByPriority(conversations);
+            console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
+
+            queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
+            console.log('✅ Queue rendered successfully');
+        });
+    }
+
+    /**
+     * Preserve scroll position during DOM operations
+     * @param {Element} container - Scrollable container element
+     * @param {Function} operation - Function that modifies the DOM
+     */
+    preserveScrollPosition(container, operation) {
+        // Save current scroll position
+        const scrollTop = container.scrollTop;
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+
+        // Perform the DOM operation
+        operation();
+
+        // Restore scroll position after DOM settles
+        requestAnimationFrame(() => {
+            // Validate scroll position is still valid
+            const newScrollHeight = container.scrollHeight;
+            const maxScrollTop = Math.max(0, newScrollHeight - clientHeight);
+
+            // Restore original position, or adjust if content shrunk
+            const targetScrollTop = Math.min(scrollTop, maxScrollTop);
+
+            container.scrollTop = targetScrollTop;
+
+            console.log(`📍 Scroll position preserved: ${scrollTop} → ${targetScrollTop}`);
+        });
     }
 
     /**
@@ -126,8 +166,8 @@ export class ConversationRenderer {
         const isSelected = this.stateManager.getSelectedConversations().has(conv.id);
         const archivedClass = conv.archived ? 'opacity-75 bg-gray-50' : '';
         
-        // Calculate unread indicator
-        const unreadCount = this.dashboard.uiHelpers.getUnreadMessageCount(conv, isAssignedToMe);
+        // Calculate unseen indicator (shows 1 if conversation is unseen, 0 otherwise)
+        const unseenCount = this.dashboard.uiHelpers.getUnseenIndicatorCount(conv, isAssignedToMe);
         const urgencyIcon = this.dashboard.uiHelpers.getUrgencyIcon(isUnseen, needsResponse, isAssignedToMe);
         const priorityClass = this.dashboard.uiHelpers.getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe);
 
@@ -147,7 +187,7 @@ export class ConversationRenderer {
                         <div class="flex-1">
                             <div class="font-medium text-sm flex items-center gap-2">
                                 <span>User #${conv.userNumber || 'Unknown'}</span>
-                                ${unreadCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unreadCount}</span>` : ''}
+                                ${unseenCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unseenCount}</span>` : ''}
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
                             </div>
                             <div class="text-xs text-gray-500">
@@ -159,7 +199,7 @@ export class ConversationRenderer {
                         <span class="text-xs px-2 py-1 rounded ${statusCss}">
                             ${statusLabel}
                         </span>
-                        ${this.dashboard.uiHelpers.getTimeUrgencyIndicator(conv)}
+                        ${this.dashboard.uiHelpers.getTimeUrgencyIndicator(conv, needsResponse, isAssignedToMe)}
                     </div>
                 </div>
                 <div class="text-sm truncate text-gray-600 message-preview">
@@ -203,28 +243,45 @@ export class ConversationRenderer {
      * @param {Object} message - Message object to append
      */
     appendMessageToChat(message) {
+        console.log('📨 appendMessageToChat called with message:', message);
+
         const container = document.getElementById('chat-messages');
-        if (!container) return;
-        
+        if (!container) {
+            console.log('⚠️ Chat messages container not found');
+            return;
+        }
+
         // Don't append system messages that should be filtered
-        if (message.sender === 'system') {
-            const shouldFilter = message.content.includes('[Message pending agent response') ||
-                               message.content.includes('Agent has joined the conversation') ||
-                               message.content.includes('Conversation assigned to agent') ||
-                               message.content.includes('[Debug information stored]') ||
-                               (message.metadata && message.metadata.debugOnly) ||
-                               message.content.trim() === '';
-            if (shouldFilter) return;
+        if (this.isSystemMessageFiltered(message)) {
+            console.log('🚫 Message filtered out (system message)');
+            return;
         }
         
+        // Check if user is at the bottom before adding message
+        const wasAtBottom = container.scrollTop >= (container.scrollHeight - container.clientHeight - 50); // 50px tolerance
+
         // Create message HTML and append
         const messageHtml = this.renderMessage(message);
+        console.log('🎨 Rendered message HTML length:', messageHtml.length);
+
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = messageHtml;
-        container.appendChild(tempDiv.firstElementChild);
-        
-        // Scroll to bottom
-        container.scrollTop = container.scrollHeight;
+        const messageElement = tempDiv.firstElementChild;
+
+        if (messageElement) {
+            container.appendChild(messageElement);
+            console.log('✅ Message appended to chat, new message count:', container.children.length);
+        } else {
+            console.log('⚠️ No message element created from HTML');
+        }
+
+        // Smart scroll: only scroll to bottom if user was already at bottom
+        if (wasAtBottom) {
+            container.scrollTop = container.scrollHeight;
+            console.log('📜 Auto-scrolled to bottom');
+        } else {
+            console.log('📜 Staying at current scroll position');
+        }
         
         // Update conversation preview immediately
         const currentChatId = this.stateManager.getCurrentChatId();
@@ -239,17 +296,7 @@ export class ConversationRenderer {
      * @returns {Array} Filtered messages
      */
     filterSystemMessages(messages) {
-        return messages.filter(msg => {
-            if (msg.sender === 'system') {
-                return !msg.content.includes('[Message pending agent response') &&
-                       !msg.content.includes('Agent has joined the conversation') &&
-                       !msg.content.includes('Conversation assigned to agent') &&
-                       !msg.content.includes('[Debug information stored]') &&
-                       !(msg.metadata && msg.metadata.debugOnly) &&  // Hide debug-only messages
-                       msg.content.trim() !== '';  // Hide empty system messages
-            }
-            return true;
-        });
+        return messages.filter(msg => !this.isSystemMessageFiltered(msg));
     }
 
     /**
@@ -426,11 +473,8 @@ export class ConversationRenderer {
             metadata: (messageData.message && messageData.message.metadata) || messageData.metadata || {}
         };
 
-        console.log('🐛 DEBUG: Processed message for rendering:', JSON.stringify(message, null, 2));
-
         // Render message HTML
         const messageHtml = this.renderMessage(message);
-        console.log('🐛 DEBUG: Rendered HTML:', messageHtml);
         
         // Append to messages container
         messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
@@ -455,6 +499,10 @@ export class ConversationRenderer {
         const currentChatId = this.stateManager.getCurrentChatId();
         if (currentChatId) {
             this.updateConversationPreview(currentChatId, message);
+            
+            // CRITICAL FIX: Mark conversation as seen when receiving real-time messages for active conversation
+            // This ensures the conversation doesn't show as "unseen" when agent is actively viewing it
+            this.markConversationAsSeen(currentChatId);
         }
     }
 
@@ -464,21 +512,15 @@ export class ConversationRenderer {
      * @param {Object} message - Message object with content and sender
      */
     updateConversationPreview(conversationId, message) {
-        console.log(`🔄 Caching preview update for ${conversationId}:`, {
+        console.log(`🔄 SIMPLIFIED: Updating preview for ${conversationId}:`, {
             sender: message.sender,
             content: String(message.content || '').substring(0, 50) + '...'
         });
         
-        // Cache this update so it persists through queue reloads
-        this.pendingPreviewUpdates.set(conversationId, {
-            message: message,
-            timestamp: Date.now()
-        });
-        
-        // Also apply immediately if queue item exists
+        // Update DOM preview text and refresh styling
+        // State updates are handled by the main WebSocket event handler
         this.applyPreviewUpdate(conversationId, message);
-        
-        console.log(`💾 Preview cache now has ${this.pendingPreviewUpdates.size} items`);
+        this.refreshConversationStyling(conversationId);
     }
     
     /**
@@ -536,35 +578,112 @@ export class ConversationRenderer {
         console.log(`✅ Preview updated for ${conversationId}: ${fullPreview.substring(0, 30)}... (after ${retryCount} retries)`);
     }
     
+    // State is updated directly via WebSocket
+    
     /**
-     * Apply all pending preview updates after queue render
-     * This ensures updates survive queue reloads
+     * Mark conversation as seen by current agent
+     * Updates localStorage with current timestamp and immediately refreshes UI
+     * @param {string} conversationId - ID of conversation to mark as seen
      */
-    applyPendingPreviewUpdates() {
-        if (this.pendingPreviewUpdates.size === 0) {
-            console.log('💾 No pending preview updates to apply');
+    markConversationAsSeen(conversationId) {
+        const timestamp = new Date().toISOString();
+        localStorage.setItem(`lastSeen_${conversationId}`, timestamp);
+        console.log(`👁️ Marked conversation ${conversationId} as seen at ${timestamp}`);
+        
+        // Trigger immediate styling refresh for real-time updates without full reload
+        this.refreshConversationStyling(conversationId);
+    }
+
+    /**
+     * Refresh visual styling for a single conversation item in the queue
+     * Updates CSS classes to reflect current seen/unseen state without full reload
+     * @param {string} conversationId - Conversation ID to refresh
+     */
+    refreshConversationStyling(conversationId) {
+        const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+        if (!queueItem) {
+            console.log(`⚠️ Queue item not found for ${conversationId}, cannot refresh styling`);
+            return false;
+        }
+
+        // Get the conversation data from the modern loader
+        const conversationData = this.dashboard.modernConversationLoader.getConversations();
+        const conversation = conversationData.all.find(conv => conv.id === conversationId);
+        
+        if (!conversation) {
+            console.log(`⚠️ Conversation data not found for ${conversationId}, cannot refresh styling`);
+            return false;
+        }
+
+        // Calculate current state values
+        const currentChatId = this.stateManager.getCurrentChatId();
+        const isActive = conversation.id === currentChatId;
+        const needsResponse = !!(conversation.lastMessage && 
+                                conversation.lastMessage.metadata && 
+                                conversation.lastMessage.metadata.pendingAgent === true);
+        const isAssignedToMe = conversation.assignedAgent === this.dashboard.agentId;
+        const isUnassigned = !conversation.assignedAgent;
+        const isUnseen = this.dashboard.uiHelpers.conversationIsUnseen(conversation);
+
+        // Get updated CSS classes
+        const newCssClass = this.dashboard.uiHelpers.getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+        const newStatusLabel = this.dashboard.uiHelpers.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conversation);
+        const newStatusCss = this.dashboard.uiHelpers.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
+
+        // Update the queue item's CSS classes while preserving base layout classes
+        queueItem.className = `chat-queue-item p-3 rounded-lg cursor-pointer border ${newCssClass}`;
+        
+        // Update status label and styling
+        const statusElement = queueItem.querySelector('.queue-item-status');
+        if (statusElement) {
+            statusElement.textContent = newStatusLabel;
+            statusElement.className = `queue-item-status ${newStatusCss}`;
+        }
+
+        console.log(`✨ Refreshed styling for ${conversationId}: isUnseen=${isUnseen}, CSS=${newCssClass}`);
+        return true;
+    }
+
+    /**
+     * Reorder conversation list to move a specific conversation to the top
+     * This provides immediate visual feedback when messages are sent/received
+     * @param {string} conversationId - ID of conversation to move to top
+     */
+    reorderConversationList(conversationId) {
+        const container = document.getElementById('chat-queue');
+        if (!container) {
+            console.log('⚠️ Chat queue container not found');
             return;
         }
-        
-        const updatesApplied = [];
-        
-        for (const [conversationId, updateData] of this.pendingPreviewUpdates) {
-            // Only apply recent updates (within last 60 seconds - increased from 30)
-            if (Date.now() - updateData.timestamp < 60000) {
-                this.applyPreviewUpdate(conversationId, updateData.message, 0);
-                updatesApplied.push(conversationId);
-            }
+
+        const targetItem = container.querySelector(`[data-conversation-id="${conversationId}"]`);
+        if (!targetItem) {
+            console.log(`⚠️ Conversation item not found for ${conversationId}`);
+            return;
         }
-        
-        // Clean up old updates (older than 60 seconds)
-        for (const [conversationId, updateData] of this.pendingPreviewUpdates) {
-            if (Date.now() - updateData.timestamp >= 60000) {
-                console.log(`🗑️ Cleaning up old preview update for: ${conversationId}`);
-                this.pendingPreviewUpdates.delete(conversationId);
+
+        // Preserve scroll position during reorder
+        this.preserveScrollPosition(container, () => {
+            // Remove the item from its current position
+            const parent = targetItem.parentElement;
+            parent.removeChild(targetItem);
+
+            // Insert at the beginning (after any pinned items if they exist)
+            const firstChild = parent.firstChild;
+            if (firstChild) {
+                parent.insertBefore(targetItem, firstChild);
+            } else {
+                parent.appendChild(targetItem);
             }
+        });
+
+        // Update the lastMessage timestamp in state to reflect the new order
+        const conversationData = this.dashboard.modernConversationLoader.getConversations();
+        const conversation = conversationData.all.find(conv => conv.id === conversationId);
+        if (conversation && conversation.lastMessage) {
+            conversation.lastMessage.createdAt = new Date().toISOString();
         }
-        
-        console.log(`🔄 Applied ${updatesApplied.length} pending preview updates:`, updatesApplied);
-        console.log(`💾 Preview updates cache status: ${this.pendingPreviewUpdates.size} items remaining`);
+
+        console.log(`🔝 Moved conversation ${conversationId} to top of list`);
     }
 }

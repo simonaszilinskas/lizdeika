@@ -82,7 +82,7 @@ export const AGENT_STATUS = {
 export const CSS_CLASSES = {
     /** Queue item states */
     QUEUE_ITEM: {
-        ACTIVE: 'active-chat border-indigo-300 bg-indigo-50',
+        ACTIVE: 'active-chat border-indigo-500 bg-white shadow-md border-2',
         BASE: 'chat-queue-item p-3 rounded-lg cursor-pointer border'
     },
     
@@ -157,16 +157,6 @@ export const SENDER_LABELS = {
     CUSTOMER: 'Customer'
 };
 
-/**
- * Response type annotations
- */
-export const RESPONSE_TYPES = {
-    AUTOPILOT: 'autopilot',
-    AS_IS: 'as-is',
-    EDITED: 'edited',
-    FROM_SCRATCH: 'from-scratch',
-    CUSTOM: 'custom'
-};
 
 /**
  * Time thresholds for urgency indicators (hours)

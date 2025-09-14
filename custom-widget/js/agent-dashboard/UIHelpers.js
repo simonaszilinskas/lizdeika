@@ -6,6 +6,7 @@
 
 // Import utility functions
 import { getAgentDisplayName } from './ui/utils.js';
+import { CSS_CLASSES } from './ui/constants.js';
 
 export class UIHelpers {
     constructor(dashboard) {
@@ -22,16 +23,19 @@ export class UIHelpers {
 
     /**
      * Check if conversation is unseen by current agent
+     * Works for all conversations visible to the agent (not just assigned ones)
      * @param {Object} conv - Conversation object
      * @returns {boolean} True if unseen
      */
     conversationIsUnseen(conv) {
         if (!conv.lastMessage) return false;
         
-        const isAssignedToMe = conv.assignedAgent === this.agentId;
-        if (!isAssignedToMe) return false;
+        // SIMPLIFIED: Use backend-provided unseen status if available
+        if (conv.hasOwnProperty('_unseenByAgent')) {
+            return conv._unseenByAgent;
+        }
         
-        // Check if agent has seen this conversation's last message
+        // FALLBACK: Check localStorage for conversations not yet updated by WebSocket
         const lastSeenTime = localStorage.getItem(`lastSeen_${conv.id}`);
         if (!lastSeenTime) return true;
         
@@ -43,48 +47,40 @@ export class UIHelpers {
 
     /**
      * Get CSS classes for queue item based on status
+     * Simplified to 3-state system: UNSEEN + MY MESSAGES, MY MESSAGES (SEEN), OTHER MESSAGES
      * @param {boolean} isActive - Is this the currently selected conversation
-     * @param {boolean} needsResponse - Does this conversation need a response
+     * @param {boolean} needsResponse - Does this conversation need a response (unused in simplified version)
      * @param {boolean} isAssignedToMe - Is this conversation assigned to current agent
      * @param {boolean} isUnassigned - Is this conversation unassigned
      * @param {boolean} isUnseen - Is this conversation unseen by current agent
      * @returns {string} CSS classes
      */
     getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
-        if (isActive) return 'active-chat border-indigo-300 bg-indigo-50';
+        if (isActive) return CSS_CLASSES.QUEUE_ITEM.ACTIVE;
         
-        // UNSEEN + MINE: Clearest/most prominent (bright red with thick border)
-        if (isUnseen && isAssignedToMe) {
-            return 'bg-red-100 border-red-400 hover:bg-red-200 border-l-4 border-l-red-600 shadow-lg ring-2 ring-red-200';
+        // STATE 1: UNSEEN MESSAGES - Most prominent (red/orange accent)
+        if (isUnseen) {
+            if (isAssignedToMe) {
+                // My unseen messages - bright red with thick border
+                return 'bg-red-100 border-red-400 hover:bg-red-200 border-l-4 border-l-red-600 shadow-md';
+            } else {
+                // Other unseen messages - orange accent
+                return 'bg-orange-50 border-orange-300 hover:bg-orange-100 border-l-3 border-l-orange-500 shadow-sm';
+            }
         }
         
-        // MINE: Blue
+        // STATE 2: MY MESSAGES (SEEN) - Standard blue
         if (isAssignedToMe) {
             return 'bg-blue-50 border-blue-200 hover:bg-blue-100';
         }
         
-        // UNSEEN + NOBODY'S: Red accent on white
-        if (isUnseen && isUnassigned) {
-            return 'bg-white border-red-300 hover:bg-red-50 border-l-4 border-l-red-500 shadow-md';
-        }
-        
-        // NOBODY'S: Classic white
-        if (isUnassigned) {
-            return 'bg-white border-gray-200 hover:bg-gray-50';
-        }
-        
-        // UNSEEN + SOMEBODY'S: Red accent on light grey
-        if (isUnseen) {
-            return 'bg-gray-100 border-red-300 hover:bg-gray-200 border-l-2 border-l-red-400';
-        }
-        
-        // SOMEBODY'S: Light grey
-        return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
+        // STATE 3: OTHER MESSAGES - Gray (unassigned or assigned to others)
+        return 'bg-gray-50 border-gray-200 hover:bg-gray-100';
     }
 
     /**
-     * Get status label for queue item
-     * @param {boolean} needsResponse - Does this conversation need a response
+     * Get status label for queue item (simplified version)
+     * @param {boolean} needsResponse - Does this conversation need a response (unused in simplified version)
      * @param {boolean} isAssignedToMe - Is this conversation assigned to current agent
      * @param {boolean} isUnassigned - Is this conversation unassigned
      * @param {boolean} isUnseen - Is this conversation unseen by current agent
@@ -92,9 +88,7 @@ export class UIHelpers {
      * @returns {string} Status label
      */
     getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conv) {
-        if (needsResponse && isAssignedToMe) return 'NEEDS REPLY';
-        if (isUnseen && isUnassigned) return 'UNSEEN';
-        if (needsResponse) return 'NEW MESSAGE';
+        if (isUnseen) return 'UNSEEN';
         if (isAssignedToMe) return 'MINE';
         if (isUnassigned) return 'UNASSIGNED';
         
@@ -109,8 +103,8 @@ export class UIHelpers {
     }
 
     /**
-     * Get status CSS classes for queue item
-     * @param {boolean} needsResponse - Does this conversation need a response
+     * Get status CSS classes for queue item (simplified version)
+     * @param {boolean} needsResponse - Does this conversation need a response (unused in simplified version)
      * @param {boolean} isAssignedToMe - Is this conversation assigned to current agent
      * @param {boolean} isUnassigned - Is this conversation unassigned
      * @param {boolean} isUnseen - Is this conversation unseen by current agent
@@ -118,40 +112,48 @@ export class UIHelpers {
      */
     getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
         // UNSEEN states get red badges with bold text
-        if (isUnseen && isAssignedToMe) return 'bg-red-600 text-white font-bold';
-        if (isUnseen && isUnassigned) return 'bg-red-600 text-white font-bold';
-        if (isUnseen) return 'bg-red-500 text-white font-medium';
+        if (isUnseen) return 'bg-red-600 text-white font-bold';
         
-        // Regular states
-        if (needsResponse && isAssignedToMe) return 'bg-blue-600 text-white font-medium';
+        // MY MESSAGES - Blue badge
         if (isAssignedToMe) return 'bg-blue-100 text-blue-700';
+        
+        // UNASSIGNED - Gray badge
         if (isUnassigned) return 'bg-gray-600 text-white text-xs';
         
-        // SOMEBODY'S (other agents)
+        // OTHER AGENTS - Light gray badge
         return 'bg-gray-400 text-white text-xs';
     }
 
     /**
-     * Get unread message count for visual indicator
+     * Get unseen indicator count for visual notification badge
+     * Shows 1 if conversation is unseen by current agent, 0 otherwise
+     * Note: This is timestamp-based "unseen" logic, not actual unread message count
      * @param {Object} conv - Conversation object
      * @param {boolean} isAssignedToMe - Is this conversation assigned to current agent
-     * @returns {number} Unread message count
+     * @returns {number} Unseen indicator count (0 or 1)
      */
-    getUnreadMessageCount(conv, isAssignedToMe) {
-        // For conversations assigned to me, show count based on unseen messages
+    getUnseenIndicatorCount(conv, isAssignedToMe) {
+        // For conversations assigned to me, show indicator if unseen
         if (isAssignedToMe && conv.lastMessage && conv.lastMessage.metadata) {
-            // If conversation is unseen, show at least 1
             if (this.conversationIsUnseen(conv)) {
                 return 1;
             }
         }
         
-        // For unassigned conversations, show count if unseen
+        // For unassigned conversations, show indicator if unseen
         if (!conv.assignedAgent && this.conversationIsUnseen(conv)) {
             return 1;
         }
         
         return 0;
+    }
+
+    /**
+     * Legacy alias for backwards compatibility
+     * @deprecated Use getUnseenIndicatorCount instead
+     */
+    getUnreadMessageCount(conv, isAssignedToMe) {
+        return this.getUnseenIndicatorCount(conv, isAssignedToMe);
     }
 
     /**
@@ -189,28 +191,15 @@ export class UIHelpers {
     }
 
     /**
-     * Get time-based urgency indicator
+     * Get time-based urgency indicator (simplified - removed for cleaner UI)
      * @param {Object} conv - Conversation object
+     * @param {boolean} needsResponse - Whether conversation needs agent response (unused in simplified version)
+     * @param {boolean} isAssignedToMe - Whether conversation is assigned to current agent (unused in simplified version)
      * @returns {string} HTML string for time urgency indicator
      */
-    getTimeUrgencyIndicator(conv) {
-        if (!conv.lastMessage || !conv.lastMessage.timestamp) {
-            return '';
-        }
-
-        const now = new Date();
-        const lastMessageTime = new Date(conv.lastMessage.timestamp);
-        const timeDiff = now - lastMessageTime;
-        const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
-        
-        if (this.conversationIsUnseen(conv)) {
-            if (hoursAgo >= 2) {
-                return '<i class="fas fa-clock text-red-500" title="Unseen for over 2 hours!"></i>';
-            } else if (hoursAgo >= 1) {
-                return '<i class="fas fa-clock text-orange-500" title="Unseen for over 1 hour"></i>';
-            }
-        }
-        
+    getTimeUrgencyIndicator(conv, needsResponse = false, isAssignedToMe = false) {
+        // Simplified version - no time-based urgency indicators for cleaner UI
+        // Visual state is now entirely handled by the seen/unseen logic and color coding
         return '';
     }
 

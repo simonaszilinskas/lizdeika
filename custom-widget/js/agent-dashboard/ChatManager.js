@@ -41,6 +41,9 @@ export class ChatManager {
         
         this.stateManager.setCurrentChatId(conversationId);
         
+        // Mark conversation as seen immediately when selected
+        this.conversationRenderer.markConversationAsSeen(conversationId);
+        
         try {
             // Load messages first (this also updates conversation data)
             await this.loadChatMessages(conversationId);
@@ -53,9 +56,9 @@ export class ChatManager {
             
             // Show chat interface
             this.showChatInterface(conversationId);
-            
-            // Refresh queue to show assignment
-            this.dashboard.loadConversations();
+
+            // Refresh conversation styling without full reload to preserve scroll position
+            this.conversationRenderer.refreshConversationStyling(conversationId);
         } catch (error) {
             console.error('Error selecting chat:', error);
         }
@@ -190,7 +193,10 @@ export class ChatManager {
                 
                 // Refresh messages to show the sent message
                 await this.loadChatMessages(this.stateManager.getCurrentChatId());
-                
+
+                // Move conversation to top of list for immediate visual feedback
+                this.conversationRenderer.reorderConversationList(this.stateManager.getCurrentChatId());
+
                 // Show confirmation
                 this.dashboard.showToast('Message sent successfully', 'success');
                 

@@ -9,22 +9,7 @@
  */
 
 // Import constants conditionally for browser vs test environments
-let TIMING, WEBSOCKET_EVENTS;
-if (typeof window !== 'undefined') {
-    try {
-        const constants = require('../ui/constants.js');
-        TIMING = constants.TIMING;
-        WEBSOCKET_EVENTS = constants.WEBSOCKET_EVENTS;
-    } catch (e) {
-        // Fallback for tests - define minimal constants
-        TIMING = { HEARTBEAT_INTERVAL: 30000 };
-        WEBSOCKET_EVENTS = { HEARTBEAT: 'heartbeat' };
-    }
-} else {
-    // Test environment fallbacks
-    TIMING = { HEARTBEAT_INTERVAL: 30000 };
-    WEBSOCKET_EVENTS = { HEARTBEAT: 'heartbeat' };
-}
+import { TIMING, WEBSOCKET_EVENTS } from '../ui/constants.js';
 
 /**
  * SocketManager - Simple WebSocket connection service
@@ -88,6 +73,10 @@ class SocketManager {
      * Maintains exact same event handling as original
      */
     setupEventHandlers() {
+        // Debug: Check if constants are loaded correctly
+        console.log('🔥 🐛 DEBUG: WEBSOCKET_EVENTS.NEW_MESSAGE:', WEBSOCKET_EVENTS?.NEW_MESSAGE);
+        console.log('🔥 🐛 DEBUG: Setting up WebSocket event handlers');
+
         // Connection events using direct Socket.io
         this.socket.on('connect', () => {
             console.log('✅ Connected to WebSocket server via direct Socket.io');
@@ -110,9 +99,11 @@ class SocketManager {
         
         // Application events - delegate to dashboard handlers
         this.socket.on(WEBSOCKET_EVENTS.NEW_MESSAGE, (data) => {
+            console.log('🔥 🐛 DEBUG: SocketManager received NEW_MESSAGE event');
+            console.log('🔥 🐛 DEBUG: NEW_MESSAGE data:', JSON.stringify(data, null, 2));
             console.log('📨 NEW MESSAGE WEBSOCKET EVENT RECEIVED:', data);
-            console.log('🔥 DEBUG: About to call eventHandlers.onNewMessage with data:', JSON.stringify(data, null, 2));
             if (this.eventHandlers.onNewMessage) {
+                console.log('🔥 🐛 DEBUG: Calling onNewMessage handler');
                 this.eventHandlers.onNewMessage(data);
             } else {
                 console.error('❌ onNewMessage handler not found!');
@@ -243,6 +234,9 @@ class SocketManager {
         console.log(`🔄 Socket manager agent ID updated to: ${this.agentId}`);
     }
 }
+
+// ES6 exports for browser
+export { SocketManager };
 
 // CommonJS exports for tests
 if (typeof module !== 'undefined' && module.exports) {

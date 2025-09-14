@@ -126,7 +126,6 @@ class AgentDashboard {
         ErrorHandler.init();
         Toast.init();
         
-        // ConversationUpdateManager removed - was unused infrastructure (always fell back to full reloads)
         
         // Initialize bulk operations manager
         this.bulkOperations = new BulkOperations(this);
@@ -186,6 +185,9 @@ class AgentDashboard {
         
         // Set up periodic status refresh to keep agent appearing as connected (every 30 minutes)
         this.startStatusRefresh();
+
+        // Set up auto-refresh for conversations every 5 seconds
+        this.startQueueAutoRefresh();
         
         // Check if user is admin and show admin bar
         await this.authManager.checkAdminStatus();
@@ -357,6 +359,113 @@ class AgentDashboard {
                 }
             }
         }, 30 * 60 * 1000); // 30 minutes
+    }
+
+    /**
+     * Start smart auto-refresh for conversation queue every 5 seconds
+     * Only updates UI when there are actual changes to prevent visual flicker
+     */
+    startQueueAutoRefresh() {
+        // Clear any existing interval
+        if (this.queueRefreshInterval) {
+            clearInterval(this.queueRefreshInterval);
+        }
+
+        // Refresh conversations every 5 seconds with smart diff detection
+        this.queueRefreshInterval = setInterval(async () => {
+            try {
+                console.log('🔄 Smart auto-refresh: checking for changes...');
+                await this.smartRefreshConversations();
+            } catch (error) {
+                console.error('Error in smart auto-refresh:', error);
+            }
+        }, 5000); // 5 seconds
+
+        console.log('✅ Smart auto-refresh started - UI only updates when changes detected');
+    }
+
+    /**
+     * Smart refresh that only updates UI when conversations actually changed
+     */
+    async smartRefreshConversations() {
+        try {
+            // Get fresh data from API directly
+            const response = await fetch(`${this.apiUrl}/api/admin/conversations`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const freshConversations = data.conversations || [];
+
+            // Compare with current state to detect changes
+            const hasChanges = this.detectConversationChanges(freshConversations);
+
+            if (hasChanges) {
+                console.log('🔄 Changes detected, updating UI...');
+
+                // Prepare filters
+                const filters = {
+                    archiveFilter: this.stateManager.getArchiveFilter(),
+                    assignmentFilter: this.stateManager.getCurrentFilter(),
+                    agentId: this.agentId
+                };
+
+                // Use the existing load method
+                await this.modernConversationLoader.load(filters, (conversations) => {
+                    this.conversationRenderer.renderQueue(conversations);
+                });
+            } else {
+                console.log('✅ No changes detected, UI stays stable');
+            }
+        } catch (error) {
+            console.error('Error in smart refresh:', error);
+        }
+    }
+
+    /**
+     * Detect if conversations have actually changed
+     * @param {Array} newConversations - Fresh conversation data
+     * @returns {boolean} Whether changes were detected
+     */
+    detectConversationChanges(newConversations) {
+        const currentConversations = this.stateManager.allConversations;
+
+        // Quick checks for obvious changes
+        if (currentConversations.length !== newConversations.length) {
+            return true;
+        }
+
+        // Check each conversation for changes
+        for (let i = 0; i < newConversations.length; i++) {
+            const current = currentConversations[i];
+            const fresh = newConversations[i];
+
+            if (!current || current.id !== fresh.id) {
+                return true;
+            }
+
+            // Check for message changes
+            const currentLastMsg = current.lastMessage?.timestamp || current.updatedAt;
+            const freshLastMsg = fresh.lastMessage?.timestamp || fresh.updatedAt;
+
+            if (currentLastMsg !== freshLastMsg) {
+                return true;
+            }
+
+            // Check assignment changes
+            if (current.assignedAgent !== fresh.assignedAgent) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -897,7 +1006,7 @@ class AgentDashboard {
     handleNewMessage(data) {
         console.log('🔥 📨 WebSocket: New message received', { conversationId: data.conversationId, sender: data.sender, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
         console.log('🔥 🐛 DEBUG: Full handleNewMessage data:', JSON.stringify(data, null, 2));
-        
+
         // Play sound notification for new messages
         if (this.soundNotificationManager && data.sender !== 'agent') {
             this.soundNotificationManager.onNewMessage({
@@ -908,68 +1017,76 @@ class AgentDashboard {
                 conversation: data.conversation || { assigned_agent_id: data.assignedAgentId }
             });
         }
-        
-        // IMMEDIATE: Show message in real-time if it's the current chat
+
+        // Create proper message object with consistent structure for both current and non-current chats
+        const message = {
+            id: (data.message && data.message.id) || data.id,
+            content: (data.message && data.message.content) || data.content || '',
+            sender: (data.message && data.message.sender) || data.sender || '',
+            timestamp: (data.message && data.message.timestamp) || data.timestamp || new Date().toISOString()
+        };
+        console.log('🔥 DEBUG: Standardized message object:', JSON.stringify(message, null, 2));
+
+        // Update preview for all conversations (this always works)
+        this.conversationRenderer.updateConversationPreview(data.conversationId, message);
+
+        // For current chat: quickly reload messages to show new message and generate suggestions
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
-            console.log('⚡ WebSocket: Showing message immediately for current chat');
-            console.log('🐛 DEBUG: About to call appendMessageRealTime with:', data);
-            this.conversationRenderer.appendMessageRealTime(data);
+            console.log('⚡ WebSocket: Current chat - reloading messages to show new message');
+            setTimeout(async () => {
+                try {
+                    await this.chatManager.loadChatMessages(data.conversationId);
+                    console.log('✅ Chat messages reloaded successfully for current conversation');
+                } catch (error) {
+                    console.error('❌ Error reloading chat messages:', error);
+                }
+            }, 50); // Small delay to ensure message is saved in backend
         } else {
-            console.log('🐛 DEBUG: Not current chat, skipping immediate display. Current chat:', this.stateManager.getCurrentChatId());
-            // For non-current conversations, update preview directly
-            // Create proper message object with consistent structure
-            const message = {
-                id: (data.message && data.message.id) || data.id,
-                content: (data.message && data.message.content) || data.content || '',
-                sender: (data.message && data.message.sender) || data.sender || '',
-                timestamp: (data.message && data.message.timestamp) || data.timestamp || new Date().toISOString()
-            };
-            console.log('🔥 DEBUG: User message preview update with message:', JSON.stringify(message, null, 2));
-            this.conversationRenderer.updateConversationPreview(data.conversationId, message);
+            console.log('🐛 DEBUG: Not current chat, preview update only. Current chat:', this.stateManager.getCurrentChatId());
         }
-        
+
         // Check if conversation exists in queue - if not, clear cache for new conversation
         const queueItem = document.querySelector(`[data-conversation-id="${data.conversationId}"]`);
         if (!queueItem) {
             console.log('🔄 New conversation detected, clearing cache for:', data.conversationId);
             this.modernConversationLoader.refresh();
         }
-        
+
         // DEFERRED: Handle AI processing for current chat only
         setTimeout(() => {
             console.log('🔄 WebSocket: Performing deferred updates');
-            
+
             // If this is the current chat, handle AI suggestions
             if (data.conversationId === this.stateManager.getCurrentChatId()) {
                 // Skip conversation refresh to avoid overriding preview updates
                 console.log('⏭️ Skipping conversation refresh to preserve preview updates');
-                
+
                 // Handle AI suggestions with loading state
                 const messageSender = (data.message && data.message.sender) || data.sender;
                 if (this.systemMode === 'hitl' && (messageSender === 'customer' || messageSender === 'visitor')) {
                     console.log('💬 Customer/visitor message received, processing AI suggestion');
                     console.log('🔥 DEBUG: messageSender:', messageSender, 'data:', data);
-                    
+
                     // Clear any existing suggestion and show loading immediately
                     this.chatManager.hideAISuggestion();
                     this.chatManager.showAISuggestionLoading();
-                    
+
                     // Cancel any existing polling
                     if (this.currentPollingId) {
                         console.log(`🛑 Canceling previous AI suggestion polling: ${this.currentPollingId}`);
                         this.currentPollingId = null;
                     }
-                    
+
                     // Create new polling ID for this message
                     const pollingId = `poll-${Date.now()}-${Math.random()}`;
                     console.log(`🆕 Starting new AI suggestion polling: ${pollingId} for conversationId: ${this.stateManager.getCurrentChatId()}`);
                     this.currentPollingId = pollingId;
-                    
+
                     // Wait for the AI suggestion to be generated (polling approach)
                     // The backend takes 6-13 seconds to generate, so we need to wait
                     console.log('⏳ Waiting for AI suggestion to be generated...');
                     this.pollForNewSuggestion(this.stateManager.getCurrentChatId(), 0, pollingId);
-                    
+
                 } else if (this.systemMode === 'hitl') {
                     // For agent messages, just check if there's still a pending suggestion
                     console.log('🔥 DEBUG: Not showing AI loading - messageSender:', messageSender);
@@ -978,6 +1095,7 @@ class AgentDashboard {
             }
         }, 100); // Small delay to allow real-time update to render first
     }
+
 
     /**
      * Handle agents update from socket manager
@@ -1025,8 +1143,7 @@ class AgentDashboard {
      */
     handleAgentSentMessage(data) {
         console.log('🔥 📤 WebSocket: Agent sent message received', { conversationId: data.conversationId, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
-        console.log('🔥 🐛 DEBUG: Full handleAgentSentMessage data:', JSON.stringify(data, null, 2));
-        
+
         // Only update if this is the current conversation
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             // Add the message to the chat immediately without full reload
@@ -1036,6 +1153,9 @@ class AgentDashboard {
             // For non-current conversations, update preview directly
             this.conversationRenderer.updateConversationPreview(data.conversationId, data.message);
         }
+
+        // Move conversation to top of list for immediate visual feedback
+        this.conversationRenderer.reorderConversationList(data.conversationId);
     }
 
     
