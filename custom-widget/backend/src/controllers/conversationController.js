@@ -171,7 +171,9 @@ class ConversationController {
             console.log(`Processing message in mode: ${currentMode}`);
             
             // IMMEDIATE: Emit new message to agents via WebSocket (before AI processing)
+            console.log('🔥 DEBUG: Current mode:', currentMode, 'checking if === hitl');
             if (currentMode === 'hitl') {
+                console.log('🔥 DEBUG: Entering HITL WebSocket emission block');
                 // Get current conversation details for proper assignment info
                 const conversation = await conversationService.getConversation(conversationId);
                 
@@ -180,6 +182,11 @@ class ConversationController {
                 const unseenByAgent = !!conversation?.assignedAgent;
                 
                 // SIMPLIFIED: Standard WebSocket event structure
+                console.log('🔥 DEBUG: About to emit new-message WebSocket event to agents room');
+                const agentsRoom = this.io.sockets.adapter.rooms.get('agents');
+                const socketsInRoom = agentsRoom ? agentsRoom.size : 0;
+                console.log('🔥 DEBUG: Agents room has', socketsInRoom, 'connected sockets');
+
                 this.io.to('agents').emit('new-message', {
                     type: 'new-message',
                     conversationId,
