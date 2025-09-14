@@ -56,9 +56,9 @@ export class ChatManager {
             
             // Show chat interface
             this.showChatInterface(conversationId);
-            
-            // Refresh queue to show assignment
-            this.dashboard.loadConversations();
+
+            // Refresh conversation styling without full reload to preserve scroll position
+            this.conversationRenderer.refreshConversationStyling(conversationId);
         } catch (error) {
             console.error('Error selecting chat:', error);
         }

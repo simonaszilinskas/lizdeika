@@ -567,10 +567,8 @@ export class ConversationRenderer {
         localStorage.setItem(`lastSeen_${conversationId}`, timestamp);
         console.log(`👁️ Marked conversation ${conversationId} as seen at ${timestamp}`);
         
-        // Trigger immediate queue refresh for real-time updates
-        if (this.dashboard && typeof this.dashboard.loadConversations === 'function') {
-            this.dashboard.loadConversations();
-        }
+        // Trigger immediate styling refresh for real-time updates without full reload
+        this.refreshConversationStyling(conversationId);
     }
 
     /**
@@ -609,8 +607,8 @@ export class ConversationRenderer {
         const newStatusLabel = this.dashboard.uiHelpers.getQueueItemStatusLabel(needsResponse, isAssignedToMe, isUnassigned, isUnseen, conversation);
         const newStatusCss = this.dashboard.uiHelpers.getQueueItemStatusCss(needsResponse, isAssignedToMe, isUnassigned, isUnseen);
 
-        // Update the queue item's CSS classes
-        queueItem.className = `queue-item ${newCssClass}`;
+        // Update the queue item's CSS classes while preserving base layout classes
+        queueItem.className = `chat-queue-item p-3 rounded-lg cursor-pointer border ${newCssClass}`;
         
         // Update status label and styling
         const statusElement = queueItem.querySelector('.queue-item-status');
