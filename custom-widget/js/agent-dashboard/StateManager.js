@@ -273,8 +273,14 @@ export class StateManager {
      * @param {string|null} conversationId - Conversation ID or null to clear
      */
     setCurrentChatId(conversationId) {
+        const previousChatId = this.currentChatId;
         this.currentChatId = conversationId;
-        
+
+        // Refresh styling for previously selected conversation to remove active state
+        if (previousChatId && previousChatId !== conversationId && this.dashboard.conversationRenderer) {
+            this.dashboard.conversationRenderer.refreshConversationStyling(previousChatId);
+        }
+
         // Persist to localStorage
         if (conversationId) {
             localStorage.setItem('agent_dashboard_current_chat', conversationId);
@@ -333,8 +339,15 @@ export class StateManager {
      * Reset chat view - clear current chat and suggestions
      */
     resetChatView() {
+        const previousChatId = this.currentChatId;
         this.currentChatId = null;
         this.currentSuggestion = null;
+
+        // Refresh styling for previously selected conversation to remove active state
+        if (previousChatId && this.dashboard.conversationRenderer) {
+            this.dashboard.conversationRenderer.refreshConversationStyling(previousChatId);
+        }
+
         this.dashboard.showElement('no-chat-selected');
         this.dashboard.hideElement('chat-header');
         this.dashboard.hideElement('chat-messages');

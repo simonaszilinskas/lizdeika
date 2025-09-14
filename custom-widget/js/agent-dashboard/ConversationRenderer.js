@@ -620,4 +620,47 @@ export class ConversationRenderer {
         console.log(`✨ Refreshed styling for ${conversationId}: isUnseen=${isUnseen}, CSS=${newCssClass}`);
         return true;
     }
+
+    /**
+     * Reorder conversation list to move a specific conversation to the top
+     * This provides immediate visual feedback when messages are sent/received
+     * @param {string} conversationId - ID of conversation to move to top
+     */
+    reorderConversationList(conversationId) {
+        const container = document.getElementById('chat-queue');
+        if (!container) {
+            console.log('⚠️ Chat queue container not found');
+            return;
+        }
+
+        const targetItem = container.querySelector(`[data-conversation-id="${conversationId}"]`);
+        if (!targetItem) {
+            console.log(`⚠️ Conversation item not found for ${conversationId}`);
+            return;
+        }
+
+        // Preserve scroll position during reorder
+        this.preserveScrollPosition(container, () => {
+            // Remove the item from its current position
+            const parent = targetItem.parentElement;
+            parent.removeChild(targetItem);
+
+            // Insert at the beginning (after any pinned items if they exist)
+            const firstChild = parent.firstChild;
+            if (firstChild) {
+                parent.insertBefore(targetItem, firstChild);
+            } else {
+                parent.appendChild(targetItem);
+            }
+        });
+
+        // Update the lastMessage timestamp in state to reflect the new order
+        const conversationData = this.dashboard.modernConversationLoader.getConversations();
+        const conversation = conversationData.all.find(conv => conv.id === conversationId);
+        if (conversation && conversation.lastMessage) {
+            conversation.lastMessage.createdAt = new Date().toISOString();
+        }
+
+        console.log(`🔝 Moved conversation ${conversationId} to top of list`);
+    }
 }

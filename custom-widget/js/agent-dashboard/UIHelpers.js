@@ -6,6 +6,7 @@
 
 // Import utility functions
 import { getAgentDisplayName } from './ui/utils.js';
+import { CSS_CLASSES } from './ui/constants.js';
 
 export class UIHelpers {
     constructor(dashboard) {
@@ -55,7 +56,7 @@ export class UIHelpers {
      * @returns {string} CSS classes
      */
     getQueueItemCssClass(isActive, needsResponse, isAssignedToMe, isUnassigned, isUnseen) {
-        if (isActive) return 'active-chat border-indigo-300 bg-indigo-50';
+        if (isActive) return CSS_CLASSES.QUEUE_ITEM.ACTIVE;
         
         // STATE 1: UNSEEN MESSAGES - Most prominent (red/orange accent)
         if (isUnseen) {

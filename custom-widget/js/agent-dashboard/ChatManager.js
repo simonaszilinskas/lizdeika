@@ -193,7 +193,10 @@ export class ChatManager {
                 
                 // Refresh messages to show the sent message
                 await this.loadChatMessages(this.stateManager.getCurrentChatId());
-                
+
+                // Move conversation to top of list for immediate visual feedback
+                this.conversationRenderer.reorderConversationList(this.stateManager.getCurrentChatId());
+
                 // Show confirmation
                 this.dashboard.showToast('Message sent successfully', 'success');
                 

@@ -1026,6 +1026,9 @@ class AgentDashboard {
         if (!queueItem) {
             console.log('🔄 New conversation detected, refreshing queue');
             this.modernConversationLoader.refresh();
+        } else {
+            // Move existing conversation to top for immediate visual feedback
+            this.conversationRenderer.reorderConversationList(data.conversationId);
         }
     }
 
@@ -1162,7 +1165,7 @@ class AgentDashboard {
      */
     handleAgentSentMessage(data) {
         console.log('🔥 📤 WebSocket: Agent sent message received', { conversationId: data.conversationId, isCurrentChat: data.conversationId === this.stateManager.getCurrentChatId() });
-        
+
         // Only update if this is the current conversation
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             // Add the message to the chat immediately without full reload
@@ -1172,6 +1175,9 @@ class AgentDashboard {
             // For non-current conversations, update preview directly
             this.conversationRenderer.updateConversationPreview(data.conversationId, data.message);
         }
+
+        // Move conversation to top of list for immediate visual feedback
+        this.conversationRenderer.reorderConversationList(data.conversationId);
     }
 
     
