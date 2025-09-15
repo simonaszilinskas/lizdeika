@@ -46,10 +46,12 @@ class SocketManager {
      */
     async initialize() {
         try {
-            const wsUrl = this.apiUrl.replace('http', 'ws');
-            
+            // Socket.io uses HTTP/HTTPS URLs, not ws://
+            // It handles the WebSocket upgrade internally
+            console.log('🔌 Connecting to Socket.io server at:', this.apiUrl);
+
             // Direct Socket.io connection (like settings.js)
-            this.socket = io(wsUrl);
+            this.socket = io(this.apiUrl);
             
             // Set up event handlers for dashboard functionality
             this.setupEventHandlers();
@@ -73,17 +75,11 @@ class SocketManager {
      * Maintains exact same event handling as original
      */
     setupEventHandlers() {
-        // Debug: Check if constants are loaded correctly
-        console.log('🔥 🐛 DEBUG: WEBSOCKET_EVENTS object:', WEBSOCKET_EVENTS);
-        console.log('🔥 🐛 DEBUG: WEBSOCKET_EVENTS.NEW_MESSAGE:', WEBSOCKET_EVENTS?.NEW_MESSAGE);
-        console.log('🔥 🐛 DEBUG: Setting up WebSocket event handlers');
-        console.log('🔥 🐛 DEBUG: About to register listener for event:', WEBSOCKET_EVENTS?.NEW_MESSAGE || 'UNDEFINED');
+        console.log('🔌 Setting up WebSocket event handlers');
 
         // Connection events using direct Socket.io
         this.socket.on('connect', () => {
             console.log('✅ Connected to WebSocket server via direct Socket.io');
-            console.log('🔥 DEBUG: Socket ID:', this.socket.id);
-            console.log('🔥 DEBUG: Socket connected:', this.socket.connected);
             this.isConnected = true;
 
             // Call dashboard's registration method
@@ -94,7 +90,6 @@ class SocketManager {
         
         this.socket.on('disconnect', (reason) => {
             console.log('❌ Disconnected from WebSocket server, reason:', reason);
-            console.log('🔥 DEBUG: Disconnect reason details:', reason);
             this.isConnected = false;
 
             if (this.eventHandlers.onDisconnect) {
@@ -102,32 +97,11 @@ class SocketManager {
             }
         });
         
-        // DEBUG: Listen for ALL events to see what's actually being received
-        this.socket.onAny((eventName, ...args) => {
-            console.log('🔥 DEBUG: Raw WebSocket event received:', eventName, args);
-        });
-
-        // DEBUG: Add hardcoded listener as fallback test
-        this.socket.on('new-message', (data) => {
-            console.log('🔥 HARDCODED: Received new-message event:', data);
-        });
-
         // Application events - delegate to dashboard handlers
         this.socket.on(WEBSOCKET_EVENTS.NEW_MESSAGE, (data) => {
-            try {
-                console.log('🔥 🐛 DEBUG: SocketManager received NEW_MESSAGE event');
-                console.log('🔥 🐛 DEBUG: NEW_MESSAGE data:', JSON.stringify(data, null, 2));
-                console.log('📨 NEW MESSAGE WEBSOCKET EVENT RECEIVED:', data);
-                if (this.eventHandlers.onNewMessage) {
-                    console.log('🔥 🐛 DEBUG: Calling onNewMessage handler');
-                    this.eventHandlers.onNewMessage(data);
-                    console.log('🔥 🐛 DEBUG: onNewMessage handler completed successfully');
-                } else {
-                    console.error('❌ onNewMessage handler not found!');
-                }
-            } catch (error) {
-                console.error('💥 Error in NEW_MESSAGE handler:', error);
-                console.error('💥 Error stack:', error.stack);
+            console.log('📨 New message received via WebSocket:', data);
+            if (this.eventHandlers.onNewMessage) {
+                this.eventHandlers.onNewMessage(data);
             }
         });
         
