@@ -454,9 +454,15 @@
                             style="resize: none; overflow-y: auto; height: 80px; min-height: 80px; max-height: 300px; transition: height 0.2s ease;"
                         ></textarea>
                     </div>
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0 self-end">
-                        <i class="fas fa-paper-plane mr-1"></i> Siųsti
-                    </button>
+                    <div class="flex flex-col items-end gap-1">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0">
+                            <i class="fas fa-paper-plane mr-1"></i> Siųsti
+                        </button>
+                        <div class="text-xs text-gray-500 whitespace-nowrap">
+                            <span class="hidden md:inline">Cmd+Enter</span>
+                            <span class="md:hidden">Ctrl+Enter</span>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>

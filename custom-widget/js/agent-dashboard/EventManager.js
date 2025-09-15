@@ -17,6 +17,7 @@ export class EventManager {
         this.setupPersonalStatusListener();
         this.setupFilterButtonListeners();
         this.setupMessageFormListener();
+        this.setupMessageKeyboardShortcuts();
         this.setupAIAssistanceListener();
         this.setupAISuggestionListeners();
         this.setupTextareaAutoResize();
@@ -63,6 +64,32 @@ export class EventManager {
             messageForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.dashboard.sendMessage();
+            });
+        }
+    }
+
+    /**
+     * Setup keyboard shortcuts for message input
+     * - Enter: Line break
+     * - CMD+Enter (Mac) / Ctrl+Enter (Windows/Linux): Send message
+     */
+    setupMessageKeyboardShortcuts() {
+        const textarea = document.getElementById('message-input');
+        if (textarea) {
+            textarea.addEventListener('keydown', (e) => {
+                // Check for Enter key
+                if (e.key === 'Enter') {
+                    // CMD+Enter on Mac or Ctrl+Enter on Windows/Linux - Send message
+                    if (e.metaKey || e.ctrlKey) {
+                        e.preventDefault();
+                        this.dashboard.sendMessage();
+                        return;
+                    }
+
+                    // Plain Enter - Allow default behavior (line break)
+                    // The default textarea behavior will handle the line break
+                    // We don't need to prevent default here
+                }
             });
         }
     }
