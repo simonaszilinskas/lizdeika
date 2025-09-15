@@ -1179,7 +1179,7 @@ class AgentDashboard {
         if (!queueItem) {
             console.log('🔄 Refreshing conversation list to show new conversation:', data.conversationId);
             // Refresh the conversation list to show the new conversation
-            this.refreshConversations();
+            this.loadConversations();
         }
     }
 

@@ -79,10 +79,11 @@ class DatabaseClient {
     if (process.env.NODE_ENV !== 'production') {
       try {
         const { execSync } = require('child_process');
-        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-        console.log('✅ Database migrations completed');
+        // Use db push for development to avoid migration state issues
+        execSync('npx prisma db push', { stdio: 'inherit' });
+        console.log('✅ Database schema push completed');
       } catch (error) {
-        console.error('❌ Migration failed:', error);
+        console.error('❌ Schema push failed:', error);
         throw error;
       }
     }

@@ -179,12 +179,12 @@ async function main() {
 
     // Create system settings
     await prisma.system_settings.upsert({
-      where: { key: 'ticket_auto_assignment' },
-      update: { value: 'true', updated_by: admin.id, updated_at: new Date() },
+      where: { setting_key: 'ticket_auto_assignment' },
+      update: { setting_value: 'true', updated_by: admin.id, updated_at: new Date() },
       create: {
         id: 'setting_auto_assign',
-        key: 'ticket_auto_assignment',
-        value: 'true',
+        setting_key: 'ticket_auto_assignment',
+        setting_value: 'true',
         updated_by: admin.id,
         created_at: new Date(),
         updated_at: new Date(),
@@ -192,12 +192,12 @@ async function main() {
     });
 
     await prisma.system_settings.upsert({
-      where: { key: 'data_retention_months' },
-      update: { value: '6', updated_by: admin.id, updated_at: new Date() },
+      where: { setting_key: 'data_retention_months' },
+      update: { setting_value: '6', updated_by: admin.id, updated_at: new Date() },
       create: {
         id: 'setting_retention',
-        key: 'data_retention_months',
-        value: '6',
+        setting_key: 'data_retention_months',
+        setting_value: '6',
         updated_by: admin.id,
         created_at: new Date(),
         updated_at: new Date(),
