@@ -74,39 +74,60 @@ class SocketManager {
      */
     setupEventHandlers() {
         // Debug: Check if constants are loaded correctly
+        console.log('🔥 🐛 DEBUG: WEBSOCKET_EVENTS object:', WEBSOCKET_EVENTS);
         console.log('🔥 🐛 DEBUG: WEBSOCKET_EVENTS.NEW_MESSAGE:', WEBSOCKET_EVENTS?.NEW_MESSAGE);
         console.log('🔥 🐛 DEBUG: Setting up WebSocket event handlers');
+        console.log('🔥 🐛 DEBUG: About to register listener for event:', WEBSOCKET_EVENTS?.NEW_MESSAGE || 'UNDEFINED');
 
         // Connection events using direct Socket.io
         this.socket.on('connect', () => {
             console.log('✅ Connected to WebSocket server via direct Socket.io');
+            console.log('🔥 DEBUG: Socket ID:', this.socket.id);
+            console.log('🔥 DEBUG: Socket connected:', this.socket.connected);
             this.isConnected = true;
-            
+
             // Call dashboard's registration method
             if (this.eventHandlers.onConnect) {
                 this.eventHandlers.onConnect();
             }
         });
         
-        this.socket.on('disconnect', () => {
-            console.log('❌ Disconnected from WebSocket server');
+        this.socket.on('disconnect', (reason) => {
+            console.log('❌ Disconnected from WebSocket server, reason:', reason);
+            console.log('🔥 DEBUG: Disconnect reason details:', reason);
             this.isConnected = false;
-            
+
             if (this.eventHandlers.onDisconnect) {
                 this.eventHandlers.onDisconnect();
             }
         });
         
+        // DEBUG: Listen for ALL events to see what's actually being received
+        this.socket.onAny((eventName, ...args) => {
+            console.log('🔥 DEBUG: Raw WebSocket event received:', eventName, args);
+        });
+
+        // DEBUG: Add hardcoded listener as fallback test
+        this.socket.on('new-message', (data) => {
+            console.log('🔥 HARDCODED: Received new-message event:', data);
+        });
+
         // Application events - delegate to dashboard handlers
         this.socket.on(WEBSOCKET_EVENTS.NEW_MESSAGE, (data) => {
-            console.log('🔥 🐛 DEBUG: SocketManager received NEW_MESSAGE event');
-            console.log('🔥 🐛 DEBUG: NEW_MESSAGE data:', JSON.stringify(data, null, 2));
-            console.log('📨 NEW MESSAGE WEBSOCKET EVENT RECEIVED:', data);
-            if (this.eventHandlers.onNewMessage) {
-                console.log('🔥 🐛 DEBUG: Calling onNewMessage handler');
-                this.eventHandlers.onNewMessage(data);
-            } else {
-                console.error('❌ onNewMessage handler not found!');
+            try {
+                console.log('🔥 🐛 DEBUG: SocketManager received NEW_MESSAGE event');
+                console.log('🔥 🐛 DEBUG: NEW_MESSAGE data:', JSON.stringify(data, null, 2));
+                console.log('📨 NEW MESSAGE WEBSOCKET EVENT RECEIVED:', data);
+                if (this.eventHandlers.onNewMessage) {
+                    console.log('🔥 🐛 DEBUG: Calling onNewMessage handler');
+                    this.eventHandlers.onNewMessage(data);
+                    console.log('🔥 🐛 DEBUG: onNewMessage handler completed successfully');
+                } else {
+                    console.error('❌ onNewMessage handler not found!');
+                }
+            } catch (error) {
+                console.error('💥 Error in NEW_MESSAGE handler:', error);
+                console.error('💥 Error stack:', error.stack);
             }
         });
         
