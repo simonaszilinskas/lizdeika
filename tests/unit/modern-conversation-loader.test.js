@@ -247,52 +247,40 @@ describe('ConversationSorter', () => {
         sorter = new ConversationSorter();
     });
 
-    describe('Response Detection', () => {
-        test('should detect conversations needing response', () => {
-            const conv = {
-                lastMessage: {
-                    metadata: { pendingAgent: true }
-                }
-            };
-            expect(sorter.needsResponse(conv)).toBe(true);
-        });
+    // Response detection removed - no longer needed with simplified sorting
 
-        test('should detect conversations not needing response', () => {
-            const conv = {
-                lastMessage: {
-                    metadata: { pendingAgent: false }
-                }
-            };
-            expect(sorter.needsResponse(conv)).toBe(false);
-        });
-
-        test('should handle conversations without metadata', () => {
-            const conv = { lastMessage: {} };
-            expect(sorter.needsResponse(conv)).toBe(false);
-        });
-    });
-
-    describe('Priority Sorting', () => {
-        test('should prioritize my tickets needing response', () => {
+    describe('Timestamp Sorting', () => {
+        test('should sort conversations by most recent activity', () => {
             const conversations = [
-                { id: '1', assignedAgent: 'other', lastMessage: { metadata: { pendingAgent: true } }, updatedAt: '2023-01-01' },
-                { id: '2', assignedAgent: 'agent1', lastMessage: { metadata: { pendingAgent: true } }, updatedAt: '2023-01-01' },
-                { id: '3', assignedAgent: 'agent1', lastMessage: { metadata: { pendingAgent: false } }, updatedAt: '2023-01-02' }
+                { id: '1', updatedAt: '2023-01-01T10:00:00Z', startedAt: '2023-01-01T09:00:00Z' },
+                { id: '2', updatedAt: '2023-01-03T10:00:00Z', startedAt: '2023-01-03T09:00:00Z' },
+                { id: '3', updatedAt: '2023-01-02T10:00:00Z', startedAt: '2023-01-02T09:00:00Z' }
             ];
-            
-            const result = sorter.sortByPriority(conversations, 'agent1');
-            expect(result[0].id).toBe('2'); // My ticket needing response
+
+            const result = sorter.sortByPriority(conversations);
+            expect(result.map(c => c.id)).toEqual(['2', '3', '1']); // Most recent first
         });
 
-        test('should sort by recent activity for same priority', () => {
+        test('should fallback to startedAt if updatedAt is missing', () => {
             const conversations = [
-                { id: '1', assignedAgent: null, updatedAt: '2023-01-01' },
-                { id: '2', assignedAgent: null, updatedAt: '2023-01-03' },
-                { id: '3', assignedAgent: null, updatedAt: '2023-01-02' }
+                { id: '1', startedAt: '2023-01-01T10:00:00Z' },
+                { id: '2', startedAt: '2023-01-03T10:00:00Z' },
+                { id: '3', startedAt: '2023-01-02T10:00:00Z' }
             ];
-            
-            const result = sorter.sortByPriority(conversations, 'agent1');
-            expect(result.map(c => c.id)).toEqual(['2', '3', '1']);
+
+            const result = sorter.sortByPriority(conversations);
+            expect(result.map(c => c.id)).toEqual(['2', '3', '1']); // Most recent first
+        });
+
+        test('should ignore assignment and priority metadata', () => {
+            const conversations = [
+                { id: '1', assignedAgent: 'agent1', lastMessage: { metadata: { pendingAgent: true } }, updatedAt: '2023-01-01T10:00:00Z' },
+                { id: '2', assignedAgent: null, lastMessage: { metadata: { pendingAgent: false } }, updatedAt: '2023-01-03T10:00:00Z' },
+                { id: '3', assignedAgent: 'other-agent', lastMessage: { metadata: { pendingAgent: true } }, updatedAt: '2023-01-02T10:00:00Z' }
+            ];
+
+            const result = sorter.sortByPriority(conversations);
+            expect(result.map(c => c.id)).toEqual(['2', '3', '1']); // Pure timestamp sorting
         });
     });
 });

@@ -150,37 +150,11 @@ class ConversationSorter {
     }
 
     /**
-     * Check if conversation needs agent response
+     * Sort conversations by most recent message timestamp (simple and predictable)
      */
-    needsResponse(conv) {
-        return !!(conv.lastMessage && 
-                  conv.lastMessage.metadata && 
-                  conv.lastMessage.metadata.pendingAgent === true);
-    }
-
-    /**
-     * Sort conversations by priority
-     */
-    sortByPriority(conversations, agentId) {
+    sortByPriority(conversations) {
         return conversations.sort((a, b) => {
-            const aNeedsResponse = this.needsResponse(a);
-            const bNeedsResponse = this.needsResponse(b);
-            const aIsMine = a.assignedAgent === agentId;
-            const bIsMine = b.assignedAgent === agentId;
-            
-            // Priority 1: My tickets with responses needed
-            if (aIsMine && aNeedsResponse && (!bIsMine || !bNeedsResponse)) return -1;
-            if (bIsMine && bNeedsResponse && (!aIsMine || !aNeedsResponse)) return 1;
-            
-            // Priority 2: My tickets (even without response needed)
-            if (aIsMine && !bIsMine) return -1;
-            if (bIsMine && !aIsMine) return 1;
-            
-            // Priority 3: Other tickets needing response
-            if (aNeedsResponse && !bNeedsResponse) return -1;
-            if (bNeedsResponse && !aNeedsResponse) return 1;
-            
-            // Priority 4: Sort by most recent activity
+            // Simple rule: Most recent message/activity first
             const aTime = new Date(a.updatedAt || a.startedAt);
             const bTime = new Date(b.updatedAt || b.startedAt);
             return bTime - aTime;
@@ -326,10 +300,9 @@ class ConversationLoader {
             filters
         );
         
-        // Sort by priority
+        // Sort by most recent message/activity
         this.filteredConversations = this.sorter.sortByPriority(
-            this.filteredConversations, 
-            filters.agentId
+            this.filteredConversations
         );
         
         this.logger.log(`📊 Processed: ${this.allConversations.length} → ${this.filteredConversations.length} conversations`);
