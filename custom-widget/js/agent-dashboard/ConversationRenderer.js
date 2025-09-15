@@ -700,7 +700,7 @@ export class ConversationRenderer {
         // Get the conversation data from the modern loader
         const conversationData = this.dashboard.modernConversationLoader.getConversations();
         const conversation = conversationData.all.find(conv => conv.id === conversationId);
-        
+
         if (!conversation) {
             console.log(`⚠️ Conversation data not found for ${conversationId}, cannot refresh styling`);
             return false;
@@ -709,8 +709,8 @@ export class ConversationRenderer {
         // Calculate current state values
         const currentChatId = this.stateManager.getCurrentChatId();
         const isActive = conversation.id === currentChatId;
-        const needsResponse = !!(conversation.lastMessage && 
-                                conversation.lastMessage.metadata && 
+        const needsResponse = !!(conversation.lastMessage &&
+                                conversation.lastMessage.metadata &&
                                 conversation.lastMessage.metadata.pendingAgent === true);
         const isAssignedToMe = conversation.assignedAgent === this.dashboard.agentId;
         const isUnassigned = !conversation.assignedAgent;
@@ -723,15 +723,35 @@ export class ConversationRenderer {
 
         // Update the queue item's CSS classes while preserving base layout classes
         queueItem.className = `chat-queue-item p-3 rounded-lg cursor-pointer border ${newCssClass}`;
-        
-        // Update status label and styling
-        const statusElement = queueItem.querySelector('.queue-item-status');
+
+        // Update status label and styling - use correct selector for status element
+        const statusElement = queueItem.querySelector('.flex.flex-col.items-end.gap-1 span:first-child');
         if (statusElement) {
             statusElement.textContent = newStatusLabel;
-            statusElement.className = `queue-item-status ${newStatusCss}`;
+            statusElement.className = `text-xs px-2 py-1 rounded ${newStatusCss}`;
         }
 
-        console.log(`✨ Refreshed styling for ${conversationId}: isUnseen=${isUnseen}, CSS=${newCssClass}`);
+        // Update unseen count badge - remove if conversation is now seen
+        const unseenCount = this.dashboard.uiHelpers.getUnseenIndicatorCount(conversation, isAssignedToMe);
+        const unseenBadge = queueItem.querySelector('.bg-red-600.rounded-full');
+
+        if (unseenCount === 0 && unseenBadge) {
+            // Remove unseen badge immediately when conversation is marked as seen
+            unseenBadge.remove();
+            console.log(`🏷️ Removed unseen badge for ${conversationId}`);
+        } else if (unseenCount > 0 && !unseenBadge) {
+            // Add unseen badge if needed (rare case, but for completeness)
+            const userNumberSpan = queueItem.querySelector('.font-medium.text-sm .flex.items-center.gap-2');
+            if (userNumberSpan) {
+                const badge = document.createElement('span');
+                badge.className = 'inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full';
+                badge.textContent = unseenCount.toString();
+                userNumberSpan.appendChild(badge);
+                console.log(`🏷️ Added unseen badge for ${conversationId}`);
+            }
+        }
+
+        console.log(`✨ Refreshed styling for ${conversationId}: isUnseen=${isUnseen}, unseenCount=${unseenCount}, CSS=${newCssClass}`);
         return true;
     }
 

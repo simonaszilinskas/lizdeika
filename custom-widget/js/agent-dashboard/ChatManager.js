@@ -47,18 +47,18 @@ export class ChatManager {
         try {
             // Load messages first (this also updates conversation data)
             await this.loadChatMessages(conversationId);
-            
-            // Always check for pending suggestions in HITL mode 
+
+            // Always check for pending suggestions in HITL mode
             // The API will return 404 if no suggestion exists, which is fine
             if (this.dashboard.systemMode === 'hitl') {
                 await this.checkForPendingSuggestion(conversationId);
             }
-            
+
             // Show chat interface
             this.showChatInterface(conversationId);
 
-            // Refresh conversation styling without full reload to preserve scroll position
-            this.conversationRenderer.refreshConversationStyling(conversationId);
+            // Note: refreshConversationStyling is already called in markConversationAsSeen above
+            // No need for duplicate call here
         } catch (error) {
             console.error('Error selecting chat:', error);
         }
