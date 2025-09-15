@@ -532,6 +532,39 @@ class ConversationController {
         }
     }
 
+    /**
+     * Mark messages as seen by agent
+     */
+    async markMessagesAsSeen(req, res) {
+        try {
+            const { conversationId } = req.params;
+            const { agentId } = req.body;
+
+            console.log(`📖 Marking messages as seen for conversation ${conversationId} by agent ${agentId}`);
+
+            // Update the conversation's last seen timestamp for this agent
+            await conversationService.markConversationAsSeenByAgent(conversationId, agentId);
+
+            // Emit WebSocket event to update real-time UI
+            if (this.io) {
+                this.io.to('agents').emit('conversation-seen-update', {
+                    conversationId,
+                    agentId,
+                    seenAt: new Date().toISOString()
+                });
+            }
+
+            res.json({
+                success: true,
+                message: 'Messages marked as seen'
+            });
+
+        } catch (error) {
+            console.error('Error marking messages as seen:', error);
+            res.status(500).json({ error: 'Failed to mark messages as seen' });
+        }
+    }
+
 
 
     /**

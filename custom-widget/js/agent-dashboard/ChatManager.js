@@ -40,9 +40,9 @@ export class ChatManager {
         }
         
         this.stateManager.setCurrentChatId(conversationId);
-        
+
         // Mark conversation as seen immediately when selected
-        this.conversationRenderer.markConversationAsSeen(conversationId);
+        await this.conversationRenderer.markConversationAsSeen(conversationId);
         
         try {
             // Load messages first (this also updates conversation data)

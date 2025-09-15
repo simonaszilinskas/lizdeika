@@ -80,6 +80,11 @@ function createConversationRoutes(io) {
         conversationController.endConversation(req, res);
     });
 
+    // Mark messages as seen by agent
+    router.post('/conversations/:conversationId/mark-seen', (req, res) => {
+        conversationController.markMessagesAsSeen(req, res);
+    });
+
     // Bulk operations (admin-only endpoints)
     router.post('/admin/conversations/bulk-archive', (req, res) => {
         conversationController.bulkArchiveConversations(req, res);

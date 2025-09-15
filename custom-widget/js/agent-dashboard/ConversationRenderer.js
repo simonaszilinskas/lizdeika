@@ -53,7 +53,7 @@ export class ConversationRenderer {
     }
 
     /**
-     * Render conversation queue with scroll position preservation
+     * Render conversation queue with differential updates
      * @param {Array} conversations - Array of conversation objects
      */
     renderQueue(conversations) {
@@ -64,15 +64,84 @@ export class ConversationRenderer {
             return;
         }
 
-        // Preserve scroll position during re-render
-        this.preserveScrollPosition(queueContainer, () => {
-            // Sort conversations by priority
-            const sorted = this.sortConversationsByPriority(conversations);
-            console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
+        // Sort conversations by priority
+        const sorted = this.sortConversationsByPriority(conversations);
+        console.log(`📝 Sorted conversations, rendering ${sorted.length} items`);
 
-            queueContainer.innerHTML = sorted.map(conv => this.renderQueueItem(conv)).join('');
-            console.log('✅ Queue rendered successfully');
+        // Use differential updates instead of full re-render
+        this.updateQueueDifferentially(queueContainer, sorted);
+        console.log('✅ Queue updated differentially');
+    }
+
+    /**
+     * Update queue using differential updates to minimize DOM manipulation
+     * @param {Element} container - Queue container element
+     * @param {Array} conversations - Sorted conversation array
+     */
+    updateQueueDifferentially(container, conversations) {
+        const existingItems = Array.from(container.children);
+        const existingIds = existingItems.map(item => item.dataset.conversationId);
+        const newIds = conversations.map(conv => conv.id);
+
+        let updateCount = 0;
+        let insertCount = 0;
+        let removeCount = 0;
+
+        // Process each conversation
+        conversations.forEach((conv, index) => {
+            const existingIndex = existingIds.indexOf(conv.id);
+            const newHtml = this.renderQueueItem(conv);
+
+            if (existingIndex === -1) {
+                // New conversation - insert
+                const newElement = this.createElementFromHTML(newHtml);
+                if (index < container.children.length) {
+                    container.insertBefore(newElement, container.children[index]);
+                } else {
+                    container.appendChild(newElement);
+                }
+                insertCount++;
+            } else {
+                // Existing conversation - check if update needed
+                const existingElement = existingItems[existingIndex];
+
+                // Move to correct position if needed
+                if (existingIndex !== index) {
+                    if (index < container.children.length) {
+                        container.insertBefore(existingElement, container.children[index]);
+                    } else {
+                        container.appendChild(existingElement);
+                    }
+                }
+
+                // Check if content needs update by comparing HTML
+                if (existingElement.outerHTML !== newHtml) {
+                    existingElement.outerHTML = newHtml;
+                    updateCount++;
+                }
+            }
         });
+
+        // Remove conversations that no longer exist
+        existingItems.forEach(item => {
+            if (!newIds.includes(item.dataset.conversationId)) {
+                item.remove();
+                removeCount++;
+            }
+        });
+
+        console.log(`📊 Differential update stats: ${updateCount} updated, ${insertCount} inserted, ${removeCount} removed`);
+    }
+
+    /**
+     * Create DOM element from HTML string
+     * @param {string} htmlString - HTML string
+     * @returns {Element} DOM element
+     */
+    createElementFromHTML(htmlString) {
+        const template = document.createElement('template');
+        template.innerHTML = htmlString.trim();
+        return template.content.firstChild;
     }
 
     /**
@@ -585,11 +654,33 @@ export class ConversationRenderer {
      * Updates localStorage with current timestamp and immediately refreshes UI
      * @param {string} conversationId - ID of conversation to mark as seen
      */
-    markConversationAsSeen(conversationId) {
+    async markConversationAsSeen(conversationId) {
         const timestamp = new Date().toISOString();
         localStorage.setItem(`lastSeen_${conversationId}`, timestamp);
-        console.log(`👁️ Marked conversation ${conversationId} as seen at ${timestamp}`);
-        
+        console.log(`👁️ Marking conversation ${conversationId} as seen at ${timestamp}`);
+
+        try {
+            // Make API call to mark messages as seen in the backend
+            const response = await fetch(`/api/conversations/${conversationId}/mark-seen`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    agentId: this.agentId
+                })
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log(`✅ Successfully marked conversation ${conversationId} as seen in backend:`, result);
+            } else {
+                console.error(`❌ Failed to mark conversation ${conversationId} as seen in backend:`, response.status);
+            }
+        } catch (error) {
+            console.error(`💥 Error marking conversation ${conversationId} as seen:`, error);
+        }
+
         // Trigger immediate styling refresh for real-time updates without full reload
         this.refreshConversationStyling(conversationId);
     }

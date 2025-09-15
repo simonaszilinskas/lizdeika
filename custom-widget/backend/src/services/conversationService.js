@@ -969,6 +969,50 @@ class ConversationService {
     }
 
     /**
+     * Mark conversation as seen by agent
+     * Updates the conversation's metadata to track when the agent last viewed it
+     */
+    async markConversationAsSeenByAgent(conversationId, agentId) {
+        try {
+            const ticket = await prisma.tickets.findUnique({
+                where: { id: conversationId }
+            });
+
+            if (!ticket) {
+                throw new Error(`Conversation ${conversationId} not found`);
+            }
+
+            // Create or update the seenBy metadata
+            const currentMetadata = ticket.metadata || {};
+            const seenBy = currentMetadata.seenBy || {};
+
+            // Update the agent's last seen timestamp
+            seenBy[agentId] = new Date().toISOString();
+
+            const updatedMetadata = {
+                ...currentMetadata,
+                seenBy
+            };
+
+            // Update the ticket with the new metadata
+            await prisma.tickets.update({
+                where: { id: conversationId },
+                data: {
+                    metadata: updatedMetadata,
+                    updated_at: new Date()
+                }
+            });
+
+            console.log(`✅ Conversation ${conversationId} marked as seen by agent ${agentId}`);
+            return true;
+
+        } catch (error) {
+            console.error(`Failed to mark conversation as seen:`, error);
+            throw error;
+        }
+    }
+
+    /**
      * Map sender type to database enum
      */
     mapSenderTypeToEnum(sender) {

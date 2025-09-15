@@ -371,15 +371,26 @@ class AgentDashboard {
             clearInterval(this.queueRefreshInterval);
         }
 
-        // Refresh conversations every 5 seconds with smart diff detection
+        // Track user interactions to avoid updates while user is active
+        this.lastUserInteraction = Date.now();
+        this.setupInteractionTracking();
+
+        // Refresh conversations every 15 seconds with smart diff detection
         this.queueRefreshInterval = setInterval(async () => {
             try {
+                // Skip refresh if user was recently active (within last 3 seconds)
+                const timeSinceLastInteraction = Date.now() - this.lastUserInteraction;
+                if (timeSinceLastInteraction < 3000) {
+                    console.log('⏸️ Skipping auto-refresh: user recently active');
+                    return;
+                }
+
                 console.log('🔄 Smart auto-refresh: checking for changes...');
                 await this.smartRefreshConversations();
             } catch (error) {
                 console.error('Error in smart auto-refresh:', error);
             }
-        }, 5000); // 5 seconds
+        }, 15000); // 15 seconds (reduced from 5 seconds)
 
         console.log('✅ Smart auto-refresh started - UI only updates when changes detected');
     }
@@ -439,33 +450,66 @@ class AgentDashboard {
 
         // Quick checks for obvious changes
         if (currentConversations.length !== newConversations.length) {
+            console.log('🔄 Change detected: conversation count changed');
             return true;
         }
 
-        // Check each conversation for changes
+        // Check each conversation for meaningful changes only
         for (let i = 0; i < newConversations.length; i++) {
             const current = currentConversations[i];
             const fresh = newConversations[i];
 
             if (!current || current.id !== fresh.id) {
+                console.log('🔄 Change detected: conversation order or ID changed');
                 return true;
             }
 
-            // Check for message changes
-            const currentLastMsg = current.lastMessage?.timestamp || current.updatedAt;
-            const freshLastMsg = fresh.lastMessage?.timestamp || fresh.updatedAt;
+            // Check for meaningful message changes (ignore minor timestamp precision differences)
+            const currentMsgId = current.lastMessage?.id;
+            const freshMsgId = fresh.lastMessage?.id;
 
-            if (currentLastMsg !== freshLastMsg) {
+            if (currentMsgId !== freshMsgId) {
+                console.log(`🔄 Change detected: new message in conversation ${fresh.id}`);
                 return true;
             }
 
-            // Check assignment changes
+            // Check assignment changes (meaningful for UI)
             if (current.assignedAgent !== fresh.assignedAgent) {
+                console.log(`🔄 Change detected: assignment changed for conversation ${fresh.id}`);
+                return true;
+            }
+
+            // Check status changes (archived, priority, etc)
+            if (current.isArchived !== fresh.isArchived) {
+                console.log(`🔄 Change detected: archive status changed for conversation ${fresh.id}`);
+                return true;
+            }
+
+            // Check for unseen count changes (important for UI badges)
+            if (current.unseenCount !== fresh.unseenCount) {
+                console.log(`🔄 Change detected: unseen count changed for conversation ${fresh.id}`);
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Setup interaction tracking to avoid refreshes while user is active
+     */
+    setupInteractionTracking() {
+        const interactionEvents = ['click', 'scroll', 'keydown', 'mousemove'];
+        const trackInteraction = () => {
+            this.lastUserInteraction = Date.now();
+        };
+
+        // Track interactions on the document
+        interactionEvents.forEach(event => {
+            document.addEventListener(event, trackInteraction, { passive: true });
+        });
+
+        console.log('👂 User interaction tracking setup complete');
     }
 
     /**
