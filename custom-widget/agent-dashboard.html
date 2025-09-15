@@ -271,21 +271,18 @@
                     </div>
                     <div class="flex items-center gap-4">
                         <!-- Personal Agent Status -->
-                        <div class="flex items-center gap-2">
-                            <div id="agent-status-dot" class="w-3 h-3 rounded-full agent-online"></div>
-                            <select id="personal-status" class="bg-indigo-500 text-white text-sm border-0 rounded px-2 py-1">
+                        <div class="relative flex items-center">
+                            <div id="agent-status-dot" class="w-2 h-2 rounded-full agent-online absolute z-10" style="left: 10px;"></div>
+                            <select id="personal-status" class="bg-indigo-500 text-white text-sm border-0 rounded px-2 py-1 pl-7">
                                 <option value="online">Online</option>
                                 <option value="offline">Offline</option>
                             </select>
                         </div>
-                        
-                        <!-- Connected Agents - Compact -->
-                        <div class="flex items-center gap-1">
-                            <i class="fas fa-users text-xs text-indigo-200"></i>
-                            <span id="total-agents-compact" class="text-xs bg-indigo-500 text-white px-1 py-0.5 rounded">0</span>
-                            <div id="connected-agents-compact" class="flex gap-1">
-                                <!-- Connected agents will be populated here as small dots -->
-                            </div>
+
+                        <!-- Connected Agents Count -->
+                        <div class="flex items-center gap-2 border-l border-indigo-400 pl-4">
+                            <i class="fas fa-users text-sm text-indigo-200"></i>
+                            <span id="total-agents-compact" class="text-sm font-medium text-white" title="Connected agents">0</span>
                         </div>
                     </div>
                 </div>

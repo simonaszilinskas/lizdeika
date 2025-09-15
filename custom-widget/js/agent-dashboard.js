@@ -557,17 +557,16 @@ class AgentDashboard {
             this.bulkOperations.populateAgentsDropdown();
         }
         
-        // Update compact format in header
-        const compactContainer = document.getElementById('connected-agents-compact');
+        // Update compact format in header (simplified - just count)
         const totalAgentsCompact = document.getElementById('total-agents-compact');
-        
-        if (compactContainer && totalAgentsCompact) {
+
+        if (totalAgentsCompact) {
             totalAgentsCompact.textContent = agents.length;
-            
+
             // Create tooltip content with agent names grouped by status
             const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
             const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
-            
+
             let tooltipContent = '';
             if (onlineAgents.length > 0) {
                 tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
@@ -579,20 +578,9 @@ class AgentDashboard {
             if (!tooltipContent) {
                 tooltipContent = 'No agents connected';
             }
-            
+
             // Add tooltip to the agent count element
             totalAgentsCompact.title = tooltipContent;
-            
-            // Show agents as small colored dots with individual tooltips
-            compactContainer.innerHTML = agents.map(agent => {
-                const statusColor = agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400';
-                const displayName = getAgentDisplayName(agent);
-                return `
-                    <div class="w-2 h-2 rounded-full ${statusColor}" 
-                         title="${displayName} (${agent.personalStatus || 'online'})">
-                    </div>
-                `;
-            }).join('');
         }
         
         // Update old format (for compatibility if it exists elsewhere)
