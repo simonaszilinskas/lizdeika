@@ -970,7 +970,8 @@ class ConversationService {
 
     /**
      * Mark conversation as seen by agent
-     * Updates the conversation's metadata to track when the agent last viewed it
+     * For now, just updates the ticket's updated_at timestamp to track activity
+     * In the future, could add a proper seen_by tracking table
      */
     async markConversationAsSeenByAgent(conversationId, agentId) {
         try {
@@ -982,23 +983,11 @@ class ConversationService {
                 throw new Error(`Conversation ${conversationId} not found`);
             }
 
-            // Create or update the seenBy metadata
-            const currentMetadata = ticket.metadata || {};
-            const seenBy = currentMetadata.seenBy || {};
-
-            // Update the agent's last seen timestamp
-            seenBy[agentId] = new Date().toISOString();
-
-            const updatedMetadata = {
-                ...currentMetadata,
-                seenBy
-            };
-
-            // Update the ticket with the new metadata
+            // Simply update the ticket's updated_at timestamp
+            // This is enough to reset the "unseen" status for now
             await prisma.tickets.update({
                 where: { id: conversationId },
                 data: {
-                    metadata: updatedMetadata,
                     updated_at: new Date()
                 }
             });
