@@ -66,6 +66,9 @@ import { Toast } from './agent-dashboard/utils/Toast.js';
 // Import core conversation loader
 import { ConversationLoader } from './agent-dashboard/core/ConversationLoader.js';
 
+// Import sidebar manager
+import { SidebarManager } from './agent-dashboard/SidebarManager.js';
+
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -151,7 +154,10 @@ class AgentDashboard {
         // Initialize sound notification manager
         this.soundNotificationManager = null;
         this.initializeSoundNotifications();
-        
+
+        // Initialize sidebar manager
+        this.sidebarManager = new SidebarManager(this);
+
         // Make dashboard globally available immediately
         window.dashboard = this;
         
