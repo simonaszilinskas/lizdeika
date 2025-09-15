@@ -29,20 +29,23 @@ export class UIHelpers {
      */
     conversationIsUnseen(conv) {
         if (!conv.lastMessage) return false;
-        
-        // SIMPLIFIED: Use backend-provided unseen status if available
+
+        // PRIORITY 1: Check localStorage first - agent explicitly viewed this conversation
+        const lastSeenTime = localStorage.getItem(`lastSeen_${conv.id}`);
+        if (lastSeenTime) {
+            const lastMessageTime = new Date(conv.lastMessage.timestamp || conv.updatedAt);
+            const agentLastSeenTime = new Date(lastSeenTime);
+            // If agent has seen it more recently than last message, it's not unseen
+            return lastMessageTime > agentLastSeenTime;
+        }
+
+        // PRIORITY 2: Use backend-provided status for conversations not yet viewed by agent
         if (conv.hasOwnProperty('_unseenByAgent')) {
             return conv._unseenByAgent;
         }
-        
-        // FALLBACK: Check localStorage for conversations not yet updated by WebSocket
-        const lastSeenTime = localStorage.getItem(`lastSeen_${conv.id}`);
-        if (!lastSeenTime) return true;
-        
-        const lastMessageTime = new Date(conv.lastMessage.timestamp || conv.updatedAt);
-        const agentLastSeenTime = new Date(lastSeenTime);
-        
-        return lastMessageTime > agentLastSeenTime;
+
+        // FALLBACK: Assume unseen if no data available
+        return true;
     }
 
     /**

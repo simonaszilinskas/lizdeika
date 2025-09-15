@@ -1167,17 +1167,19 @@ class AgentDashboard {
      * @param {Object} data - Conversation data
      */
     handleNewConversation(data) {
+        console.log('🆕 New conversation received via WebSocket:', data.conversationId);
+
         // Play sound notification for new conversations
         if (this.soundNotificationManager) {
             this.soundNotificationManager.onNewConversation(data);
         }
-        
-        // Check if conversation already exists in queue - if not, it will appear via preview system
+
+        // Check if conversation already exists in queue
         const queueItem = document.querySelector(`[data-conversation-id="${data.conversationId}"]`);
         if (!queueItem) {
-            console.log('🔄 New conversation will be shown via preview system:', data.conversationId);
-            // Preview system will handle showing new conversations via WebSocket events
-            // No need for full queue reload which would override preview updates
+            console.log('🔄 Refreshing conversation list to show new conversation:', data.conversationId);
+            // Refresh the conversation list to show the new conversation
+            this.refreshConversations();
         }
     }
 
