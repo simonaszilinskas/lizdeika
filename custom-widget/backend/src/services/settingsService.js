@@ -72,16 +72,16 @@ const SETTING_SCHEMAS = {
         ai_provider: z.enum(['flowise', 'openrouter']),
 
         // Flowise Settings
-        flowise_url: z.string().url().optional().or(z.literal('')),
-        flowise_chatflow_id: z.string().min(1).optional().or(z.literal('')),
-        flowise_api_key: z.string().optional().or(z.literal('')),
+        flowise_url: z.union([z.literal(''), z.string().url()]).optional(),
+        flowise_chatflow_id: z.union([z.literal(''), z.string().min(1)]).optional(),
+        flowise_api_key: z.union([z.literal(''), z.string()]).optional(),
 
         // OpenRouter Settings
-        openrouter_api_key: z.string().min(10).optional().or(z.literal('')),
-        openrouter_model: z.string().min(1).optional().or(z.literal('')),
-        rephrasing_model: z.string().min(1).optional().or(z.literal('')),
-        site_url: z.string().url().optional().or(z.literal('')),
-        site_name: z.string().min(1).optional().or(z.literal(''))
+        openrouter_api_key: z.union([z.literal(''), z.string().min(10)]).optional(),
+        openrouter_model: z.union([z.literal(''), z.string().min(1)]).optional(),
+        rephrasing_model: z.union([z.literal(''), z.string().min(1)]).optional(),
+        site_url: z.union([z.literal(''), z.string().url()]).optional(),
+        site_name: z.union([z.literal(''), z.string().min(1)]).optional()
     }
 };
 
