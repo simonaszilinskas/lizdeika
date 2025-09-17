@@ -1,6 +1,6 @@
 /**
- * Vilnius Assistant - Database Seeder
- * Creates initial data for Phase 3 development and testing
+ * Vilnius Assistant - Minimal Database Seeder
+ * Creates only essential data for development and testing
  */
 
 const { PrismaClient } = require('@prisma/client');
@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting database seeding...');
+  console.log('🌱 Starting minimal database seeding...');
 
   try {
     // Create default admin user
@@ -31,18 +31,18 @@ async function main() {
     });
     console.log('✅ Created admin user:', admin.email);
 
-    // Create sample agents
+    // Create one sample agent
     const agentPassword = await bcrypt.hash('agent123', 12);
-    
-    const agent1 = await prisma.users.upsert({
-      where: { email: 'agent1@vilnius.lt' },
+
+    const agent = await prisma.users.upsert({
+      where: { email: 'agent@vilnius.lt' },
       update: {},
       create: {
         id: 'agent_user_001',
-        email: 'agent1@vilnius.lt',
+        email: 'agent@vilnius.lt',
         password_hash: agentPassword,
-        first_name: 'Petras',
-        last_name: 'Petraitis',
+        first_name: 'Test',
+        last_name: 'Agent',
         role: 'agent',
         email_verified: true,
         is_active: true,
@@ -50,50 +50,23 @@ async function main() {
       },
     });
 
-    const agent2 = await prisma.users.upsert({
-      where: { email: 'agent2@vilnius.lt' },
-      update: {},
-      create: {
-        id: 'agent_user_002',
-        email: 'agent2@vilnius.lt',
-        password_hash: agentPassword,
-        first_name: 'Jonas',
-        last_name: 'Jonaitis',
-        role: 'agent',
-        email_verified: true,
-        is_active: true,
-        updated_at: new Date(),
-      },
-    });
+    console.log('✅ Created sample agent:', agent.email);
 
-    console.log('✅ Created sample agents:', agent1.email, agent2.email);
-
-    // Set agent statuses
+    // Set agent status
     await prisma.agent_status.upsert({
-      where: { user_id: agent1.id },
+      where: { user_id: agent.id },
       update: { status: 'online', updated_at: new Date() },
       create: {
-        id: agent1.id + '_status',
-        user_id: agent1.id,
+        id: agent.id + '_status',
+        user_id: agent.id,
         status: 'online',
         updated_at: new Date(),
       },
     });
 
-    await prisma.agent_status.upsert({
-      where: { user_id: agent2.id },
-      update: { status: 'offline', updated_at: new Date() },
-      create: {
-        id: agent2.id + '_status',
-        user_id: agent2.id,
-        status: 'offline',
-        updated_at: new Date(),
-      },
-    });
+    console.log('✅ Set agent status');
 
-    console.log('✅ Set agent statuses');
-
-    // Create sample regular user
+    // Create one sample user
     const userPassword = await bcrypt.hash('user123', 12);
     const user = await prisma.users.upsert({
       where: { email: 'user@example.com' },
@@ -102,8 +75,8 @@ async function main() {
         id: 'regular_user_001',
         email: 'user@example.com',
         password_hash: userPassword,
-        first_name: 'Mantas',
-        last_name: 'Mankus',
+        first_name: 'Test',
+        last_name: 'User',
         role: 'user',
         email_verified: true,
         is_active: true,
@@ -112,19 +85,19 @@ async function main() {
     });
     console.log('✅ Created sample user:', user.email);
 
-    // Create sample ticket
+    // Create one simple ticket
     const ticket = await prisma.tickets.upsert({
       where: { ticket_number: 'VIL-2024-001' },
       update: {},
       create: {
-        id: 'ticket_' + Date.now(),
+        id: 'ticket_simple',
         ticket_number: 'VIL-2024-001',
         user_id: user.id,
-        assigned_agent_id: agent1.id,
+        assigned_agent_id: agent.id,
         priority: 'medium',
         category: 'general',
-        subject: 'Klausimas dėl gyvenamosios vietos deklaravimo',
-        description: 'Norėčiau sužinoti kaip deklaruoti gyvenamąją vietą Vilniuje',
+        subject: 'Test klausimas',
+        description: 'Paprastas klausimas testavimui',
         source: 'widget',
         created_at: new Date(),
         updated_at: new Date(),
@@ -132,102 +105,26 @@ async function main() {
     });
     console.log('✅ Created sample ticket:', ticket.ticket_number);
 
-    // Create sample messages for the ticket
-    await prisma.messages.createMany({
-      data: [
-        {
-          id: 'msg_' + Date.now() + '_1',
-          ticket_id: ticket.id,
-          sender_id: user.id,
-          senderType: 'user',
-          content: 'Labas, norėčiau sužinoti kaip deklaruoti gyvenamąją vietą Vilniuje?',
-          message_type: 'text',
-        },
-        {
-          id: 'msg_' + Date.now() + '_2',
-          ticket_id: ticket.id,
-          sender_id: null, // AI response
-          senderType: 'ai',
-          content: 'Sveiki! Gyvenamosios vietos deklaravimui Vilniuje reikia kreiptis į...',
-          message_type: 'ai_response',
-        },
-        {
-          id: 'msg_' + Date.now() + '_3',
-          ticket_id: ticket.id,
-          sender_id: agent1.id,
-          senderType: 'agent',
-          content: 'Papildant AI atsakymą - galiu padėti su dokumentais jei reikia.',
-          message_type: 'text',
-        },
-      ],
-    });
-    console.log('✅ Created sample messages');
-
-    // Create ticket action log
-    await prisma.ticket_actions.create({
+    // Create one simple message
+    await prisma.messages.create({
       data: {
-        id: 'action_' + Date.now(),
+        id: 'msg_simple',
         ticket_id: ticket.id,
-        performed_by: admin.id,
-        action: 'assigned',
-        new_value: agent1.id,
-        reason: 'Automatic assignment to available agent',
+        sender_id: user.id,
+        senderType: 'user',
+        content: 'Sveiki, ar galite padėti?',
+        message_type: 'text',
         created_at: new Date(),
       },
     });
-    console.log('✅ Created ticket action log');
+    console.log('✅ Created sample message');
 
-    // Create system settings
-    await prisma.system_settings.upsert({
-      where: { setting_key: 'ticket_auto_assignment' },
-      update: { setting_value: 'true', updated_by: admin.id, updated_at: new Date() },
-      create: {
-        id: 'setting_auto_assign',
-        setting_key: 'ticket_auto_assignment',
-        setting_value: 'true',
-        updated_by: admin.id,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    });
-
-    await prisma.system_settings.upsert({
-      where: { setting_key: 'data_retention_months' },
-      update: { setting_value: '6', updated_by: admin.id, updated_at: new Date() },
-      create: {
-        id: 'setting_retention',
-        setting_key: 'data_retention_months',
-        setting_value: '6',
-        updated_by: admin.id,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    });
-
-    console.log('✅ Created system settings');
-
-    // Create system log entry
-    await prisma.system_logs.create({
-      data: {
-        id: 'log_' + Date.now(),
-        action: 'database_seeded',
-        details: {
-          users_created: 3,
-          tickets_created: 1,
-          messages_created: 3,
-          timestamp: new Date().toISOString(),
-        },
-      },
-    });
-    console.log('✅ Created system log entry');
-
-    console.log('\n🎉 Database seeding completed successfully!');
+    console.log('\n🎉 Minimal database seeding completed successfully!');
     console.log('\nDefault credentials:');
     console.log('Admin: admin@vilnius.lt / admin123');
-    console.log('Agent 1: agent1@vilnius.lt / agent123 (online)');
-    console.log('Agent 2: agent2@vilnius.lt / agent123 (offline)');
+    console.log('Agent: agent@vilnius.lt / agent123');
     console.log('User: user@example.com / user123');
-    console.log('\nSample ticket: VIL-2024-001');
+    console.log('\nSample ticket: VIL-2024-001 (with 1 message)');
 
   } catch (error) {
     console.error('❌ Error during seeding:', error);
