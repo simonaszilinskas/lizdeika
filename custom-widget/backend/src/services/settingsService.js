@@ -49,23 +49,39 @@ const SETTING_SCHEMAS = {
     prompts: {
         // Master prompt mode toggle
         prompt_mode: z.enum(['langfuse', 'local']).optional(),
-        
+
         // System prompt settings
         active_system_prompt: z.string().optional(),
         custom_system_prompt_content: z.string().optional(),
-        
+
         // Processing prompt settings (for query rephrasing/processing)
         active_processing_prompt: z.string().optional(),
         custom_processing_prompt_content: z.string().optional(),
-        
+
         // Formatting prompt settings (for response formatting)
         active_formatting_prompt: z.string().optional(),
         custom_formatting_prompt_content: z.string().optional(),
-        
+
         // Global prompt management settings
         enable_prompt_management: z.boolean().optional(),
         default_prompt_labels: z.array(z.string()).optional(),
         prompt_cache_ttl: z.number().int().min(60).max(86400).optional()
+    },
+    ai_providers: {
+        // AI Provider Selection
+        ai_provider: z.enum(['flowise', 'openrouter']),
+
+        // Flowise Settings
+        flowise_url: z.string().url().optional(),
+        flowise_chatflow_id: z.string().min(1).optional(),
+        flowise_api_key: z.string().optional(),
+
+        // OpenRouter Settings
+        openrouter_api_key: z.string().min(10).optional(),
+        openrouter_model: z.string().min(1).optional(),
+        rephrasing_model: z.string().min(1).optional(),
+        site_url: z.string().url().optional(),
+        site_name: z.string().min(1).optional()
     }
 };
 
@@ -99,7 +115,22 @@ const ENV_FALLBACKS = {
     
     enable_prompt_management: process.env.ENABLE_PROMPT_MANAGEMENT === 'true',
     default_prompt_labels: process.env.DEFAULT_PROMPT_LABELS ? JSON.parse(process.env.DEFAULT_PROMPT_LABELS) : ['production'],
-    prompt_cache_ttl: parseInt(process.env.PROMPT_CACHE_TTL) || 300
+    prompt_cache_ttl: parseInt(process.env.PROMPT_CACHE_TTL) || 300,
+
+    // AI Provider fallbacks
+    ai_provider: process.env.AI_PROVIDER || 'flowise',
+
+    // Flowise fallbacks
+    flowise_url: process.env.FLOWISE_URL || null,
+    flowise_chatflow_id: process.env.FLOWISE_CHATFLOW_ID || null,
+    flowise_api_key: process.env.FLOWISE_API_KEY || null,
+
+    // OpenRouter fallbacks
+    openrouter_api_key: process.env.OPENROUTER_API_KEY || null,
+    openrouter_model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
+    rephrasing_model: process.env.REPHRASING_MODEL || 'google/gemini-2.5-flash-lite',
+    site_url: process.env.SITE_URL || 'http://localhost:3002',
+    site_name: process.env.SITE_NAME || 'Vilniaus chatbot'
 };
 
 class SettingsService extends EventEmitter {
@@ -330,9 +361,15 @@ class SettingsService extends EventEmitter {
                 timestamp: new Date()
             });
 
-            this.logger.info(`Bulk settings update completed`, { 
-                adminUserId, 
-                updatedCount: results.length 
+            // Force cache refresh for AI provider settings to ensure consistency
+            if (category === 'ai_providers') {
+                await this.invalidateCache();
+                this.logger.info('Cache refreshed after AI provider settings update');
+            }
+
+            this.logger.info(`Bulk settings update completed`, {
+                adminUserId,
+                updatedCount: results.length
             });
 
             return results;
@@ -484,12 +521,17 @@ class SettingsService extends EventEmitter {
                 'enable_prompt_management'
             ].includes(key);
         }
-        
+
+        // AI Provider settings are private (admin-only) due to sensitive credentials
+        if (category === 'ai_providers') {
+            return false; // All AI provider credentials are private
+        }
+
         // Logging settings are typically private
         if (category === 'logging') {
             return false;
         }
-        
+
         return false; // Default to private
     }
 
@@ -521,15 +563,37 @@ class SettingsService extends EventEmitter {
     async refreshCache() {
         try {
             const settings = await this.prisma.system_settings.findMany();
-            
+
+            // Clear existing cache first
+            this.settingsCache.clear();
+            this.cacheExpiry.clear();
+
             for (const setting of settings) {
                 const value = this.parseSettingValue(setting.setting_value, setting.setting_type);
                 this.setCacheValue(setting.setting_key, value);
             }
-            
+
             this.logger.debug(`Cache refreshed with ${settings.length} settings`);
         } catch (error) {
             this.logger.error('Failed to refresh settings cache', { error: error.message });
+        }
+    }
+
+    /**
+     * Invalidate cache for specific keys or entire cache
+     */
+    async invalidateCache(keys = null) {
+        if (keys && Array.isArray(keys)) {
+            // Invalidate specific keys
+            keys.forEach(key => {
+                this.settingsCache.delete(key);
+                this.cacheExpiry.delete(key);
+            });
+            this.logger.debug(`Cache invalidated for keys: ${keys.join(', ')}`);
+        } else {
+            // Invalidate entire cache and refresh
+            await this.refreshCache();
+            this.logger.debug('Entire cache invalidated and refreshed');
         }
     }
 
@@ -573,6 +637,66 @@ class SettingsService extends EventEmitter {
             lastCacheRefresh: Math.max(...this.cacheExpiry.values()) - this.cacheTTL,
             langfuse: this.getLangfuseStatus()
         };
+    }
+
+    /**
+     * Get AI Provider configuration from database with environment fallback
+     */
+    async getAIProviderConfig() {
+        try {
+            // Get all AI provider settings from database
+            const aiSettings = await this.getSettingsByCategory('ai_providers', true);
+
+            // Track which settings are coming from database vs environment
+            const configSource = {};
+            const hasDbSettings = Object.keys(aiSettings).length > 0;
+
+            // Build configuration object with database values or environment fallbacks
+            const config = {
+                AI_PROVIDER: aiSettings.ai_provider?.value || ENV_FALLBACKS.ai_provider,
+                FLOWISE_URL: aiSettings.flowise_url?.value || ENV_FALLBACKS.flowise_url,
+                FLOWISE_CHATFLOW_ID: aiSettings.flowise_chatflow_id?.value || ENV_FALLBACKS.flowise_chatflow_id,
+                FLOWISE_API_KEY: aiSettings.flowise_api_key?.value || ENV_FALLBACKS.flowise_api_key,
+                OPENROUTER_API_KEY: aiSettings.openrouter_api_key?.value || ENV_FALLBACKS.openrouter_api_key,
+                OPENROUTER_MODEL: aiSettings.openrouter_model?.value || ENV_FALLBACKS.openrouter_model,
+                REPHRASING_MODEL: aiSettings.rephrasing_model?.value || ENV_FALLBACKS.rephrasing_model,
+                SITE_URL: aiSettings.site_url?.value || ENV_FALLBACKS.site_url,
+                SITE_NAME: aiSettings.site_name?.value || ENV_FALLBACKS.site_name,
+                SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+            };
+
+            // Log configuration source for debugging
+            if (hasDbSettings) {
+                this.logger.info('AI Provider configuration loaded from database', {
+                    provider: config.AI_PROVIDER,
+                    model: config.OPENROUTER_MODEL,
+                    siteName: config.SITE_NAME,
+                    dbKeys: Object.keys(aiSettings)
+                });
+            } else {
+                this.logger.info('AI Provider configuration using environment fallbacks', {
+                    provider: config.AI_PROVIDER,
+                    model: config.OPENROUTER_MODEL
+                });
+            }
+
+            return config;
+        } catch (error) {
+            this.logger.error('Failed to get AI provider configuration', { error: error.message });
+
+            // Return environment variables as fallback
+            return {
+                AI_PROVIDER: process.env.AI_PROVIDER || 'flowise',
+                FLOWISE_URL: process.env.FLOWISE_URL || null,
+                FLOWISE_CHATFLOW_ID: process.env.FLOWISE_CHATFLOW_ID || null,
+                FLOWISE_API_KEY: process.env.FLOWISE_API_KEY || null,
+                OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
+                OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
+                SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
+                SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
+                SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+            };
+        }
     }
 
     /**

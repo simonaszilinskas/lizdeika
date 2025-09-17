@@ -131,6 +131,137 @@ function createSystemRoutes() {
     });
 
     // ===========================
+    // AI PROVIDER SETTINGS ROUTES (for Knowledge Base UI)
+    // ===========================
+
+    // Get AI provider settings (admin only)
+    router.get('/api/settings/ai_providers', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const aiProviderSettings = await settingsService.getSettingsByCategory('ai_providers', true);
+
+            res.json({
+                success: true,
+                data: aiProviderSettings
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch AI provider settings',
+                message: error.message
+            });
+        }
+    });
+
+    // Update AI provider settings (admin only)
+    router.post('/api/settings/ai_providers', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const settings = req.body;
+            if (!settings || typeof settings !== 'object') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Settings object is required'
+                });
+            }
+
+            // Update AI provider settings
+            const updatedSettings = await settingsService.updateSettings(
+                settings,
+                req.user.id,
+                'ai_providers'
+            );
+
+            res.json({
+                success: true,
+                data: updatedSettings,
+                message: 'AI provider settings updated successfully'
+            });
+
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                error: 'Failed to update AI provider settings',
+                message: error.message
+            });
+        }
+    });
+
+    // Test AI provider connection (admin only)
+    router.post('/api/system/test-ai-provider', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const { provider, config } = req.body;
+            if (!provider || !config) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Provider and config are required'
+                });
+            }
+
+            // Test the provider configuration
+            const { createAIProvider } = require('../../ai-providers');
+
+            try {
+                const testProvider = createAIProvider(provider, {
+                    AI_PROVIDER: provider,
+                    FLOWISE_URL: config.flowise_url,
+                    FLOWISE_CHATFLOW_ID: config.flowise_chatflow_id,
+                    FLOWISE_API_KEY: config.flowise_api_key,
+                    OPENROUTER_API_KEY: config.openrouter_api_key,
+                    OPENROUTER_MODEL: config.openrouter_model,
+                    SITE_URL: config.site_url,
+                    SITE_NAME: config.site_name
+                });
+
+                const isHealthy = await testProvider.healthCheck();
+
+                res.json({
+                    success: isHealthy,
+                    provider: provider,
+                    healthy: isHealthy,
+                    message: isHealthy ?
+                        `${provider} provider connection successful` :
+                        `${provider} provider connection failed`
+                });
+
+            } catch (providerError) {
+                res.json({
+                    success: false,
+                    provider: provider,
+                    healthy: false,
+                    message: `Provider initialization failed: ${providerError.message}`
+                });
+            }
+
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to test AI provider',
+                message: error.message
+            });
+        }
+    });
+
+    // ===========================
     // BRANDING CONFIGURATION ROUTES
     // ===========================
 
@@ -367,6 +498,108 @@ function createSystemRoutes() {
 
     router.get('/prompts/stats', (req, res) => {
         systemController.getPromptStats(req, res);
+    });
+
+    // ===========================
+    // AI PROVIDER VERIFICATION ENDPOINTS
+    // ===========================
+
+    // Get current AI provider status and configuration (admin only)
+    router.get('/ai-provider-status', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const { getAIProviderConfig } = require('../../ai-providers');
+            const config = await getAIProviderConfig();
+
+            // Determine if configuration came from database or environment
+            const aiProviderSettings = await settingsService.getSettingsByCategory('ai_providers', true);
+            const hasDbConfig = Object.keys(aiProviderSettings).length > 0;
+
+            res.json({
+                success: true,
+                currentProvider: config.AI_PROVIDER,
+                configSource: hasDbConfig ? 'database' : 'environment',
+                configuration: {
+                    provider: config.AI_PROVIDER,
+                    model: config.OPENROUTER_MODEL || null,
+                    flowiseUrl: config.FLOWISE_URL || null,
+                    flowiseChatflowId: config.FLOWISE_CHATFLOW_ID || null,
+                    siteUrl: config.SITE_URL || null,
+                    siteName: config.SITE_NAME || null
+                },
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get AI provider status',
+                message: error.message
+            });
+        }
+    });
+
+    // Test AI chat suggestion with metadata (for verification tests)
+    router.post('/chat/suggestion', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const { conversationId, context, enableRAG = false } = req.body;
+
+            if (!conversationId || !context) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'conversationId and context are required'
+                });
+            }
+
+            // Get AI provider configuration
+            const { getAIProviderConfig } = require('../../ai-providers');
+            const config = await getAIProviderConfig();
+
+            // Generate AI suggestion with metadata
+            const aiService = require('../services/aiService');
+            const suggestion = await aiService.generateAISuggestion(
+                conversationId,
+                context,
+                enableRAG
+            );
+
+            // Determine config source
+            const aiProviderSettings = await settingsService.getSettingsByCategory('ai_providers', true);
+            const hasDbConfig = Object.keys(aiProviderSettings).length > 0;
+
+            res.json({
+                success: true,
+                suggestion,
+                metadata: {
+                    modelUsed: config.OPENROUTER_MODEL || config.FLOWISE_CHATFLOW_ID || 'unknown',
+                    providerUsed: config.AI_PROVIDER,
+                    configSource: hasDbConfig ? 'database' : 'environment',
+                    timestamp: new Date().toISOString(),
+                    conversationId,
+                    enableRAG
+                }
+            });
+
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to generate AI suggestion',
+                message: error.message
+            });
+        }
     });
 
     return router;

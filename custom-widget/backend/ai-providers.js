@@ -259,6 +259,7 @@ class OpenRouterProvider extends AIProvider {
 
 /**
  * Factory function to create AI provider instances
+ * Now uses database credentials with environment fallback
  */
 function createAIProvider(providerName, config) {
     switch (providerName.toLowerCase()) {
@@ -268,7 +269,7 @@ function createAIProvider(providerName, config) {
                 chatflowId: config.FLOWISE_CHATFLOW_ID,
                 apiKey: config.FLOWISE_API_KEY
             });
-        
+
         case 'openrouter':
             return new OpenRouterProvider({
                 apiKey: config.OPENROUTER_API_KEY,
@@ -276,9 +277,69 @@ function createAIProvider(providerName, config) {
                 systemPrompt: config.SYSTEM_PROMPT,
                 siteUrl: config.SITE_URL
             });
-        
+
         default:
             throw new Error(`Unsupported AI provider: ${providerName}`);
+    }
+}
+
+/**
+ * Get AI Provider configuration from database with environment fallback
+ * This function handles the database-first credential lookup
+ */
+async function getAIProviderConfig() {
+    try {
+        // Try to get SettingsService instance
+        const SettingsService = require('./src/services/settingsService');
+        const settingsService = new SettingsService();
+
+        // Wait for initialization
+        return new Promise((resolve, reject) => {
+            if (settingsService.settingsCache && settingsService.settingsCache.size > 0) {
+                // Service already initialized
+                settingsService.getAIProviderConfig().then(resolve).catch(reject);
+            } else {
+                // Wait for initialization
+                settingsService.once('initialized', async () => {
+                    try {
+                        const config = await settingsService.getAIProviderConfig();
+                        resolve(config);
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+
+                // Fallback timeout - use environment variables if database fails
+                setTimeout(() => {
+                    resolve({
+                        AI_PROVIDER: process.env.AI_PROVIDER || 'flowise',
+                        FLOWISE_URL: process.env.FLOWISE_URL || null,
+                        FLOWISE_CHATFLOW_ID: process.env.FLOWISE_CHATFLOW_ID || null,
+                        FLOWISE_API_KEY: process.env.FLOWISE_API_KEY || null,
+                        OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
+                        OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
+                        SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
+                        SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
+                        SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+                    });
+                }, 2000);
+            }
+        });
+    } catch (error) {
+        console.warn('Failed to initialize SettingsService, using environment variables:', error.message);
+
+        // Return environment variables as fallback
+        return {
+            AI_PROVIDER: process.env.AI_PROVIDER || 'flowise',
+            FLOWISE_URL: process.env.FLOWISE_URL || null,
+            FLOWISE_CHATFLOW_ID: process.env.FLOWISE_CHATFLOW_ID || null,
+            FLOWISE_API_KEY: process.env.FLOWISE_API_KEY || null,
+            OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
+            OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
+            SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
+            SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
+            SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+        };
     }
 }
 
@@ -313,5 +374,6 @@ module.exports = {
     FlowiseProvider,
     OpenRouterProvider,
     createAIProvider,
+    getAIProviderConfig,
     retryWithBackoff
 };

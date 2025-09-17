@@ -15,17 +15,20 @@
 const { LLMChain } = require("langchain/chains");
 const { ChatOpenAI } = require("@langchain/openai");
 const { CallbackHandler } = require("langfuse-langchain");
-const { 
-    createRephrasePrompt, 
-    formatChatHistory, 
-    getRephrasePromptManaged 
+const {
+    createRephrasePrompt,
+    formatChatHistory,
+    getRephrasePromptManaged
 } = require('./VilniusPrompts');
 
 class QueryRephraseChain extends LLMChain {
     constructor(options = {}) {
-        // Create the rephrasing model (smaller, faster model)
+        // Get rephrasing model from options or use default (lightweight model for fast rephrasing)
+        const rephrasingModel = options.rephrasingModel || process.env.REPHRASING_MODEL || "google/gemini-2.5-flash-lite";
+
+        // Create the rephrasing model (using configurable model)
         const rephraseModel = new ChatOpenAI({
-            model: "google/gemini-2.5-flash-lite",
+            model: rephrasingModel,
             apiKey: process.env.OPENROUTER_API_KEY,
             configuration: {
                 baseURL: "https://openrouter.ai/api/v1",
@@ -48,6 +51,7 @@ class QueryRephraseChain extends LLMChain {
 
         this.skipRephrasing = options.skipRephrasing || false;
         this.minHistoryLength = options.minHistoryLength || 1;
+        this.rephrasingModel = rephrasingModel;
         this.managedPrompt = null; // Cached managed prompt
 
         // Initialize Langfuse callback handler for query rephrasing observability
@@ -203,7 +207,7 @@ class QueryRephraseChain extends LLMChain {
             debugInfo.action = 'rephrased';
             debugInfo.rephrasedQuery = rephrasedQuery;
             debugInfo.improvement = wasRephrased;
-            debugInfo.model = "google/gemini-2.5-flash-lite";
+            debugInfo.model = this.rephrasingModel;
             debugInfo.temperature = 0.1;
             debugInfo.promptSource = managedPrompt?.managed?.fromLangfuse ? 'langfuse' : 
                                   (managedPrompt?.managed?.source === '.env override' ? 'env' : 'hardcoded');
@@ -286,7 +290,7 @@ class QueryRephraseChain extends LLMChain {
             
             return {
                 healthy: true,
-                model: "google/gemini-2.5-flash-lite",
+                model: this.rephrasingModel,
                 testQuery: testResult.rephrased_query === "test",
                 lastCheck: new Date().toISOString()
             };
@@ -304,7 +308,7 @@ class QueryRephraseChain extends LLMChain {
      */
     getConfig() {
         return {
-            model: "google/gemini-2.5-flash-lite",
+            model: this.rephrasingModel,
             temperature: 0.1,
             skipRephrasing: this.skipRephrasing,
             minHistoryLength: this.minHistoryLength,

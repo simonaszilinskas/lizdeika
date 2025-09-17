@@ -49,7 +49,7 @@
  * - RAG enhancement is configurable per request
  * - Health checks include provider-specific status information
  */
-const { createAIProvider, retryWithBackoff } = require('../../ai-providers');
+const { createAIProvider, getAIProviderConfig, retryWithBackoff } = require('../../ai-providers');
 const knowledgeService = require('./knowledgeService');
 // Note: Removed SystemController import to avoid circular dependency
 
@@ -57,33 +57,46 @@ const knowledgeService = require('./knowledgeService');
 let aiProvider = null;
 
 /**
- * Get or initialize AI provider
+ * Get or initialize AI provider (async version)
+ * Now uses database credentials with environment fallback
  */
-function getAIProvider() {
+async function getAIProvider() {
     if (!aiProvider) {
-        const AI_PROVIDER = process.env.AI_PROVIDER || 'flowise';
-        
         try {
-            aiProvider = createAIProvider(AI_PROVIDER, process.env);
-            console.log(`AI Provider initialized: ${AI_PROVIDER}`);
-        } catch (error) {
-            console.error(`Failed to initialize AI provider "${AI_PROVIDER}":`, error.message);
-            
-            // Fallback to Flowise if OpenRouter fails
-            if (AI_PROVIDER !== 'flowise') {
-                try {
-                    aiProvider = createAIProvider('flowise', process.env);
-                    console.log('Fallback to Flowise provider successful');
-                } catch (fallbackError) {
-                    console.error('Fallback to Flowise also failed:', fallbackError.message);
+            // Get configuration from database first, fallback to env vars
+            const config = await getAIProviderConfig();
+            const AI_PROVIDER = config.AI_PROVIDER;
+
+            try {
+                aiProvider = createAIProvider(AI_PROVIDER, config);
+                console.log(`AI Provider initialized: ${AI_PROVIDER}`, {
+                    model: config.OPENROUTER_MODEL || 'N/A',
+                    siteName: config.SITE_NAME || 'N/A',
+                    siteUrl: config.SITE_URL || 'N/A',
+                    configKeys: Object.keys(config).filter(k => config[k])
+                });
+            } catch (error) {
+                console.error(`Failed to initialize AI provider "${AI_PROVIDER}":`, error.message);
+
+                // Fallback to Flowise if OpenRouter fails
+                if (AI_PROVIDER !== 'flowise') {
+                    try {
+                        aiProvider = createAIProvider('flowise', config);
+                        console.log('Fallback to Flowise provider successful');
+                    } catch (fallbackError) {
+                        console.error('Fallback to Flowise also failed:', fallbackError.message);
+                        aiProvider = null;
+                    }
+                } else {
                     aiProvider = null;
                 }
-            } else {
-                aiProvider = null;
             }
+        } catch (configError) {
+            console.error('Failed to get AI provider config:', configError.message);
+            aiProvider = null;
         }
     }
-    
+
     return aiProvider;
 }
 
@@ -117,11 +130,15 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         step1_originalRequest: {
             conversationContext: conversationContext,
             enableRAG: enableRAG,
-            provider: process.env.AI_PROVIDER || 'flowise'
+            provider: 'loading...'
         }
     };
-    const provider = getAIProvider();
-    
+    const provider = await getAIProvider();
+    const config = await getAIProviderConfig();
+
+    // Update debug info with actual provider
+    debugInfo.step1_originalRequest.provider = config.AI_PROVIDER;
+
     // If no AI provider is available, return fallback
     if (!provider) {
         console.log('No AI provider available, using fallback response');
@@ -140,7 +157,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
     
     // If provider is known to be unhealthy, return fallback immediately
     if (!provider.isHealthy) {
-        console.log(`${process.env.AI_PROVIDER} provider is unhealthy, using fallback response`);
+        console.log(`${config.AI_PROVIDER} provider is unhealthy, using fallback response`);
         debugInfo.step2_providerCheck = { status: 'unhealthy', fallbackUsed: true };
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
@@ -148,11 +165,11 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         return fallbackResponse;
     }
 
-    debugInfo.step2_providerCheck = { status: 'healthy', provider: process.env.AI_PROVIDER };
+    debugInfo.step2_providerCheck = { status: 'healthy', provider: config.AI_PROVIDER };
     
     // RAG Enhancement: Use LangChain for OpenRouter, Flowise has built-in RAG
     let enhancedContext = conversationContext;
-    const currentProvider = process.env.AI_PROVIDER || 'flowise';
+    const currentProvider = config.AI_PROVIDER;
     const shouldUseRAG = enableRAG && currentProvider === 'openrouter';
     
     debugInfo.step3_ragProcessing = {
@@ -254,9 +271,9 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         await storeDebugInfo(conversationId, debugInfo);
         
         return response;
-        
+
     } catch (error) {
-        console.error(`Error generating AI suggestion from ${process.env.AI_PROVIDER} after retries:`, error.message);
+        console.error(`Error generating AI suggestion from ${config.AI_PROVIDER} after retries:`, error.message);
         
         // Mark provider as unhealthy
         provider.isHealthy = false;
@@ -351,19 +368,20 @@ function parseConversationHistory(conversationContext) {
  * Get AI provider health information
  */
 async function getProviderHealth() {
-    const provider = getAIProvider();
-    
+    const provider = await getAIProvider();
+    const config = await getAIProviderConfig();
+
     if (provider) {
         const providerHealthy = await provider.healthCheck();
         return {
-            provider: process.env.AI_PROVIDER,
+            provider: config.AI_PROVIDER,
             configured: true,
             healthy: providerHealthy,
             lastCheck: provider.lastHealthCheck
         };
     } else {
         return {
-            provider: process.env.AI_PROVIDER,
+            provider: config.AI_PROVIDER,
             configured: false,
             healthy: false,
             error: 'AI provider failed to initialize'
@@ -401,10 +419,17 @@ async function storeDebugInfo(conversationId, debugInfo) {
 
 /**
  * Switch to a different AI provider
+ * Now uses database configuration
  */
 async function switchProvider(newProviderName) {
     try {
-        const newProvider = createAIProvider(newProviderName, process.env);
+        // Get current configuration from database
+        const config = await getAIProviderConfig();
+
+        // Override the provider name
+        config.AI_PROVIDER = newProviderName;
+
+        const newProvider = createAIProvider(newProviderName, config);
         aiProvider = newProvider;
         console.log(`AI Provider successfully switched to: ${newProviderName}`);
         return aiProvider;

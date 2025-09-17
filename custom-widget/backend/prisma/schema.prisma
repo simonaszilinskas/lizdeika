@@ -53,15 +53,15 @@ model system_logs {
 }
 
 model system_settings {
-  id            String    @id @default(cuid())
-  setting_key   String    @unique
+  id            String   @id @default(cuid())
+  setting_key   String   @unique
   setting_value String?
-  setting_type  String    @default("string") // string, number, boolean, json
+  setting_type  String   @default("string")
   description   String?
-  category      String    @default("general") // branding, ai, security, logging, etc
-  is_public     Boolean   @default(false) // can be accessed by frontend
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  category      String   @default("general")
+  is_public     Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
   updated_by    String?
 
   @@index([category])
@@ -70,17 +70,17 @@ model system_settings {
 }
 
 model application_logs {
-  id             String    @id @default(cuid())
-  timestamp      DateTime  @default(now())
+  id             String   @id @default(cuid())
+  timestamp      DateTime @default(now())
   level          String
   correlation_id String?
-  service        String    @default("vilnius-assistant-backend")
+  service        String   @default("vilnius-assistant-backend")
   module         String?
   message        String
   user_id        String?
   metadata       Json?
   stack          String?
-  created_at     DateTime  @default(now())
+  created_at     DateTime @default(now())
 
   @@index([timestamp])
   @@index([level])
@@ -91,7 +91,7 @@ model application_logs {
 }
 
 model user_activities {
-  id          String              @id
+  id          String           @id
   user_id     String?
   action_type UserActivityType
   action      String
@@ -100,9 +100,9 @@ model user_activities {
   ip_address  String?
   user_agent  String?
   details     Json?
-  success     Boolean             @default(true)
-  created_at  DateTime            @default(now())
-  users       users?              @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  success     Boolean          @default(true)
+  created_at  DateTime         @default(now())
+  users       users?           @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
   @@index([action_type])
@@ -151,24 +151,24 @@ model tickets {
 }
 
 model users {
-  id                                       String           @id
-  email                                    String           @unique
+  id                                       String            @id
+  email                                    String            @unique
   password_hash                            String
   first_name                               String
   last_name                                String
-  role                                     UserRole         @default(user)
-  is_active                                Boolean          @default(true)
-  email_verified                           Boolean          @default(false)
+  role                                     UserRole          @default(user)
+  is_active                                Boolean           @default(true)
+  email_verified                           Boolean           @default(false)
   last_login                               DateTime?
-  created_at                               DateTime         @default(now())
+  created_at                               DateTime          @default(now())
   updated_at                               DateTime
-  user_number                              Int?             @unique
+  user_number                              Int?              @unique
   agent_status                             agent_status?
   messages                                 messages[]
   refresh_tokens                           refresh_tokens[]
   ticket_actions                           ticket_actions[]
-  tickets_tickets_assigned_agent_idTousers tickets[]        @relation("tickets_assigned_agent_idTousers")
-  tickets_tickets_user_idTousers           tickets[]        @relation("tickets_user_idTousers")
+  tickets_tickets_assigned_agent_idTousers tickets[]         @relation("tickets_assigned_agent_idTousers")
+  tickets_tickets_user_idTousers           tickets[]         @relation("tickets_user_idTousers")
   user_activities                          user_activities[]
 
   @@index([is_active])

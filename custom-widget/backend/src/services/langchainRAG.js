@@ -35,7 +35,8 @@ class LangChainRAG {
             showSources: process.env.RAG_SHOW_SOURCES !== 'false',
             includeDebug: true,
             verbose: process.env.NODE_ENV === 'development',
-            timeout: 60000
+            timeout: 60000,
+            rephrasingModel: process.env.REPHRASING_MODEL
         });
 
         // Keep reference to individual components for advanced usage
@@ -64,6 +65,13 @@ class LangChainRAG {
             const SettingsService = require('./settingsService');
             this.settingsService = new SettingsService();
             console.log('🎯 LangChain RAG: Settings service initialized for dynamic configuration');
+
+            // Load AI provider config and set REPHRASING_MODEL in environment
+            const config = await this.settingsService.getAIProviderConfig();
+            if (config.REPHRASING_MODEL) {
+                process.env.REPHRASING_MODEL = config.REPHRASING_MODEL;
+                console.log('🔧 LangChain RAG: Rephrasing model set to:', config.REPHRASING_MODEL);
+            }
         } catch (error) {
             console.warn('⚠️ LangChain RAG: Could not initialize settings service, using env defaults:', error.message);
         }

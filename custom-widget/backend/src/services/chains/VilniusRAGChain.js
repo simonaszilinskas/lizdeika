@@ -56,7 +56,8 @@ class VilniusRAGChain extends BaseChain {
         // Initialize query rephrasing chain
         this.rephraseChain = new QueryRephraseChain({
             verbose: options.verbose || false,
-            skipRephrasing: options.skipRephrasing || false
+            skipRephrasing: options.skipRephrasing || false,
+            rephrasingModel: options.rephrasingModel || process.env.REPHRASING_MODEL
         });
 
         // Create prompts (will be enhanced with managed prompts on first use)
