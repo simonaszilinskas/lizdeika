@@ -167,6 +167,24 @@ export class ChatManager {
     }
 
     /**
+     * Handle AI suggestion errors consistently
+     * @param {Error} error - The error that occurred
+     * @param {string} operation - Description of the operation that failed
+     * @param {string} userMessage - User-friendly error message (optional)
+     */
+    _handleAISuggestionError(error, operation = 'AI suggestion', userMessage = null) {
+        console.error(`Error during ${operation}:`, error);
+        
+        // Always hide any loading states or existing suggestions
+        this.hideAISuggestion();
+        
+        // Show user-friendly error message if provided
+        if (userMessage) {
+            this.dashboard.showToast(userMessage, 'error');
+        }
+    }
+
+    /**
      * Get AI assistance for current conversation
      */
     async getAIAssistance() {
@@ -178,7 +196,7 @@ export class ChatManager {
                 this.showAISuggestion(data.suggestion, data.confidence);
             }
         } catch (error) {
-            console.error('Error getting AI assistance:', error);
+            this._handleAISuggestionError(error, 'get AI assistance', 'Failed to get AI suggestion');
         }
     }
 
@@ -200,8 +218,7 @@ export class ChatManager {
                 this.hideAISuggestion();
             }
         } catch (error) {
-            console.error('Error checking for pending suggestion:', error);
-            this.hideAISuggestion();
+            this._handleAISuggestionError(error, 'check for pending suggestion');
         }
     }
 
