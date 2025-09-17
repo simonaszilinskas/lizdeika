@@ -33,8 +33,9 @@ class VilniusRAGChain extends BaseChain {
         super(options);
 
         // Initialize the main LLM
+        const mainModel = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
         this.llm = new ChatOpenAI({
-            model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
+            model: mainModel,
             apiKey: process.env.OPENROUTER_API_KEY,
             configuration: {
                 baseURL: "https://openrouter.ai/api/v1",
@@ -46,6 +47,9 @@ class VilniusRAGChain extends BaseChain {
             temperature: 0.2,
             streaming: false
         });
+
+        // Store the model name for debugging
+        this.mainModelName = mainModel;
 
         // Initialize retriever
         this.retriever = new ChromaRetriever({
@@ -132,6 +136,12 @@ class VilniusRAGChain extends BaseChain {
                 chatHistory: chat_history,
                 historyLength: chat_history.length,
                 enableRephrasing: this.enableRephrasing
+            },
+            modelConfiguration: {
+                mainModel: this.mainModelName,
+                rephrasingModel: this.rephraseChain.rephrasingModel,
+                temperature: this.llm.temperature,
+                provider: 'openrouter'
             }
         };
 
@@ -140,6 +150,8 @@ class VilniusRAGChain extends BaseChain {
                 console.log('🚀 VilniusRAGChain: Starting RAG process');
                 console.log(`   Question: "${question}"`);
                 console.log(`   History length: ${chat_history.length}`);
+                console.log(`   Main Model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
+                console.log(`   Rephrasing Model: ${this.rephraseChain.rephrasingModel}`);
             }
 
             // Step 2: Query rephrasing (if enabled and needed)
@@ -149,6 +161,7 @@ class VilniusRAGChain extends BaseChain {
             if (this.enableRephrasing) {
                 if (this.verbose) {
                     console.log('🔄 VilniusRAGChain: Starting query rephrasing');
+                    console.log(`   Using model: ${this.rephraseChain.rephrasingModel}`);
                 }
 
                 const rephraseResult = await this.rephraseChain._call({
@@ -159,6 +172,12 @@ class VilniusRAGChain extends BaseChain {
                 searchQuery = rephraseResult.rephrased_query;
                 rephraseDebugInfo = rephraseResult.debug_info;
 
+                // Add model info to rephrasing debug data
+                if (rephraseDebugInfo) {
+                    rephraseDebugInfo.model = this.rephraseChain.rephrasingModel;
+                    rephraseDebugInfo.temperature = 0.1;
+                }
+
                 if (this.verbose) {
                     console.log(`   Rephrased query: "${searchQuery}"`);
                     console.log(`   Was improved: ${rephraseResult.was_rephrased ? 'YES' : 'NO'}`);
@@ -168,7 +187,8 @@ class VilniusRAGChain extends BaseChain {
                     action: 'disabled',
                     reason: 'Query rephrasing disabled',
                     rephrasedQuery: question,
-                    improvement: false
+                    improvement: false,
+                    model: null
                 };
             }
 
@@ -211,6 +231,7 @@ class VilniusRAGChain extends BaseChain {
             // Step 5: Generate response
             if (this.verbose) {
                 console.log('🤖 VilniusRAGChain: Generating response');
+                console.log(`   Using main model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
             }
 
             // Get managed prompt for enhanced system instructions
@@ -261,11 +282,13 @@ class VilniusRAGChain extends BaseChain {
             const answer = response.content || response.text || 'Atsiprašau, negaliu atsakyti į šį klausimą.';
 
             debugInfo.step5_responseGeneration = {
-                model: process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
-                temperature: 0.2,
+                model: this.mainModelName,
+                temperature: this.llm.temperature,
                 hasHistory: hasHistory,
                 promptType: hasHistory ? 'chat_with_history' : 'simple',
                 responseLength: answer.length,
+                contextLength: context.length,
+                managedPrompt: managedPrompt?.managed ? 'langfuse' : 'hardcoded',
                 successful: true
             };
 

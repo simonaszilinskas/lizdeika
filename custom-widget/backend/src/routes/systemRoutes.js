@@ -228,20 +228,72 @@ function createSystemRoutes() {
                     FLOWISE_API_KEY: config.flowise_api_key,
                     OPENROUTER_API_KEY: config.openrouter_api_key,
                     OPENROUTER_MODEL: config.openrouter_model,
+                    REPHRASING_MODEL: config.rephrasing_model || 'google/gemini-2.5-flash-lite',
                     SITE_URL: config.site_url,
                     SITE_NAME: config.site_name
                 });
 
+                // First check basic health
                 const isHealthy = await testProvider.healthCheck();
+                if (!isHealthy) {
+                    return res.json({
+                        success: false,
+                        provider: provider,
+                        healthy: false,
+                        message: `${provider} provider health check failed`
+                    });
+                }
 
-                res.json({
-                    success: isHealthy,
-                    provider: provider,
-                    healthy: isHealthy,
-                    message: isHealthy ?
-                        `${provider} provider connection successful` :
-                        `${provider} provider connection failed`
-                });
+                // Now test actual AI response generation
+                console.log(`🧪 Testing ${provider} with actual message generation...`);
+
+                // Temporarily set environment variables for the test
+                const originalEnvVars = {};
+                const envVarsToSet = {
+                    AI_PROVIDER: provider,
+                    OPENROUTER_API_KEY: config.openrouter_api_key,
+                    OPENROUTER_MODEL: config.openrouter_model,
+                    REPHRASING_MODEL: config.rephrasing_model || 'google/gemini-2.5-flash-lite',
+                    SITE_URL: config.site_url,
+                    SITE_NAME: config.site_name
+                };
+
+                // Backup original values and set new ones
+                for (const [key, value] of Object.entries(envVarsToSet)) {
+                    originalEnvVars[key] = process.env[key];
+                    if (value) process.env[key] = value;
+                }
+
+                try {
+                    // Test with the AI service directly
+                    const { generateAISuggestion } = require('../services/aiService');
+                    const testMessage = 'Hello, this is a connection test';
+                    const testConversationId = 'test-' + Date.now();
+
+                    const result = await generateAISuggestion(testConversationId, testMessage, true);
+
+                    const success = result && !result.startsWith('Atsiprašau');
+
+                    res.json({
+                        success: success,
+                        provider: provider,
+                        healthy: true,
+                        message: success ?
+                            `${provider} provider test successful - AI response generated` :
+                            `${provider} provider test failed - AI returned error message`,
+                        testResponse: result ? result.substring(0, 100) + '...' : null
+                    });
+
+                } finally {
+                    // Restore original environment variables
+                    for (const [key, originalValue] of Object.entries(originalEnvVars)) {
+                        if (originalValue !== undefined) {
+                            process.env[key] = originalValue;
+                        } else {
+                            delete process.env[key];
+                        }
+                    }
+                }
 
             } catch (providerError) {
                 res.json({

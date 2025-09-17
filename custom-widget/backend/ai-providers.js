@@ -318,6 +318,7 @@ async function getAIProviderConfig() {
                         FLOWISE_API_KEY: process.env.FLOWISE_API_KEY || null,
                         OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
                         OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
+                        REPHRASING_MODEL: process.env.REPHRASING_MODEL || 'google/gemini-2.5-flash-lite',
                         SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
                         SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
                         SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''

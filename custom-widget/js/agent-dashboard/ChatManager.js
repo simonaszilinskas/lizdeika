@@ -48,10 +48,10 @@ export class ChatManager {
             // Load messages first (this also updates conversation data)
             await this.loadChatMessages(conversationId);
 
-            // Always check for pending suggestions in HITL mode
-            // The API will return 404 if no suggestion exists, which is fine
+            // Always check for pending suggestions in HITL mode with robust recovery
+            // This handles both completed and in-progress suggestions
             if (this.dashboard.systemMode === 'hitl') {
-                await this.checkForPendingSuggestion(conversationId);
+                await this.recoverAISuggestionState(conversationId);
             }
 
             // Show chat interface
@@ -456,5 +456,92 @@ export class ChatManager {
         }
         if (isAgent) return 'You';
         return 'Customer';
+    }
+
+    /**
+     * Recover AI suggestion state when switching to a conversation
+     * Handles both completed and in-progress suggestions that may have been orphaned
+     * @param {string} conversationId - ID of conversation to check
+     */
+    async recoverAISuggestionState(conversationId) {
+        try {
+            console.log('🔄 Recovering AI suggestion state for conversation:', conversationId);
+
+            // First, check for completed pending suggestions
+            const data = await this.apiManager.getPendingSuggestion(conversationId);
+
+            if (data && data.suggestion) {
+                // Found completed suggestion - show it immediately
+                console.log('✅ Found completed AI suggestion during recovery');
+                if (!this.stateManager.getCurrentSuggestion() || this.stateManager.getCurrentSuggestion() !== data.suggestion) {
+                    this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
+                }
+                return;
+            }
+
+            // No completed suggestion found - check if one might still be generating
+            // Look for recent customer messages that might trigger suggestions
+            const conversation = this.stateManager.getConversation(conversationId);
+            if (conversation && conversation.messages && conversation.messages.length > 0) {
+
+                // Find the most recent message
+                const recentMessages = conversation.messages.slice(-3); // Check last 3 messages
+                const hasRecentCustomerMessage = recentMessages.some(msg =>
+                    (msg.sender === 'customer' || msg.sender === 'visitor') &&
+                    (Date.now() - new Date(msg.timestamp).getTime()) < 60000 // Within last minute
+                );
+
+                if (hasRecentCustomerMessage) {
+                    console.log('🔍 Recent customer message found - polling for in-progress suggestion');
+
+                    // Show loading state while we check
+                    this.showAISuggestionLoading();
+
+                    // Poll briefly for in-progress suggestion (shorter timeout for recovery)
+                    let attempts = 0;
+                    const maxRecoveryAttempts = 8; // Reduced from normal polling
+                    const recoveryDelay = 1500; // 1.5 second intervals
+
+                    const recoveryPoll = async () => {
+                        if (attempts >= maxRecoveryAttempts) {
+                            console.log('⏰ Recovery polling timeout - hiding loading state');
+                            this.hideAISuggestion();
+                            return;
+                        }
+
+                        try {
+                            const pollData = await this.apiManager.getPendingSuggestion(conversationId);
+                            if (pollData && pollData.suggestion) {
+                                console.log('🎯 Recovery polling found suggestion!');
+                                this.showAISuggestion(pollData.suggestion, pollData.confidence, pollData.metadata || {});
+                                return;
+                            }
+
+                            // Continue polling
+                            attempts++;
+                            setTimeout(recoveryPoll, recoveryDelay);
+
+                        } catch (error) {
+                            console.warn('⚠️ Recovery polling error:', error.message);
+                            attempts++;
+                            setTimeout(recoveryPoll, recoveryDelay);
+                        }
+                    };
+
+                    // Start recovery polling
+                    setTimeout(recoveryPoll, recoveryDelay);
+                } else {
+                    // No recent customer messages - just hide any loading state
+                    this.hideAISuggestion();
+                }
+            } else {
+                // No messages or conversation data - hide suggestion
+                this.hideAISuggestion();
+            }
+
+        } catch (error) {
+            console.error('❌ Error during AI suggestion recovery:', error);
+            this.hideAISuggestion();
+        }
     }
 }

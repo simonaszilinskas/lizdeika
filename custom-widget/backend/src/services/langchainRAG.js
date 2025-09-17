@@ -26,22 +26,13 @@ class LangChainRAG {
     constructor() {
         // Initialize settings service for dynamic configuration
         this.settingsService = null;
-        this.initializeSettingsService();
-        
-        // Initialize the main RAG chain with all components
-        this.ragChain = new VilniusRAGChain({
-            k: parseInt(process.env.RAG_K) || 100,
-            enableRephrasing: process.env.ENABLE_QUERY_REPHRASING !== 'false',
-            showSources: process.env.RAG_SHOW_SOURCES !== 'false',
-            includeDebug: true,
-            verbose: process.env.NODE_ENV === 'development',
-            timeout: 60000,
-            rephrasingModel: process.env.REPHRASING_MODEL
-        });
+        this.ragChain = null;
+        this.retriever = null;
+        this.rephraseChain = null;
+        this.initialized = false;
 
-        // Keep reference to individual components for advanced usage
-        this.retriever = this.ragChain.retriever;
-        this.rephraseChain = this.ragChain.rephraseChain;
+        // Initialize asynchronously
+        this.initializeAsync();
 
         // Initialize Langfuse client for scoring
         this.langfuse = new Langfuse({
@@ -51,26 +42,78 @@ class LangChainRAG {
             debug: process.env.LANGFUSE_DEBUG === 'true'
         });
 
-        console.log('✅ LangChain RAG Service initialized with proper chains');
-        console.log(`   - Retrieval K: ${this.ragChain.retriever.k}`);
-        console.log(`   - Query rephrasing: ${this.ragChain.enableRephrasing ? 'ENABLED' : 'DISABLED'}`);
-        console.log(`   - Source attribution: ${this.ragChain.showSources ? 'ENABLED' : 'DISABLED'}`);
     }
 
     /**
-     * Initialize settings service for dynamic configuration
+     * Initialize the service asynchronously
      */
-    async initializeSettingsService() {
+    async initializeAsync() {
+        try {
+            // Load configuration first
+            await this.loadConfiguration();
+
+            // Now initialize the RAG chain with proper configuration
+            this.ragChain = new VilniusRAGChain({
+                k: parseInt(process.env.RAG_K) || 100,
+                enableRephrasing: process.env.ENABLE_QUERY_REPHRASING !== 'false',
+                showSources: process.env.RAG_SHOW_SOURCES !== 'false',
+                includeDebug: true,
+                verbose: process.env.NODE_ENV === 'development',
+                timeout: 60000,
+                rephrasingModel: process.env.REPHRASING_MODEL
+            });
+
+            // Keep reference to individual components for advanced usage
+            this.retriever = this.ragChain.retriever;
+            this.rephraseChain = this.ragChain.rephraseChain;
+
+            this.initialized = true;
+
+            console.log('✅ LangChain RAG Service initialized with proper chains');
+            console.log(`   - Retrieval K: ${this.ragChain.retriever.k}`);
+            console.log(`   - Query rephrasing: ${this.ragChain.enableRephrasing ? 'ENABLED' : 'DISABLED'}`);
+            console.log(`   - Source attribution: ${this.ragChain.showSources ? 'ENABLED' : 'DISABLED'}`);
+            console.log(`   - Rephrasing model: ${process.env.REPHRASING_MODEL}`);
+
+        } catch (error) {
+            console.error('❌ Failed to initialize LangChain RAG Service:', error.message);
+        }
+    }
+
+    /**
+     * Load configuration from settings service
+     */
+    async loadConfiguration() {
         try {
             const SettingsService = require('./settingsService');
             this.settingsService = new SettingsService();
             console.log('🎯 LangChain RAG: Settings service initialized for dynamic configuration');
 
-            // Load AI provider config and set REPHRASING_MODEL in environment
+            // Load AI provider config and set all necessary environment variables
             const config = await this.settingsService.getAIProviderConfig();
+
+            // Set all OpenRouter/AI environment variables needed by the chains
             if (config.REPHRASING_MODEL) {
                 process.env.REPHRASING_MODEL = config.REPHRASING_MODEL;
                 console.log('🔧 LangChain RAG: Rephrasing model set to:', config.REPHRASING_MODEL);
+            }
+
+            if (config.OPENROUTER_API_KEY) {
+                process.env.OPENROUTER_API_KEY = config.OPENROUTER_API_KEY;
+                console.log('🔧 LangChain RAG: OpenRouter API key loaded from database');
+            }
+
+            if (config.OPENROUTER_MODEL) {
+                process.env.OPENROUTER_MODEL = config.OPENROUTER_MODEL;
+                console.log('🔧 LangChain RAG: OpenRouter model set to:', config.OPENROUTER_MODEL);
+            }
+
+            if (config.SITE_URL) {
+                process.env.SITE_URL = config.SITE_URL;
+            }
+
+            if (config.SITE_NAME) {
+                process.env.SITE_NAME = config.SITE_NAME;
             }
         } catch (error) {
             console.warn('⚠️ LangChain RAG: Could not initialize settings service, using env defaults:', error.message);
@@ -118,6 +161,20 @@ class LangChainRAG {
      */
     async getAnswer(query, chatHistory = [], includeDebug = true, conversationId = null) {
         const startTime = Date.now();
+
+        // Wait for initialization to complete
+        if (!this.initialized) {
+            console.log('⏳ Waiting for LangChain RAG initialization...');
+            let attempts = 0;
+            while (!this.initialized && attempts < 30) { // Wait up to 15 seconds
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+            }
+
+            if (!this.initialized) {
+                throw new Error('LangChain RAG service failed to initialize within timeout');
+            }
+        }
 
         try {
             // Get current settings from database

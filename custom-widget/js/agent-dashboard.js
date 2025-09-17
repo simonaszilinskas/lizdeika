@@ -1068,6 +1068,9 @@ class AgentDashboard {
         // Update preview for all conversations (this always works)
         this.conversationRenderer.updateConversationPreview(data.conversationId, message);
 
+        // Update conversation timestamp in frontend data to ensure correct sorting
+        this.updateConversationTimestamp(data.conversationId, message.timestamp || new Date().toISOString());
+
         // For current chat: quickly reload messages to show new message and generate suggestions
         if (data.conversationId === this.stateManager.getCurrentChatId()) {
             console.log('⚡ WebSocket: Current chat - reloading messages to show new message');
@@ -1090,14 +1093,22 @@ class AgentDashboard {
             this.modernConversationLoader.refresh();
         }
 
-        // DEFERRED: Handle AI processing for current chat only
+        // DEFERRED: Handle AI processing and re-sort conversations
         setTimeout(() => {
             console.log('🔄 WebSocket: Performing deferred updates');
 
+            // Trigger conversation re-sort to move conversation with new message to correct position
+            console.log('📍 Re-sorting conversations to update position after new message');
+
+            // Add immediate DOM reordering for user messages (matches admin message behavior)
+            console.log('📍 Moving conversation to top immediately for user message');
+            this.conversationRenderer.reorderConversationList(data.conversationId);
+
+            // Keep existing data-level sorting for consistency
+            this.stateManager.applyFilter();
+
             // If this is the current chat, handle AI suggestions
             if (data.conversationId === this.stateManager.getCurrentChatId()) {
-                // Skip conversation refresh to avoid overriding preview updates
-                console.log('⏭️ Skipping conversation refresh to preserve preview updates');
 
                 // Handle AI suggestions with loading state
                 const messageSender = (data.message && data.message.sender) || data.sender;
@@ -1134,6 +1145,30 @@ class AgentDashboard {
         }, 100); // Small delay to allow real-time update to render first
     }
 
+    /**
+     * Update conversation timestamp in frontend data for correct sorting
+     * @param {string} conversationId - ID of the conversation
+     * @param {string} timestamp - New timestamp
+     */
+    updateConversationTimestamp(conversationId, timestamp) {
+        // Update timestamp in modernConversationLoader's cached data
+        if (this.modernConversationLoader && this.modernConversationLoader.allConversations) {
+            const conversation = this.modernConversationLoader.allConversations.find(c => c.id === conversationId);
+            if (conversation) {
+                conversation.updatedAt = timestamp;
+                console.log(`📅 Updated conversation ${conversationId} timestamp to ${timestamp}`);
+            }
+        }
+
+        // Update timestamp in stateManager's cached data
+        if (this.stateManager && this.stateManager.allConversations) {
+            const conversation = this.stateManager.allConversations.find(c => c.id === conversationId);
+            if (conversation) {
+                conversation.updatedAt = timestamp;
+                console.log(`📅 Updated stateManager conversation ${conversationId} timestamp to ${timestamp}`);
+            }
+        }
+    }
 
     /**
      * Handle agents update from socket manager
