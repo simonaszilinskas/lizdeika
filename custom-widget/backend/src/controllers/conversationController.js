@@ -470,68 +470,56 @@ class ConversationController {
             const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, true);
             console.log('🔍 DEBUG: aiSuggestion received:', JSON.stringify(aiSuggestion, null, 2));
 
-            // Handle both string and object responses from AI service
-            let suggestionText;
-            let confidence = 0.8;
+            try {
+                const { suggestionText, confidence } = this._processAIServiceResponse(aiSuggestion);
 
-            if (typeof aiSuggestion === 'string') {
-                suggestionText = aiSuggestion;
-            } else if (aiSuggestion && aiSuggestion.suggestion) {
-                suggestionText = aiSuggestion.suggestion;
-                confidence = aiSuggestion.confidence || 0.8;
-            } else {
-                console.error('❌ AI suggestion is empty or invalid format:', aiSuggestion);
-                return res.status(500).json({ error: 'AI service returned empty suggestion' });
-            }
+                // Clear any existing pending suggestions for this conversation
+                await conversationService.clearPendingSuggestions(conversationId);
+                console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId} (manual generation)`);
 
-            // Validate that we have actual content
-            if (!suggestionText || suggestionText.trim().length === 0) {
-                console.error('❌ AI suggestion text is empty:', suggestionText);
-                return res.status(500).json({ error: 'AI service returned empty suggestion text' });
-            }
+                // Create new pending message with AI suggestion
+                const messageId = uuidv4();
+                const agentMessage = {
+                    id: messageId,
+                    conversationId: conversationId,
+                    content: '[Manual AI suggestion generated]',
+                    sender: 'system',
+                    timestamp: new Date().toISOString(),
+                    metadata: {
+                        pendingAgent: true,
+                        aiSuggestion: suggestionText,
+                        confidence: confidence,
+                        lastUpdated: new Date().toISOString(),
+                        messageCount: conversationMessages.length,
+                        customerMessages: conversationMessages.filter(msg =>
+                            msg.sender === 'visitor' || msg.sender === 'customer'
+                        ).length,
+                        manualGeneration: true,
+                        debugInfo: (typeof aiSuggestion === 'object' ? aiSuggestion.debugInfo : {}) || {}
+                    }
+                };
 
-            // Clear any existing pending suggestions for this conversation
-            await conversationService.clearPendingSuggestions(conversationId);
-            console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId} (manual generation)`);
+                await conversationService.addMessage(conversationId, agentMessage);
+                console.log(`Generated manual AI suggestion for conversation ${conversationId}`);
 
-            // Create new pending message with AI suggestion
-            const messageId = uuidv4();
-            const agentMessage = {
-                id: messageId,
-                conversationId: conversationId,
-                content: '[Manual AI suggestion generated]',
-                sender: 'system',
-                timestamp: new Date().toISOString(),
-                metadata: {
-                    pendingAgent: true,
-                    aiSuggestion: suggestionText,
+                // Return the suggestion immediately
+                res.json({
+                    suggestion: suggestionText,
                     confidence: confidence,
-                    lastUpdated: new Date().toISOString(),
-                    messageCount: conversationMessages.length,
-                    customerMessages: conversationMessages.filter(msg =>
-                        msg.sender === 'visitor' || msg.sender === 'customer'
-                    ).length,
-                    manualGeneration: true,
-                    debugInfo: (typeof aiSuggestion === 'object' ? aiSuggestion.debugInfo : {}) || {}
-                }
-            };
+                    messageId: messageId,
+                    timestamp: agentMessage.timestamp,
+                    metadata: {
+                        messageCount: agentMessage.metadata.messageCount,
+                        customerMessages: agentMessage.metadata.customerMessages,
+                        manualGeneration: true,
+                        debugInfo: (typeof aiSuggestion === 'object' ? aiSuggestion.debugInfo : {}) || {}
+                    }
+                });
 
-            await conversationService.addMessage(conversationId, agentMessage);
-            console.log(`Generated manual AI suggestion for conversation ${conversationId}`);
-
-            // Return the suggestion immediately
-            res.json({
-                suggestion: suggestionText,
-                confidence: confidence,
-                messageId: messageId,
-                timestamp: agentMessage.timestamp,
-                metadata: {
-                    messageCount: agentMessage.metadata.messageCount,
-                    customerMessages: agentMessage.metadata.customerMessages,
-                    manualGeneration: true,
-                    debugInfo: (typeof aiSuggestion === 'object' ? aiSuggestion.debugInfo : {}) || {}
-                }
-            });
+            } catch (error) {
+                console.error('❌ AI suggestion processing failed:', error.message);
+                return res.status(500).json({ error: error.message });
+            }
 
         } catch (error) {
             return handleControllerError(error, 'Failed to generate AI suggestion', req, res);
@@ -690,6 +678,32 @@ class ConversationController {
         }
         
         return conversationHistory;
+    }
+
+    /**
+     * Process AI service response - handles both string and object formats
+     * @param {string|Object} aiSuggestion - Raw AI service response
+     * @returns {Object} { suggestionText: string, confidence: number }
+     * @throws {Error} If response format is invalid or empty
+     */
+    _processAIServiceResponse(aiSuggestion) {
+        let suggestionText;
+        let confidence = 0.8;
+
+        if (typeof aiSuggestion === 'string') {
+            suggestionText = aiSuggestion;
+        } else if (aiSuggestion && aiSuggestion.suggestion) {
+            suggestionText = aiSuggestion.suggestion;
+            confidence = aiSuggestion.confidence || 0.8;
+        } else {
+            throw new Error('AI service returned invalid format');
+        }
+
+        if (!suggestionText || suggestionText.trim().length === 0) {
+            throw new Error('AI service returned empty suggestion text');
+        }
+
+        return { suggestionText, confidence };
     }
 
     /**
