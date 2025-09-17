@@ -11,7 +11,6 @@ export class APIManager {
     constructor(dashboard) {
         this.dashboard = dashboard;
         this.apiUrl = dashboard.apiUrl;
-        this.agentToken = dashboard.agentToken;
     }
 
     /**
@@ -19,8 +18,9 @@ export class APIManager {
      * @returns {Object} Headers object with authorization
      */
     getAuthHeaders() {
+        const token = localStorage.getItem('agent_token');
         return {
-            'Authorization': `Bearer ${this.agentToken}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
         };
     }
@@ -322,14 +322,17 @@ export class APIManager {
     // ===== AI SUGGESTIONS API METHODS =====
 
     /**
-     * Get AI suggestion for conversation
+     * Get AI suggestion for conversation (generate new one)
      * @param {string} conversationId - Conversation ID
      * @returns {Object} AI suggestion data
      */
     async getAISuggestion(conversationId) {
         try {
-            const response = await fetch(`${this.apiUrl}/api/suggestions/${conversationId}`);
-            
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/generate-suggestion`, {
+                method: 'POST',
+                headers: this.getAuthHeaders()
+            });
+
             if (!response.ok) {
                 throw new Error(`Failed to get AI suggestion: ${response.statusText}`);
             }

@@ -378,10 +378,49 @@ class ConversationService {
                     ]
                 }
             });
-            
+
             return deleted.count;
         } catch (error) {
             console.error('Failed to remove pending messages:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Clear pending AI suggestions for conversation
+     */
+    async clearPendingSuggestions(conversationId) {
+        try {
+            const deleted = await prisma.messages.deleteMany({
+                where: {
+                    ticket_id: conversationId,
+                    OR: [
+                        {
+                            metadata: {
+                                path: ['pendingAgent'],
+                                equals: true
+                            }
+                        },
+                        {
+                            metadata: {
+                                path: ['aiSuggestion'],
+                                equals: true
+                            }
+                        },
+                        {
+                            senderType: 'system',
+                            content: {
+                                contains: '[AI Suggestion]'
+                            }
+                        }
+                    ]
+                }
+            });
+
+            console.log(`Cleared ${deleted.count} pending suggestions for conversation ${conversationId}`);
+            return deleted.count;
+        } catch (error) {
+            console.error('Failed to clear pending suggestions:', error);
             return 0;
         }
     }

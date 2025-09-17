@@ -223,14 +223,23 @@ export class ChatManager {
      */
     async getAIAssistance() {
         if (!this.stateManager.getCurrentChatId()) return;
-        
+
+        // Show loading indicator
+        this.showAISuggestionLoading();
+
         try {
             const data = await this.apiManager.getAISuggestion(this.stateManager.getCurrentChatId());
-            if (data) {
-                this.showAISuggestion(data.suggestion, data.confidence);
+            if (data && data.suggestion) {
+                this.showAISuggestion(data.suggestion, data.confidence, data.metadata || {});
+            } else {
+                // Hide loading if no suggestion received
+                this.hideAISuggestion();
+                this.dashboard.showToast('No AI suggestion available', 'warning');
             }
         } catch (error) {
             console.error('Error getting AI assistance:', error);
+            this.hideAISuggestion();
+            this.dashboard.showToast('Failed to get AI suggestion', 'error');
         }
     }
 

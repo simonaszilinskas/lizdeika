@@ -410,21 +410,21 @@ class ConversationController {
             // Input validation
             validateConversationId(req.params.conversationId, 'conversationId');
             const { conversationId } = req.params;
-            
+
             const conversationMessages = await conversationService.getMessages(conversationId);
-            
+
             // Find the most recent message with AI suggestion
             const pendingMessages = conversationMessages
                 .filter(msg => msg.metadata && msg.metadata.pendingAgent && msg.metadata.aiSuggestion);
-            
-            const pendingMessage = pendingMessages.length > 0 
+
+            const pendingMessage = pendingMessages.length > 0
                 ? pendingMessages.reduce((latest, current) => {
                     const latestTime = latest.metadata.lastUpdated || latest.timestamp;
                     const currentTime = current.metadata.lastUpdated || current.timestamp;
                     return new Date(currentTime) > new Date(latestTime) ? current : latest;
                 })
                 : null;
-            
+
             if (pendingMessage) {
                 res.json({
                     suggestion: pendingMessage.metadata.aiSuggestion,
@@ -441,6 +441,100 @@ class ConversationController {
             }
         } catch (error) {
             return handleControllerError(error, 'Failed to get pending suggestion', req, res);
+        }
+    }
+
+    /**
+     * Generate new AI suggestion for conversation (agent-initiated)
+     */
+    async generateAISuggestion(req, res) {
+        try {
+            // Input validation
+            validateConversationId(req.params.conversationId, 'conversationId');
+            const { conversationId } = req.params;
+
+            // Get conversation messages for context
+            const conversationMessages = await conversationService.getMessages(conversationId);
+            if (!conversationMessages || conversationMessages.length === 0) {
+                return res.status(404).json({ error: 'Conversation not found or has no messages' });
+            }
+
+            // Build conversation context (same as in sendMessage)
+            const conversationContext = this.buildConversationContext(conversationMessages);
+
+            if (!conversationContext || conversationContext.trim().length === 0) {
+                return res.status(400).json({ error: 'No conversation context available for AI suggestion' });
+            }
+
+            // Generate AI suggestion using the same service as in sendMessage
+            const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, true);
+            console.log('🔍 DEBUG: aiSuggestion received:', JSON.stringify(aiSuggestion, null, 2));
+
+            // Handle both string and object responses from AI service
+            let suggestionText;
+            let confidence = 0.8;
+
+            if (typeof aiSuggestion === 'string') {
+                suggestionText = aiSuggestion;
+            } else if (aiSuggestion && aiSuggestion.suggestion) {
+                suggestionText = aiSuggestion.suggestion;
+                confidence = aiSuggestion.confidence || 0.8;
+            } else {
+                console.error('❌ AI suggestion is empty or invalid format:', aiSuggestion);
+                return res.status(500).json({ error: 'AI service returned empty suggestion' });
+            }
+
+            // Validate that we have actual content
+            if (!suggestionText || suggestionText.trim().length === 0) {
+                console.error('❌ AI suggestion text is empty:', suggestionText);
+                return res.status(500).json({ error: 'AI service returned empty suggestion text' });
+            }
+
+            // Clear any existing pending suggestions for this conversation
+            await conversationService.clearPendingSuggestions(conversationId);
+            console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId} (manual generation)`);
+
+            // Create new pending message with AI suggestion
+            const messageId = uuidv4();
+            const agentMessage = {
+                id: messageId,
+                conversationId: conversationId,
+                content: '[Manual AI suggestion generated]',
+                sender: 'system',
+                timestamp: new Date().toISOString(),
+                metadata: {
+                    pendingAgent: true,
+                    aiSuggestion: suggestionText,
+                    confidence: confidence,
+                    lastUpdated: new Date().toISOString(),
+                    messageCount: conversationMessages.length,
+                    customerMessages: conversationMessages.filter(msg =>
+                        msg.sender === 'visitor' || msg.sender === 'customer'
+                    ).length,
+                    manualGeneration: true,
+                    debugInfo: (typeof aiSuggestion === 'object' ? aiSuggestion.debugInfo : {}) || {}
+                }
+            };
+
+            await conversationService.addMessage(conversationId, agentMessage);
+            console.log(`Generated manual AI suggestion for conversation ${conversationId}`);
+
+            // Return the suggestion immediately
+            res.json({
+                suggestion: suggestionText,
+                confidence: confidence,
+                messageId: messageId,
+                timestamp: agentMessage.timestamp,
+                metadata: {
+                    messageCount: agentMessage.metadata.messageCount,
+                    customerMessages: agentMessage.metadata.customerMessages,
+                    manualGeneration: true,
+                    debugInfo: (typeof aiSuggestion === 'object' ? aiSuggestion.debugInfo : {}) || {}
+                }
+            });
+
+        } catch (error) {
+            return handleControllerError(error, 'Failed to generate AI suggestion', req, res);
         }
     }
 

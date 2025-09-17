@@ -60,6 +60,11 @@ function createConversationRoutes(io) {
         conversationController.getPendingSuggestion(req, res);
     });
 
+    // Generate new AI suggestion (agent-initiated)
+    router.post('/conversations/:conversationId/generate-suggestion', (req, res) => {
+        conversationController.generateAISuggestion(req, res);
+    });
+
     // Get debug information for AI suggestion generation
     router.get('/conversations/:conversationId/debug-info', (req, res) => {
         conversationController.getDebugInfo(req, res);

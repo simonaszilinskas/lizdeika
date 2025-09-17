@@ -453,14 +453,19 @@
                             style="resize: none; overflow-y: auto; height: 80px; min-height: 80px; max-height: 300px; transition: height 0.2s ease;"
                         ></textarea>
                     </div>
-                    <div class="flex flex-col items-end gap-1">
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0">
-                            <i class="fas fa-paper-plane mr-1"></i> Siųsti
+                    <div class="flex flex-col items-end gap-2">
+                        <button type="button" onclick="dashboard.getAIAssistance()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm flex items-center transition-colors">
+                            <span class="mr-1">✨</span> Regenerate
                         </button>
-                        <div class="text-xs text-gray-500 whitespace-nowrap">
-                            <span class="hidden md:inline">Cmd+Enter</span>
-                            <span class="md:hidden">Ctrl+Enter</span>
-                        </div>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0 flex flex-col items-center">
+                            <div class="flex items-center">
+                                <i class="fas fa-paper-plane mr-1"></i> Siųsti
+                            </div>
+                            <div class="text-xs text-indigo-200 mt-0.5">
+                                <span class="hidden md:inline">⌘+Enter</span>
+                                <span class="md:hidden">Ctrl+Enter</span>
+                            </div>
+                        </button>
                     </div>
                 </form>
             </div>
