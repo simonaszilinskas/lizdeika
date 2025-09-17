@@ -1,12 +1,14 @@
 /**
  * Knowledge Management Module
  *
- * Handles AI provider credential configuration and knowledge base management
- * Admin-only access for configuring Flowise/OpenRouter settings
+ * Handles AI provider configuration with separate main and rephrasing models,
+ * vector database management, and knowledge base operations.
+ *
+ * Based on the existing backend implementation with:
+ * - Main models: google/gemini-2.5-flash, anthropic/claude-sonnet-4, openai/gpt-5-chat
+ * - Rephrasing models: google/gemini-2.5-flash-lite, openai/gpt-5-nano
+ * - Full API integration with /api/settings/ai_providers
  */
-
-import { Toast } from '../../agent-dashboard/utils/Toast.js';
-import { ErrorHandler } from '../../agent-dashboard/utils/ErrorHandler.js';
 
 export class KnowledgeManagementModule {
     constructor(apiManager, stateManager, connectionManager) {
@@ -14,47 +16,25 @@ export class KnowledgeManagementModule {
         this.stateManager = stateManager;
         this.connectionManager = connectionManager;
 
-        // DOM elements
-        this.elements = {
-            knowledgeTab: null,
+        // DOM elements - will be initialized in initialize()
+        this.elements = {};
 
-            // AI Provider Form
-            providerForm: null,
-            providerFlowiseRadio: null,
-            providerOpenRouterRadio: null,
+        // Module state
+        this.currentProvider = 'openrouter';
+        this.formData = {};
 
-            // Flowise Configuration
-            flowiseConfig: null,
-            flowiseUrl: null,
-            flowiseChatflowId: null,
-            flowiseApiKey: null,
+        console.log('📚 KnowledgeManagementModule: Initialized');
+    }
 
-            // OpenRouter Configuration
-            openRouterConfig: null,
-            openRouterApiKey: null,
-            openRouterModel: null,
-            siteUrl: null,
-            siteName: null,
-
-            // Provider Status and Controls
-            providerStatus: null,
-            testProviderBtn: null,
-            saveProviderBtn: null
+    /**
+     * Get authentication headers for API requests
+     */
+    getAuthHeaders() {
+        const token = localStorage.getItem('agent_token');
+        return {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
         };
-
-        // Current settings cache
-        this.currentProvider = null;
-        this.currentSettings = {};
-        this.originalSettings = {};
-        this.hasUnsavedChanges = false;
-
-        // Connection test state
-        this.isTestingConnection = false;
-
-        // Event listeners
-        this.eventListeners = [];
-
-        console.log('🧠 KnowledgeManagementModule: Initialized');
     }
 
     /**
@@ -62,22 +42,18 @@ export class KnowledgeManagementModule {
      */
     async initialize() {
         try {
+            console.log('📚 KnowledgeManagementModule: Starting initialization');
+
             // Initialize DOM elements
             this.initializeElements();
 
             // Setup event listeners
-            this.setupEventListeners();
-
-            // Load current AI provider settings
-            await this.loadAIProviderSettings();
-
-            // Setup state change listeners
-            this.setupStateListeners();
+            this.attachEventListeners();
 
             console.log('✅ KnowledgeManagementModule: Initialization complete');
 
         } catch (error) {
-            ErrorHandler.logError(error, 'KnowledgeManagementModule initialization failed');
+            console.error('❌ KnowledgeManagementModule: Initialization failed:', error);
             throw error;
         }
     }
@@ -87,410 +63,458 @@ export class KnowledgeManagementModule {
      */
     initializeElements() {
         this.elements = {
-            knowledgeTab: document.getElementById('knowledge-tab'),
-
-            // AI Provider Form
+            // Form and provider elements
             providerForm: document.getElementById('ai-provider-form'),
             providerFlowiseRadio: document.getElementById('provider-flowise'),
             providerOpenRouterRadio: document.getElementById('provider-openrouter'),
 
-            // Flowise Configuration
-            flowiseConfig: document.getElementById('flowise-config'),
+            // Flowise configuration
             flowiseUrl: document.getElementById('flowise-url'),
             flowiseChatflowId: document.getElementById('flowise-chatflow-id'),
-            flowiseApiKey: document.getElementById('flowise-api-key'),
+            testFlowiseButton: document.getElementById('test-flowise'),
 
-            // OpenRouter Configuration
-            openRouterConfig: document.getElementById('openrouter-config'),
+            // OpenRouter configuration
             openRouterApiKey: document.getElementById('openrouter-api-key'),
             openRouterModel: document.getElementById('openrouter-model'),
             rephrasingModel: document.getElementById('rephrasing-model'),
             siteUrl: document.getElementById('site-url'),
             siteName: document.getElementById('site-name'),
+            testOpenRouterButton: document.getElementById('test-openrouter'),
 
-            // Provider Status and Controls
-            providerStatus: document.getElementById('provider-status'),
-            testProviderBtn: document.getElementById('test-provider-btn'),
-            saveProviderBtn: document.getElementById('save-provider-btn')
+            // Form controls
+            resetFormButton: document.getElementById('reset-provider-form'),
+            saveConfigButton: document.getElementById('save-provider-config'),
+
+            // Vector database elements
+            chromadbStatus: document.getElementById('chromadb-status'),
+            totalDocuments: document.getElementById('total-documents'),
+            totalEmbeddings: document.getElementById('total-embeddings'),
+            refreshVectorStatsButton: document.getElementById('refresh-vector-stats'),
+            clearVectorDbButton: document.getElementById('clear-vector-db')
         };
 
-        console.log('🎯 KnowledgeManagementModule: DOM elements initialized', {
-            providerForm: !!this.elements.providerForm,
-            flowiseConfig: !!this.elements.flowiseConfig,
-            openRouterConfig: !!this.elements.openRouterConfig,
-            testProviderBtn: !!this.elements.testProviderBtn
-        });
+        console.log('📚 KnowledgeManagementModule: DOM elements initialized');
     }
 
     /**
-     * Setup event listeners
+     * Attach event listeners
      */
-    setupEventListeners() {
-        // Provider selection change
+    attachEventListeners() {
+        // Provider selection
         if (this.elements.providerFlowiseRadio) {
-            this.elements.providerFlowiseRadio.addEventListener('change', () => this.handleProviderChange('flowise'));
+            this.elements.providerFlowiseRadio.addEventListener('change', () => this.onProviderChanged('flowise'));
         }
-
         if (this.elements.providerOpenRouterRadio) {
-            this.elements.providerOpenRouterRadio.addEventListener('change', () => this.handleProviderChange('openrouter'));
+            this.elements.providerOpenRouterRadio.addEventListener('change', () => this.onProviderChanged('openrouter'));
         }
 
-        // Form input changes
-        const formInputs = [
-            this.elements.flowiseUrl,
-            this.elements.flowiseChatflowId,
-            this.elements.flowiseApiKey,
-            this.elements.openRouterApiKey,
-            this.elements.openRouterModel,
-            this.elements.rephrasingModel,
-            this.elements.siteUrl,
-            this.elements.siteName
-        ].filter(Boolean);
+        // Test connection buttons
+        if (this.elements.testFlowiseButton) {
+            this.elements.testFlowiseButton.addEventListener('click', () => this.testFlowiseConnection());
+        }
+        if (this.elements.testOpenRouterButton) {
+            this.elements.testOpenRouterButton.addEventListener('click', () => this.testOpenRouterConnection());
+        }
 
-        formInputs.forEach(input => {
-            input.addEventListener('input', () => this.handleFormChange());
-        });
-
-        // Form submission
+        // Form controls
+        if (this.elements.resetFormButton) {
+            this.elements.resetFormButton.addEventListener('click', () => this.resetForm());
+        }
+        if (this.elements.saveConfigButton) {
+            this.elements.saveConfigButton.addEventListener('click', () => this.saveConfiguration());
+        }
         if (this.elements.providerForm) {
-            this.elements.providerForm.addEventListener('submit', (e) => this.handleFormSubmit(e));
+            this.elements.providerForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.saveConfiguration();
+            });
         }
 
-        // Test connection button
-        if (this.elements.testProviderBtn) {
-            this.elements.testProviderBtn.addEventListener('click', () => this.testProviderConnection());
+        // Vector database controls
+        if (this.elements.refreshVectorStatsButton) {
+            this.elements.refreshVectorStatsButton.addEventListener('click', () => this.refreshVectorStats());
+        }
+        if (this.elements.clearVectorDbButton) {
+            this.elements.clearVectorDbButton.addEventListener('click', () => this.clearVectorDatabase());
         }
 
-        // Save configuration button
-        if (this.elements.saveProviderBtn) {
-            this.elements.saveProviderBtn.addEventListener('click', () => this.saveProviderSettings());
-        }
-
-        console.log('📡 KnowledgeManagementModule: Event listeners setup complete');
+        console.log('📚 KnowledgeManagementModule: Event listeners attached');
     }
 
     /**
-     * Setup state change listeners
+     * Load knowledge settings when tab is opened
      */
-    setupStateListeners() {
-        // Listen for connection changes
-        if (this.connectionManager) {
-            this.connectionManager.on('connect', () => {
-                console.log('🔄 KnowledgeManagementModule: Connection restored');
-            });
-
-            this.connectionManager.on('disconnect', () => {
-                console.log('⚠️ KnowledgeManagementModule: Connection lost');
-            });
-        }
-    }
-
-    /**
-     * Load current AI provider settings
-     */
-    async loadAIProviderSettings() {
+    async loadKnowledgeSettings() {
         try {
-            console.log('📊 KnowledgeManagementModule: Loading AI provider settings...');
+            console.log('📚 KnowledgeManagementModule: Loading knowledge settings');
 
-            const response = await this.apiManager.get('/api/settings/ai_providers');
-            const settings = response.data || {};
+            // Load current configuration
+            await this.loadProviderConfiguration();
 
-            this.originalSettings = { ...settings };
-            this.currentSettings = { ...settings };
-
-            this.populateForm(settings);
-            this.updateProviderStatus();
-
-            console.log('✅ KnowledgeManagementModule: AI provider settings loaded', settings);
+            // Load vector database stats
+            await this.refreshVectorStats();
 
         } catch (error) {
-            console.error('❌ KnowledgeManagementModule: Failed to load AI provider settings:', error);
-            ErrorHandler.logError(error, 'Failed to load AI provider settings');
-
-            // Show user-friendly error
-            Toast.error('Failed to load AI provider settings. Please check your connection and try again.');
+            console.error('❌ KnowledgeManagementModule: Failed to load knowledge settings:', error);
+            this.showMessage('Failed to load knowledge settings', 'error');
         }
     }
 
     /**
-     * Populate form with settings data
+     * Load current AI provider configuration
      */
-    populateForm(settings) {
-        const provider = settings.ai_provider?.value || 'flowise';
+    async loadProviderConfiguration() {
+        try {
+            console.log('📚 KnowledgeManagementModule: Loading provider configuration');
 
-        // Set provider selection
+            const response = await fetch('/api/settings/ai_providers', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success && result.data) {
+                    this.updateFormFromConfig(result.data);
+                } else {
+                    console.log('📚 KnowledgeManagementModule: No existing configuration found');
+                    this.setDefaultConfiguration();
+                }
+            } else {
+                console.error('❌ Failed to load configuration:', response.statusText);
+                this.setDefaultConfiguration();
+            }
+
+        } catch (error) {
+            console.error('❌ KnowledgeManagementModule: Failed to load provider configuration:', error);
+            this.setDefaultConfiguration();
+        }
+    }
+
+    /**
+     * Update form fields from configuration data
+     */
+    updateFormFromConfig(data) {
+        console.log('📚 KnowledgeManagementModule: Updating form from config:', data);
+
+        // Set provider
+        const provider = data.ai_provider?.value || 'openrouter';
+        this.currentProvider = provider;
+
         if (provider === 'flowise' && this.elements.providerFlowiseRadio) {
             this.elements.providerFlowiseRadio.checked = true;
-            this.handleProviderChange('flowise', false);
         } else if (provider === 'openrouter' && this.elements.providerOpenRouterRadio) {
             this.elements.providerOpenRouterRadio.checked = true;
-            this.handleProviderChange('openrouter', false);
         }
 
-        // Populate Flowise settings
+        // Set Flowise fields
         if (this.elements.flowiseUrl) {
-            this.elements.flowiseUrl.value = settings.flowise_url?.value || '';
+            this.elements.flowiseUrl.value = data.flowise_url?.value || '';
         }
         if (this.elements.flowiseChatflowId) {
-            this.elements.flowiseChatflowId.value = settings.flowise_chatflow_id?.value || '';
-        }
-        if (this.elements.flowiseApiKey) {
-            this.elements.flowiseApiKey.value = settings.flowise_api_key?.value || '';
+            this.elements.flowiseChatflowId.value = data.flowise_chatflow_id?.value || '';
         }
 
-        // Populate OpenRouter settings
-        if (this.elements.openRouterApiKey) {
-            this.elements.openRouterApiKey.value = settings.openrouter_api_key?.value || '';
+        // Set OpenRouter fields
+        if (this.elements.openRouterApiKey && data.openrouter_api_key?.value) {
+            this.elements.openRouterApiKey.value = '••••••••'; // Mask the key
         }
         if (this.elements.openRouterModel) {
-            this.elements.openRouterModel.value = settings.openrouter_model?.value || 'google/gemini-2.5-flash';
+            this.elements.openRouterModel.value = data.openrouter_model?.value || 'google/gemini-2.5-flash';
         }
         if (this.elements.rephrasingModel) {
-            this.elements.rephrasingModel.value = settings.rephrasing_model?.value || 'google/gemini-2.5-flash-lite';
+            this.elements.rephrasingModel.value = data.rephrasing_model?.value || 'google/gemini-2.5-flash-lite';
         }
         if (this.elements.siteUrl) {
-            this.elements.siteUrl.value = settings.site_url?.value || '';
+            this.elements.siteUrl.value = data.site_url?.value || '';
         }
         if (this.elements.siteName) {
-            this.elements.siteName.value = settings.site_name?.value || '';
+            this.elements.siteName.value = data.site_name?.value || '';
         }
 
-        this.currentProvider = provider;
+        this.onProviderChanged(provider);
+    }
+
+    /**
+     * Set default configuration
+     */
+    setDefaultConfiguration() {
+        this.currentProvider = 'openrouter';
+        if (this.elements.providerOpenRouterRadio) {
+            this.elements.providerOpenRouterRadio.checked = true;
+        }
+        if (this.elements.openRouterModel) {
+            this.elements.openRouterModel.value = 'google/gemini-2.5-flash';
+        }
+        if (this.elements.rephrasingModel) {
+            this.elements.rephrasingModel.value = 'google/gemini-2.5-flash-lite';
+        }
+        this.onProviderChanged('openrouter');
     }
 
     /**
      * Handle provider selection change
      */
-    handleProviderChange(provider, markAsChanged = true) {
+    onProviderChanged(provider) {
         this.currentProvider = provider;
+        console.log('📚 KnowledgeManagementModule: Provider changed to:', provider);
 
-        // Show/hide relevant configuration sections
-        if (this.elements.flowiseConfig) {
-            this.elements.flowiseConfig.style.display = provider === 'flowise' ? 'block' : 'none';
-        }
-        if (this.elements.openRouterConfig) {
-            this.elements.openRouterConfig.style.display = provider === 'openrouter' ? 'block' : 'none';
-        }
-
-        if (markAsChanged) {
-            this.handleFormChange();
-        }
-
-        this.validateForm();
-
-        console.log(`🔄 KnowledgeManagementModule: Provider changed to ${provider}`);
+        // Update visual state (no DOM manipulation needed for radio buttons)
+        // They already handle the visual state automatically
     }
 
     /**
-     * Handle form input changes
+     * Test Flowise connection
      */
-    handleFormChange() {
-        this.hasUnsavedChanges = true;
-        this.validateForm();
-        this.updateProviderStatus();
-    }
+    async testFlowiseConnection() {
+        const url = this.elements.flowiseUrl?.value;
+        const chatflowId = this.elements.flowiseChatflowId?.value;
 
-    /**
-     * Validate form and enable/disable buttons
-     */
-    validateForm() {
-        let isValid = false;
-
-        if (this.currentProvider === 'flowise') {
-            const url = this.elements.flowiseUrl?.value?.trim();
-            const chatflowId = this.elements.flowiseChatflowId?.value?.trim();
-            isValid = url && chatflowId;
-        } else if (this.currentProvider === 'openrouter') {
-            const apiKey = this.elements.openRouterApiKey?.value?.trim();
-            const model = this.elements.openRouterModel?.value?.trim();
-            const siteUrl = this.elements.siteUrl?.value?.trim();
-            const siteName = this.elements.siteName?.value?.trim();
-            isValid = apiKey && model && siteUrl && siteName;
-        }
-
-        // Enable/disable buttons
-        if (this.elements.testProviderBtn) {
-            this.elements.testProviderBtn.disabled = !isValid;
-        }
-        if (this.elements.saveProviderBtn) {
-            this.elements.saveProviderBtn.disabled = !isValid || !this.hasUnsavedChanges;
-        }
-
-        return isValid;
-    }
-
-    /**
-     * Update provider status display
-     */
-    updateProviderStatus() {
-        if (!this.elements.providerStatus) return;
-
-        const status = this.elements.providerStatus;
-        const statusDot = status.querySelector('span');
-
-        if (this.hasUnsavedChanges) {
-            if (statusDot) statusDot.className = 'inline-block w-3 h-3 rounded-full bg-yellow-500 mr-2';
-            status.innerHTML = `<span class="inline-block w-3 h-3 rounded-full bg-yellow-500 mr-2"></span>Status: Unsaved changes`;
-        } else if (this.currentProvider) {
-            if (statusDot) statusDot.className = 'inline-block w-3 h-3 rounded-full bg-blue-500 mr-2';
-            status.innerHTML = `<span class="inline-block w-3 h-3 rounded-full bg-blue-500 mr-2"></span>Status: ${this.currentProvider} configured`;
-        } else {
-            if (statusDot) statusDot.className = 'inline-block w-3 h-3 rounded-full bg-gray-300 mr-2';
-            status.innerHTML = `<span class="inline-block w-3 h-3 rounded-full bg-gray-300 mr-2"></span>Status: Not configured`;
-        }
-    }
-
-    /**
-     * Handle form submission
-     */
-    async handleFormSubmit(e) {
-        e.preventDefault();
-        await this.saveProviderSettings();
-    }
-
-    /**
-     * Test provider connection
-     */
-    async testProviderConnection() {
-        if (this.isTestingConnection) return;
-
-        this.isTestingConnection = true;
-        const testBtn = this.elements.testProviderBtn;
-
-        if (testBtn) {
-            testBtn.disabled = true;
-            testBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Testing...';
+        if (!url || !chatflowId) {
+            this.showMessage('Please enter both Flowise URL and Chatflow ID', 'warning');
+            return;
         }
 
         try {
-            console.log('🧪 KnowledgeManagementModule: Testing provider connection...');
+            this.elements.testFlowiseButton.disabled = true;
+            this.elements.testFlowiseButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Testing...';
 
-            const testData = {
-                provider: this.currentProvider,
-                config: this.gatherFormData()
+            const response = await fetch('/api/system/test-ai-provider', {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({
+                    provider: 'flowise',
+                    config: { url, chatflowId }
+                })
+            });
+
+            if (response.ok) {
+                this.showMessage('Flowise connection successful', 'success');
+            } else {
+                const error = await response.text();
+                this.showMessage(`Flowise test failed: ${error}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('❌ Flowise test failed:', error);
+            this.showMessage('Flowise connection failed', 'error');
+        } finally {
+            this.elements.testFlowiseButton.disabled = false;
+            this.elements.testFlowiseButton.innerHTML = '<i class="fas fa-flask mr-2"></i>Test Connection';
+        }
+    }
+
+    /**
+     * Test OpenRouter connection
+     */
+    async testOpenRouterConnection() {
+        const apiKey = this.elements.openRouterApiKey?.value;
+        const model = this.elements.openRouterModel?.value;
+
+        if (!apiKey || apiKey === '••••••••') {
+            this.showMessage('Please enter OpenRouter API key', 'warning');
+            return;
+        }
+
+        try {
+            this.elements.testOpenRouterButton.disabled = true;
+            this.elements.testOpenRouterButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Testing...';
+
+            const response = await fetch('/api/system/test-ai-provider', {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({
+                    provider: 'openrouter',
+                    config: { apiKey, model }
+                })
+            });
+
+            if (response.ok) {
+                this.showMessage('OpenRouter connection successful', 'success');
+            } else {
+                const error = await response.text();
+                this.showMessage(`OpenRouter test failed: ${error}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('❌ OpenRouter test failed:', error);
+            this.showMessage('OpenRouter connection failed', 'error');
+        } finally {
+            this.elements.testOpenRouterButton.disabled = false;
+            this.elements.testOpenRouterButton.innerHTML = '<i class="fas fa-flask mr-2"></i>Test Connection';
+        }
+    }
+
+    /**
+     * Save AI provider configuration
+     */
+    async saveConfiguration() {
+        try {
+            this.elements.saveConfigButton.disabled = true;
+            this.elements.saveConfigButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+
+            // Collect form data
+            const config = {
+                ai_provider: this.currentProvider,
+                // Flowise configuration
+                flowise_url: this.elements.flowiseUrl?.value || '',
+                flowise_chatflow_id: this.elements.flowiseChatflowId?.value || '',
+                // OpenRouter configuration
+                openrouter_api_key: this.elements.openRouterApiKey?.value || '',
+                openrouter_model: this.elements.openRouterModel?.value || 'google/gemini-2.5-flash',
+                rephrasing_model: this.elements.rephrasingModel?.value || 'google/gemini-2.5-flash-lite',
+                // Site configuration
+                site_url: this.elements.siteUrl?.value || '',
+                site_name: this.elements.siteName?.value || ''
             };
 
-            const response = await this.apiManager.post('/api/system/test-ai-provider', testData);
+            // Don't save masked API key
+            if (config.openrouter_api_key === '••••••••') {
+                delete config.openrouter_api_key;
+            }
 
-            if (response.success) {
-                Toast.success(`${this.currentProvider} connection test successful!`);
+            console.log('📚 KnowledgeManagementModule: Saving configuration:', config);
 
-                if (this.elements.providerStatus) {
-                    this.elements.providerStatus.innerHTML =
-                        `<span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-2"></span>Status: Connection test passed`;
+            const response = await fetch('/api/settings/ai_providers', {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify(config)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    this.showMessage('AI provider configuration saved successfully', 'success');
+                } else {
+                    this.showMessage(`Failed to save: ${result.message}`, 'error');
                 }
             } else {
-                throw new Error(response.message || 'Connection test failed');
+                const error = await response.text();
+                this.showMessage(`Failed to save configuration: ${error}`, 'error');
             }
 
         } catch (error) {
-            console.error('❌ KnowledgeManagementModule: Connection test failed:', error);
-
-            Toast.error(`Connection test failed: ${error.message}`);
-
-            if (this.elements.providerStatus) {
-                this.elements.providerStatus.innerHTML =
-                    `<span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span>Status: Connection test failed`;
-            }
-
+            console.error('❌ Failed to save configuration:', error);
+            this.showMessage('Failed to save configuration', 'error');
         } finally {
-            this.isTestingConnection = false;
-
-            if (testBtn) {
-                testBtn.disabled = false;
-                testBtn.innerHTML = '<i class="fas fa-flask mr-1"></i>Test Connection';
-            }
+            this.elements.saveConfigButton.disabled = false;
+            this.elements.saveConfigButton.innerHTML = '<i class="fas fa-save mr-2"></i>Save Configuration';
         }
     }
 
     /**
-     * Save provider settings
+     * Reset form to default values
      */
-    async saveProviderSettings() {
+    resetForm() {
+        this.setDefaultConfiguration();
+        this.showMessage('Form reset to defaults', 'info');
+    }
+
+    /**
+     * Refresh vector database statistics
+     */
+    async refreshVectorStats() {
         try {
-            if (!this.validateForm()) {
-                Toast.error('Please fill in all required fields');
-                return;
+            if (this.elements.refreshVectorStatsButton) {
+                this.elements.refreshVectorStatsButton.disabled = true;
+                this.elements.refreshVectorStatsButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
             }
 
-            console.log('💾 KnowledgeManagementModule: Saving AI provider settings...');
+            const response = await fetch('/api/knowledge/stats', {
+                headers: this.getAuthHeaders()
+            });
 
-            const saveBtn = this.elements.saveProviderBtn;
-            if (saveBtn) {
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Saving...';
-            }
-
-            const settingsData = this.gatherFormData();
-
-            const response = await this.apiManager.post('/api/settings/ai_providers', settingsData);
-
-            if (response.success) {
-                this.hasUnsavedChanges = false;
-                this.originalSettings = { ...this.currentSettings };
-
-                Toast.success('AI provider settings saved successfully!');
-
-                // Update status
-                this.updateProviderStatus();
-
-                console.log('✅ KnowledgeManagementModule: Settings saved successfully');
-
+            if (response.ok) {
+                const result = await response.json();
+                if (result.success) {
+                    this.updateVectorStats(result);
+                } else {
+                    this.updateVectorStats({ documents: 0, embeddings: 0, status: 'error' });
+                }
             } else {
-                throw new Error(response.message || 'Failed to save settings');
+                this.updateVectorStats({ documents: 0, embeddings: 0, status: 'error' });
             }
 
         } catch (error) {
-            console.error('❌ KnowledgeManagementModule: Failed to save settings:', error);
-            ErrorHandler.logError(error, 'Failed to save AI provider settings');
-
-            Toast.error(`Failed to save settings: ${error.message}`);
-
+            console.error('❌ Failed to refresh vector stats:', error);
+            this.updateVectorStats({ documents: 0, embeddings: 0, status: 'error' });
         } finally {
-            const saveBtn = this.elements.saveProviderBtn;
-            if (saveBtn) {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i class="fas fa-save mr-1"></i>Save Configuration';
+            if (this.elements.refreshVectorStatsButton) {
+                this.elements.refreshVectorStatsButton.disabled = false;
+                this.elements.refreshVectorStatsButton.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Refresh Stats';
             }
         }
     }
 
     /**
-     * Gather form data for submission
+     * Update vector database statistics display
      */
-    gatherFormData() {
-        const data = {
-            ai_provider: this.currentProvider
-        };
-
-        if (this.currentProvider === 'flowise') {
-            data.flowise_url = this.elements.flowiseUrl?.value?.trim() || null;
-            data.flowise_chatflow_id = this.elements.flowiseChatflowId?.value?.trim() || null;
-            data.flowise_api_key = this.elements.flowiseApiKey?.value?.trim() || null;
-        } else if (this.currentProvider === 'openrouter') {
-            data.openrouter_api_key = this.elements.openRouterApiKey?.value?.trim() || null;
-            data.openrouter_model = this.elements.openRouterModel?.value?.trim() || null;
-            data.rephrasing_model = this.elements.rephrasingModel?.value?.trim() || null;
-            data.site_url = this.elements.siteUrl?.value?.trim() || null;
-            data.site_name = this.elements.siteName?.value?.trim() || null;
+    updateVectorStats(stats) {
+        if (this.elements.totalDocuments) {
+            this.elements.totalDocuments.textContent = stats.documents || 0;
         }
-
-        return data;
+        if (this.elements.totalEmbeddings) {
+            this.elements.totalEmbeddings.textContent = stats.embeddings || 0;
+        }
+        if (this.elements.chromadbStatus) {
+            const status = stats.status || 'disconnected';
+            this.elements.chromadbStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            this.elements.chromadbStatus.className = `text-lg font-semibold ${
+                status === 'connected' ? 'text-green-600' :
+                status === 'error' ? 'text-red-600' : 'text-gray-600'
+            }`;
+        }
     }
 
     /**
-     * Cleanup and destroy module
+     * Clear vector database
+     */
+    async clearVectorDatabase() {
+        if (!confirm('Are you sure you want to clear the entire vector database? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            this.elements.clearVectorDbButton.disabled = true;
+            this.elements.clearVectorDbButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Clearing...';
+
+            const response = await fetch('/api/knowledge/documents/clear', {
+                method: 'POST',
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                this.showMessage('Vector database cleared successfully', 'success');
+                await this.refreshVectorStats();
+            } else {
+                const error = await response.text();
+                this.showMessage(`Failed to clear database: ${error}`, 'error');
+            }
+
+        } catch (error) {
+            console.error('❌ Failed to clear vector database:', error);
+            this.showMessage('Failed to clear vector database', 'error');
+        } finally {
+            this.elements.clearVectorDbButton.disabled = false;
+            this.elements.clearVectorDbButton.innerHTML = '<i class="fas fa-trash mr-2"></i>Clear Database';
+        }
+    }
+
+    /**
+     * Show message to user
+     */
+    showMessage(text, type = 'info', title = '') {
+        // Use the global toast system
+        if (window.settingsManager && window.settingsManager.showMessage) {
+            window.settingsManager.showMessage(text, type, title);
+        } else {
+            console.log(`📚 KnowledgeManagementModule: ${type.toUpperCase()}: ${text}`);
+        }
+    }
+
+    /**
+     * Cleanup method
      */
     destroy() {
-        // Remove event listeners
-        this.eventListeners.forEach(({ element, event, handler }) => {
-            if (element) {
-                element.removeEventListener(event, handler);
-            }
-        });
-
-        this.eventListeners = [];
-
-        console.log('🗑️ KnowledgeManagementModule: Destroyed');
+        console.log('🧹 KnowledgeManagementModule: Cleanup complete');
     }
 }
