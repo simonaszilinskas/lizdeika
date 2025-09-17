@@ -90,7 +90,7 @@ async function main() {
       where: { ticket_number: 'VIL-2024-001' },
       update: {},
       create: {
-        id: 'ticket_simple',
+        id: 'e72ee248-07a6-4671-8f71-953f7ef88459',
         ticket_number: 'VIL-2024-001',
         user_id: user.id,
         assigned_agent_id: agent.id,
@@ -108,7 +108,7 @@ async function main() {
     // Create one simple message
     await prisma.messages.create({
       data: {
-        id: 'msg_simple',
+        id: 'e4d924be-f718-4279-84ec-1eb975c70e36',
         ticket_id: ticket.id,
         sender_id: user.id,
         senderType: 'user',
