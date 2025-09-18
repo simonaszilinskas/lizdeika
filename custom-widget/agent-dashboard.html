@@ -275,6 +275,17 @@
             display: block !important;
         }
 
+        /* Hide empty state messages when sidebar is collapsed */
+        .sidebar-collapsed #chat-queue-container .text-gray-500,
+        .sidebar-collapsed #chat-queue-container .text-center {
+            display: none !important;
+        }
+
+        /* Hide all queue content when no conversations and collapsed */
+        .sidebar-collapsed #chat-queue:empty {
+            display: none;
+        }
+
         .sidebar-collapsed .chat-queue-item {
             padding: 8px 4px;
             position: relative;
