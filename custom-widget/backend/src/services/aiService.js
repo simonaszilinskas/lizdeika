@@ -199,8 +199,15 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
             console.log('Recent message:', recentMessage);
             
             if (recentMessage) {
+                // DEBUG: Check debugInfo before LangChain call
+                console.log('🔍 BEFORE LangChain - debugInfo keys:', Object.keys(debugInfo));
+                console.log('🔍 BEFORE LangChain - debugInfo sample:', JSON.stringify(debugInfo, null, 2).substring(0, 300));
+
                 // Get RAG response using LangChain with full conversation context and debug info
                 const ragResult = await ragService.getAnswer(recentMessage, chatHistory, true, conversationId);
+
+                // DEBUG: Check debugInfo after LangChain call
+                console.log('🔍 AFTER LangChain - debugInfo keys:', Object.keys(debugInfo));
                 
                 // Merge LangChain debug info into main debug structure
                 if (ragResult.debugInfo) {
@@ -396,7 +403,14 @@ async function storeDebugInfo(conversationId, debugInfo) {
     try {
         const conversationService = require('./conversationService');
         const { v4: uuidv4 } = require('uuid');
-        
+
+        // DEBUG: Log what we're trying to store
+        console.log('📝 storeDebugInfo called with:');
+        console.log('📝 conversationId:', conversationId);
+        console.log('📝 debugInfo type:', typeof debugInfo);
+        console.log('📝 debugInfo keys:', Object.keys(debugInfo || {}));
+        console.log('📝 debugInfo content (first 500 chars):', JSON.stringify(debugInfo, null, 2).substring(0, 500));
+
         // Create a hidden system message with debug metadata (no visible content)
         const debugMessage = {
             id: uuidv4(),
@@ -404,14 +418,18 @@ async function storeDebugInfo(conversationId, debugInfo) {
             content: '',  // Empty content - no visible message
             sender: 'system',
             timestamp: new Date(),
-            metadata: { 
+            metadata: {
                 debugInfo: debugInfo,
                 systemMessage: true,
                 debugOnly: true  // Flag to indicate this is debug-only data
             }
         };
-        
-        conversationService.addMessage(conversationId, debugMessage);
+
+        console.log('📝 About to store debugMessage with metadata keys:', Object.keys(debugMessage.metadata));
+        console.log('📝 debugInfo in metadata keys:', Object.keys(debugMessage.metadata.debugInfo || {}));
+
+        await conversationService.addMessage(conversationId, debugMessage);
+        console.log('📝 Debug info stored successfully');
     } catch (error) {
         console.error('Failed to store debug info:', error);
     }

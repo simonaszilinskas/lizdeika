@@ -383,13 +383,31 @@ class ConversationController {
     async getDebugInfo(req, res) {
         try {
             const { conversationId } = req.params;
-            
+
             const conversationMessages = await conversationService.getMessages(conversationId);
-            
+
+            // DEBUG: Log the messages structure
+            console.log('🔍 DEBUG getDebugInfo - Total messages:', conversationMessages.length);
+            console.log('🔍 DEBUG getDebugInfo - Sample message structure:', JSON.stringify(conversationMessages[0], null, 2));
+
+            // Find messages with metadata
+            const messagesWithMetadata = conversationMessages.filter(msg => msg.metadata);
+            console.log('🔍 DEBUG getDebugInfo - Messages with metadata:', messagesWithMetadata.length);
+
             // Find the most recent message with debug metadata
             const debugMessage = conversationMessages
                 .filter(msg => msg.metadata && msg.metadata.debugInfo)
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+            console.log('🔍 DEBUG getDebugInfo - Debug message found:', !!debugMessage);
+            if (debugMessage) {
+                console.log('🔍 DEBUG getDebugInfo - Debug message metadata keys:', Object.keys(debugMessage.metadata || {}));
+                console.log('🔍 DEBUG getDebugInfo - Has debugInfo:', !!debugMessage.metadata?.debugInfo);
+                console.log('🔍 DEBUG getDebugInfo - debugInfo keys:', debugMessage.metadata?.debugInfo ? Object.keys(debugMessage.metadata.debugInfo) : 'N/A');
+                console.log('🔍 DEBUG getDebugInfo - debugInfo type:', typeof debugMessage.metadata?.debugInfo);
+                console.log('🔍 DEBUG getDebugInfo - debugInfo content:', JSON.stringify(debugMessage.metadata?.debugInfo, null, 2));
+                console.log('🔍 DEBUG getDebugInfo - Full metadata:', JSON.stringify(debugMessage.metadata, null, 2));
+            }
 
             if (debugMessage) {
                 res.json(debugMessage.metadata.debugInfo);
