@@ -242,7 +242,7 @@
         }
 
         /* Collapsed Sidebar Styles */
-        .sidebar-collapsed .collapsible-content {
+        .sidebar-collapsed .collapsible-content:not(#chat-queue-container) {
             display: none;
         }
 
@@ -268,6 +268,65 @@
 
         .sidebar-collapsed .resize-handle {
             display: none;
+        }
+
+        /* Collapsed conversation items */
+        .sidebar-collapsed #chat-queue-container {
+            display: block !important;
+        }
+
+        .sidebar-collapsed .chat-queue-item {
+            padding: 8px 4px;
+            position: relative;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-collapsed .chat-queue-item > div:not(.collapsed-conversation-indicator) {
+            display: none;
+        }
+
+        .sidebar-collapsed .collapsed-conversation-indicator {
+            display: flex !important;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .collapsed-conversation-indicator {
+            display: none;
+        }
+
+        .sidebar-collapsed .conversation-number {
+            font-size: 14px;
+            font-weight: 600;
+            color: #363636;
+        }
+
+        .sidebar-collapsed .conversation-unread-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
         }
 
         /* Smooth transitions for sidebar */
@@ -410,7 +469,7 @@
             </div>
 
             <!-- Chat Queue -->
-            <div class="flex-1 overflow-y-auto collapsible-content">
+            <div id="chat-queue-container" class="flex-1 overflow-y-auto collapsible-content">
                 <div id="chat-queue" class="space-y-1 p-2">
                     <!-- Chat items will be populated here -->
                 </div>
