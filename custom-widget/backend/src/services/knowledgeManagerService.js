@@ -4,6 +4,7 @@
  */
 const documentService = require('./documentService');
 const chromaService = require('./chromaService');
+const SettingsService = require('./settingsService');
 
 // In-memory storage for document metadata (use proper database in production)
 const documents = new Map();
@@ -11,6 +12,25 @@ const documents = new Map();
 class KnowledgeManagerService {
     constructor() {
         this.documents = documents;
+    }
+
+    /**
+     * Helper method to get AI provider from database settings
+     */
+    async _getAIProvider() {
+        try {
+            const settingsService = new SettingsService();
+            await new Promise((resolve) => {
+                settingsService.once('initialized', resolve);
+                setTimeout(resolve, 1000); // fallback timeout
+            });
+
+            const aiConfig = await settingsService.getAIProviderConfig();
+            return aiConfig.AI_PROVIDER || 'flowise';
+        } catch (error) {
+            console.log('Warning: Could not load AI provider from database, using fallback:', error.message);
+            return process.env.AI_PROVIDER || 'flowise';
+        }
     }
 
     /**
@@ -33,7 +53,7 @@ class KnowledgeManagerService {
             });
 
             // Only add to vector database for OpenRouter provider
-            const currentProvider = process.env.AI_PROVIDER || 'flowise';
+            const currentProvider = await this._getAIProvider();
             if (currentProvider === 'openrouter') {
                 try {
                     // Add chunks to vector database with fallback protection
@@ -150,7 +170,7 @@ class KnowledgeManagerService {
             }
 
             // Remove from vector database if it was indexed
-            const currentProvider = process.env.AI_PROVIDER || 'flowise';
+            const currentProvider = await this._getAIProvider();
             if (currentProvider === 'openrouter' && document.status === 'indexed') {
                 try {
                     // Find and remove chunks from vector database
@@ -206,7 +226,7 @@ class KnowledgeManagerService {
      * Re-index all documents (useful when switching providers)
      */
     async reindexAllDocuments() {
-        const currentProvider = process.env.AI_PROVIDER || 'flowise';
+        const currentProvider = await this._getAIProvider();
         
         if (currentProvider !== 'openrouter') {
             console.log('Skipping re-indexing: not using OpenRouter provider');

@@ -51,6 +51,7 @@ class ChromaService {
     async initialize() {
         try {
             this.client = new CloudClient({
+                url: "https://api.trychroma.com",
                 apiKey: process.env.CHROMA_AUTH_TOKEN,
                 tenant: process.env.CHROMA_TENANT,
                 database: process.env.CHROMA_DATABASE
