@@ -240,6 +240,48 @@
         .debug-section.collapsed .debug-section-content {
             display: none;
         }
+
+        /* Collapsed Sidebar Styles */
+        .sidebar-collapsed .collapsible-content {
+            display: none;
+        }
+
+        .sidebar-collapsed .sidebar-header-content {
+            display: none;
+        }
+
+        .sidebar-collapsed .sidebar-toggle-collapsed {
+            display: flex !important;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+
+        .sidebar-toggle-collapsed {
+            display: none;
+        }
+
+        .sidebar-collapsed {
+            overflow: hidden;
+        }
+
+        .sidebar-collapsed .resize-handle {
+            display: none;
+        }
+
+        /* Smooth transitions for sidebar */
+        #sidebar {
+            transition: width 0.3s ease;
+        }
+
+        .sidebar-header-content {
+            transition: opacity 0.2s ease;
+        }
+
+        .collapsible-content {
+            transition: opacity 0.2s ease;
+        }
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden" data-api-url="http://localhost:3002">
@@ -258,38 +300,47 @@
         <!-- Sidebar - Chat Queue -->
         <div id="sidebar" class="bg-white border-r border-gray-200 flex flex-col transition-all duration-300" style="width: 400px; min-width: 280px; max-width: 600px;">
             <!-- Header with Toggle Button -->
-            <div class="p-4 border-b border-gray-200 bg-indigo-600 text-white">
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-3">
-                        <button id="sidebar-toggle" class="text-white hover:bg-indigo-700 p-1 rounded transition-colors" title="Toggle Sidebar (Ctrl+B)">
-                            <i class="fas fa-bars"></i>
-                        </button>
-                        <div>
-                            <h1 class="text-lg font-semibold">Agento skelbimų lenta</h1>
-                            <p class="text-sm text-indigo-100">Klientų palaikymas</p>
+            <div class="p-4 border-b border-gray-200" style="background-color: #f5f5f5; color: #363636;">
+                <!-- Expanded sidebar header content -->
+                <div class="sidebar-header-content">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <button id="sidebar-toggle" class="p-1 rounded transition-colors" style="color: #363636;" onmouseover="this.style.backgroundColor='#e0e0e0'" onmouseout="this.style.backgroundColor='transparent'" title="Toggle Sidebar (Ctrl+B)">
+                                <i class="fas fa-bars"></i>
+                            </button>
+                            <div>
+                                <h1 class="text-lg font-semibold">Lizdeika</h1>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <!-- Personal Agent Status -->
-                        <div class="relative flex items-center">
-                            <select id="personal-status" class="bg-indigo-500 text-white text-sm border-0 rounded px-2 py-1">
-                                <option value="online">Online</option>
-                                <option value="offline">Offline</option>
-                            </select>
-                        </div>
+                        <div class="flex items-center gap-4">
+                            <!-- Personal Agent Status -->
+                            <div class="relative flex items-center">
+                                <select id="personal-status" class="text-sm border border-gray-300 rounded px-2 py-1" style="background-color: white; color: #363636;">
+                                    <option value="online">Online</option>
+                                    <option value="offline">Offline</option>
+                                </select>
+                            </div>
 
-                        <!-- Connected Agents Count -->
-                        <div class="flex items-center gap-2 border-l border-indigo-400 pl-4">
-                            <i class="fas fa-users text-sm text-indigo-200"></i>
-                            <span id="total-agents-compact" class="text-sm font-medium text-white" title="Connected agents">0</span>
+                            <!-- Connected Agents Count -->
+                            <div class="flex items-center gap-2 border-l border-gray-300 pl-4">
+                                <i class="fas fa-users text-sm" style="color: #666;"></i>
+                                <span id="total-agents-compact" class="text-sm font-medium" style="color: #363636;" title="Connected agents">0</span>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Collapsed sidebar toggle button (only visible when collapsed) -->
+                <div class="sidebar-toggle-collapsed">
+                    <button id="sidebar-toggle-collapsed" class="p-2 rounded transition-colors" style="color: #363636;" onmouseover="this.style.backgroundColor='#e0e0e0'" onmouseout="this.style.backgroundColor='transparent'" title="Expand Sidebar (Ctrl+B)">
+                        <i class="fas fa-bars text-lg"></i>
+                    </button>
                 </div>
             </div>
 
 
             <!-- Conversation Filters (Collapsible) -->
-            <div class="bg-gray-50 border-b">
+            <div class="bg-gray-50 border-b collapsible-content">
                 <div class="p-3">
                     <div class="flex justify-between items-center mb-2">
                         <button id="filter-section-toggle" class="flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-gray-700">
@@ -327,7 +378,7 @@
             </div>
 
             <!-- Bulk Actions Panel -->
-            <div id="bulk-actions-panel" class="hidden bg-orange-50 border-b border-orange-200 p-3">
+            <div id="bulk-actions-panel" class="hidden bg-orange-50 border-b border-orange-200 p-3 collapsible-content">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
                         <label class="flex items-center cursor-pointer">
@@ -359,14 +410,14 @@
             </div>
 
             <!-- Chat Queue -->
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto collapsible-content">
                 <div id="chat-queue" class="space-y-1 p-2">
                     <!-- Chat items will be populated here -->
                 </div>
             </div>
 
             <!-- Navigation Buttons - Responsive -->
-            <div class="p-2 border-t border-gray-200">
+            <div class="p-2 border-t border-gray-200 collapsible-content">
                 <div id="nav-buttons" class="flex gap-2 flex-wrap">
                     <a href="knowledge-base.html" class="nav-button flex-1 min-w-[100px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition no-underline text-center text-sm font-medium flex items-center justify-center" title="Žinių bazė">
                         <i class="fas fa-book nav-icon"></i>
