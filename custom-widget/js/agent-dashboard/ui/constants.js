@@ -226,7 +226,6 @@ export const ELEMENT_IDS = {
     /** Status elements */
     PERSONAL_STATUS: 'personal-status',
     ARCHIVE_TOGGLE: 'archive-toggle',
-    ADMIN_BAR: 'adminBar',
     
     /** AI suggestion elements */
     AI_SUGGESTION_PANEL: 'ai-suggestion-panel',

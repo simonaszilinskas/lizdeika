@@ -355,18 +355,8 @@
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden" data-api-url="http://localhost:3002">
-    <!-- Admin Bar (only visible for admins) -->
-    <div id="adminBar" class="hidden bg-red-600 text-white px-4 py-2 flex justify-between items-center shadow-lg z-50">
-        <span class="text-sm font-medium">
-            <i class="fas fa-crown mr-2"></i>Admin Mode
-        </span>
-        <button onclick="openUserManagement()" class="bg-red-700 hover:bg-red-800 px-3 py-1 rounded text-sm transition-colors">
-            <i class="fas fa-users mr-1"></i>Manage Users
-        </button>
-    </div>
-    
     <!-- Main Container -->
-    <div class="flex relative" id="mainContainer" style="height: calc(100vh - 0px);">
+    <div class="flex relative" id="mainContainer" style="height: 100vh;">
         <!-- Sidebar - Chat Queue -->
         <div id="sidebar" class="bg-white border-r border-gray-200 flex flex-col transition-all duration-300" style="width: 400px; min-width: 280px; max-width: 600px;">
             <!-- Header with Toggle Button -->
@@ -654,9 +644,7 @@
                 console.log('👤 User data:', userData);
                 
                 if (userData && userData.role === 'admin') {
-                    console.log('🔧 Setting up admin UI...');
-                    document.getElementById('adminBar').classList.remove('hidden');
-                    document.getElementById('mainContainer').style.height = 'calc(100vh - 44px)';
+                    console.log('🔧 User is admin');
                 }
                 
                 console.log('📜 Loading enhanced error handling modules...');
@@ -702,10 +690,6 @@
             }
         });
 
-        // Admin user management functions
-        function openUserManagement() {
-            window.open('settings.html#users', '_blank');
-        }
     </script>
 </body>
 </html>
