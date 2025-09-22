@@ -192,35 +192,216 @@ Smart polling system ensures agents always see the most recent AI suggestions:
 
 ---
 
-## 🚀 Production Deployment
+## 🚀 Deploy in Production
 
-### Docker Production Setup
+### Option 1: VM Deployment (Docker) - Tested & Verified ✅
 
-1. **Clone and configure**:
+Deploy to any Linux VM (Ubuntu, Debian, CentOS) with 4GB+ RAM.
+
+#### Prerequisites (one-time setup)
 ```bash
-git clone <repository-url>
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Logout and login again for docker group to take effect
+```
+
+#### Deploy with One Command
+```bash
+# 1. Clone repository
+git clone https://github.com/simonaszilinskas/vilnius-assistant.git
 cd vilnius-assistant
-cp .env.docker .env.docker.local
-# Edit .env.docker.local with your production values
+git checkout deployment
+
+# 2. Configure environment (REQUIRED)
+cp .env.template .env
+nano .env  # Edit with your API keys - see Required Configuration below
+
+# 3. Deploy everything automatically
+./scripts/deploy.sh production
 ```
 
-2. **Deploy with production compose**:
+**Result**: Full system running at `http://your-vm-ip:3002` in 3-5 minutes!
+
+#### Required Configuration
+Edit `.env` file with real values:
 ```bash
+# Essential API Keys (get from providers)
+OPENROUTER_API_KEY=sk-or-v1-your-real-key      # From openrouter.ai
+MISTRAL_API_KEY=your-real-mistral-key          # From mistral.ai
+CHROMA_URL=https://api.trychroma.com           # ChromaDB Cloud
+CHROMA_TENANT=your-tenant-id
+CHROMA_DATABASE=your-database
+CHROMA_AUTH_TOKEN=your-auth-token
+
+# Security (generate these)
+JWT_SECRET=$(openssl rand -base64 32)          # Generate 32+ char string
+JWT_REFRESH_SECRET=$(openssl rand -base64 32)  # Generate another one
+ADMIN_RECOVERY_KEY=$(openssl rand -base64 24)  # Generate 24+ char string
+```
+
+#### VM Requirements
+- **Minimum**: 2 vCPUs, 4GB RAM, 20GB SSD (~$20-40/month)
+- **Recommended**: 4 vCPUs, 8GB RAM, 40GB SSD (~$40-80/month)
+- **Providers**: DigitalOcean, Linode, AWS EC2, Hetzner, Google Cloud
+
+#### Post-Deployment Access
+- **Health Dashboard**: `http://your-vm-ip:3002/health-dashboard.html` - System status
+- **Agent Dashboard**: `http://your-vm-ip:3002/agent-dashboard.html` - Main app
+- **Admin Settings**: `http://your-vm-ip:3002/settings.html` - Configuration
+- **Default Login**: admin@vilnius.lt / admin123 (change immediately!)
+
+### Option 2: Railway Deployment (GitHub Integration) 🚂
+
+Deploy directly from GitHub with automatic scaling and managed database.
+
+#### One-Click Deploy
+1. Push deployment branch to GitHub:
+   ```bash
+   git push origin deployment
+   ```
+2. Go to [railway.app/new](https://railway.app/new)
+3. Choose "Deploy from GitHub repo"
+4. Select your repository → `deployment` branch
+5. Add PostgreSQL database service
+6. Configure environment variables (same as VM deployment)
+7. Railway handles everything else!
+
+**Result**: Production deployment with SSL at `https://your-app.railway.app` in 3 minutes!
+
+#### Railway Benefits
+- Auto-scaling and load balancing
+- Managed PostgreSQL with backups
+- Free SSL certificates
+- Built-in monitoring
+- $5 free credits monthly
+- ~$20-50/month for production
+
+### Option 3: Traditional Docker Compose
+
+For manual Docker deployment without scripts:
+
+```bash
+# Clone and configure
+git clone https://github.com/simonaszilinskas/vilnius-assistant.git
+cd vilnius-assistant
+git checkout deployment
+cp .env.template .env
+# Edit .env with your configuration
+
+# Deploy with Docker Compose
 docker-compose -f docker-compose.prod.yml up -d
+
+# Initialize database
+docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
+docker-compose -f docker-compose.prod.yml exec backend npm run db:seed
 ```
 
-3. **Initialize database**:
+### 🔑 Getting Required API Keys
+
+1. **OpenRouter** (AI Provider):
+   - Go to [openrouter.ai](https://openrouter.ai)
+   - Create account → Get API key
+   - Free tier available
+
+2. **Mistral** (Embeddings):
+   - Go to [mistral.ai](https://mistral.ai)
+   - Create account → Get API key
+   - Free tier available
+
+3. **ChromaDB** (Vector Database):
+   - Go to [trychroma.com](https://trychroma.com)
+   - Create cloud instance
+   - Get tenant, database, and auth token
+
+### ✅ Deployment Verification
+
+After deployment, verify everything works:
+
+1. **Check Health Dashboard**: `http://your-domain:3002/health-dashboard.html`
+   - All services should show green
+   - AI providers connected
+   - Database operational
+
+2. **Run Quick Test**:
+   ```bash
+   curl http://your-domain:3002/health
+   # Should return: {"status":"healthy"}
+   ```
+
+3. **Test Login**:
+   - Go to `/login.html`
+   - Login with admin@vilnius.lt / admin123
+   - Change password immediately!
+
+### 🔧 Production Maintenance
+
+**View logs**:
 ```bash
-docker-compose exec backend npx prisma migrate deploy
-docker-compose exec backend npm run seed
+# VM deployment
+docker-compose logs -f backend
+
+# Railway deployment
+railway logs --tail
 ```
 
-### SSL Configuration
-The production setup includes Nginx with SSL. Update `docker/nginx/prod.conf` with your SSL certificates.
+**Backup database**:
+```bash
+docker-compose exec postgres pg_dump -U vilnius_user vilnius_support > backup.sql
+```
 
-### Monitoring
-- Container logs: `docker-compose logs -f`
-- Health check: `https://yourdomain.com/health`
+**Deploy updates**:
+```bash
+git pull origin deployment
+./scripts/deploy.sh production  # VM
+# OR
+railway up  # Railway
+```
+
+### 📊 Production Checklist
+
+Before going live:
+- [ ] Changed admin password from default
+- [ ] Configured all API keys (OpenRouter, Mistral, ChromaDB)
+- [ ] Set strong JWT secrets (32+ characters)
+- [ ] Tested AI responses in chat widget
+- [ ] Uploaded knowledge base documents
+- [ ] Created agent user accounts
+- [ ] Configured `WIDGET_ALLOWED_DOMAINS` for security
+- [ ] Set up database backups
+- [ ] Verified health dashboard shows all green
+
+### 🚨 Common Issues & Solutions
+
+**Port 3002 in use**:
+```bash
+sudo lsof -i :3002
+sudo kill -9 <PID>
+```
+
+**Docker permission denied**:
+```bash
+sudo usermod -aG docker $USER
+# Logout and login again
+```
+
+**API keys not working**:
+- Verify keys are correct in `.env`
+- Check provider dashboards for usage/errors
+- Test with `curl` to API endpoints
+
+**Database connection fails**:
+```bash
+docker-compose logs postgres
+docker-compose down -v
+./scripts/deploy.sh production  # Rebuild everything
+```
 
 ---
 
