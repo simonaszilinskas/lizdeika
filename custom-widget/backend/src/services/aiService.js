@@ -146,7 +146,16 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
         await storeDebugInfo(conversationId, debugInfo);
-        return fallbackResponse;
+        return {
+            response: fallbackResponse,
+            debugInfo: debugInfo,
+            metadata: {
+                provider: config.AI_PROVIDER,
+                ragUsed: false,
+                fallbackUsed: true,
+                reason: 'No AI provider available'
+            }
+        };
     }
     
     // Check if we need to perform a health check (every 5 minutes)
@@ -162,7 +171,16 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
         await storeDebugInfo(conversationId, debugInfo);
-        return fallbackResponse;
+        return {
+            response: fallbackResponse,
+            debugInfo: debugInfo,
+            metadata: {
+                provider: config.AI_PROVIDER,
+                ragUsed: false,
+                fallbackUsed: true,
+                reason: 'AI provider unhealthy'
+            }
+        };
     }
 
     debugInfo.step2_providerCheck = { status: 'healthy', provider: config.AI_PROVIDER };
@@ -234,13 +252,23 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
                     sourceUrls: ragResult.sourceUrls
                 };
                 debugInfo.finalResponse = ragResult.answer;
-                
+
                 // Store comprehensive debug info including LangChain internals
                 console.log('📝 Storing debug info with keys:', Object.keys(debugInfo));
                 await storeDebugInfo(conversationId, debugInfo);
-                
-                // Return the LangChain response directly
-                return ragResult.answer;
+
+                // Return structured response with comprehensive debug information
+                return {
+                    response: ragResult.answer,
+                    debugInfo: debugInfo,
+                    metadata: {
+                        provider: config.AI_PROVIDER,
+                        ragUsed: true,
+                        sourcesUsed: ragResult.sources?.length || 0,
+                        contextsUsed: ragResult.contextsUsed || 0,
+                        processingSteps: Object.keys(debugInfo).length
+                    }
+                };
             }
         } catch (error) {
             console.error('LangChain RAG Error:', error.message);
@@ -273,11 +301,21 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
             successful: true
         };
         debugInfo.finalResponse = response;
-        
+
         // Store debug info
         await storeDebugInfo(conversationId, debugInfo);
-        
-        return response;
+
+        return {
+            response: response,
+            debugInfo: debugInfo,
+            metadata: {
+                provider: currentProvider,
+                ragUsed: currentProvider === 'openrouter' ? false : true, // Flowise has built-in RAG
+                fallbackUsed: false,
+                contextLength: enhancedContext.length,
+                processingSteps: Object.keys(debugInfo).length
+            }
+        };
 
     } catch (error) {
         console.error(`Error generating AI suggestion from ${config.AI_PROVIDER} after retries:`, error.message);
@@ -294,11 +332,21 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         // Return fallback response
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
-        
+
         // Store debug info
         await storeDebugInfo(conversationId, debugInfo);
-        
-        return fallbackResponse;
+
+        return {
+            response: fallbackResponse,
+            debugInfo: debugInfo,
+            metadata: {
+                provider: config.AI_PROVIDER,
+                ragUsed: false,
+                fallbackUsed: true,
+                reason: 'AI provider error after retries',
+                error: error.message
+            }
+        };
     }
 }
 
@@ -400,39 +448,9 @@ async function getProviderHealth() {
  * Store debug information in the conversation for developer transparency
  */
 async function storeDebugInfo(conversationId, debugInfo) {
-    try {
-        const conversationService = require('./conversationService');
-        const { v4: uuidv4 } = require('uuid');
-
-        // DEBUG: Log what we're trying to store
-        console.log('📝 storeDebugInfo called with:');
-        console.log('📝 conversationId:', conversationId);
-        console.log('📝 debugInfo type:', typeof debugInfo);
-        console.log('📝 debugInfo keys:', Object.keys(debugInfo || {}));
-        console.log('📝 debugInfo content (first 500 chars):', JSON.stringify(debugInfo, null, 2).substring(0, 500));
-
-        // Create a hidden system message with debug metadata (no visible content)
-        const debugMessage = {
-            id: uuidv4(),
-            conversationId,
-            content: '',  // Empty content - no visible message
-            sender: 'system',
-            timestamp: new Date(),
-            metadata: {
-                debugInfo: debugInfo,
-                systemMessage: true,
-                debugOnly: true  // Flag to indicate this is debug-only data
-            }
-        };
-
-        console.log('📝 About to store debugMessage with metadata keys:', Object.keys(debugMessage.metadata));
-        console.log('📝 debugInfo in metadata keys:', Object.keys(debugMessage.metadata.debugInfo || {}));
-
-        await conversationService.addMessage(conversationId, debugMessage);
-        console.log('📝 Debug info stored successfully');
-    } catch (error) {
-        console.error('Failed to store debug info:', error);
-    }
+    // Debug information is now logged directly to browser console via frontend
+    // This function is preserved for API compatibility but no longer stores debug data
+    return;
 }
 
 /**
