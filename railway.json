@@ -42,7 +42,8 @@
       "name": "vilnius-backend",
       "source": {
         "type": "github",
-        "repo": "your-username/vilnius-assistant"
+        "repo": "simonaszilinskas/vilnius-assistant",
+        "branch": "deployment"
       },
       "variables": {
         "OPENROUTER_API_KEY": {

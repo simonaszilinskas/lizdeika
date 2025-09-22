@@ -194,9 +194,9 @@ Smart polling system ensures agents always see the most recent AI suggestions:
 
 ## 🚀 Deploy in Production
 
-### Option 1: VM Deployment (Docker) - Tested & Verified ✅
+### Option 1: Automated Deployment (Recommended) ✅
 
-Deploy to any Linux VM (Ubuntu, Debian, CentOS) with 4GB+ RAM.
+Deploy to any Linux VM (Ubuntu, Debian, CentOS) with 4GB+ RAM using our deployment script.
 
 #### Prerequisites (one-time setup)
 ```bash
@@ -229,63 +229,11 @@ nano .env  # Edit with your API keys - see Required Configuration below
 
 **Result**: Full system running at `http://your-vm-ip:3002` in 3-5 minutes!
 
-#### Required Configuration
-Edit `.env` file with real values:
-```bash
-# Essential API Keys (get from providers)
-OPENROUTER_API_KEY=sk-or-v1-your-real-key      # From openrouter.ai
-MISTRAL_API_KEY=your-real-mistral-key          # From mistral.ai
-CHROMA_URL=https://api.trychroma.com           # ChromaDB Cloud
-CHROMA_TENANT=your-tenant-id
-CHROMA_DATABASE=your-database
-CHROMA_AUTH_TOKEN=your-auth-token
+The script handles everything: prerequisite checks, Docker builds, database setup, migrations, health verification, and shows you all access URLs.
 
-# Security (generate these)
-JWT_SECRET=$(openssl rand -base64 32)          # Generate 32+ char string
-JWT_REFRESH_SECRET=$(openssl rand -base64 32)  # Generate another one
-ADMIN_RECOVERY_KEY=$(openssl rand -base64 24)  # Generate 24+ char string
-```
+### Option 2: Manual Docker Compose
 
-#### VM Requirements
-- **Minimum**: 2 vCPUs, 4GB RAM, 20GB SSD (~$20-40/month)
-- **Recommended**: 4 vCPUs, 8GB RAM, 40GB SSD (~$40-80/month)
-- **Providers**: DigitalOcean, Linode, AWS EC2, Hetzner, Google Cloud
-
-#### Post-Deployment Access
-- **Health Dashboard**: `http://your-vm-ip:3002/health-dashboard.html` - System status
-- **Agent Dashboard**: `http://your-vm-ip:3002/agent-dashboard.html` - Main app
-- **Admin Settings**: `http://your-vm-ip:3002/settings.html` - Configuration
-- **Default Login**: admin@vilnius.lt / admin123 (change immediately!)
-
-### Option 2: Railway Deployment (GitHub Integration) 🚂
-
-Deploy directly from GitHub with automatic scaling and managed database.
-
-#### One-Click Deploy
-1. Push deployment branch to GitHub:
-   ```bash
-   git push origin deployment
-   ```
-2. Go to [railway.app/new](https://railway.app/new)
-3. Choose "Deploy from GitHub repo"
-4. Select your repository → `deployment` branch
-5. Add PostgreSQL database service
-6. Configure environment variables (same as VM deployment)
-7. Railway handles everything else!
-
-**Result**: Production deployment with SSL at `https://your-app.railway.app` in 3 minutes!
-
-#### Railway Benefits
-- Auto-scaling and load balancing
-- Managed PostgreSQL with backups
-- Free SSL certificates
-- Built-in monitoring
-- $5 free credits monthly
-- ~$20-50/month for production
-
-### Option 3: Traditional Docker Compose
-
-For manual Docker deployment without scripts:
+For users who prefer manual control over each deployment step:
 
 ```bash
 # Clone and configure
@@ -303,105 +251,52 @@ docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
 docker-compose -f docker-compose.prod.yml exec backend npm run db:seed
 ```
 
-### 🔑 Getting Required API Keys
+Note: This method requires you to manually check prerequisites, wait for services, and verify deployment.
 
-1. **OpenRouter** (AI Provider):
-   - Go to [openrouter.ai](https://openrouter.ai)
-   - Create account → Get API key
-   - Free tier available
+### 🔑 Required Configuration
 
-2. **Mistral** (Embeddings):
-   - Go to [mistral.ai](https://mistral.ai)
-   - Create account → Get API key
-   - Free tier available
-
-3. **ChromaDB** (Vector Database):
-   - Go to [trychroma.com](https://trychroma.com)
-   - Create cloud instance
-   - Get tenant, database, and auth token
-
-### ✅ Deployment Verification
-
-After deployment, verify everything works:
-
-1. **Check Health Dashboard**: `http://your-domain:3002/health-dashboard.html`
-   - All services should show green
-   - AI providers connected
-   - Database operational
-
-2. **Run Quick Test**:
-   ```bash
-   curl http://your-domain:3002/health
-   # Should return: {"status":"healthy"}
-   ```
-
-3. **Test Login**:
-   - Go to `/login.html`
-   - Login with admin@vilnius.lt / admin123
-   - Change password immediately!
-
-### 🔧 Production Maintenance
-
-**View logs**:
+Edit `.env` file with real values:
 ```bash
-# VM deployment
-docker-compose logs -f backend
+# Essential API Keys
+OPENROUTER_API_KEY=sk-or-v1-your-key           # From openrouter.ai
+MISTRAL_API_KEY=your-mistral-key               # From mistral.ai
+CHROMA_URL=https://api.trychroma.com           # ChromaDB Cloud
+CHROMA_TENANT=your-tenant-id
+CHROMA_DATABASE=your-database
+CHROMA_AUTH_TOKEN=your-auth-token
 
-# Railway deployment
-railway logs --tail
+# Security (generate these)
+JWT_SECRET=$(openssl rand -base64 32)          # Generate secure string
+JWT_REFRESH_SECRET=$(openssl rand -base64 32)  # Generate another one
+ADMIN_RECOVERY_KEY=$(openssl rand -base64 24)  # For password recovery
 ```
 
-**Backup database**:
-```bash
-docker-compose exec postgres pg_dump -U vilnius_user vilnius_support > backup.sql
-```
+**Get API Keys from:**
+- **OpenRouter**: [openrouter.ai](https://openrouter.ai) - Free tier available
+- **Mistral**: [mistral.ai](https://mistral.ai) - Free tier available
+- **ChromaDB**: [trychroma.com](https://trychroma.com) - Cloud instance required
 
-**Deploy updates**:
-```bash
-git pull origin deployment
-./scripts/deploy.sh production  # VM
-# OR
-railway up  # Railway
-```
+### VM Requirements
+- **Minimum**: 2 vCPUs, 4GB RAM, 20GB SSD (~$20-40/month)
+- **Recommended**: 4 vCPUs, 8GB RAM, 40GB SSD (~$40-80/month)
+- **Providers**: DigitalOcean, Linode, AWS EC2, Hetzner, Google Cloud
 
-### 📊 Production Checklist
+### Post-Deployment Access
+- **Health Dashboard**: `http://your-vm-ip:3002/health-dashboard.html`
+- **Agent Dashboard**: `http://your-vm-ip:3002/agent-dashboard.html`
+- **Admin Settings**: `http://your-vm-ip:3002/settings.html`
+- **Default Login**: admin@vilnius.lt / admin123 (change immediately!)
 
-Before going live:
+### Railway Deployment
+The project includes `railway.toml` for one-click deployment to Railway platform. Simply connect your GitHub repo to Railway and it will handle the rest.
+
+### Production Checklist
 - [ ] Changed admin password from default
 - [ ] Configured all API keys (OpenRouter, Mistral, ChromaDB)
 - [ ] Set strong JWT secrets (32+ characters)
 - [ ] Tested AI responses in chat widget
 - [ ] Uploaded knowledge base documents
-- [ ] Created agent user accounts
-- [ ] Configured `WIDGET_ALLOWED_DOMAINS` for security
-- [ ] Set up database backups
 - [ ] Verified health dashboard shows all green
-
-### 🚨 Common Issues & Solutions
-
-**Port 3002 in use**:
-```bash
-sudo lsof -i :3002
-sudo kill -9 <PID>
-```
-
-**Docker permission denied**:
-```bash
-sudo usermod -aG docker $USER
-# Logout and login again
-```
-
-**API keys not working**:
-- Verify keys are correct in `.env`
-- Check provider dashboards for usage/errors
-- Test with `curl` to API endpoints
-
-**Database connection fails**:
-```bash
-docker-compose logs postgres
-docker-compose down -v
-./scripts/deploy.sh production  # Rebuild everything
-```
 
 ---
 
