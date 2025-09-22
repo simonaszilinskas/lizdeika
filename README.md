@@ -432,8 +432,4 @@ LANGFUSE_PUBLIC_KEY="your-langfuse-public"
 LANGFUSE_HOST="your-langfuse-host"
 ```
 
-### Docker Environment Files
-- `.env.docker`: Template for Docker environment
-- `.env.docker.local`: Local overrides (not committed)
-
 ---
