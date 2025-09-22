@@ -90,3 +90,30 @@ custom-widget/backend/prisma/generated/
 # Temporary files
 tmp/
 temp/
+
+# Deployment files (not needed in container)
+scripts/
+railway.json
+.railway/
+
+# Environment templates
+.env.template
+.env.docker
+.env.docker.local
+
+# Additional test and debug files
+custom-widget/backend/test-*
+custom-widget/backend/debug-*
+custom-widget/backend/comprehensive-*
+custom-widget/backend/verify-*
+
+# Playwright and testing
+.playwright-mcp/
+test-data/
+test-config/
+
+# Migration and analysis files
+MIGRATION_TEST_PLAN.md
+GITHUB_ISSUES_MIGRATION.md
+BASELINE_TEST_RESULTS.md
+knowledge-base-api-tests.sh
