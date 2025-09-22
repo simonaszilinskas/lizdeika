@@ -13,7 +13,7 @@ git push origin deployment
 
 **Step 2**: Click this deploy button:
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/deploy?template=https://github.com/simonaszilinskas/vilnius-assistant/tree/deployment)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/deploy?template=https://github.com/simonaszilinskas/lizdeika/tree/deployment)
 
 **Step 3**: Configure required environment variables in Railway dashboard:
 - `OPENROUTER_API_KEY` - Your OpenRouter API key
