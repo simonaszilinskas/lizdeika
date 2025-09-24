@@ -89,8 +89,8 @@ function createApp() {
     const fs = require('fs');
 
     const staticPath = process.env.NODE_ENV === 'production'
-        ? path.join(__dirname, '../') // Railway: HTML files copied to /app/
-        : path.join(__dirname, '../../custom-widget'); // Local: custom-widget/ directory
+        ? path.join(__dirname, '../../') // Railway: HTML files in /app/custom-widget/
+        : path.join(__dirname, '../../'); // Local: project root, custom-widget/ directory
 
     // Debug: List available files in the static directory
     console.log(`🔍 NODE_ENV: ${process.env.NODE_ENV}`);

@@ -183,7 +183,24 @@ async function startServer() {
 
     } catch (error) {
         console.error('❌ Failed to start server:', error.message);
-        console.error(error.stack);
+        console.error('📋 Error details:', error);
+        console.error('🔍 Stack trace:', error.stack);
+
+        // In Railway, still try to start server even if dependencies fail
+        // This allows us to see what's happening via logs
+        if (process.env.RAILWAY_ENVIRONMENT) {
+            console.log('⚠️  Railway detected - starting server anyway for debugging');
+            try {
+                server.listen(PORT, '0.0.0.0', () => {
+                    console.log(`🆘 Emergency server running on http://0.0.0.0:${PORT}`);
+                    console.log('❌ But services may not be fully functional');
+                });
+                return; // Don't exit
+            } catch (serverError) {
+                console.error('💥 Even emergency server failed:', serverError.message);
+            }
+        }
+
         process.exit(1);
     }
 }
