@@ -144,6 +144,9 @@ async function displayConfiguration() {
 async function startServer() {
     try {
         console.log('🚀 Starting Vilnius Assistant Backend...');
+        console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🚪 Port: ${PORT}`);
+        console.log(`🌐 Host: ${process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'}`);
 
         // Initialize database connection first
         await initializeDatabase();
@@ -155,8 +158,10 @@ async function startServer() {
         await displayConfiguration();
 
         // Start server only after all dependencies are ready
-        server.listen(PORT, () => {
-            console.log(`✅ Widget backend running on http://localhost:${PORT}`);
+        // Bind to 0.0.0.0 for Railway/Docker, localhost for development
+        const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+        server.listen(PORT, host, () => {
+            console.log(`✅ Widget backend running on http://${host}:${PORT}`);
             console.log('WebSocket server initialized');
 
             console.log('\\nEndpoints:');
