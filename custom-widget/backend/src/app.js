@@ -83,7 +83,15 @@ function createApp() {
     app.use(correlationMiddleware);
     
     app.use(express.json());
-    app.use(express.static('../')); // Serve widget files
+
+    // Static file serving - Railway vs local development paths
+    const path = require('path');
+    const staticPath = process.env.NODE_ENV === 'production'
+        ? path.join(__dirname, '../') // Railway: HTML files copied to /app/
+        : path.join(__dirname, '../../custom-widget'); // Local: custom-widget/ directory
+
+    app.use(express.static(staticPath));
+    console.log(`📁 Serving static files from: ${staticPath}`);
     
     // Request logging in development
     if (process.env.NODE_ENV !== 'production') {
