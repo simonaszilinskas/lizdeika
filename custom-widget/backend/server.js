@@ -46,18 +46,50 @@ const PORT = process.env.WIDGET_BACKEND_PORT || process.env.PORT || 3002;
 // Create and configure the application
 const { app, server, io, websocketService } = createApp();
 
-// Initialize database connection
+// Initialize database connection with Railway support
 async function initializeDatabase() {
     try {
         console.log('🔌 Connecting to PostgreSQL database...');
+
+        // Log database URL info for debugging (without exposing credentials)
+        if (process.env.DATABASE_URL) {
+            const dbUrl = new URL(process.env.DATABASE_URL);
+            console.log(`📍 Database host: ${dbUrl.hostname}:${dbUrl.port}`);
+            console.log(`📊 Database name: ${dbUrl.pathname.substring(1)}`);
+        } else {
+            console.log('⚠️  DATABASE_URL not found, using individual DB settings');
+        }
+
         await databaseClient.connect();
         console.log('✅ Database connection established');
+
+        // Run database migrations in production (Railway)
+        if (process.env.NODE_ENV === 'production') {
+            console.log('🔄 Running database migrations...');
+            const { execSync } = require('child_process');
+            try {
+                execSync('npx prisma db push --accept-data-loss', {
+                    stdio: 'pipe',
+                    cwd: __dirname
+                });
+                console.log('✅ Database migrations completed');
+            } catch (migrationError) {
+                console.warn('⚠️  Migration warning:', migrationError.message);
+                // Don't fail if migrations have warnings, but continue
+            }
+        }
+
     } catch (error) {
         console.error('❌ Database connection failed:', error.message);
-        console.log('💡 Make sure PostgreSQL is running: docker-compose up postgres -d');
-        // Don't exit in development to allow for database startup
+
         if (process.env.NODE_ENV === 'production') {
-            process.exit(1);
+            console.error('💥 Production database failure - cannot continue');
+            console.error('🔍 Check Railway PostgreSQL service and DATABASE_URL');
+            throw error; // Will be caught by startServer() and exit
+        } else {
+            console.log('💡 Development mode: Make sure PostgreSQL is running');
+            console.log('   docker-compose up postgres -d');
+            throw error; // Let development know about the issue
         }
     }
 }
@@ -108,32 +140,51 @@ async function displayConfiguration() {
     }
 }
 
-// Start server
-server.listen(PORT, async () => {
-    console.log(`Widget backend running on http://localhost:${PORT}`);
-    console.log('WebSocket server initialized');
-    await displayConfiguration();
-    
-    console.log('\\nEndpoints:');
-    console.log('- POST /api/conversations');
-    console.log('- POST /api/messages');
-    console.log('- GET /api/conversations/:id/messages');
-    console.log('- GET /api/admin/conversations');
-    console.log('- POST /api/reset (for testing)');
-    console.log('- GET /health');
-    
-    console.log('\\nWebSocket Events:');
-    console.log('- join-conversation');
-    console.log('- join-agent-dashboard');
-    console.log('- agent-typing');
-    console.log('- customer-typing');
-    
-    // Initialize services after server starts
-    initializeDatabase();
-    initializeKnowledgeBase();
-    
-    // Note: Auto-close functionality removed - conversations are now archived manually through the dashboard
-});
+// Initialize all services before starting server
+async function startServer() {
+    try {
+        console.log('🚀 Starting Vilnius Assistant Backend...');
+
+        // Initialize database connection first
+        await initializeDatabase();
+
+        // Initialize knowledge base
+        await initializeKnowledgeBase();
+
+        // Display configuration
+        await displayConfiguration();
+
+        // Start server only after all dependencies are ready
+        server.listen(PORT, () => {
+            console.log(`✅ Widget backend running on http://localhost:${PORT}`);
+            console.log('WebSocket server initialized');
+
+            console.log('\\nEndpoints:');
+            console.log('- POST /api/conversations');
+            console.log('- POST /api/messages');
+            console.log('- GET /api/conversations/:id/messages');
+            console.log('- GET /api/admin/conversations');
+            console.log('- POST /api/reset (for testing)');
+            console.log('- GET /health');
+
+            console.log('\\nWebSocket Events:');
+            console.log('- join-conversation');
+            console.log('- join-agent-dashboard');
+            console.log('- agent-typing');
+            console.log('- customer-typing');
+
+            console.log('\\n🎉 Server ready to accept requests');
+        });
+
+    } catch (error) {
+        console.error('❌ Failed to start server:', error.message);
+        console.error(error.stack);
+        process.exit(1);
+    }
+}
+
+// Start the server with proper initialization sequence
+startServer();
 
 // Graceful shutdown
 function gracefulShutdown(signal) {

@@ -31,6 +31,10 @@ CMD ["npm", "run", "dev"]
 
 # Production build stage
 FROM base AS builder
+
+# Install full dependencies including devDependencies for Prisma CLI
+RUN npm ci
+
 COPY custom-widget/backend ./
 COPY custom-widget/*.html ../
 COPY custom-widget/*.js ../
@@ -56,6 +60,9 @@ RUN adduser --system --uid 1001 --ingroup nodejs nodejs
 # Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app ./
 COPY --from=builder /app/node_modules ./node_modules
+
+# Ensure Prisma CLI is available for migrations
+RUN npm install -g prisma@latest
 
 # Create necessary directories
 RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
