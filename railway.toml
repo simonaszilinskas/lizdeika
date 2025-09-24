@@ -1,31 +1,18 @@
-[build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
-
-[deploy]
-startCommand = "node server.js"
-healthcheckPath = "/health"
-healthcheckTimeout = 300
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
-
-[deploy.environmentVariables]
-NODE_ENV = "production"
-# JWT Authentication - Generate secure secrets for production
-JWT_SECRET = "super-secure-jwt-secret-key-for-railway-production-change-this"
-JWT_REFRESH_SECRET = "super-secure-refresh-token-secret-for-railway-production-change-this"
-JWT_ACCESS_EXPIRES_IN = "15m"
-JWT_REFRESH_EXPIRES_IN = "7d"
-# Emergency admin recovery
-ADMIN_RECOVERY_KEY = "emergency-admin-recovery-key-for-railway-change-this"
-
 [[services]]
-name = "vilnius-backend"
+name = "app"
 source = "."
 
 [services.build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
-[[plugins]]
-name = "postgresql"
+[services.deploy]
+startCommand = "node server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "database"
+plugin = "postgresql"
