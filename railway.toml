@@ -3,11 +3,14 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "NODE_ENV=production node server.js"
+startCommand = "node server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+[deploy.environmentVariables]
+NODE_ENV = "production"
 
 [[services]]
 name = "vilnius-backend"
