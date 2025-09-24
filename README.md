@@ -192,35 +192,111 @@ Smart polling system ensures agents always see the most recent AI suggestions:
 
 ---
 
-## 🚀 Production Deployment
+## 🚀 Deploy in Production
 
-### Docker Production Setup
+### Option 1: Automated Deployment (Recommended) ✅
 
-1. **Clone and configure**:
+Deploy to any Linux VM (Ubuntu, Debian, CentOS) with 4GB+ RAM using our deployment script.
+
+#### Prerequisites (one-time setup)
 ```bash
-git clone <repository-url>
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Logout and login again for docker group to take effect
+```
+
+#### Deploy with One Command
+```bash
+# 1. Clone repository
+git clone https://github.com/simonaszilinskas/vilnius-assistant.git
 cd vilnius-assistant
-cp .env.docker .env.docker.local
-# Edit .env.docker.local with your production values
+git checkout deployment
+
+# 2. Configure environment (REQUIRED)
+cp .env.template .env
+nano .env  # Edit with your API keys - see Required Configuration below
+
+# 3. Deploy everything automatically
+./scripts/deploy.sh production
 ```
 
-2. **Deploy with production compose**:
+**Result**: Full system running at `http://your-vm-ip:3002` in 3-5 minutes!
+
+The script handles everything: prerequisite checks, Docker builds, database setup, migrations, health verification, and shows you all access URLs.
+
+### Option 2: Manual Docker Compose
+
+For users who prefer manual control over each deployment step:
+
 ```bash
+# Clone and configure
+git clone https://github.com/simonaszilinskas/vilnius-assistant.git
+cd vilnius-assistant
+git checkout deployment
+cp .env.template .env
+# Edit .env with your configuration
+
+# Deploy with Docker Compose
 docker-compose -f docker-compose.prod.yml up -d
+
+# Initialize database
+docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
+docker-compose -f docker-compose.prod.yml exec backend npm run db:seed
 ```
 
-3. **Initialize database**:
+Note: This method requires you to manually check prerequisites, wait for services, and verify deployment.
+
+### 🔑 Required Configuration
+
+Edit `.env` file with real values:
 ```bash
-docker-compose exec backend npx prisma migrate deploy
-docker-compose exec backend npm run seed
+# Essential API Keys
+OPENROUTER_API_KEY=sk-or-v1-your-key           # From openrouter.ai
+MISTRAL_API_KEY=your-mistral-key               # From mistral.ai
+CHROMA_URL=https://api.trychroma.com           # ChromaDB Cloud
+CHROMA_TENANT=your-tenant-id
+CHROMA_DATABASE=your-database
+CHROMA_AUTH_TOKEN=your-auth-token
+
+# Security (generate these)
+JWT_SECRET=$(openssl rand -base64 32)          # Generate secure string
+JWT_REFRESH_SECRET=$(openssl rand -base64 32)  # Generate another one
+ADMIN_RECOVERY_KEY=$(openssl rand -base64 24)  # For password recovery
 ```
 
-### SSL Configuration
-The production setup includes Nginx with SSL. Update `docker/nginx/prod.conf` with your SSL certificates.
+**Get API Keys from:**
+- **OpenRouter**: [openrouter.ai](https://openrouter.ai) - Free tier available
+- **Mistral**: [mistral.ai](https://mistral.ai) - Free tier available
+- **ChromaDB**: [trychroma.com](https://trychroma.com) - Cloud instance required
 
-### Monitoring
-- Container logs: `docker-compose logs -f`
-- Health check: `https://yourdomain.com/health`
+### VM Requirements
+- **Minimum**: 2 vCPUs, 4GB RAM, 20GB SSD (~$20-40/month)
+- **Recommended**: 4 vCPUs, 8GB RAM, 40GB SSD (~$40-80/month)
+- **Providers**: DigitalOcean, Linode, AWS EC2, Hetzner, Google Cloud
+
+### Post-Deployment Access
+- **Health Dashboard**: `http://your-vm-ip:3002/health-dashboard.html`
+- **Agent Dashboard**: `http://your-vm-ip:3002/agent-dashboard.html`
+- **Admin Settings**: `http://your-vm-ip:3002/settings.html`
+- **Default Login**: admin@vilnius.lt / admin123 (change immediately!)
+
+### Railway Deployment
+The project includes `railway.toml` for one-click deployment to Railway platform. Simply connect your GitHub repo to Railway and it will handle the rest.
+
+### Production Checklist
+- [ ] Changed admin password from default
+- [ ] Configured all API keys (OpenRouter, Mistral, ChromaDB)
+- [ ] Set strong JWT secrets (32+ characters)
+- [ ] Tested AI responses in chat widget
+- [ ] Uploaded knowledge base documents
+- [ ] Verified health dashboard shows all green
 
 ---
 
@@ -355,9 +431,5 @@ LANGFUSE_SECRET_KEY="your-langfuse-key"
 LANGFUSE_PUBLIC_KEY="your-langfuse-public"
 LANGFUSE_HOST="your-langfuse-host"
 ```
-
-### Docker Environment Files
-- `.env.docker`: Template for Docker environment
-- `.env.docker.local`: Local overrides (not committed)
 
 ---
