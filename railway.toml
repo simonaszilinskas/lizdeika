@@ -1,0 +1,21 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "vilnius-backend"
+source = "."
+
+[services.build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[[plugins]]
+name = "postgresql"

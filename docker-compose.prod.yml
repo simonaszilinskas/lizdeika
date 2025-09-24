@@ -86,8 +86,10 @@ services:
     command: >
       sh -c "
         echo 'Starting production deployment...' &&
+        echo 'Running database migrations...' &&
         npx prisma migrate deploy &&
         npx prisma generate &&
+        echo 'Production server starting...' &&
         node server.js
       "
 

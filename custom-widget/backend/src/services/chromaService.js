@@ -51,6 +51,7 @@ class ChromaService {
     async initialize() {
         try {
             this.client = new CloudClient({
+                url: "https://api.trychroma.com",
                 apiKey: process.env.CHROMA_AUTH_TOKEN,
                 tenant: process.env.CHROMA_TENANT,
                 database: process.env.CHROMA_DATABASE
@@ -167,11 +168,16 @@ class ChromaService {
      */
     async searchContext(query, nResults = 3) {
         if (!this.isConnected || !this.collection) {
-            console.warn('Chroma DB not connected, returning empty context');
+            console.warn('🔍 ChromaDB not connected, returning empty context');
             return [];
         }
 
         try {
+            console.log(`\n🔍 ChromaDB Vector Search Query:`);
+            console.log(`  • Original Query: "${query}"`);
+            console.log(`  • Requested Results: ${nResults}`);
+            console.log(`  • Collection: ${this.collectionName}`);
+
             let queryData = {
                 queryTexts: [query],
                 nResults: nResults,
@@ -180,38 +186,77 @@ class ChromaService {
             // Generate Mistral embedding for query if available
             if (this.embeddingFunction) {
                 try {
+                    const embeddingStartTime = performance.now();
                     const queryEmbeddings = await this.embeddingFunction.generate([query]);
+                    const embeddingTime = performance.now() - embeddingStartTime;
+
                     queryData = {
                         queryEmbeddings: queryEmbeddings,
                         nResults: nResults,
                     };
-                    console.log(`Using Mistral embedding for query: "${query}"`);
+
+                    console.log(`  • Embedding Generation:`);
+                    console.log(`    - Provider: Mistral AI`);
+                    console.log(`    - Model: mistral-embed`);
+                    console.log(`    - Dimensions: ${queryEmbeddings[0].length}`);
+                    console.log(`    - Generation Time: ${embeddingTime.toFixed(2)}ms`);
+                    console.log(`    - First 5 Vector Values: [${queryEmbeddings[0].slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`);
                 } catch (error) {
-                    console.warn('Failed to generate Mistral query embedding, using text search:', error.message);
+                    console.warn('⚠️ Failed to generate Mistral query embedding, using text search:', error.message);
                     // Keep original queryTexts approach
                 }
+            } else {
+                console.log(`  • Embedding: Using ChromaDB default embeddings`);
             }
 
+            console.log(`  • Executing ChromaDB Query...`);
+            const searchStartTime = performance.now();
             const results = await this.collection.query(queryData);
+            const searchTime = performance.now() - searchStartTime;
+
+            console.log(`\n📊 ChromaDB Search Results (${searchTime.toFixed(2)}ms):`);
+            console.log(`  • Total Documents Found: ${results.documents && results.documents[0] ? results.documents[0].length : 0}`);
 
             // Format results for easier use
             const contexts = [];
             if (results.documents && results.documents[0]) {
                 for (let i = 0; i < results.documents[0].length; i++) {
-                    contexts.push({
+                    const context = {
                         content: results.documents[0][i],
                         metadata: results.metadatas[0][i] || {},
                         distance: results.distances[0][i],
                         id: results.ids[0][i]
-                    });
+                    };
+                    contexts.push(context);
+
+                    console.log(`  • Document ${i + 1}:`);
+                    console.log(`    - ID: ${context.id}`);
+                    console.log(`    - Similarity Score: ${(1 - context.distance).toFixed(4)} (distance: ${context.distance.toFixed(4)})`);
+                    console.log(`    - Content Preview: "${context.content.substring(0, 100)}..."`);
+                    console.log(`    - Content Length: ${context.content.length} chars`);
+                    if (context.metadata.source) {
+                        console.log(`    - Source File: ${context.metadata.source}`);
+                    }
+                    if (context.metadata.page) {
+                        console.log(`    - Page/Section: ${context.metadata.page}`);
+                    }
+                    if (context.metadata.chunk_index !== undefined) {
+                        console.log(`    - Chunk Index: ${context.metadata.chunk_index}`);
+                    }
                 }
             }
 
             const embeddingType = queryData.queryEmbeddings ? 'Mistral' : 'default';
-            console.log(`Retrieved ${contexts.length} relevant contexts using ${embeddingType} embeddings for query: "${query}"`);
+            console.log(`\n✅ ChromaDB search completed using ${embeddingType} embeddings`);
+            console.log(`  • Query: "${query}"`);
+            console.log(`  • Retrieved: ${contexts.length} document chunks`);
+            console.log(`  • Total Processing Time: ${searchTime.toFixed(2)}ms\n`);
+
             return contexts;
         } catch (error) {
-            console.error('Failed to search context:', error);
+            console.error('❌ ChromaDB search failed:', error);
+            console.error(`  • Query: "${query}"`);
+            console.error(`  • Error Details: ${error.message}`);
             return [];
         }
     }

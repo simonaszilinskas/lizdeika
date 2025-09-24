@@ -59,18 +59,58 @@ export class APIManager {
                     ...(options.headers || {})
                 }
             });
-            
+
             if (!response.ok) {
                 const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
                 ErrorHandler.logError(error, `API request to ${url}`);
                 throw error;
             }
-            
+
             return response;
         } catch (error) {
             ErrorHandler.logError(error, `API request failed: ${url}`);
             throw error;
         }
+    }
+
+    /**
+     * HTTP GET request helper
+     */
+    async get(url) {
+        const response = await this.apiRequest(url, { method: 'GET' });
+        return await response.json();
+    }
+
+    /**
+     * HTTP POST request helper
+     */
+    async post(url, data = null) {
+        const options = { method: 'POST' };
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+        const response = await this.apiRequest(url, options);
+        return await response.json();
+    }
+
+    /**
+     * HTTP PUT request helper
+     */
+    async put(url, data = null) {
+        const options = { method: 'PUT' };
+        if (data) {
+            options.body = JSON.stringify(data);
+        }
+        const response = await this.apiRequest(url, options);
+        return await response.json();
+    }
+
+    /**
+     * HTTP DELETE request helper
+     */
+    async delete(url) {
+        const response = await this.apiRequest(url, { method: 'DELETE' });
+        return await response.json();
     }
 
     // =========================

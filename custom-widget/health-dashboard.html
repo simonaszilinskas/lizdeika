@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vilnius Assistant - Deployment Health Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-healthy { background-color: #10b981; }
+        .status-warning { background-color: #f59e0b; }
+        .status-error { background-color: #ef4444; }
+        .status-unknown { background-color: #6b7280; }
+
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <div class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Vilnius Assistant</h1>
+                    <span class="ml-3 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded-full">Health Dashboard</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="refreshAll()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                        <span id="refresh-text">Refresh All</span>
+                    </button>
+                    <span class="text-sm text-gray-500" id="last-updated">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Overall Status -->
+        <div class="bg-white rounded-lg shadow-sm border p-6 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900">System Status</h2>
+                    <p class="text-gray-600 mt-1">Overall health of Vilnius Assistant deployment</p>
+                </div>
+                <div class="text-right">
+                    <div class="flex items-center justify-end">
+                        <span class="status-indicator pulse-dot" id="overall-status"></span>
+                        <span class="text-lg font-medium" id="overall-status-text">Checking...</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1" id="overall-uptime">Uptime: --</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Service Status Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Backend Service -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-medium text-gray-900">Backend Service</h3>
+                    <span class="status-indicator" id="backend-status"></span>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Health Check:</span>
+                        <span id="backend-health">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Response Time:</span>
+                        <span id="backend-response-time">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Version:</span>
+                        <span id="backend-version">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-medium text-gray-900">PostgreSQL Database</h3>
+                    <span class="status-indicator" id="database-status"></span>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Connection:</span>
+                        <span id="database-connection">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Tables:</span>
+                        <span id="database-tables">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Users:</span>
+                        <span id="database-users">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Provider -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-medium text-gray-900">AI Provider</h3>
+                    <span class="status-indicator" id="ai-status"></span>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Primary Provider:</span>
+                        <span id="ai-provider">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Model:</span>
+                        <span id="ai-model">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Test Response:</span>
+                        <span id="ai-test">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vector Database -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-medium text-gray-900">Vector Database</h3>
+                    <span class="status-indicator" id="vector-status"></span>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">ChromaDB:</span>
+                        <span id="vector-connection">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Collections:</span>
+                        <span id="vector-collections">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Documents:</span>
+                        <span id="vector-documents">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Embeddings -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-medium text-gray-900">Embeddings (Mistral)</h3>
+                    <span class="status-indicator" id="embeddings-status"></span>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">API Status:</span>
+                        <span id="embeddings-api">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Model:</span>
+                        <span id="embeddings-model">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Test Embedding:</span>
+                        <span id="embeddings-test">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WebSocket -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-medium text-gray-900">WebSocket</h3>
+                    <span class="status-indicator" id="websocket-status"></span>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Connection:</span>
+                        <span id="websocket-connection">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Active Clients:</span>
+                        <span id="websocket-clients">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Test Message:</span>
+                        <span id="websocket-test">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Application Links -->
+        <div class="bg-white rounded-lg shadow-sm border p-6 mb-8">
+            <h3 class="font-medium text-gray-900 mb-4">Application Access</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <a href="/agent-dashboard.html" class="block p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="font-medium text-blue-600">👨‍💼 Agent Dashboard</div>
+                    <div class="text-sm text-gray-600">Manage conversations and AI responses</div>
+                </a>
+                <a href="/settings.html" class="block p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="font-medium text-blue-600">⚙️ Admin Settings</div>
+                    <div class="text-sm text-gray-600">Configure system and AI providers</div>
+                </a>
+                <a href="/embed-widget.html" class="block p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="font-medium text-blue-600">💬 Widget Demo</div>
+                    <div class="text-sm text-gray-600">Test customer chat interface</div>
+                </a>
+                <a href="/login.html" class="block p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="font-medium text-blue-600">🔑 Login Portal</div>
+                    <div class="text-sm text-gray-600">User authentication</div>
+                </a>
+                <a href="/docs" class="block p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="font-medium text-blue-600">📖 API Documentation</div>
+                    <div class="text-sm text-gray-600">API reference and testing</div>
+                </a>
+                <a href="/health" class="block p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div class="font-medium text-blue-600">💚 Health Check</div>
+                    <div class="text-sm text-gray-600">Raw JSON health status</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="bg-white rounded-lg shadow-sm border p-6">
+            <h3 class="font-medium text-gray-900 mb-4">System Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="font-medium text-gray-700 mb-2">Environment</h4>
+                    <div class="space-y-1 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Node Environment:</span>
+                            <span id="env-node">--</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Application Port:</span>
+                            <span id="env-port">--</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Site URL:</span>
+                            <span id="env-site-url">--</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-medium text-gray-700 mb-2">Configuration</h4>
+                    <div class="space-y-1 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Widget Name:</span>
+                            <span id="config-widget-name">--</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">RAG Documents:</span>
+                            <span id="config-rag-k">--</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Query Rephrasing:</span>
+                            <span id="config-rephrasing">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let healthData = {};
+        let startTime = Date.now();
+
+        // Helper functions
+        function setStatus(elementId, status, text = null) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            element.className = 'status-indicator';
+            element.classList.add(`status-${status}`);
+
+            if (text && elementId.endsWith('-status')) {
+                const textElement = document.getElementById(elementId.replace('-status', '-text'));
+                if (textElement) textElement.textContent = text;
+            }
+        }
+
+        function setText(elementId, text) {
+            const element = document.getElementById(elementId);
+            if (element) element.textContent = text;
+        }
+
+        function formatResponseTime(ms) {
+            if (ms < 1000) return `${ms}ms`;
+            return `${(ms / 1000).toFixed(1)}s`;
+        }
+
+        function formatUptime() {
+            const uptimeMs = Date.now() - startTime;
+            const minutes = Math.floor(uptimeMs / 60000);
+            const seconds = Math.floor((uptimeMs % 60000) / 1000);
+            return `${minutes}m ${seconds}s`;
+        }
+
+        // Check backend health
+        async function checkBackendHealth() {
+            const startTime = Date.now();
+            try {
+                const response = await fetch('/health');
+                const responseTime = Date.now() - startTime;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    healthData.backend = data;
+
+                    setStatus('backend-status', 'healthy');
+                    setText('backend-health', 'OK');
+                    setText('backend-response-time', formatResponseTime(responseTime));
+                    setText('backend-version', data.version || '1.0.0');
+
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                setStatus('backend-status', 'error');
+                setText('backend-health', 'Failed');
+                setText('backend-response-time', 'N/A');
+                setText('backend-version', 'N/A');
+                return false;
+            }
+        }
+
+        // Check database
+        async function checkDatabase() {
+            try {
+                const response = await fetch('/api/admin/system-status');
+                if (response.ok) {
+                    const data = await response.json();
+
+                    if (data.database) {
+                        setStatus('database-status', 'healthy');
+                        setText('database-connection', 'Connected');
+                        setText('database-tables', data.database.tables || '--');
+                        setText('database-users', data.database.users || '--');
+                    } else {
+                        throw new Error('No database info');
+                    }
+                } else {
+                    throw new Error('API call failed');
+                }
+            } catch (error) {
+                setStatus('database-status', 'error');
+                setText('database-connection', 'Failed');
+                setText('database-tables', '--');
+                setText('database-users', '--');
+            }
+        }
+
+        // Check AI provider
+        async function checkAIProvider() {
+            try {
+                const response = await fetch('/api/admin/ai-test');
+                if (response.ok) {
+                    const data = await response.json();
+
+                    setStatus('ai-status', 'healthy');
+                    setText('ai-provider', data.provider || 'OpenRouter');
+                    setText('ai-model', data.model || 'Gemini 2.5 Flash');
+                    setText('ai-test', data.success ? 'Pass' : 'Fail');
+                } else {
+                    throw new Error('AI test failed');
+                }
+            } catch (error) {
+                setStatus('ai-status', 'warning');
+                setText('ai-provider', 'Unknown');
+                setText('ai-model', '--');
+                setText('ai-test', 'Failed');
+            }
+        }
+
+        // Check vector database
+        async function checkVectorDB() {
+            try {
+                const response = await fetch('/api/admin/chroma-status');
+                if (response.ok) {
+                    const data = await response.json();
+
+                    setStatus('vector-status', 'healthy');
+                    setText('vector-connection', 'Connected');
+                    setText('vector-collections', data.collections || '0');
+                    setText('vector-documents', data.documents || '0');
+                } else {
+                    throw new Error('Vector DB check failed');
+                }
+            } catch (error) {
+                setStatus('vector-status', 'warning');
+                setText('vector-connection', 'Failed');
+                setText('vector-collections', '--');
+                setText('vector-documents', '--');
+            }
+        }
+
+        // Check embeddings
+        async function checkEmbeddings() {
+            try {
+                const response = await fetch('/api/admin/embeddings-test');
+                if (response.ok) {
+                    const data = await response.json();
+
+                    setStatus('embeddings-status', 'healthy');
+                    setText('embeddings-api', 'Connected');
+                    setText('embeddings-model', 'Mistral');
+                    setText('embeddings-test', data.success ? 'Pass' : 'Fail');
+                } else {
+                    throw new Error('Embeddings test failed');
+                }
+            } catch (error) {
+                setStatus('embeddings-status', 'warning');
+                setText('embeddings-api', 'Failed');
+                setText('embeddings-model', '--');
+                setText('embeddings-test', 'Failed');
+            }
+        }
+
+        // Check WebSocket
+        function checkWebSocket() {
+            try {
+                const socket = new WebSocket(`ws://${window.location.host}`);
+
+                socket.onopen = function() {
+                    setStatus('websocket-status', 'healthy');
+                    setText('websocket-connection', 'Connected');
+                    setText('websocket-test', 'Pass');
+                    socket.close();
+                };
+
+                socket.onerror = function() {
+                    setStatus('websocket-status', 'warning');
+                    setText('websocket-connection', 'Failed');
+                    setText('websocket-test', 'Failed');
+                };
+
+                socket.onclose = function() {
+                    setText('websocket-clients', '--');
+                };
+
+                setTimeout(() => {
+                    if (socket.readyState === WebSocket.CONNECTING) {
+                        socket.close();
+                        setStatus('websocket-status', 'warning');
+                        setText('websocket-connection', 'Timeout');
+                        setText('websocket-test', 'Failed');
+                    }
+                }, 5000);
+
+            } catch (error) {
+                setStatus('websocket-status', 'error');
+                setText('websocket-connection', 'Failed');
+                setText('websocket-test', 'Failed');
+            }
+        }
+
+        // Load system information
+        function loadSystemInfo() {
+            setText('env-node', 'production');
+            setText('env-port', window.location.port || '3002');
+            setText('env-site-url', window.location.origin);
+            setText('config-widget-name', 'Vilnius Assistant');
+            setText('config-rag-k', '100');
+            setText('config-rephrasing', 'Enabled');
+        }
+
+        // Update overall status
+        function updateOverallStatus() {
+            const statusElements = [
+                'backend-status', 'database-status', 'ai-status',
+                'vector-status', 'embeddings-status', 'websocket-status'
+            ];
+
+            let healthyCount = 0;
+            let totalCount = statusElements.length;
+
+            statusElements.forEach(elementId => {
+                const element = document.getElementById(elementId);
+                if (element && element.classList.contains('status-healthy')) {
+                    healthyCount++;
+                }
+            });
+
+            if (healthyCount === totalCount) {
+                setStatus('overall-status', 'healthy');
+                setText('overall-status-text', 'All Systems Operational');
+            } else if (healthyCount >= totalCount * 0.7) {
+                setStatus('overall-status', 'warning');
+                setText('overall-status-text', 'Partial Service');
+            } else {
+                setStatus('overall-status', 'error');
+                setText('overall-status-text', 'Service Degraded');
+            }
+
+            setText('overall-uptime', formatUptime());
+        }
+
+        // Refresh all checks
+        async function refreshAll() {
+            const refreshButton = document.getElementById('refresh-text');
+            refreshButton.textContent = 'Refreshing...';
+
+            // Reset all statuses
+            const statusElements = document.querySelectorAll('.status-indicator');
+            statusElements.forEach(el => {
+                el.className = 'status-indicator status-unknown pulse-dot';
+            });
+
+            // Run all checks
+            await Promise.all([
+                checkBackendHealth(),
+                checkDatabase(),
+                checkAIProvider(),
+                checkVectorDB(),
+                checkEmbeddings(),
+                checkWebSocket()
+            ]);
+
+            updateOverallStatus();
+            loadSystemInfo();
+
+            setText('last-updated', `Last updated: ${new Date().toLocaleTimeString()}`);
+            refreshButton.textContent = 'Refresh All';
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            refreshAll();
+        }, 30000);
+
+        // Update uptime every second
+        setInterval(() => {
+            setText('overall-uptime', `Uptime: ${formatUptime()}`);
+        }, 1000);
+
+        // Initial load
+        refreshAll();
+    </script>
+</body>
+</html>

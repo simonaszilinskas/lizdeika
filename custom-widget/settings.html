@@ -664,9 +664,128 @@ KLAUSIMAS: {question}"
                     <button id="clear-vector-db" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors">
                         <i class="fas fa-trash mr-2"></i>Clear Database
                     </button>
-                    <a href="knowledge-base.html" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors inline-flex items-center">
-                        <i class="fas fa-external-link-alt mr-2"></i>Manage Documents
-                    </a>
+                </div>
+            </div>
+
+            <!-- Document Upload Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-cloud-upload-alt text-green-600"></i>
+                    Document Upload
+                </h2>
+
+                <!-- File Upload Area -->
+                <div id="file-upload-area" class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center hover:border-green-500 hover:bg-green-50 transition-all cursor-pointer mb-4">
+                    <div class="text-gray-400 mb-4">
+                        <i class="fas fa-cloud-upload-alt text-6xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Drop files here or click to upload</h3>
+                    <p class="text-sm text-gray-500 mb-4">Supported formats: .txt, .docx, .pdf (max 50MB)</p>
+                    <button type="button" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                        Select Files
+                    </button>
+                    <input type="file" id="file-input" accept=".txt,.docx,.pdf" multiple style="display: none;">
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="upload-progress" class="hidden">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+                            <span class="text-blue-700">Uploading and processing documents...</span>
+                        </div>
+                        <div class="bg-gray-200 rounded-full h-2">
+                            <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Management Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-folder-open text-blue-600"></i>
+                        Uploaded Documents
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <button id="refresh-documents" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                            <i class="fas fa-sync-alt mr-2"></i>Refresh
+                        </button>
+                        <button id="clear-all-documents" class="bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition-colors">
+                            <i class="fas fa-trash-alt mr-2"></i>Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <h3 class="font-medium text-blue-900 mb-1">
+                        <i class="fas fa-info-circle mr-2"></i>Document Management
+                    </h3>
+                    <p class="text-sm text-blue-700">Documents uploaded through the interface are processed and indexed for semantic search.</p>
+                </div>
+
+                <!-- Documents List Container -->
+                <div id="documents-list" class="space-y-2">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-folder-open text-4xl mb-2"></i>
+                        <p>No documents uploaded yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vector Search & Indexed Documents Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-database text-purple-600"></i>
+                        Vector Database Contents
+                    </h2>
+                    <button id="refresh-indexed" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+
+                <!-- Vector Search Interface -->
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                    <h3 class="font-medium text-purple-900 mb-1">
+                        <i class="fas fa-search mr-2"></i>Search Vector Database
+                    </h3>
+                    <p class="text-sm text-purple-700 mb-3">Search through document chunks indexed in the vector database.</p>
+
+                    <div class="flex gap-3">
+                        <input
+                            type="text"
+                            id="vector-search-input"
+                            placeholder="Search through indexed documents..."
+                            class="flex-1 px-3 py-2 border border-purple-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                        >
+                        <button
+                            id="vector-search-button"
+                            class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors text-sm"
+                        >
+                            <i class="fas fa-search mr-1"></i>Search
+                        </button>
+                        <button
+                            id="clear-vector-search"
+                            class="bg-gray-500 text-white px-3 py-2 rounded-md hover:bg-gray-600 transition-colors text-sm hidden"
+                        >
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search Results Container -->
+                <div id="vector-search-results" class="space-y-2 mb-4 hidden">
+                    <!-- Search results will be shown here -->
+                </div>
+
+                <!-- Indexed Documents List Container -->
+                <div id="indexed-list" class="space-y-2">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-database text-4xl mb-2"></i>
+                        <p>Loading vector database contents...</p>
+                    </div>
                 </div>
             </div>
         </div>        <!-- User Management Tab -->
@@ -1007,6 +1126,23 @@ KLAUSIMAS: {question}"
     <!-- Integrated with agent-dashboard utilities (Toast, ErrorHandler) -->
     
     <script type="module" src="js/settings/SettingsManager.js"></script>
+
+    <!-- Hash routing for direct tab access -->
+    <script>
+        // Handle hash routing for direct tab access (e.g., settings.html#knowledge)
+        document.addEventListener('DOMContentLoaded', function() {
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                // Wait for the settings manager to initialize, then activate the tab
+                setTimeout(() => {
+                    const targetTab = document.querySelector(`button[data-tab="${hash}"]`);
+                    if (targetTab) {
+                        targetTab.click();
+                    }
+                }, 100);
+            }
+        });
+    </script>
     
     <!-- Legacy settings.js preserved as backup during migration -->
     <!-- <script src="js/settings.js"></script> -->

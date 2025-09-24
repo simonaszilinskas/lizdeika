@@ -39,6 +39,7 @@
 const createApp = require('./src/app');
 const knowledgeService = require('./src/services/knowledgeService');
 const databaseClient = require('./src/utils/database');
+const SettingsService = require('./src/services/settingsService');
 
 const PORT = process.env.WIDGET_BACKEND_PORT || process.env.PORT || 3002;
 
@@ -77,21 +78,41 @@ async function initializeKnowledgeBase() {
     }
 }
 
+// Display configuration after SettingsService initialization
+async function displayConfiguration() {
+    try {
+        const settingsService = new SettingsService();
+        // Wait for settings service to initialize
+        await new Promise((resolve) => {
+            settingsService.once('initialized', resolve);
+            setTimeout(resolve, 1000); // fallback timeout
+        });
+
+        const aiConfig = await settingsService.getAIProviderConfig();
+        console.log('Configuration:');
+        console.log(`- AI Provider: ${aiConfig.AI_PROVIDER || 'flowise'}`);
+        console.log(`- Environment: ${process.env.NODE_ENV || 'development'}`);
+
+        if (aiConfig.AI_PROVIDER === 'openrouter') {
+            console.log(`- OpenRouter Model: ${aiConfig.OPENROUTER_MODEL || 'not set'}`);
+            console.log(`- API Key: ${aiConfig.OPENROUTER_API_KEY ? 'SET' : 'NOT SET'}`);
+        } else if (aiConfig.AI_PROVIDER === 'flowise') {
+            console.log(`- Flowise URL: ${aiConfig.FLOWISE_URL || 'not set'}`);
+            console.log(`- Chatflow ID: ${aiConfig.FLOWISE_CHATFLOW_ID || 'not set'}`);
+        }
+    } catch (error) {
+        console.log('Configuration (fallback to env vars):');
+        console.log(`- AI Provider: ${process.env.AI_PROVIDER || 'flowise'}`);
+        console.log(`- Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log('- Warning: Could not load configuration from database:', error.message);
+    }
+}
+
 // Start server
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
     console.log(`Widget backend running on http://localhost:${PORT}`);
     console.log('WebSocket server initialized');
-    console.log('Configuration:');
-    console.log(`- AI Provider: ${process.env.AI_PROVIDER || 'flowise'}`);
-    console.log(`- Environment: ${process.env.NODE_ENV || 'development'}`);
-    
-    if (process.env.AI_PROVIDER === 'openrouter') {
-        console.log(`- OpenRouter Model: ${process.env.OPENROUTER_MODEL || 'not set'}`);
-        console.log(`- API Key: ${process.env.OPENROUTER_API_KEY ? 'SET' : 'NOT SET'}`);
-    } else if (process.env.AI_PROVIDER === 'flowise') {
-        console.log(`- Flowise URL: ${process.env.FLOWISE_URL || 'not set'}`);
-        console.log(`- Chatflow ID: ${process.env.FLOWISE_CHATFLOW_ID || 'not set'}`);
-    }
+    await displayConfiguration();
     
     console.log('\\nEndpoints:');
     console.log('- POST /api/conversations');

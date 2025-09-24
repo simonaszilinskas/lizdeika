@@ -240,18 +240,43 @@ class KnowledgeController {
      */
     async getKnowledgeStats(req, res) {
         try {
-            const stats = knowledgeManagerService.getStats();
-            
-            res.json({
+            // Get local document stats from knowledge manager
+            const localStats = knowledgeManagerService.getStats();
+
+            // Get ChromaDB vector database stats
+            const knowledgeService = require('../services/knowledgeService');
+            const vectorStats = await knowledgeService.getStats();
+
+            // Combine stats with ChromaDB info for frontend compatibility
+            const combinedStats = {
                 success: true,
-                data: stats
-            });
+                // ChromaDB status for UI display
+                status: vectorStats.connected ? 'connected' : 'disconnected',
+                documents: vectorStats.count || 0,
+                embeddings: vectorStats.count || 0, // ChromaDB stores embeddings with documents
+                collectionName: vectorStats.collectionName,
+                // Local document management stats
+                data: {
+                    ...localStats,
+                    // Include vector database info
+                    vectorDatabase: {
+                        connected: vectorStats.connected,
+                        count: vectorStats.count,
+                        collectionName: vectorStats.collectionName
+                    }
+                }
+            };
+
+            res.json(combinedStats);
 
         } catch (error) {
             console.error('Failed to get knowledge stats:', error);
             res.status(500).json({
                 error: 'Failed to retrieve statistics',
-                details: error.message
+                details: error.message,
+                status: 'error',
+                documents: 0,
+                embeddings: 0
             });
         }
     }

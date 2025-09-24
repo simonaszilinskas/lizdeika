@@ -377,30 +377,6 @@ class ConversationController {
         }
     }
 
-    /**
-     * Get debug information for AI suggestion generation
-     */
-    async getDebugInfo(req, res) {
-        try {
-            const { conversationId } = req.params;
-            
-            const conversationMessages = await conversationService.getMessages(conversationId);
-            
-            // Find the most recent message with debug metadata
-            const debugMessage = conversationMessages
-                .filter(msg => msg.metadata && msg.metadata.debugInfo)
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-
-            if (debugMessage) {
-                res.json(debugMessage.metadata.debugInfo);
-            } else {
-                res.status(404).json({ error: 'No debug information available' });
-            }
-        } catch (error) {
-            console.error('Error getting debug info:', error);
-            res.status(500).json({ error: 'Failed to get debug information' });
-        }
-    }
 
     /**
      * Get AI suggestion for a pending message
@@ -502,7 +478,7 @@ class ConversationController {
                 await conversationService.addMessage(conversationId, agentMessage);
                 console.log(`Generated manual AI suggestion for conversation ${conversationId}`);
 
-                // Return the suggestion immediately
+                // Return the suggestion immediately with comprehensive debug information
                 res.json({
                     suggestion: suggestionText,
                     confidence: confidence,
@@ -512,7 +488,16 @@ class ConversationController {
                         messageCount: agentMessage.metadata.messageCount,
                         customerMessages: agentMessage.metadata.customerMessages,
                         manualGeneration: true,
-                        debugInfo: (typeof aiSuggestion === 'object' ? aiSuggestion.debugInfo : {}) || {}
+                        // Enhanced metadata from aiService
+                        provider: aiSuggestion?.metadata?.provider || 'unknown',
+                        ragUsed: aiSuggestion?.metadata?.ragUsed || false,
+                        fallbackUsed: aiSuggestion?.metadata?.fallbackUsed || false,
+                        sourcesUsed: aiSuggestion?.metadata?.sourcesUsed || 0,
+                        contextsUsed: aiSuggestion?.metadata?.contextsUsed || 0,
+                        contextLength: aiSuggestion?.metadata?.contextLength || 0,
+                        processingSteps: aiSuggestion?.metadata?.processingSteps || 0,
+                        // Comprehensive debug information for browser console
+                        debugInfo: aiSuggestion?.debugInfo || {}
                     }
                 });
 
@@ -690,9 +675,17 @@ class ConversationController {
         let suggestionText;
         let confidence = 0.8;
 
-        if (typeof aiSuggestion === 'string') {
+        // Handle new structured response format from enhanced aiService
+        if (aiSuggestion && typeof aiSuggestion === 'object' && aiSuggestion.response) {
+            suggestionText = aiSuggestion.response;
+            confidence = aiSuggestion.metadata?.confidence || 0.8;
+        }
+        // Handle legacy string format (for backward compatibility)
+        else if (typeof aiSuggestion === 'string') {
             suggestionText = aiSuggestion;
-        } else if (aiSuggestion && aiSuggestion.suggestion) {
+        }
+        // Handle legacy object format with 'suggestion' field
+        else if (aiSuggestion && aiSuggestion.suggestion) {
             suggestionText = aiSuggestion.suggestion;
             confidence = aiSuggestion.confidence || 0.8;
         } else {

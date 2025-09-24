@@ -123,15 +123,8 @@ export class AgentAuthManager {
                 console.log('👤 User profile:', user);
                 
                 if (user && user.role === 'admin') {
-                    console.log('✅ User is admin, showing admin bar');
+                    console.log('✅ User is admin');
                     this.isAdmin = true;
-                    
-                    // Show admin bar if it exists
-                    const adminBar = document.getElementById('adminBar');
-                    if (adminBar) {
-                        adminBar.classList.remove('hidden');
-                    }
-                    
                     return true;
                 } else {
                     console.log('❌ User is not admin, role:', user?.role);

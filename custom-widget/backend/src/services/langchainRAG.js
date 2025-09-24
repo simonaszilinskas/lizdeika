@@ -200,16 +200,27 @@ class LangChainRAG {
             // Set debug flag on the chain
             this.ragChain.includeDebug = includeDebug;
 
-            if (this.ragChain.verbose) {
-                console.log('🔍 LangChainRAG: Processing request');
-                console.log(`   Query: "${query}"`);
-                console.log(`   History length: ${chatHistory.length}`);
-                console.log(`   Include debug: ${includeDebug}`);
-                console.log(`   Conversation ID: ${conversationId}`);
+            console.log(`\n🧠 LangChain RAG Pipeline Starting:`);
+            console.log(`  • Original Query: "${query}"`);
+            console.log(`  • Chat History: ${chatHistory.length} exchanges`);
+            if (chatHistory.length > 0) {
+                console.log(`  • Recent History Preview:`);
+                for (let i = Math.max(0, chatHistory.length - 2); i < chatHistory.length; i++) {
+                    const [userMsg, assistantMsg] = chatHistory[i];
+                    console.log(`    - User: "${userMsg.substring(0, 60)}..."`);
+                    console.log(`    - Assistant: "${assistantMsg.substring(0, 60)}..."`);
+                }
             }
-
             // Generate session ID for tracing grouping (use conversationId if available)
             const sessionId = this.generateSessionId(query, chatHistory, conversationId);
+
+            console.log(`  • RAG Configuration:`);
+            console.log(`    - K (Documents to retrieve): ${currentSettings.rag_k}`);
+            console.log(`    - Provider: LangChain + ChromaDB + Mistral`);
+            console.log(`    - Debug Mode: ${includeDebug}`);
+            console.log(`    - Session ID: ${sessionId.substring(0, 8)}...`);
+            console.log(`    - Conversation ID: ${conversationId || 'N/A'}`);
+            console.log(`  • Next Step: Query Rephrasing → Document Retrieval → Response Generation`)
             
             // Update chain configuration with session context
             this.ragChain.langfuseHandler.sessionId = sessionId;
@@ -231,11 +242,44 @@ class LangChainRAG {
                 result.debugInfo.langchainPatterns = true;
             }
 
-            if (this.ragChain.verbose) {
-                console.log(`✅ LangChainRAG: Request completed in ${processingTime}ms`);
-                console.log(`   Answer length: ${result.answer?.length || 0} characters`);
-                console.log(`   Sources: ${result.sources?.length || 0}`);
-                console.log(`   Contexts used: ${result.contextsUsed || 0}`);
+            console.log(`\n🎯 LangChain RAG Pipeline Complete (${processingTime}ms):`);
+            console.log(`  • Final Answer: "${result.answer?.substring(0, 100)}..."`);
+            console.log(`  • Answer Length: ${result.answer?.length || 0} characters`);
+            console.log(`  • Documents Retrieved: ${result.contextsUsed || 0} chunks`);
+            console.log(`  • Sources Used: ${result.sources?.length || 0} unique files`);
+            if (result.sources && result.sources.length > 0) {
+                console.log(`  • Source Files:`);
+                result.sources.forEach((source, index) => {
+                    console.log(`    ${index + 1}. ${source}`);
+                });
+            }
+            if (result.sourceUrls && result.sourceUrls.length > 0) {
+                console.log(`  • Source URLs: ${result.sourceUrls.length} references`);
+            }
+            console.log(`  • Total Processing Time: ${processingTime}ms`);
+            console.log(`  • Session ID: ${sessionId.substring(0, 8)}...`);
+            console.log(`  • Debug Info Available: ${includeDebug && result.debugInfo ? 'Yes' : 'No'}`);
+
+            if (includeDebug && result.debugInfo) {
+                console.log(`\n📊 Detailed Debug Information:`);
+                if (result.debugInfo.step2_queryRephrasing) {
+                    console.log(`  • Query Rephrasing:`);
+                    console.log(`    - Original: "${query}"`);
+                    console.log(`    - Rephrased: "${result.debugInfo.step2_queryRephrasing.rephrasedQuery || 'Same as original'}"`);
+                    console.log(`    - Improved: ${result.debugInfo.step2_queryRephrasing.improvement || false}`);
+                }
+                if (result.debugInfo.step3_documentRetrieval) {
+                    console.log(`  • Document Retrieval:`);
+                    console.log(`    - Query Used: "${result.debugInfo.step3_documentRetrieval.searchQuery}"`);
+                    console.log(`    - Documents Requested: ${result.debugInfo.step3_documentRetrieval.requestedDocuments}`);
+                    console.log(`    - Documents Retrieved: ${result.debugInfo.step3_documentRetrieval.retrievedDocuments}`);
+                }
+                if (result.debugInfo.step5_responseGeneration) {
+                    console.log(`  • Response Generation:`);
+                    console.log(`    - Model: ${result.debugInfo.step5_responseGeneration.model || 'N/A'}`);
+                    console.log(`    - Temperature: ${result.debugInfo.step5_responseGeneration.temperature || 'N/A'}`);
+                    console.log(`    - Prompt Length: ${result.debugInfo.step5_responseGeneration.totalPromptLength || 'N/A'} chars`);
+                }
             }
 
             // Return in exact same format as original

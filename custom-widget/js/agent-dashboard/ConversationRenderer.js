@@ -241,13 +241,20 @@ export class ConversationRenderer {
         const priorityClass = this.dashboard.uiHelpers.getPriorityAnimationClass(isUnseen, needsResponse, isAssignedToMe);
 
         return `
-            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass} ${priorityClass}" 
+            <div class="chat-queue-item p-3 rounded-lg cursor-pointer border ${cssClass} ${archivedClass} ${priorityClass}"
                  data-conversation-id="${conv.id}"
                  onclick="dashboard.selectChat('${conv.id}')">
+                <!-- Collapsed state indicator (only visible when sidebar is collapsed) -->
+                <div class="collapsed-conversation-indicator">
+                    <span class="conversation-number">${conv.userNumber || '?'}</span>
+                    ${(unseenCount > 0 || isUnseen) ? '<div class="conversation-unread-dot"></div>' : ''}
+                </div>
+
+                <!-- Normal expanded content -->
                 <div class="flex justify-between items-start mb-2">
                     <div class="flex items-center gap-2">
-                        <input type="checkbox" 
-                               class="conversation-checkbox" 
+                        <input type="checkbox"
+                               class="conversation-checkbox"
                                data-conversation-id="${conv.id}"
                                ${isSelected ? 'checked' : ''}
                                onclick="event.stopPropagation(); dashboard.toggleConversationSelection('${conv.id}')"
@@ -272,11 +279,11 @@ export class ConversationRenderer {
                     </div>
                 </div>
                 <div class="text-sm truncate text-gray-600 message-preview">
-                    ${conv.lastMessage ? 
-                        this.getSenderPrefix(conv.lastMessage.sender) + ' ' + UIHelpers.escapeHtml(conv.lastMessage.content) : 
+                    ${conv.lastMessage ?
+                        this.getSenderPrefix(conv.lastMessage.sender) + ' ' + UIHelpers.escapeHtml(conv.lastMessage.content) :
                         'No messages yet'}
                 </div>
-                
+
                 <div class="text-xs mt-2">
                     ${this.dashboard.uiHelpers.renderAssignmentButtons(isAssignedToMe, isUnassigned, conv.id, conv.archived)}
                 </div>

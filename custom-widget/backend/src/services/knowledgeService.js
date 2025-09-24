@@ -25,6 +25,7 @@
  * @version 1.0.0
  */
 const chromaService = require('./chromaService');
+const SettingsService = require('./settingsService');
 
 // Sample data for technical testing (empty by default - no test data loaded)
 // Note: Metadata values must be string, number, boolean, or null (no nested objects/arrays)
@@ -32,11 +33,30 @@ const SAMPLE_VILNIUS_DATA = [];
 
 class KnowledgeService {
     /**
+     * Helper method to get AI provider from database settings
+     */
+    async _getAIProvider() {
+        try {
+            const settingsService = new SettingsService();
+            await new Promise((resolve) => {
+                settingsService.once('initialized', resolve);
+                setTimeout(resolve, 1000); // fallback timeout
+            });
+
+            const aiConfig = await settingsService.getAIProviderConfig();
+            return aiConfig.AI_PROVIDER || 'flowise';
+        } catch (error) {
+            console.log('Warning: Could not load AI provider from database, using fallback:', error.message);
+            return process.env.AI_PROVIDER || 'flowise';
+        }
+    }
+
+    /**
      * Initialize the knowledge base connection (sample data loading skipped to avoid automatic embeddings)
      */
     async initializeSampleData() {
-        const currentProvider = process.env.AI_PROVIDER || 'flowise';
-        
+        const currentProvider = await this._getAIProvider();
+
         if (currentProvider === 'flowise') {
             console.log('Flowise provider detected: Skipping external RAG initialization (using built-in RAG)');
             return true;
@@ -81,7 +101,7 @@ class KnowledgeService {
      * Get all indexed documents from Chroma vector database
      */
     async getAllIndexedDocuments(limit = 100) {
-        const currentProvider = process.env.AI_PROVIDER || 'flowise';
+        const currentProvider = await this._getAIProvider();
         
         if (currentProvider === 'flowise') {
             return {

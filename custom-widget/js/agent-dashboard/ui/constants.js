@@ -226,7 +226,6 @@ export const ELEMENT_IDS = {
     /** Status elements */
     PERSONAL_STATUS: 'personal-status',
     ARCHIVE_TOGGLE: 'archive-toggle',
-    ADMIN_BAR: 'adminBar',
     
     /** AI suggestion elements */
     AI_SUGGESTION_PANEL: 'ai-suggestion-panel',
@@ -235,12 +234,6 @@ export const ELEMENT_IDS = {
     SEND_AS_IS_BTN: 'send-as-is-btn',
     EDIT_SUGGESTION_BTN: 'edit-suggestion-btn',
     WRITE_FROM_SCRATCH_BTN: 'write-from-scratch-btn',
-    
-    /** Debug elements */
-    DEBUG_MODAL: 'debug-modal',
-    DEBUG_CONTENT: 'debug-content',
-    DEBUG_TOGGLE_BTN: 'debug-toggle-btn',
-    DEBUG_CLOSE_BTN: 'debug-close-btn'
 };
 
 /**

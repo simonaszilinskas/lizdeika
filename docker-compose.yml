@@ -58,6 +58,7 @@ services:
         echo 'Waiting for database...' &&
         npx prisma migrate deploy &&
         npx prisma generate &&
+        echo 'Starting development server...' &&
         npm run dev
       "
 

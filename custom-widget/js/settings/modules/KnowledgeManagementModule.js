@@ -90,7 +90,32 @@ export class KnowledgeManagementModule {
             totalDocuments: document.getElementById('total-documents'),
             totalEmbeddings: document.getElementById('total-embeddings'),
             refreshVectorStatsButton: document.getElementById('refresh-vector-stats'),
-            clearVectorDbButton: document.getElementById('clear-vector-db')
+            clearVectorDbButton: document.getElementById('clear-vector-db'),
+
+            // File upload elements
+            fileUploadArea: document.getElementById('file-upload-area'),
+            fileInput: document.getElementById('file-input'),
+            uploadProgress: document.getElementById('upload-progress'),
+            progressBar: document.getElementById('progress-bar'),
+
+            // Document management elements
+            documentsList: document.getElementById('documents-list'),
+            refreshDocumentsButton: document.getElementById('refresh-documents'),
+            clearAllDocumentsButton: document.getElementById('clear-all-documents'),
+
+            // Vector search elements
+            vectorSearchInput: document.getElementById('vector-search-input'),
+            vectorSearchButton: document.getElementById('vector-search-button'),
+            clearVectorSearchButton: document.getElementById('clear-vector-search'),
+            vectorSearchResults: document.getElementById('vector-search-results'),
+
+            // Indexed documents elements
+            indexedList: document.getElementById('indexed-list'),
+            refreshIndexedButton: document.getElementById('refresh-indexed'),
+
+            // Stats elements (enhanced)
+            lastUpdated: document.getElementById('last-updated'),
+            uploadedFiles: document.getElementById('uploaded-files')
         };
 
         console.log('📚 KnowledgeManagementModule: DOM elements initialized');
@@ -138,6 +163,45 @@ export class KnowledgeManagementModule {
             this.elements.clearVectorDbButton.addEventListener('click', () => this.clearVectorDatabase());
         }
 
+        // File upload controls
+        if (this.elements.fileUploadArea) {
+            this.elements.fileUploadArea.addEventListener('click', () => this.elements.fileInput?.click());
+            this.elements.fileUploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
+            this.elements.fileUploadArea.addEventListener('drop', (e) => this.handleDrop(e));
+            this.elements.fileUploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+        }
+        if (this.elements.fileInput) {
+            this.elements.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        }
+
+        // Document management controls
+        if (this.elements.refreshDocumentsButton) {
+            this.elements.refreshDocumentsButton.addEventListener('click', () => this.refreshDocuments());
+        }
+        if (this.elements.clearAllDocumentsButton) {
+            this.elements.clearAllDocumentsButton.addEventListener('click', () => this.clearAllDocuments());
+        }
+
+        // Vector search controls
+        if (this.elements.vectorSearchButton) {
+            this.elements.vectorSearchButton.addEventListener('click', () => this.performVectorSearch());
+        }
+        if (this.elements.vectorSearchInput) {
+            this.elements.vectorSearchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.performVectorSearch();
+                }
+            });
+        }
+        if (this.elements.clearVectorSearchButton) {
+            this.elements.clearVectorSearchButton.addEventListener('click', () => this.clearVectorSearch());
+        }
+
+        // Indexed documents controls
+        if (this.elements.refreshIndexedButton) {
+            this.elements.refreshIndexedButton.addEventListener('click', () => this.refreshIndexedDocuments());
+        }
+
         console.log('📚 KnowledgeManagementModule: Event listeners attached');
     }
 
@@ -153,6 +217,12 @@ export class KnowledgeManagementModule {
 
             // Load vector database stats
             await this.refreshVectorStats();
+
+            // Load documents list
+            await this.loadDocuments();
+
+            // Load indexed documents
+            await this.loadIndexedDocuments();
 
         } catch (error) {
             console.error('❌ KnowledgeManagementModule: Failed to load knowledge settings:', error);
@@ -497,6 +567,717 @@ export class KnowledgeManagementModule {
             this.elements.clearVectorDbButton.disabled = false;
             this.elements.clearVectorDbButton.innerHTML = '<i class="fas fa-trash mr-2"></i>Clear Database';
         }
+    }
+
+    /**
+     * Load documents from the server
+     */
+    async loadDocuments() {
+        try {
+            const response = await this.apiManager.get('/api/knowledge/documents');
+
+            if (response.success) {
+                this.renderDocuments(response.data);
+            } else {
+                console.error('❌ Failed to load documents:', response.error);
+                if (this.elements.documentsList) {
+                    this.elements.documentsList.innerHTML = '<div class="text-center text-gray-500 py-8">Failed to load documents</div>';
+                }
+            }
+        } catch (error) {
+            console.error('❌ KnowledgeManagementModule: Failed to load documents:', error);
+            if (this.elements.documentsList) {
+                this.elements.documentsList.innerHTML = '<div class="text-center text-gray-500 py-8">Error loading documents</div>';
+            }
+        }
+    }
+
+    /**
+     * Render documents list
+     */
+    renderDocuments(documents) {
+        if (!this.elements.documentsList) return;
+
+        // Update stats
+        if (this.elements.uploadedFiles) {
+            this.elements.uploadedFiles.textContent = documents.length;
+        }
+        if (this.elements.totalDocuments) {
+            this.elements.totalDocuments.textContent = documents.length;
+        }
+
+        if (documents.length === 0) {
+            this.elements.documentsList.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-folder-open text-4xl mb-2"></i>
+                    <p>No documents uploaded yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        this.elements.documentsList.innerHTML = documents.map(doc => `
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-medium text-gray-900 mb-1">${this.escapeHtml(doc.originalName || doc.name || 'Unnamed Document')}</h4>
+                        <div class="text-sm text-gray-500 space-x-4">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                doc.status === 'processed' ? 'bg-green-100 text-green-800' :
+                                doc.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
+                                doc.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                            }">
+                                ${doc.status || 'unknown'}
+                            </span>
+                            <span>${this.formatBytes(doc.size || 0)}</span>
+                            <span>${doc.chunksCount || 0} chunks</span>
+                            <span>${doc.uploadTime ? new Date(doc.uploadTime).toLocaleDateString() : 'Unknown date'}</span>
+                        </div>
+                        ${doc.error ? `<div class="text-xs text-red-600 mt-1">Error: ${this.escapeHtml(doc.error)}</div>` : ''}
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button
+                            class="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                            onclick="window.settingsManager?.knowledgeManagementModule?.deleteDocument('${doc.id}')"
+                        >
+                            <i class="fas fa-trash mr-1"></i>Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        // Update last updated time
+        if (this.elements.lastUpdated && documents.length > 0) {
+            const latestDoc = documents.reduce((latest, doc) => {
+                const docTime = new Date(doc.uploadTime || 0);
+                const latestTime = new Date(latest.uploadTime || 0);
+                return docTime > latestTime ? doc : latest;
+            });
+            this.elements.lastUpdated.textContent = latestDoc.uploadTime ?
+                new Date(latestDoc.uploadTime).toLocaleString() : 'Never';
+        }
+    }
+
+    /**
+     * Load indexed documents from the vector database
+     */
+    async loadIndexedDocuments() {
+        try {
+            const response = await this.apiManager.get('/api/knowledge/indexed?limit=100');
+
+            if (response.success) {
+                this.renderIndexedDocuments(response.data);
+            } else {
+                console.error('❌ Failed to load indexed documents:', response.error);
+                if (this.elements.indexedList) {
+                    this.elements.indexedList.innerHTML = '<div class="text-center text-gray-500 py-8">Failed to load indexed documents</div>';
+                }
+            }
+        } catch (error) {
+            console.error('❌ KnowledgeManagementModule: Failed to load indexed documents:', error);
+            if (this.elements.indexedList) {
+                this.elements.indexedList.innerHTML = '<div class="text-center text-gray-500 py-8">Error loading indexed documents</div>';
+            }
+        }
+    }
+
+    /**
+     * Render indexed documents list
+     */
+    renderIndexedDocuments(data) {
+        if (!this.elements.indexedList) return;
+
+        if (!data.connected) {
+            this.elements.indexedList.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-center text-yellow-800">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        <div>
+                            <strong>Vector database not connected</strong>
+                            <p class="text-sm mt-1">${data.note || 'Unable to connect to the vector database.'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const documents = data.documents || [];
+
+        if (documents.length === 0) {
+            this.elements.indexedList.innerHTML = `
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-database text-4xl mb-2"></i>
+                    <p>No documents indexed in vector database yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Add summary info
+        const documentsWithSources = documents.filter(doc => doc.metadata && doc.metadata.source_url).length;
+        let summaryHtml = `
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h4 class="font-medium text-blue-900 mb-2">Collection: ${data.collectionName || 'Default'}</h4>
+                <p class="text-sm text-blue-700">
+                    Available chunks: <strong>${documents.length}</strong> •
+                    With source URLs: <strong>${documentsWithSources}</strong>
+                </p>
+            </div>
+        `;
+
+        if (documents.length >= 100) {
+            summaryHtml += `
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center text-amber-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <div class="text-sm">
+                            <strong>Showing first 100 of ${data.count || 'many'} documents</strong>
+                            <br><span class="text-xs text-amber-700">Vector database limits queries to 100 documents per request</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const documentsHtml = documents.map((doc, index) => {
+            const contentPreview = doc.content && doc.content.length > 150
+                ? doc.content.substring(0, 150) + '...'
+                : doc.content || 'No content available';
+
+            const metadata = doc.metadata || {};
+            const title = metadata.source_document_name || `Document ${index + 1}`;
+            const sourceUrl = metadata.source_url;
+            const uploadTime = metadata.upload_time ? new Date(metadata.upload_time).toLocaleDateString() : '';
+            const uploadSource = metadata.upload_source || 'unknown';
+
+            const sourceLink = sourceUrl
+                ? `<a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 ml-2" title="Open source in new tab">
+                     <i class="fas fa-external-link-alt text-xs"></i>
+                   </a>`
+                : '';
+
+            return `
+                <div class="bg-white rounded-lg border border-gray-200 p-4 mb-3">
+                    <div class="cursor-pointer" onclick="window.settingsManager?.knowledgeManagementModule?.toggleIndexedDocDetails('${doc.id}')">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <h4 class="font-medium text-gray-900 mb-1">${this.escapeHtml(title)}${sourceLink}</h4>
+                                <p class="text-sm text-gray-600 mb-2">${this.escapeHtml(contentPreview)}</p>
+                                ${uploadTime ? `<p class="text-xs text-gray-500">Indexed: ${uploadTime} (${uploadSource})</p>` : ''}
+                            </div>
+                            <div class="ml-4">
+                                <i class="fas fa-chevron-down text-gray-400" id="chevron-${doc.id}"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="indexed-doc-details mt-4 pt-4 border-t border-gray-100" id="details-${doc.id}" style="display: none;">
+                        <h5 class="font-medium text-gray-900 mb-2">Full Content:</h5>
+                        <div class="bg-gray-50 p-3 rounded border text-sm font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+${this.escapeHtml(doc.content || 'No content available')}
+                        </div>
+                        ${sourceUrl ? `
+                            <div class="mt-3">
+                                <h5 class="font-medium text-gray-900 mb-1">Source Link:</h5>
+                                <a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">
+                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                    ${this.escapeHtml(sourceUrl)}
+                                </a>
+                            </div>
+                        ` : ''}
+                        <div class="mt-3">
+                            <h5 class="font-medium text-gray-900 mb-1">Metadata:</h5>
+                            <div class="text-sm text-gray-600">
+                                Upload source: <strong>${uploadSource}</strong> •
+                                Chunk ${metadata.chunk_index || 0} •
+                                ${metadata.language || 'unknown'} language •
+                                ${doc.content ? doc.content.length + ' characters' : 'No content'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        this.elements.indexedList.innerHTML = summaryHtml + documentsHtml;
+    }
+
+    /**
+     * Toggle indexed document details
+     */
+    toggleIndexedDocDetails(docId) {
+        const detailsDiv = document.getElementById(`details-${docId}`);
+        const chevron = document.getElementById(`chevron-${docId}`);
+
+        if (detailsDiv && chevron) {
+            if (detailsDiv.style.display === 'none') {
+                detailsDiv.style.display = 'block';
+                chevron.className = 'fas fa-chevron-up text-gray-400';
+            } else {
+                detailsDiv.style.display = 'none';
+                chevron.className = 'fas fa-chevron-down text-gray-400';
+            }
+        }
+    }
+
+    /**
+     * Handle drag over event
+     */
+    handleDragOver(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.elements.fileUploadArea) {
+            this.elements.fileUploadArea.classList.add('border-green-500', 'bg-green-50');
+        }
+    }
+
+    /**
+     * Handle drag leave event
+     */
+    handleDragLeave(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.elements.fileUploadArea) {
+            this.elements.fileUploadArea.classList.remove('border-green-500', 'bg-green-50');
+        }
+    }
+
+    /**
+     * Handle drop event
+     */
+    handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (this.elements.fileUploadArea) {
+            this.elements.fileUploadArea.classList.remove('border-green-500', 'bg-green-50');
+        }
+
+        const files = Array.from(e.dataTransfer.files);
+        this.uploadFiles(files);
+    }
+
+    /**
+     * Handle file select event
+     */
+    handleFileSelect(e) {
+        const files = Array.from(e.target.files);
+        this.uploadFiles(files);
+    }
+
+    /**
+     * Upload multiple files
+     */
+    async uploadFiles(files) {
+        if (!files || files.length === 0) return;
+
+        // Validate files
+        const validFiles = files.filter(file => {
+            const validTypes = ['.txt', '.docx', '.pdf'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            const isValidType = validTypes.includes(fileExtension);
+            const isValidSize = file.size <= 50 * 1024 * 1024; // 50MB
+
+            if (!isValidType) {
+                this.showMessage(`Invalid file type: ${file.name}. Only .txt, .docx, and .pdf files are allowed.`, 'error');
+                return false;
+            }
+            if (!isValidSize) {
+                this.showMessage(`File too large: ${file.name}. Maximum size is 50MB.`, 'error');
+                return false;
+            }
+            return true;
+        });
+
+        if (validFiles.length === 0) return;
+
+        // Show upload progress
+        this.showUploadProgress(true);
+
+        try {
+            for (let i = 0; i < validFiles.length; i++) {
+                const file = validFiles[i];
+                await this.uploadFile(file);
+
+                // Update progress
+                const progress = ((i + 1) / validFiles.length) * 100;
+                this.updateUploadProgress(progress);
+            }
+
+            this.showMessage(`Successfully uploaded ${validFiles.length} file(s)`, 'success');
+
+            // Refresh the documents and stats
+            await this.loadDocuments();
+            await this.loadIndexedDocuments();
+            await this.refreshVectorStats();
+
+        } catch (error) {
+            console.error('❌ Upload process failed:', error);
+            this.showMessage('Upload process failed', 'error');
+        } finally {
+            // Hide upload progress
+            setTimeout(() => this.showUploadProgress(false), 1000);
+
+            // Clear file input
+            if (this.elements.fileInput) {
+                this.elements.fileInput.value = '';
+            }
+        }
+    }
+
+    /**
+     * Upload a single file
+     */
+    async uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            // Get auth headers but remove Content-Type to let browser set it for FormData
+            const headers = this.getAuthHeaders();
+            delete headers['Content-Type'];
+
+            const result = await fetch('/api/knowledge/documents/upload', {
+                method: 'POST',
+                headers,
+                body: formData
+            });
+
+            if (!result.ok) {
+                const error = await result.text();
+                throw new Error(error || 'Upload failed');
+            }
+
+            const data = await result.json();
+            if (!data.success) {
+                throw new Error(data.message || data.error || 'Upload failed');
+            }
+
+            console.log('✅ File uploaded successfully:', file.name);
+            return data;
+
+        } catch (error) {
+            console.error('❌ Failed to upload file:', file.name, error);
+            this.showMessage(`Failed to upload ${file.name}: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    /**
+     * Show/hide upload progress
+     */
+    showUploadProgress(show) {
+        if (this.elements.uploadProgress) {
+            this.elements.uploadProgress.style.display = show ? 'block' : 'none';
+        }
+        if (!show && this.elements.progressBar) {
+            this.elements.progressBar.style.width = '0%';
+        }
+    }
+
+    /**
+     * Update upload progress
+     */
+    updateUploadProgress(percent) {
+        if (this.elements.progressBar) {
+            this.elements.progressBar.style.width = `${percent}%`;
+        }
+    }
+
+    /**
+     * Delete a document
+     */
+    async deleteDocument(documentId) {
+        if (!confirm('Are you sure you want to delete this document?')) {
+            return;
+        }
+
+        try {
+            const response = await this.apiManager.delete(`/api/knowledge/documents/${documentId}`);
+
+            if (response.success) {
+                this.showMessage('Document deleted successfully', 'success');
+                await this.loadDocuments();
+                await this.loadIndexedDocuments();
+                await this.refreshVectorStats();
+            } else {
+                throw new Error(response.error || 'Failed to delete document');
+            }
+        } catch (error) {
+            console.error('❌ Failed to delete document:', error);
+            this.showMessage(`Failed to delete document: ${error.message}`, 'error');
+        }
+    }
+
+    /**
+     * Refresh documents list
+     */
+    async refreshDocuments() {
+        if (this.elements.refreshDocumentsButton) {
+            const button = this.elements.refreshDocumentsButton;
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...';
+
+            try {
+                await this.loadDocuments();
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        } else {
+            await this.loadDocuments();
+        }
+    }
+
+    /**
+     * Clear all documents
+     */
+    async clearAllDocuments() {
+        if (!confirm('Are you sure you want to delete ALL documents? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            if (this.elements.clearAllDocumentsButton) {
+                const button = this.elements.clearAllDocumentsButton;
+                const originalContent = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Clearing...';
+
+                const response = await this.apiManager.post('/api/knowledge/documents/clear');
+
+                if (response.success) {
+                    this.showMessage('All documents cleared successfully', 'success');
+                    await this.loadDocuments();
+                    await this.loadIndexedDocuments();
+                    await this.refreshVectorStats();
+                } else {
+                    throw new Error(response.error || 'Failed to clear documents');
+                }
+
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        } catch (error) {
+            console.error('❌ Failed to clear documents:', error);
+            this.showMessage(`Failed to clear documents: ${error.message}`, 'error');
+
+            if (this.elements.clearAllDocumentsButton) {
+                this.elements.clearAllDocumentsButton.disabled = false;
+                this.elements.clearAllDocumentsButton.innerHTML = '<i class="fas fa-trash mr-2"></i>Clear All';
+            }
+        }
+    }
+
+    /**
+     * Refresh indexed documents
+     */
+    async refreshIndexedDocuments() {
+        if (this.elements.refreshIndexedButton) {
+            const button = this.elements.refreshIndexedButton;
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...';
+
+            try {
+                await this.loadIndexedDocuments();
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        } else {
+            await this.loadIndexedDocuments();
+        }
+    }
+
+    /**
+     * Perform vector search
+     */
+    async performVectorSearch() {
+        const query = this.elements.vectorSearchInput?.value.trim();
+
+        if (!query) {
+            this.showMessage('Please enter a search query', 'warning');
+            return;
+        }
+
+        if (this.elements.vectorSearchButton) {
+            const button = this.elements.vectorSearchButton;
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Searching...';
+
+            try {
+                const response = await this.apiManager.get(`/api/knowledge/documents/search?query=${encodeURIComponent(query)}`);
+
+                if (response.success) {
+                    this.displayVectorSearchResults(response.data, query);
+                    if (this.elements.clearVectorSearchButton) {
+                        this.elements.clearVectorSearchButton.style.display = 'block';
+                    }
+                } else {
+                    throw new Error(response.error || 'Search failed');
+                }
+            } catch (error) {
+                console.error('❌ Vector search failed:', error);
+                this.showMessage(`Search failed: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        }
+    }
+
+    /**
+     * Display vector search results
+     */
+    displayVectorSearchResults(results, query) {
+        if (!this.elements.vectorSearchResults) return;
+
+        if (!results || results.length === 0) {
+            this.elements.vectorSearchResults.innerHTML = `
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="flex items-center text-yellow-800">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <div>
+                            <strong>No results found</strong>
+                            <p class="text-sm mt-1">No documents match your search query: "${this.escapeHtml(query)}"</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            const resultsHtml = `
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center text-green-800">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <div>
+                            <strong>Found ${results.length} result${results.length > 1 ? 's' : ''}</strong>
+                            <span class="text-sm text-green-700 ml-2">for "${this.escapeHtml(query)}"</span>
+                        </div>
+                    </div>
+                </div>
+                ${results.map((doc, index) => {
+                    const contentPreview = doc.content && doc.content.length > 200
+                        ? doc.content.substring(0, 200) + '...'
+                        : doc.content || 'No content available';
+
+                    const metadata = doc.metadata || {};
+                    const title = metadata.source_document_name || `Search Result ${index + 1}`;
+                    const sourceUrl = metadata.source_url;
+
+                    const sourceLink = sourceUrl
+                        ? `<a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" class="text-green-600 hover:text-green-800 ml-2" title="Open source in new tab">
+                             <i class="fas fa-external-link-alt text-xs"></i>
+                           </a>`
+                        : '';
+
+                    return `
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-3">
+                            <div class="cursor-pointer" onclick="window.settingsManager?.knowledgeManagementModule?.toggleSearchResultDetails('search-${index}')">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-green-800 mb-1">${this.escapeHtml(title)}${sourceLink}</h4>
+                                        <p class="text-sm text-green-700">${this.escapeHtml(contentPreview)}</p>
+                                    </div>
+                                    <div class="ml-4">
+                                        <i class="fas fa-chevron-down text-green-600" id="chevron-search-${index}"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="search-result-details mt-4 pt-4 border-t border-green-200" id="details-search-${index}" style="display: none;">
+                                <h5 class="font-medium text-green-800 mb-2">Full Content:</h5>
+                                <div class="bg-white p-3 rounded border border-green-200 text-sm font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+${this.escapeHtml(doc.content || 'No content available')}
+                                </div>
+                                ${sourceUrl ? `
+                                    <div class="mt-3">
+                                        <h5 class="font-medium text-green-800 mb-1">Source Link:</h5>
+                                        <a href="${sourceUrl.startsWith('http') ? sourceUrl : 'https://' + sourceUrl}" target="_blank" class="text-green-600 hover:text-green-800 text-sm">
+                                            <i class="fas fa-external-link-alt mr-1"></i>
+                                            ${this.escapeHtml(sourceUrl)}
+                                        </a>
+                                    </div>
+                                ` : ''}
+                                <div class="mt-3">
+                                    <h5 class="font-medium text-green-800 mb-1">Metadata:</h5>
+                                    <div class="text-sm text-green-700">
+                                        ${metadata.upload_source || 'unknown'} upload •
+                                        ${metadata.language || 'unknown'} language •
+                                        ${doc.content ? doc.content.length + ' characters' : 'No content'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+            this.elements.vectorSearchResults.innerHTML = resultsHtml;
+        }
+
+        this.elements.vectorSearchResults.style.display = 'block';
+        if (this.elements.indexedList) {
+            this.elements.indexedList.style.display = 'none';
+        }
+    }
+
+    /**
+     * Toggle search result details
+     */
+    toggleSearchResultDetails(resultId) {
+        const detailsDiv = document.getElementById(`details-${resultId}`);
+        const chevron = document.getElementById(`chevron-${resultId}`);
+
+        if (detailsDiv && chevron) {
+            if (detailsDiv.style.display === 'none') {
+                detailsDiv.style.display = 'block';
+                chevron.className = 'fas fa-chevron-up text-green-600';
+            } else {
+                detailsDiv.style.display = 'none';
+                chevron.className = 'fas fa-chevron-down text-green-600';
+            }
+        }
+    }
+
+    /**
+     * Clear vector search
+     */
+    clearVectorSearch() {
+        if (this.elements.vectorSearchInput) {
+            this.elements.vectorSearchInput.value = '';
+        }
+        if (this.elements.vectorSearchResults) {
+            this.elements.vectorSearchResults.style.display = 'none';
+            this.elements.vectorSearchResults.innerHTML = '';
+        }
+        if (this.elements.clearVectorSearchButton) {
+            this.elements.clearVectorSearchButton.style.display = 'none';
+        }
+        if (this.elements.indexedList) {
+            this.elements.indexedList.style.display = 'block';
+        }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Format bytes to human readable format
+     */
+    formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     /**

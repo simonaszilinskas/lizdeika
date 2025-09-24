@@ -237,12 +237,25 @@ class VilniusRAGChain extends BaseChain {
             // Get managed prompt for enhanced system instructions
             const managedPrompt = await this.getManagedPrompt();
 
+            console.log(`\n📝 Prompt Construction Phase:`);
+            console.log(`  • Prompt Source: ${managedPrompt?.managed ? (managedPrompt.managed.fromLangfuse ? 'Langfuse (managed)' : 'Environment Override') : 'Hardcoded Fallback'}`);
+            if (managedPrompt?.managed?.version) {
+                console.log(`  • Prompt Version: v${managedPrompt.managed.version}`);
+            }
+            console.log(`  • Has Chat History: ${chat_history && chat_history.length > 0 ? 'Yes' : 'No'}`);
+            console.log(`  • Context Length: ${context.length} characters`);
+            console.log(`  • Context Preview: "${context.substring(0, 150)}..."`);
+
             const hasHistory = chat_history && chat_history.length > 0;
             let response;
+            let finalMessages;
 
             if (hasHistory) {
+                console.log(`  • Using: Chat Prompt Template (with history)`);
                 // Use chat prompt with history
                 const formattedHistory = formatChatHistory(chat_history);
+                console.log(`  • Formatted History Length: ${formattedHistory.length} chars`);
+
                 const messages = await this.ragChatPrompt.formatMessages({
                     formatted_history: formattedHistory,
                     question: question,
@@ -257,10 +270,13 @@ class VilniusRAGChain extends BaseChain {
                         context: context
                     });
                     messages[0].content = systemContent;
+                    console.log(`  • Applied Managed System Prompt (${systemContent.length} chars)`);
                 }
 
+                finalMessages = messages;
                 response = await this._invokeWithTimeout(messages, runManager, managedPrompt);
             } else {
+                console.log(`  • Using: Simple Prompt Template (no history)`);
                 // Use simple prompt without history
                 const messages = await this.simpleRAGPrompt.formatMessages({
                     question: question,
@@ -274,10 +290,29 @@ class VilniusRAGChain extends BaseChain {
                         context: context
                     });
                     messages[0].content = systemContent;
+                    console.log(`  • Applied Managed System Prompt (${systemContent.length} chars)`);
                 }
 
+                finalMessages = messages;
                 response = await this._invokeWithTimeout(messages, runManager, managedPrompt);
             }
+
+            // Log the complete final prompt details
+            console.log(`\n🎯 Final Prompt Details:`);
+            console.log(`  • Total Messages: ${finalMessages.length}`);
+            finalMessages.forEach((msg, index) => {
+                const role = msg._getType ? msg._getType() : (msg.role || 'unknown');
+                const contentLength = msg.content ? msg.content.length : 0;
+                const preview = msg.content ? msg.content.substring(0, 100) : '';
+                console.log(`  • Message ${index + 1} (${role}): ${contentLength} chars`);
+                console.log(`    Preview: "${preview}..."`);
+            });
+
+            const totalPromptLength = finalMessages.reduce((total, msg) => total + (msg.content?.length || 0), 0);
+            console.log(`  • Total Prompt Length: ${totalPromptLength} characters`);
+            console.log(`  • LLM Model: ${this.mainModelName}`);
+            console.log(`  • Temperature: ${this.llm.temperature}`);
+            console.log(`  • Sending to LLM...`)
 
             const answer = response.content || response.text || 'Atsiprašau, negaliu atsakyti į šį klausimą.';
 

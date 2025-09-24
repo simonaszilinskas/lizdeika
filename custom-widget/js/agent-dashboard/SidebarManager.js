@@ -25,6 +25,7 @@ export class SidebarManager {
         this.minWidth = 280;
         this.maxWidth = 600;
         this.defaultWidth = 400;
+        this.collapsedWidth = 50;
 
         // Initialize
         this.init();
@@ -86,6 +87,11 @@ export class SidebarManager {
         if (!this.resizeHandle || !this.sidebar) return;
 
         this.resizeHandle.addEventListener('mousedown', (e) => {
+            // Don't allow resizing when sidebar is collapsed
+            if (!this.sidebarVisible) {
+                return;
+            }
+
             this.isResizing = true;
             document.body.style.cursor = 'col-resize';
             document.body.style.userSelect = 'none';
@@ -124,6 +130,14 @@ export class SidebarManager {
         this.sidebarToggle.addEventListener('click', () => {
             this.toggleSidebar();
         });
+
+        // Also handle collapsed state toggle button
+        const collapsedToggle = document.getElementById('sidebar-toggle-collapsed');
+        if (collapsedToggle) {
+            collapsedToggle.addEventListener('click', () => {
+                this.toggleSidebar();
+            });
+        }
     }
 
     /**
@@ -138,28 +152,33 @@ export class SidebarManager {
     }
 
     /**
-     * Hide sidebar
+     * Hide sidebar (collapse to thin strip)
      * @param {boolean} animate - Whether to animate the transition
      */
     hideSidebar(animate = true) {
         if (!this.sidebar || !this.resizeHandle) return;
 
+        // Store current width for restoration
+        const currentWidth = parseInt(this.sidebar.style.width) || this.defaultWidth;
+        this.sidebar.dataset.expandedWidth = currentWidth;
+
         if (animate) {
-            this.sidebar.style.transition = 'margin-left 0.3s ease';
+            this.sidebar.style.transition = 'width 0.3s ease';
             this.resizeHandle.style.transition = 'opacity 0.3s ease';
         }
 
-        const width = parseInt(this.sidebar.style.width) || this.defaultWidth;
-        this.sidebar.style.marginLeft = `-${width}px`;
+        // Collapse to thin strip instead of hiding completely
+        this.sidebar.style.width = `${this.collapsedWidth}px`;
+        this.sidebar.style.minWidth = `${this.collapsedWidth}px`;
+        this.sidebar.classList.add('sidebar-collapsed');
+
+        // Hide resize handle in collapsed state
         this.resizeHandle.style.opacity = '0';
         this.resizeHandle.style.pointerEvents = 'none';
 
         this.sidebarVisible = false;
         localStorage.setItem('agent_dashboard_sidebar_visible', 'false');
 
-        // Add floating button for reopening
-        this.addFloatingButton();
-
         if (animate) {
             setTimeout(() => {
                 this.sidebar.style.transition = '';
@@ -169,26 +188,29 @@ export class SidebarManager {
     }
 
     /**
-     * Show sidebar
+     * Show sidebar (expand from collapsed state)
      * @param {boolean} animate - Whether to animate the transition
      */
     showSidebar(animate = true) {
         if (!this.sidebar || !this.resizeHandle) return;
 
         if (animate) {
-            this.sidebar.style.transition = 'margin-left 0.3s ease';
+            this.sidebar.style.transition = 'width 0.3s ease';
             this.resizeHandle.style.transition = 'opacity 0.3s ease';
         }
 
-        this.sidebar.style.marginLeft = '0';
+        // Restore to expanded width
+        const expandedWidth = this.sidebar.dataset.expandedWidth || this.defaultWidth;
+        this.sidebar.style.width = `${expandedWidth}px`;
+        this.sidebar.style.minWidth = '280px';
+        this.sidebar.classList.remove('sidebar-collapsed');
+
+        // Show resize handle in expanded state
         this.resizeHandle.style.opacity = '1';
         this.resizeHandle.style.pointerEvents = 'auto';
 
         this.sidebarVisible = true;
         localStorage.setItem('agent_dashboard_sidebar_visible', 'true');
-
-        // Remove floating button
-        this.removeFloatingButton();
 
         if (animate) {
             setTimeout(() => {
@@ -198,32 +220,6 @@ export class SidebarManager {
         }
     }
 
-    /**
-     * Add floating button when sidebar is hidden
-     */
-    addFloatingButton() {
-        // Remove existing button if any
-        this.removeFloatingButton();
-
-        const button = document.createElement('button');
-        button.id = 'floating-sidebar-toggle';
-        button.className = 'fixed left-4 top-20 z-50 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-full shadow-lg transition-all';
-        button.innerHTML = '<i class="fas fa-bars"></i>';
-        button.title = 'Show Sidebar (Ctrl+B)';
-        button.onclick = () => this.showSidebar(true);
-
-        document.body.appendChild(button);
-    }
-
-    /**
-     * Remove floating button
-     */
-    removeFloatingButton() {
-        const button = document.getElementById('floating-sidebar-toggle');
-        if (button) {
-            button.remove();
-        }
-    }
 
     /**
      * Set up collapsible sections

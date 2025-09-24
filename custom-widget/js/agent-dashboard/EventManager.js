@@ -113,9 +113,6 @@ export class EventManager {
         const sendAsIsBtn = document.getElementById('send-as-is-btn');
         const editSuggestionBtn = document.getElementById('edit-suggestion-btn');
         const writeFromScratchBtn = document.getElementById('write-from-scratch-btn');
-        const debugToggleBtn = document.getElementById('debug-toggle-btn');
-        const debugCloseBtn = document.getElementById('debug-modal-close');
-
         if (sendAsIsBtn) {
             sendAsIsBtn.addEventListener('click', () => this.dashboard.sendAsIs());
         }
@@ -126,30 +123,6 @@ export class EventManager {
 
         if (writeFromScratchBtn) {
             writeFromScratchBtn.addEventListener('click', () => this.dashboard.writeFromScratch());
-        }
-
-        if (debugToggleBtn) {
-            debugToggleBtn.addEventListener('click', () => this.debugManager.toggleDebugPanel());
-        }
-
-        if (debugCloseBtn) {
-            debugCloseBtn.addEventListener('click', () => this.debugManager.hideDebugModal());
-        }
-        
-        // Close debug modal on escape key or click outside
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.debugManager.hideDebugModal();
-            }
-        });
-        
-        const debugModal = document.getElementById('debug-modal');
-        if (debugModal) {
-            debugModal.addEventListener('click', (e) => {
-                if (e.target === debugModal) {
-                    this.debugManager.hideDebugModal();
-                }
-            });
         }
     }
 

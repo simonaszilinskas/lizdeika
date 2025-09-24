@@ -327,19 +327,82 @@ export class APIManager {
      * @returns {Object} AI suggestion data
      */
     async getAISuggestion(conversationId) {
+        const requestStartTime = performance.now();
+        const timestamp = new Date().toISOString();
+
+        // 🔍 BROWSER CONSOLE DEBUG: Request Details
+        console.group(`🤖 AI Suggestion Request - ${timestamp}`);
+        console.log('📍 Request Details:');
+        console.log('  • Conversation ID:', conversationId);
+        console.log('  • API Endpoint:', `${this.apiUrl}/api/conversations/${conversationId}/generate-suggestion`);
+        console.log('  • Method:', 'POST');
+        console.log('  • Headers:', this.getAuthHeaders());
+        console.log('  • Start Time:', new Date(requestStartTime).toISOString());
+
         try {
+            console.log('⚡ Sending request to backend...');
+
             const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/generate-suggestion`, {
                 method: 'POST',
                 headers: this.getAuthHeaders()
             });
 
+            const responseTime = performance.now();
+            const duration = responseTime - requestStartTime;
+
+            console.log('📡 Response received:');
+            console.log('  • Status:', response.status, response.statusText);
+            console.log('  • Response Time:', `${duration.toFixed(2)}ms`);
+            console.log('  • Headers:', Object.fromEntries(response.headers.entries()));
+
             if (!response.ok) {
+                console.error('❌ Request failed:', response.status, response.statusText);
                 throw new Error(`Failed to get AI suggestion: ${response.statusText}`);
             }
 
-            return await response.json();
+            const data = await response.json();
+            const parseTime = performance.now();
+            const totalDuration = parseTime - requestStartTime;
+
+            // 🔍 BROWSER CONSOLE DEBUG: Comprehensive RAG Pipeline Analysis
+            console.log('✅ AI Suggestion Generated Successfully:');
+            console.log('  • Suggestion Text:', data.suggestion ? `"${data.suggestion.substring(0, 100)}..."` : 'No suggestion');
+            console.log('  • Confidence Score:', data.confidence || 'N/A');
+            console.log('  • Response Size:', JSON.stringify(data).length, 'chars');
+            console.log('  • Total Processing Time:', `${totalDuration.toFixed(2)}ms`);
+            console.log('  • Backend Processing Time:', `${(totalDuration - duration).toFixed(2)}ms`);
+
+            // Enhanced metadata display
+            if (data.metadata) {
+                console.group('🎯 AI System Configuration:');
+                console.log('  • AI Provider:', data.metadata.provider || 'Unknown');
+                console.log('  • RAG Enhancement:', data.metadata.ragUsed ? 'Yes' : 'No');
+                console.log('  • Fallback Used:', data.metadata.fallbackUsed ? 'Yes' : 'No');
+                console.log('  • Sources Used:', data.metadata.sourcesUsed || 0, 'files');
+                console.log('  • Document Contexts:', data.metadata.contextsUsed || 0, 'chunks');
+                console.log('  • Context Length:', data.metadata.contextLength || 0, 'chars');
+                console.log('  • Processing Steps:', data.metadata.processingSteps || 0);
+                console.groupEnd();
+
+                // Comprehensive debug information display
+                if (data.metadata.debugInfo && Object.keys(data.metadata.debugInfo).length > 0) {
+                    this._logRAGPipelineDetails(data.metadata.debugInfo);
+                }
+            }
+
+            console.groupEnd();
+            return data;
+
         } catch (error) {
-            console.error('Failed to get AI suggestion:', error);
+            const errorTime = performance.now();
+            const duration = errorTime - requestStartTime;
+
+            console.error('❌ AI Suggestion Request Failed:');
+            console.error('  • Error Type:', error.name);
+            console.error('  • Error Message:', error.message);
+            console.error('  • Request Duration:', `${duration.toFixed(2)}ms`);
+            console.error('  • Stack Trace:', error.stack);
+            console.groupEnd();
             return null;
         }
     }
@@ -447,5 +510,169 @@ export class APIManager {
             console.error(`POST ${endpoint} failed:`, error);
             throw error;
         }
+    }
+
+    /**
+     * Log comprehensive RAG pipeline details to browser console
+     * @param {Object} debugInfo - Debug information from aiService
+     */
+    _logRAGPipelineDetails(debugInfo) {
+        console.group('🔍 RAG Pipeline Transparency - Detailed Breakdown:');
+
+        // Step 1: Original Request
+        if (debugInfo.step1_originalRequest) {
+            console.group('📋 Step 1: Original Request');
+            console.log('  • Provider:', debugInfo.step1_originalRequest.provider || 'Unknown');
+            console.log('  • RAG Enabled:', debugInfo.step1_originalRequest.enableRAG ? 'Yes' : 'No');
+            console.log('  • Context Length:', debugInfo.step1_originalRequest.conversationContext?.length || 0, 'chars');
+            console.groupEnd();
+        }
+
+        // Step 2: Provider Check
+        if (debugInfo.step2_providerCheck) {
+            console.group('⚡ Step 2: AI Provider Status');
+            console.log('  • Provider Status:', debugInfo.step2_providerCheck.status || 'Unknown');
+            console.log('  • Provider Name:', debugInfo.step2_providerCheck.provider || 'Unknown');
+            if (debugInfo.step2_providerCheck.fallbackUsed) {
+                console.log('  • 🚨 Fallback Used: Provider unavailable/unhealthy');
+            }
+            console.groupEnd();
+        }
+
+        // Step 3: RAG Processing
+        if (debugInfo.step3_ragProcessing) {
+            console.group('🧠 Step 3: RAG Processing');
+            console.log('  • RAG Enabled:', debugInfo.step3_ragProcessing.enabled ? 'Yes' : 'No');
+            console.log('  • Should Use RAG:', debugInfo.step3_ragProcessing.shouldUseRAG ? 'Yes' : 'No');
+            console.log('  • Extracted Message:', debugInfo.step3_ragProcessing.extractedMessage || 'N/A');
+            console.log('  • Chat History Length:', debugInfo.step3_ragProcessing.chatHistoryLength || 0);
+            if (debugInfo.step3_ragProcessing.error) {
+                console.log('  • ❌ RAG Error:', debugInfo.step3_ragProcessing.error);
+            }
+            console.groupEnd();
+        }
+
+        // Step 4: LangChain RAG Details
+        if (debugInfo.step4_langchainRAG) {
+            this._logLangChainDetails(debugInfo.step4_langchainRAG);
+        }
+
+        // Step 5: RAG Results
+        if (debugInfo.step5_ragResults) {
+            console.group('📊 Step 5: RAG Results Summary');
+            console.log('  • Final Answer Length:', debugInfo.step5_ragResults.answer?.length || 0, 'chars');
+            console.log('  • Contexts Used:', debugInfo.step5_ragResults.contextsUsed || 0);
+            console.log('  • Sources Used:', debugInfo.step5_ragResults.sources?.length || 0);
+            if (debugInfo.step5_ragResults.sources?.length > 0) {
+                console.log('  • Source Files:');
+                debugInfo.step5_ragResults.sources.forEach((source, index) => {
+                    console.log(`    ${index + 1}. ${source}`);
+                });
+            }
+            console.groupEnd();
+        }
+
+        // Model Request and Response (for non-RAG paths)
+        if (debugInfo.step4_modelRequest) {
+            console.group('🤖 Step 4: Direct Model Request');
+            console.log('  • Provider:', debugInfo.step4_modelRequest.provider || 'Unknown');
+            console.log('  • Context Length:', debugInfo.step4_modelRequest.contextLength || 0, 'chars');
+            console.groupEnd();
+        }
+
+        if (debugInfo.step5_modelResponse) {
+            console.group('✅ Step 5: Model Response');
+            console.log('  • Successful:', debugInfo.step5_modelResponse.successful ? 'Yes' : 'No');
+            console.log('  • Response Length:', debugInfo.step5_modelResponse.responseLength || 0, 'chars');
+            if (debugInfo.step5_modelResponse.error) {
+                console.log('  • ❌ Error:', debugInfo.step5_modelResponse.error);
+            }
+            if (debugInfo.step5_modelResponse.fallbackUsed) {
+                console.log('  • 🚨 Fallback Used: Model request failed');
+            }
+            console.groupEnd();
+        }
+
+        console.groupEnd();
+    }
+
+    /**
+     * Log detailed LangChain RAG pipeline information
+     * @param {Object} langchainDebug - LangChain debug information
+     */
+    _logLangChainDetails(langchainDebug) {
+        console.group('🔗 Step 4: LangChain RAG Pipeline');
+
+        // Query Rephrasing
+        if (langchainDebug.step2_queryRephrasing) {
+            console.group('🔄 Query Rephrasing');
+            console.log('  • Original Query:', `"${langchainDebug.step2_queryRephrasing.originalQuery || 'N/A'}"`);
+            console.log('  • Rephrased Query:', `"${langchainDebug.step2_queryRephrasing.rephrasedQuery || 'Same as original'}"`);
+            console.log('  • Improvement Made:', langchainDebug.step2_queryRephrasing.improvement ? 'Yes' : 'No');
+            console.groupEnd();
+        }
+
+        // Document Retrieval
+        if (langchainDebug.step3_documentRetrieval) {
+            console.group('📄 Document Retrieval (ChromaDB)');
+            console.log('  • Search Query:', `"${langchainDebug.step3_documentRetrieval.searchQuery || 'N/A'}"`);
+            console.log('  • Documents Requested:', langchainDebug.step3_documentRetrieval.requestedDocuments || 0);
+            console.log('  • Documents Retrieved:', langchainDebug.step3_documentRetrieval.retrievedDocuments || 0);
+
+            // Vector search details
+            if (langchainDebug.step3_documentRetrieval.vectorSearchDetails) {
+                const vsd = langchainDebug.step3_documentRetrieval.vectorSearchDetails;
+                console.log('  • Vector Search Details:');
+                console.log('    - Embedding Provider:', vsd.embeddingProvider || 'Default');
+                console.log('    - Embedding Dimensions:', vsd.embeddingDimensions || 'N/A');
+                console.log('    - Search Time:', vsd.searchTime || 'N/A');
+
+                if (vsd.documents && vsd.documents.length > 0) {
+                    console.log('    - Retrieved Documents:');
+                    vsd.documents.forEach((doc, index) => {
+                        console.log(`      ${index + 1}. ID: ${doc.id}`);
+                        console.log(`         Similarity: ${(1 - doc.distance).toFixed(4)}`);
+                        console.log(`         Content: "${doc.content?.substring(0, 80)}..."`);
+                        if (doc.metadata?.source) {
+                            console.log(`         Source: ${doc.metadata.source}`);
+                        }
+                    });
+                }
+            }
+            console.groupEnd();
+        }
+
+        // Prompt Construction
+        if (langchainDebug.step5_promptConstruction) {
+            console.group('📝 Prompt Construction');
+            const pc = langchainDebug.step5_promptConstruction;
+            console.log('  • Prompt Source:', pc.promptSource || 'Unknown');
+            console.log('  • Has Chat History:', pc.hasChatHistory ? 'Yes' : 'No');
+            console.log('  • Context Length:', pc.contextLength || 0, 'chars');
+            console.log('  • Final Prompt Length:', pc.finalPromptLength || 0, 'chars');
+
+            if (pc.messages && pc.messages.length > 0) {
+                console.log('  • Prompt Messages:');
+                pc.messages.forEach((msg, index) => {
+                    console.log(`    ${index + 1}. ${msg.role || 'unknown'}: ${msg.contentLength || 0} chars`);
+                });
+            }
+            console.groupEnd();
+        }
+
+        // Response Generation
+        if (langchainDebug.step6_llmResponse) {
+            console.group('🤖 LLM Response Generation');
+            const lr = langchainDebug.step6_llmResponse;
+            console.log('  • Model:', lr.model || 'Unknown');
+            console.log('  • Temperature:', lr.temperature || 'N/A');
+            console.log('  • Max Tokens:', lr.maxTokens || 'N/A');
+            console.log('  • Processing Time:', lr.processingTime || 'N/A');
+            console.log('  • Response Length:', lr.responseLength || 0, 'chars');
+            console.log('  • Token Usage:', lr.tokenUsage || 'N/A');
+            console.groupEnd();
+        }
+
+        console.groupEnd();
     }
 }
