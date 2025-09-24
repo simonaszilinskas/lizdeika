@@ -56,36 +56,63 @@ class SystemController {
      */
     async healthCheck(req, res) {
         try {
-            // Check our own health
+            // Basic health check that works even without database
             const serverHealth = {
                 status: 'ok',
                 timestamp: new Date().toISOString(),
                 uptime: process.uptime(),
                 memory: process.memoryUsage(),
-                connections: {
+                environment: process.env.NODE_ENV || 'development',
+                port: process.env.PORT || 3002
+            };
+
+            let aiProviderHealthy = true;
+
+            // Try to get service stats, but don't fail if they're not available
+            try {
+                serverHealth.connections = {
                     conversations: conversationService.getConversationCount(),
                     messages: conversationService.getTotalMessageCount(),
                     agents: agentService.getAgentCount()
-                }
-            };
-            
-            // Check AI provider health
-            const aiProviderHealth = await aiService.getProviderHealth();
-            serverHealth.aiProvider = aiProviderHealth;
-            
-            // Determine overall status
-            const overallStatus = (aiProviderHealth && aiProviderHealth.healthy) ? 'ok' : 'degraded';
+                };
+            } catch (serviceError) {
+                console.warn('Service stats not available:', serviceError.message);
+                serverHealth.connections = { error: 'Services not initialized' };
+            }
+
+            // Try to check AI provider health, but don't fail
+            try {
+                const aiProviderHealth = await aiService.getProviderHealth();
+                serverHealth.aiProvider = aiProviderHealth;
+                aiProviderHealthy = aiProviderHealth && aiProviderHealth.healthy;
+            } catch (aiError) {
+                console.warn('AI provider health check failed:', aiError.message);
+                serverHealth.aiProvider = { error: 'AI service not available' };
+                aiProviderHealthy = false;
+            }
+
+            // Determine overall status - for Railway, prioritize basic server health
+            // AI provider being down shouldn't fail healthcheck in production
+            const isProd = process.env.NODE_ENV === 'production';
+            let overallStatus = 'ok';
+            let httpStatus = 200;
+
+            if (!isProd && !aiProviderHealthy) {
+                // In development, show degraded status if AI is down
+                overallStatus = 'degraded';
+                httpStatus = 200; // Still return 200 for Railway healthcheck
+            }
+
             serverHealth.status = overallStatus;
-            
-            const httpStatus = overallStatus === 'ok' ? 200 : 503;
             res.status(httpStatus).json(serverHealth);
-            
+
         } catch (error) {
             console.error('Health check error:', error);
-            res.status(500).json({
+            res.status(503).json({
                 status: 'error',
                 error: error.message,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                uptime: process.uptime()
             });
         }
     }

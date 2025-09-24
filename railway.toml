@@ -11,6 +11,13 @@ restartPolicyMaxRetries = 3
 
 [deploy.environmentVariables]
 NODE_ENV = "production"
+# JWT Authentication - Generate secure secrets for production
+JWT_SECRET = "super-secure-jwt-secret-key-for-railway-production-change-this"
+JWT_REFRESH_SECRET = "super-secure-refresh-token-secret-for-railway-production-change-this"
+JWT_ACCESS_EXPIRES_IN = "15m"
+JWT_REFRESH_EXPIRES_IN = "7d"
+# Emergency admin recovery
+ADMIN_RECOVERY_KEY = "emergency-admin-recovery-key-for-railway-change-this"
 
 [[services]]
 name = "vilnius-backend"
