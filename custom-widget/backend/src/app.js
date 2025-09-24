@@ -86,12 +86,44 @@ function createApp() {
 
     // Static file serving - Railway vs local development paths
     const path = require('path');
+    const fs = require('fs');
+
     const staticPath = process.env.NODE_ENV === 'production'
         ? path.join(__dirname, '../') // Railway: HTML files copied to /app/
         : path.join(__dirname, '../../custom-widget'); // Local: custom-widget/ directory
 
-    app.use(express.static(staticPath));
+    // Debug: List available files in the static directory
+    console.log(`🔍 NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`📁 Serving static files from: ${staticPath}`);
+    try {
+        const files = fs.readdirSync(staticPath);
+        console.log(`📋 Available files in static directory: ${files.join(', ')}`);
+
+        // Also check for HTML files specifically
+        const htmlFiles = files.filter(f => f.endsWith('.html'));
+        console.log(`🌐 HTML files found: ${htmlFiles.join(', ')}`);
+    } catch (error) {
+        console.error(`❌ Cannot read static directory ${staticPath}:`, error.message);
+
+        // Try alternative paths
+        const altPaths = [
+            path.join(__dirname, '../../'),
+            path.join(__dirname, '../../../'),
+            path.join(__dirname, './'),
+            '/app'
+        ];
+
+        for (const altPath of altPaths) {
+            try {
+                const files = fs.readdirSync(altPath);
+                console.log(`🔍 Alternative path ${altPath}: ${files.slice(0, 10).join(', ')}`);
+            } catch (e) {
+                console.log(`❌ Alternative path ${altPath}: not accessible`);
+            }
+        }
+    }
+
+    app.use(express.static(staticPath));
     
     // Request logging in development
     if (process.env.NODE_ENV !== 'production') {
