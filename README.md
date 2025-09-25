@@ -1,18 +1,29 @@
 # Vilnius Assistant - AI Customer Support Platform
 
-An AI-powered customer support system that provides intelligent, real-time assistance for municipal services. The platform combines human agents with AI technology to handle citizen inquiries efficiently, featuring document-based knowledge retrieval, automatic ticket assignment, and multilingual support in Lithuanian.
+An AI-era, but with a human in the loop open source customer support system. 
 
 **Key Features:**
-- 🤖 **AI Assistant**: Powered by OpenRouter (Gemini) and Flowise with document RAG capabilities
-- 👥 **Agent Dashboard**: Real-time conversation management for up to 20 concurrent agents
-- 📚 **Knowledge Base**: Upload documents (.txt, .docx) for AI-powered responses using vector search
-- 🔄 **Smart Workflow**: Three-action system (send as-is, edit, or rewrite AI suggestions)
-- 🌍 **Lithuanian Support**: Native language interface and responses
-- 📊 **Production Scale**: Handles 16,000+ conversations annually with 6-month data retention
-
-## 📚 Complete Guide
-
-This README contains all documentation for setup, development, deployment, and troubleshooting.
+- AI workflow
+   - Document adding via API or the UI
+   - Document embedding into Chroma DB via Mistral embeddings API 
+   - LLM (open router) for rephrasing user queries 
+   - Query embedding and vector search
+   - LLM (open router) for query answering based on context
+   - Langfuse or manual prompt writing are used to input prompts 
+- Three modes 
+   - Human in the loop - HITL (the AI provides suggestions, customer support agents approve them)
+   - Autopilot (the AI responds directly but shows a warning to the user)
+   - OFF (a message saying "We'll get back to you when we are back online")
+- User management
+   - Login
+   - New user creation by admin
+   - Password change by admin
+- Agent Dashboard 
+   - Agents and admins can be online or offline
+   - If agents and admins are online, and the mode is HITL, the messages are distributed in round robin
+   - Agents and admins can reassign, unassign conversations
+   - Agents and admins can archive conversations - if a user writes a message to an archived conversation, the conversation comes back up
+   - If no agents or admins are connected, the messages fall into a common pool and are not assigned to nobody
 
 ## ⚡ Quick Start
 
@@ -72,108 +83,6 @@ npm start
 - Preferred: run only the backend on port 3002 — it serves the UI pages above
 - Alternative: serve static UI from root on port 3000 using `npm run dev` if needed
 
-## 🧪 Testing the System
-
-1. **Test the Customer Widget**:
-   - Open http://localhost:3002/embed-widget.html
-   - Click the chat bubble and send a message
-   - Message should be sent to Flowise for AI suggestion
-
-2. **Test the Agent Dashboard**:
-   - Open http://localhost:3002/agent-dashboard.html  
-   - See conversations appear in the queue
-   - Click a conversation to see AI suggestions
-   - Use "Siųsti kaip yra", "Redaguoti", or "Nuo pradžių"
-
-3. **Test System Health**:
-   - Open http://localhost:3002/test-dashboard.html
-   - Verify all components are working
-
-## ✨ Current Features
-
-### 🤖 **AI & RAG**
-- **Dual AI providers**: OpenRouter (Gemini) + Flowise with failover
-- **Document RAG**: Upload .txt/.docx files with semantic search
-- **Vector database**: Chroma DB Cloud with Mistral embeddings
-- **Context-aware responses**: AI uses uploaded documents
-- **Smart suggestion polling**: Handles multiple rapid customer messages with intelligent cancellation
-
-### 👥 **User Management**
-- **JWT authentication**: Secure login with refresh tokens
-- **Role-based access**: Admin, agent, and customer roles
-- **Automatic ticket assignment**: Fair distribution across 20 agents
-- **Activity logging**: Complete audit trail
-
-### 💬 **Communication**
-- **Real-time chat**: WebSocket communication with immediate message display
-- **Three-action workflow**: Send/edit/rewrite AI suggestions
-- **Conversation archiving**: Bulk operations and search
-- **Lithuanian interface**: Native language support
-
-#### **AI Suggestion System**
-Smart polling system ensures agents always see the most recent AI suggestions:
-- **Immediate message display**: Customer messages appear instantly (<100ms)
-- **Background AI processing**: Suggestions generated in 6-13 seconds
-- **Intelligent cancellation**: Prevents outdated suggestions when customers send multiple messages rapidly
-- **Multi-agent safe**: Each agent polls independently with no conflicts
-- **Exponential backoff**: Efficient polling (2s → 5s) reduces server load
-
-### 📊 **System Capabilities**
-- **20 concurrent agents** with automatic assignment
-- **16,000+ conversations/year** capacity
-- **6-month data retention** with automated cleanup
-- **Production-ready** with comprehensive error handling
-
-## 🚀 Development Priorities
-
-### 🧪 **Testing Implementation** (Medium Priority)
-- [ ] **Fix failing tests** - 3 tests failing due to missing modules
-- [ ] **Fix coverage reporting** - Jest shows 0% due to ES6-to-CommonJS transformation, but tests exercise real code
-- [ ] **Backend tests** - Add tests for API endpoints and database operations
-
-### 📊 **Monitoring & Observability** (High Priority)
-- [ ] **Structured logging** - Correlation IDs and centralized logs
-- [ ] **Performance metrics** - Response times, AI provider latency tracking
-- [ ] **Error monitoring** - Rate tracking and alerting system
-- [ ] **Database monitoring** - Query performance and connection health
-- [ ] **WebSocket health** - Connection monitoring and diagnostics
-
-### 🔒 **Security Hardening** (Medium Priority)
-- [ ] **Input validation** - Comprehensive sanitization audit
-- [ ] **Advanced rate limiting** - Per user/endpoint (beyond global)
-- [ ] **Security headers** - HTTPS, CSP, HSTS implementation
-- [ ] **Audit logging** - Sensitive operations tracking
-- [ ] **JWT strategy** - Token rotation and refresh policies
-
-### ⚡ **Performance Optimization** (Medium Priority)
-- [ ] **Database optimization** - Query performance, indexing
-- [ ] **Redis caching** - Frequently accessed data caching
-- [ ] **Connection pooling** - PostgreSQL optimization
-- [ ] **Asset optimization** - CDN integration, compression
-- [ ] **Vector DB tuning** - ChromaDB query optimization
-
-### 🎯 **Operational Excellence** (Medium Priority)
-- [ ] **Enhanced health checks** - Database, AI providers, vector DB
-- [ ] **Disaster recovery** - Backup procedures and restoration
-- [ ] **Log management** - Rotation, retention, analysis
-- [ ] **Config validation** - Environment setup verification
-- [ ] **Graceful shutdown** - Process management improvements
-
-### 🔧 **Developer Experience** (Low Priority)
-- [ ] **CI/CD pipeline** - Automated testing and deployment
-- [ ] **Code quality** - ESLint, Prettier, quality gates
-- [ ] **API documentation** - OpenAPI/Swagger integration
-- [ ] **Dev environment** - Container optimization
-
-### 🌐 **User Experience** (Low Priority)
-- [ ] **iframe embedding** - Easy widget integration like YouTube
-- [ ] **Mobile optimization** - Improved responsive design for widget and dashboard
-- [ ] **Accessibility** - WCAG 2.1 compliance
-- [ ] **Dark mode** - Theme support across platform
-- [ ] **Keyboard navigation** - Full accessibility support
-- [ ] **Multi-language** - Expansion beyond Lithuanian
-
-
 ## 🏗️ Technology Stack
 
 - **Backend**: Node.js, Express, Prisma ORM
@@ -183,14 +92,6 @@ Smart polling system ensures agents always see the most recent AI suggestions:
 - **Frontend**: Vanilla JavaScript, TailwindCSS
 - **Real-time**: Socket.IO WebSocket communication
 - **Deployment**: Docker & Docker Compose, Nginx (production)
-
----
-
-**🎯 Perfect for**: Municipal customer support, enterprise ticketing, documentation-based assistance
-
-**🚀 Ready for**: Production deployment with 20 agents and 16,000+ annual conversations
-
----
 
 ## 🚀 Deploy in Production
 
@@ -258,7 +159,6 @@ Note: This method requires you to manually check prerequisites, wait for service
 Edit `.env` file with real values:
 ```bash
 # Essential API Keys
-OPENROUTER_API_KEY=sk-or-v1-your-key           # From openrouter.ai
 MISTRAL_API_KEY=your-mistral-key               # From mistral.ai
 CHROMA_URL=https://api.trychroma.com           # ChromaDB Cloud
 CHROMA_TENANT=your-tenant-id
@@ -286,9 +186,6 @@ ADMIN_RECOVERY_KEY=$(openssl rand -base64 24)  # For password recovery
 - **Agent Dashboard**: `http://your-vm-ip:3002/agent-dashboard.html`
 - **Admin Settings**: `http://your-vm-ip:3002/settings.html`
 - **Default Login**: admin@vilnius.lt / admin123 (change immediately!)
-
-### Railway Deployment
-The project includes `railway.toml` for one-click deployment to Railway platform. Simply connect your GitHub repo to Railway and it will handle the rest.
 
 ### Production Checklist
 - [ ] Changed admin password from default
@@ -388,48 +285,5 @@ docker-compose build --no-cache
 - **backend**: Main application (port 3002)
 - **postgres**: Database (internal port 5432, external 5434)
 - **nginx**: Reverse proxy with SSL (production only)
-
-### File Structure
-```
-vilnius-assistant/
-├── custom-widget/
-│   ├── backend/           # Node.js API server
-│   ├── js/               # Frontend JavaScript
-│   ├── *.html            # UI pages
-│   └── *.css             # Styles
-├── docker/               # Docker configurations
-├── scripts/              # Utility scripts
-├── Dockerfile            # Backend container
-├── docker-compose.yml    # Development setup
-└── docker-compose.prod.yml # Production setup
-```
-
----
-
-## 🔐 Environment Variables
-
-### Required Variables
-```bash
-# Database
-DATABASE_URL="postgresql://postgres:password@postgres:5432/vilnius_support"
-
-# AI Services
-OPENROUTER_API_KEY="your-openrouter-key"
-FLOWISE_API_URL="your-flowise-url"
-FLOWISE_API_KEY="your-flowise-key"
-
-# Authentication
-JWT_SECRET="your-jwt-secret"
-JWT_REFRESH_SECRET="your-refresh-secret"
-
-# Vector Database
-CHROMA_URL="your-chroma-url"
-CHROMA_API_KEY="your-chroma-key"
-
-# Observability (Optional)
-LANGFUSE_SECRET_KEY="your-langfuse-key"
-LANGFUSE_PUBLIC_KEY="your-langfuse-public"
-LANGFUSE_HOST="your-langfuse-host"
-```
 
 ---
