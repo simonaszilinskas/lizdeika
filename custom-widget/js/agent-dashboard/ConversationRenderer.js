@@ -434,8 +434,21 @@ export class ConversationRenderer {
      */
     markdownToHtml(text) {
         if (!text) return '';
-        
-        return text
+
+        // Handle AI suggestion object format
+        let content = text;
+        if (typeof text === 'object' && text.response) {
+            content = text.response;
+        } else if (typeof text === 'object') {
+            content = String(text);
+        }
+
+        // Ensure content is a string
+        if (typeof content !== 'string') {
+            content = String(content);
+        }
+
+        return content
             // Bold text
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             // Italic text

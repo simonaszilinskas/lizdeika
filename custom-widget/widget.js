@@ -290,6 +290,12 @@
             // Listen for agent messages
             this.socket.on('agent-message', (data) => {
                 console.log('Received agent message:', data);
+
+                // Filter out internal system messages
+                if (this.isInternalSystemMessage(data.message.content, data.message.sender, data.message.metadata)) {
+                    return; // Skip internal system messages
+                }
+
                 // Check for autopilot disclaimer
                 let content = data.message.content;
                 if (data.message.metadata && data.message.metadata.displayDisclaimer) {
@@ -551,8 +557,10 @@
                 }
                 
                 if (data.aiMessage) {
-                    // Show all AI messages to customer (including system messages with offline notifications)
-                    this.addMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.id, data.aiMessage.metadata);
+                    // Filter out internal system messages that should not be shown to customers
+                    if (!this.isInternalSystemMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.metadata)) {
+                        this.addMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.id, data.aiMessage.metadata);
+                    }
                 } else {
                     // Error handling - only if no aiMessage at all
                     this.addMessage('Atsiprašau, bet įvyko klaida. Pabandykite dar kartą.', 'ai', 'error-' + Date.now());
@@ -587,6 +595,26 @@
                 localStorage.setItem('vilnius_visitor_id', visitorId);
             }
             return visitorId;
+        },
+
+        /**
+         * Check if a system message should be hidden from customers
+         * Internal agent workflow messages should not be shown to customers
+         */
+        isInternalSystemMessage(content, sender, metadata) {
+            if (sender !== 'system') return false;
+
+            // Hide internal agent workflow messages
+            if (content.includes('[Message pending agent response') ||
+                content.includes('[No agents online - Message awaiting assignment]') ||
+                content.includes('[Manual AI suggestion generated]') ||
+                content.includes('Agent has joined the conversation') ||
+                content.includes('Agent has left the conversation')) {
+                return true;
+            }
+
+            // Allow system messages with offline notifications and other customer-facing content
+            return false;
         },
 
         addMessage(text, sender, messageId = null, messageMetadata = null) {
@@ -708,7 +736,22 @@
         },
 
         markdownToHtml(text) {
-            return text
+            if (!text) return '';
+
+            // Handle AI suggestion object format
+            let content = text;
+            if (typeof text === 'object' && text.response) {
+                content = text.response;
+            } else if (typeof text === 'object') {
+                content = String(text);
+            }
+
+            // Ensure content is a string
+            if (typeof content !== 'string') {
+                content = String(content);
+            }
+
+            return content
                 // Bold text
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 // Italic text
