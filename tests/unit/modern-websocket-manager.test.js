@@ -3,7 +3,9 @@
  * Tests the actual SocketManager implementation with correct API interface
  */
 
-const { SocketManager } = require('../../custom-widget/js/agent-dashboard/core/SocketManager');
+const ModuleLoader = require('../utilities/module-loader');
+
+const { SocketManager } = ModuleLoader.loadModule('custom-widget/js/agent-dashboard/core/SocketManager.js');
 
 // Mock Socket.IO
 global.io = jest.fn(() => ({

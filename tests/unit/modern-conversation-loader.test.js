@@ -2,13 +2,15 @@
  * Tests for ModernConversationLoader and related components
  */
 
+const ModuleLoader = require('../utilities/module-loader');
+
 const {
     ModernConversationLoader,
     ConversationApiClient,
     ConversationFilter,
     ConversationSorter,
     LoadingStateManager
-} = require('../../custom-widget/js/agent-dashboard/core/ConversationLoader');
+} = ModuleLoader.loadModule('custom-widget/js/agent-dashboard/core/ConversationLoader.js');
 
 // Mock fetch globally
 global.fetch = jest.fn();

@@ -23,7 +23,7 @@ class ModuleLoader {
         
         // Handle const destructuring from imports
         content = content.replace(
-            /const\s*{\s*([^}]+)\s*}\s*=\s*[\w.]+;\s*/g,
+            /const\s*{\s*([^}]+)\s*}\s*=\s*require\([^\)]+\);\s*/g,
             ''
         );
         

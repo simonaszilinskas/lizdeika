@@ -154,6 +154,17 @@ docker-compose -f docker-compose.prod.yml exec backend npm run db:seed
 
 Note: This method requires you to manually check prerequisites, wait for services, and verify deployment.
 
+### Migration Health Checks
+
+Before exposing the service in production, verify that database migrations are healthy:
+
+1. Ensure `DATABASE_URL` (and optional shadow DB URLs) are set in the environment.
+2. Run `npx prisma migrate status --schema custom-widget/backend/prisma/schema.prisma --json` to confirm no pending migrations.
+3. Apply migrations with `npx prisma migrate deploy --schema custom-widget/backend/prisma/schema.prisma`.
+4. Re-run `npx prisma migrate status --schema custom-widget/backend/prisma/schema.prisma --human-readable` and confirm the output reports a healthy state.
+
+If any step fails, the backend will now abort startup and mark the latest migration as rolled back so you can intervene safely.
+
 ### 🔑 Required Configuration
 
 Edit `.env` file with real values:

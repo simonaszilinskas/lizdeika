@@ -40,6 +40,7 @@ const createApp = require('./src/app');
 const knowledgeService = require('./src/services/knowledgeService');
 const databaseClient = require('./src/utils/database');
 const SettingsService = require('./src/services/settingsService');
+const { ensureMigrations, validateDeploymentEnvironment } = require('./src/utils/migrationManager');
 
 const PORT = process.env.WIDGET_BACKEND_PORT || process.env.PORT || 3002;
 
@@ -65,18 +66,7 @@ async function initializeDatabase() {
 
         // Run database migrations in production (Railway)
         if (process.env.NODE_ENV === 'production') {
-            console.log('🔄 Running database migrations...');
-            const { execSync } = require('child_process');
-            try {
-                execSync('npx prisma db push --accept-data-loss', {
-                    stdio: 'pipe',
-                    cwd: __dirname
-                });
-                console.log('✅ Database migrations completed');
-            } catch (migrationError) {
-                console.warn('⚠️  Migration warning:', migrationError.message);
-                // Don't fail if migrations have warnings, but continue
-            }
+            await ensureMigrations({ cwd: __dirname });
         }
 
     } catch (error) {
@@ -147,6 +137,10 @@ async function startServer() {
         console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`🚪 Port: ${PORT}`);
         console.log(`🌐 Host: ${process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'}`);
+
+        if (process.env.NODE_ENV === 'production') {
+            validateDeploymentEnvironment();
+        }
 
         // Initialize database connection first
         await initializeDatabase();
@@ -258,4 +252,4 @@ process.on('uncaughtException', (err) => {
     process.exit(1);
 });
 
-module.exports = { app, server, io };
+module.exports = { app, server, io, ensureMigrations, validateDeploymentEnvironment };

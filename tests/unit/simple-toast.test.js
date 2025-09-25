@@ -11,7 +11,9 @@ global.window = dom.window;
 global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
 
 // Load the Toast module
-const Toast = require('../../custom-widget/js/agent-dashboard/utils/Toast');
+const ModuleLoader = require('../utilities/module-loader');
+
+const Toast = ModuleLoader.loadModule('custom-widget/js/agent-dashboard/utils/Toast.js');
 
 describe('Toast', () => {
     beforeEach(() => {

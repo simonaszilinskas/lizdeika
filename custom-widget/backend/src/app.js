@@ -87,40 +87,27 @@ function createApp() {
     // Static file serving - Railway vs local development paths
     const path = require('path');
     const fs = require('fs');
+    const fsPromises = fs.promises;
 
     const staticPath = process.env.NODE_ENV === 'production'
         ? path.join(__dirname, '../../') // Railway: HTML files in /app/custom-widget/
         : path.join(__dirname, '../../'); // Local: project root, custom-widget/ directory
 
-    // Debug: List available files in the static directory
-    console.log(`🔍 NODE_ENV: ${process.env.NODE_ENV}`);
-    console.log(`📁 Serving static files from: ${staticPath}`);
-    try {
-        const files = fs.readdirSync(staticPath);
-        console.log(`📋 Available files in static directory: ${files.join(', ')}`);
+    const shouldLogStaticDebug = process.env.DEBUG_STATIC_PATH === 'true';
 
-        // Also check for HTML files specifically
-        const htmlFiles = files.filter(f => f.endsWith('.html'));
-        console.log(`🌐 HTML files found: ${htmlFiles.join(', ')}`);
-    } catch (error) {
-        console.error(`❌ Cannot read static directory ${staticPath}:`, error.message);
-
-        // Try alternative paths
-        const altPaths = [
-            path.join(__dirname, '../../'),
-            path.join(__dirname, '../../../'),
-            path.join(__dirname, './'),
-            '/app'
-        ];
-
-        for (const altPath of altPaths) {
-            try {
-                const files = fs.readdirSync(altPath);
-                console.log(`🔍 Alternative path ${altPath}: ${files.slice(0, 10).join(', ')}`);
-            } catch (e) {
-                console.log(`❌ Alternative path ${altPath}: not accessible`);
-            }
-        }
+    if (shouldLogStaticDebug) {
+        console.log(`📁 Serving static files from: ${staticPath}`);
+        fsPromises.readdir(staticPath)
+            .then((files) => {
+                console.log(`📋 Available files in static directory: ${files.join(', ')}`);
+                const htmlFiles = files.filter((file) => file.endsWith('.html'));
+                console.log(`🌐 HTML files found: ${htmlFiles.join(', ')}`);
+            })
+            .catch((error) => {
+                console.error(`❌ Cannot read static directory ${staticPath}:`, error.message);
+            });
+    } else if (process.env.NODE_ENV !== 'production') {
+        console.log(`📁 Serving static files from: ${staticPath}`);
     }
 
     app.use(express.static(staticPath));

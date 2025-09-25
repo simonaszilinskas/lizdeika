@@ -1,5 +1,18 @@
 // Global test setup
-global.jest = require('jest');
+
+// Mock heavy native modules that are not needed in unit tests
+jest.mock('canvas', () => ({
+  createCanvas: () => ({
+    getContext: () => ({
+      drawImage: () => {},
+      getImageData: () => ({ data: [] }),
+      putImageData: () => {},
+      fillRect: () => {},
+      clearRect: () => {}
+    })
+  }),
+  loadImage: () => Promise.resolve({})
+}));
 
 // Extend Jest matchers
 expect.extend({

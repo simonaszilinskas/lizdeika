@@ -69,6 +69,10 @@ import { ConversationLoader } from './agent-dashboard/core/ConversationLoader.js
 // Import sidebar manager
 import { SidebarManager } from './agent-dashboard/SidebarManager.js';
 
+// Import notification and system mode managers
+import { NotificationService } from './agent-dashboard/notifications/NotificationService.js';
+import { SystemModeManager } from './agent-dashboard/core/SystemModeManager.js';
+
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
@@ -118,6 +122,10 @@ class AgentDashboard {
         this.agentCache = null;
         this.agentCacheExpiry = 0;
         this.agentCacheDuration = TIMING.AGENT_CACHE_DURATION;
+
+        // Initialize shared utilities
+        this.notificationService = new NotificationService();
+        this.systemModeManager = new SystemModeManager();
         
         // Initialize modern conversation loader
         this.modernConversationLoader = new ConversationLoader({
@@ -147,6 +155,7 @@ class AgentDashboard {
         
         // Initialize chat manager (after API manager)
         this.chatManager = new ChatManager(this);
+        this.systemModeManager.setChatManager(this.chatManager);
         
         // Initialize assignment manager
         this.assignmentManager = new AssignmentManager(this);
@@ -519,29 +528,6 @@ class AgentDashboard {
     }
 
     /**
-     * Handle different behaviors based on system mode
-     * @param {string} mode - System mode (hitl, autopilot, off)
-     */
-    handleSystemMode(mode) {
-        switch(mode) {
-            case 'hitl':
-                // HITL: Human in the Loop - show AI suggestions for validation
-                console.log('System Mode: HITL - Human in the Loop mode activated');
-                break;
-            case 'autopilot':
-                // Autopilot: Backend automatically sends AI responses with disclaimer
-                console.log('System Mode: Autopilot - Automatic AI responses activated');
-                this.chatManager.hideAISuggestion(); // Hide any pending suggestions since backend handles responses
-                break;
-            case 'off':
-                // OFF: Backend sends offline messages for new messages
-                console.log('System Mode: OFF - Customer support offline mode activated');
-                this.chatManager.hideAISuggestion(); // Hide any pending suggestions
-                break;
-        }
-    }
-
-    /**
      * Update connected agents display
      * @param {Array} agents - Array of connected agents
      */
@@ -608,22 +594,15 @@ class AgentDashboard {
      * @param {string} mode - System mode (hitl, autopilot, off)
      */
     updateSystemMode(mode) {
-        // Update local state
         this.systemMode = mode;
-        
-        // Update old system mode display (for compatibility)
-        const systemModeElement = document.getElementById('system-mode');
-        const systemStatusDot = document.getElementById('system-status-dot');
-        
-        if (systemModeElement) {
-            systemModeElement.textContent = mode.toUpperCase();
+        try {
+            this.systemModeManager.update(mode);
+        } catch (error) {
+            console.error('System mode update failed:', error);
+            if (typeof ErrorHandler !== 'undefined' && ErrorHandler?.logError) {
+                ErrorHandler.logError(error, { context: 'SystemModeManager.update' });
+            }
         }
-        
-        if (systemStatusDot) {
-            systemStatusDot.className = `w-2 h-2 rounded-full system-${mode}`;
-        }
-        
-        this.handleSystemMode(mode);
     }
 
     /**
@@ -631,77 +610,14 @@ class AgentDashboard {
      * @param {Object} data - Reassignment data
      */
     handleTicketReassignments(data) {
-        const { reassignments, reason } = data;
-        
-        let message = '';
-        const myReassignments = reassignments.filter(r => r.toAgent === this.agentId);
-        const myLosses = reassignments.filter(r => r.fromAgent === this.agentId);
-        
-        // AFK reason removed - no longer applicable
-        if (reason === 'agent_online') {
-            if (myReassignments.length > 0) {
-                message = `You received ${myReassignments.length} tickets (agent back online + redistribution)`;
-            }
-        } else if (reason === 'agent_joined') {
-            if (myReassignments.length > 0) {
-                message = `You received ${myReassignments.length} tickets from the queue`;
+        try {
+            this.notificationService.notifyReassignment(data, this.agentId);
+        } catch (error) {
+            console.error('Ticket reassignment notification failed:', error);
+            if (typeof ErrorHandler !== 'undefined' && ErrorHandler?.logError) {
+                ErrorHandler.logError(error, { context: 'NotificationService.notifyReassignment' });
             }
         }
-        
-        if (message) {
-            this.showNotification(message, 'info');
-        }
-    }
-
-    /**
-     * Show notification to user
-     * @param {string} message - Notification message
-     * @param {string} type - Notification type (info, warning, success, error)
-     */
-    showNotification(message, type = 'info') {
-        // Create notification element if it doesn't exist
-        let notification = document.getElementById('agent-notification');
-        if (!notification) {
-            notification = document.createElement('div');
-            notification.id = 'agent-notification';
-            notification.className = 'fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm';
-            document.body.appendChild(notification);
-        }
-        
-        // Set content and styling
-        const iconMap = {
-            info: 'fa-info-circle text-blue-600',
-            warning: 'fa-exclamation-triangle text-yellow-600',
-            success: 'fa-check-circle text-green-600',
-            error: 'fa-times-circle text-red-600'
-        };
-        
-        const bgMap = {
-            info: 'bg-blue-50 border-blue-200 text-blue-800',
-            warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-            success: 'bg-green-50 border-green-200 text-green-800',
-            error: 'bg-red-50 border-red-200 text-red-800'
-        };
-        
-        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 max-w-sm border ${bgMap[type]}`;
-        notification.innerHTML = `
-            <div class="flex items-start gap-3">
-                <i class="fas ${iconMap[type]} mt-0.5"></i>
-                <div class="flex-1">
-                    <p class="text-sm font-medium">${message}</p>
-                </div>
-                <button onclick="this.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times text-sm"></i>
-                </button>
-            </div>
-        `;
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            if (notification && notification.parentElement) {
-                notification.remove();
-            }
-        }, 5000);
     }
 
 
