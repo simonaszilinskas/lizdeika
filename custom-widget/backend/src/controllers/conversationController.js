@@ -261,9 +261,9 @@ class ConversationController {
                         id: uuidv4(),
                         conversationId,
                         content: 'Labas! Šiuo metu klientų aptarnavimo specialistai neprieinami.\n\nMes grįšime ir jums atsakysime darbo valandomis. Prašome:\n• Neuždarykite šio lango - mes su jumis susisieksime\n• Arba palikite savo el. paštą ar telefono numerį žemiau, ir mes su jumis susisieksime\n\nAčiū už kantrybę! 🙏',
-                        sender: 'agent',
+                        sender: 'system',
                         timestamp: new Date(),
-                        metadata: { 
+                        metadata: {
                             isSystemMessage: true,
                             messageType: 'offline_notification'
                         }

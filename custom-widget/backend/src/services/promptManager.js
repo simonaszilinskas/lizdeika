@@ -95,7 +95,12 @@ class LangfusePromptManager {
                 return this.createPromptObject(langfusePrompt, fallback, variables, true);
 
             } catch (error) {
-                console.warn(`⚠️ Failed to fetch prompt '${name}' from Langfuse:`, error.message);
+                // Handle specific f-string validation errors gracefully
+                if (error.message && error.message.includes('Missing value for input')) {
+                    console.warn(`⚠️ Langfuse prompt '${name}' has unresolved variables, using fallback:`, error.message.split('\n')[0]);
+                } else {
+                    console.warn(`⚠️ Failed to fetch prompt '${name}' from Langfuse:`, error.message);
+                }
                 console.log(`📝 Using fallback prompt for '${name}'`);
             }
         }

@@ -49,6 +49,9 @@ export class ConversationRenderer {
         if (sender === 'agent' || sender === 'admin' || sender === 'ai') {
             return 'A:';
         }
+        if (sender === 'system') {
+            return 'S:';
+        }
         return '';
     }
 
