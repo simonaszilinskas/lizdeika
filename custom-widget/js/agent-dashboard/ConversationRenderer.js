@@ -394,13 +394,13 @@ export class ConversationRenderer {
             UIHelpers.escapeHtml(msg.content);
         
         return `
-            <div class="flex ${isCustomer ? '' : 'justify-end'} mb-4" data-message-id="${msg.id}">
+            <div class="flex ${(isCustomer || isSystem) ? '' : 'justify-end'} mb-4" data-message-id="${msg.id}">
                 <div class="max-w-[70%]">
                     <div class="${this.getMessageBubbleCss(isCustomer, isAI, isSystem, msg)}" style="line-height: 1.6;">
                         ${formattedContent}
                     </div>
-                    <div class="text-xs text-gray-500 mt-1 ${isCustomer ? '' : 'text-right'}">
-                        ${getMessageSenderLabel(isAI, isAgent, isSystem, msg)} • 
+                    <div class="text-xs text-gray-500 mt-1 ${(isCustomer || isSystem) ? '' : 'text-right'}">
+                        ${getMessageSenderLabel(isAI, isAgent, isSystem, msg)} •
                         ${new Date(msg.timestamp).toLocaleTimeString()}
                     </div>
                 </div>

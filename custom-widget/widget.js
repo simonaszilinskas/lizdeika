@@ -551,13 +551,10 @@
                 }
                 
                 if (data.aiMessage) {
-                    // Only show non-system messages to customer
-                    if (data.aiMessage.sender !== 'system') {
-                        this.addMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.id, data.aiMessage.metadata);
-                    }
-                    // Skip system messages - no need to show anything to customer
+                    // Show all AI messages to customer (including system messages with offline notifications)
+                    this.addMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.id, data.aiMessage.metadata);
                 } else {
-                    // Error handling
+                    // Error handling - only if no aiMessage at all
                     this.addMessage('Atsiprašau, bet įvyko klaida. Pabandykite dar kartą.', 'ai', 'error-' + Date.now());
                 }
 
