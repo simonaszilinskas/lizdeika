@@ -387,16 +387,16 @@ class AgentService {
         
         try {
             await prisma.system_settings.upsert({
-                where: { key: 'system_mode' },
-                update: { 
-                    value: mode,
+                where: { setting_key: 'system_mode' },
+                update: {
+                    setting_value: mode,
                     updated_by: 'system', // Could be replaced with actual user ID
                     updated_at: new Date()
                 },
                 create: {
                     id: uuidv4(),
-                    key: 'system_mode',
-                    value: mode,
+                    setting_key: 'system_mode',
+                    setting_value: mode,
                     updated_by: 'system',
                     updated_at: new Date()
                 }
