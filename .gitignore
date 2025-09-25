@@ -1,5 +1,14 @@
 node_modules/
 .env
+.env.*
 .DS_Store
-*.log.DS_Store
+.idea/
+.vscode/
 coverage/
+*.log
+logs/
+tmp/
+*.sqlite
+*.db
+custom-widget/backend/logs/
+custom-widget/backend/uploads/
