@@ -69,6 +69,127 @@ class ConversationController {
     }
 
     /**
+     * Process message in OFF mode - send offline notification
+     */
+    async processOffModeMessage(conversationId, customerMessageCount) {
+        const existingMessages = await conversationService.getMessages(conversationId);
+        const hasOfflineMessage = existingMessages.some(msg =>
+            msg.metadata && msg.metadata.messageType === 'offline_notification'
+        );
+
+        if (hasOfflineMessage) {
+            const existingOfflineMessage = await conversationService.getExistingOfflineMessage(conversationId);
+            console.log(`Retrieved existing offline message for conversation ${conversationId}`);
+            return existingOfflineMessage;
+        } else {
+            const offlineMessage = {
+                id: uuidv4(),
+                conversationId,
+                content: 'Labas! Šiuo metu klientų aptarnavimo specialistai neprieinami.\n\nMes grįšime ir jums atsakysime darbo valandomis. Prašome:\n• Neuždarykite šio lango - mes su jumis susisieksime\n• Arba palikite savo el. paštą ar telefono numerį žemiau, ir mes su jumis susisieksime\n\nAčiū už kantrybę! 🙏',
+                sender: 'system',
+                timestamp: new Date(),
+                metadata: {
+                    isSystemMessage: true,
+                    messageType: 'offline_notification'
+                }
+            };
+
+            await conversationService.replaceLastMessage(conversationId, offlineMessage);
+            console.log(`Sent offline message to conversation ${conversationId}`);
+            return offlineMessage;
+        }
+    }
+
+    /**
+     * Process message in AUTOPILOT mode - generate and send AI response directly
+     */
+    async processAutopilotModeMessage(conversationId, customerMessageCount, enableRAG) {
+        const conversationMessages = await conversationService.getMessages(conversationId);
+        const conversationContext = this.buildConversationContext(conversationMessages);
+        const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, enableRAG !== false);
+
+        const aiMessage = {
+            id: uuidv4(),
+            conversationId,
+            content: aiSuggestion.response || aiSuggestion,
+            sender: 'agent',
+            timestamp: new Date(),
+            metadata: {
+                isAutopilotResponse: true,
+                displayDisclaimer: true,
+                originalSuggestion: aiSuggestion.response || aiSuggestion,
+                messageCount: customerMessageCount,
+                aiMetadata: aiSuggestion.metadata || null,
+                debugInfo: aiSuggestion.debugInfo || null,
+                responseAttribution: {
+                    respondedBy: 'Autopilot',
+                    responseType: 'autopilot',
+                    systemMode: 'autopilot',
+                    timestamp: new Date()
+                }
+            }
+        };
+
+        await conversationService.addMessage(conversationId, aiMessage);
+        console.log(`Sent autopilot AI response for conversation ${conversationId}`);
+        return aiMessage;
+    }
+
+    /**
+     * Process message in HITL mode - generate AI suggestion for agent review
+     */
+    async processHitlModeMessage(conversationId, customerMessageCount, message, enableRAG) {
+        const conversationMessages = await conversationService.getMessages(conversationId);
+        const conversationContext = this.buildConversationContext(conversationMessages);
+        const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, enableRAG !== false);
+
+        const conversation = await conversationService.getConversation(conversationId);
+        let assignedAgent = conversation ? conversation.assignedAgent : null;
+
+        if (!assignedAgent) {
+            try {
+                const availableAgent = await agentService.getBestAvailableAgent();
+                if (availableAgent) {
+                    await conversationService.assignConversation(conversationId, availableAgent.id);
+                    assignedAgent = availableAgent.id;
+                    console.log(`🎯 Auto-assigned existing conversation ${conversationId} to agent ${availableAgent.id}`);
+                } else {
+                    console.log(`⚠️ No online agents available for conversation ${conversationId}, marking as unseen`);
+                }
+            } catch (error) {
+                console.error('Failed to auto-assign existing conversation:', error);
+            }
+        }
+
+        const shouldMarkAsUnseen = !assignedAgent;
+
+        const aiMessage = {
+            id: uuidv4(),
+            conversationId,
+            content: shouldMarkAsUnseen ?
+                '[No agents online - Message awaiting assignment]' :
+                '[Message pending agent response - AI suggestion available]',
+            sender: 'system',
+            timestamp: new Date(),
+            metadata: {
+                pendingAgent: true,
+                aiSuggestion: aiSuggestion,
+                confidence: 0.85,
+                customerMessage: message,
+                messageCount: customerMessageCount,
+                conversationContext: conversationContext.substring(0, 200) + '...',
+                assignedAgent: assignedAgent,
+                unseenByAgents: shouldMarkAsUnseen,
+                needsManualAssignment: shouldMarkAsUnseen
+            }
+        };
+
+        await conversationService.addMessage(conversationId, aiMessage);
+        console.log(`Generated AI suggestion for conversation ${conversationId} (HITL mode)`);
+        return aiMessage;
+    }
+
+    /**
      * Create new conversation
      */
     async createConversation(req, res) {
@@ -206,125 +327,19 @@ class ConversationController {
                 console.log(`📨 New message emitted to agents for conversation ${conversationId}, assigned to: ${conversation?.assignedAgent || 'unassigned'}, unseenByAgent: ${unseenByAgent}`);
             }
             
-            // Get conversation context for AI (don't pass currentMessage since it's already added)
-            const conversationMessages = await conversationService.getMessages(conversationId);
-            const conversationContext = this.buildConversationContext(conversationMessages);
-            
-            // Generate AI response/suggestion based on mode
-            const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, enableRAG !== false);
-            
             // Count customer messages for context (including current message)
             const updatedMessages = await conversationService.getMessages(conversationId);
             const customerMessageCount = updatedMessages.filter(msg => msg.sender === 'visitor').length;
-            
+
+            // Process message based on system mode using dedicated functions
             let aiMessage;
-            
+
             if (currentMode === 'autopilot') {
-                // AUTOPILOT MODE: Send AI response directly, NO agent assignment
-                aiMessage = {
-                    id: uuidv4(),
-                    conversationId,
-                    content: aiSuggestion,
-                    sender: 'agent',
-                    timestamp: new Date(),
-                    metadata: { 
-                        isAutopilotResponse: true,
-                        displayDisclaimer: true,
-                        originalSuggestion: aiSuggestion,
-                        messageCount: customerMessageCount,
-                        // Response attribution for admin interface
-                        responseAttribution: {
-                            respondedBy: 'Autopilot',
-                            responseType: 'autopilot',
-                            systemMode: 'autopilot',
-                            timestamp: new Date()
-                        }
-                    }
-                };
-                
-                await conversationService.addMessage(conversationId, aiMessage);
-                console.log(`Sent autopilot AI response for conversation ${conversationId}`);
-                
+                aiMessage = await this.processAutopilotModeMessage(conversationId, customerMessageCount, enableRAG);
             } else if (currentMode === 'off') {
-                // Check if we already sent an offline message to this conversation
-                const existingMessages = await conversationService.getMessages(conversationId);
-                const hasOfflineMessage = existingMessages.some(msg => 
-                    msg.metadata && msg.metadata.messageType === 'offline_notification'
-                );
-                
-                if (hasOfflineMessage) {
-                    // Already sent offline message, don't send again - just keep the AI suggestion
-                    console.log(`Skipping duplicate offline message for conversation ${conversationId}`);
-                } else {
-                    // First time - send offline message
-                    const offlineMessage = {
-                        id: uuidv4(),
-                        conversationId,
-                        content: 'Labas! Šiuo metu klientų aptarnavimo specialistai neprieinami.\n\nMes grįšime ir jums atsakysime darbo valandomis. Prašome:\n• Neuždarykite šio lango - mes su jumis susisieksime\n• Arba palikite savo el. paštą ar telefono numerį žemiau, ir mes su jumis susisieksime\n\nAčiū už kantrybę! 🙏',
-                        sender: 'system',
-                        timestamp: new Date(),
-                        metadata: {
-                            isSystemMessage: true,
-                            messageType: 'offline_notification'
-                        }
-                    };
-                    
-                    // Replace the AI suggestion with offline message
-                    conversationService.replaceLastMessage(conversationId, offlineMessage);
-                    aiMessage = offlineMessage;
-                    
-                    console.log(`Sent offline message to conversation ${conversationId}`);
-                }
-                
+                aiMessage = await this.processOffModeMessage(conversationId, customerMessageCount);
             } else {
-                // HITL MODE: Create AI suggestion for agent review with auto-assignment to online agents
-                
-                // Get current conversation assignment status
-                const conversation = await conversationService.getConversation(conversationId);
-                let assignedAgent = conversation ? conversation.assignedAgent : null;
-                
-                // Auto-assign unassigned conversations to available agents
-                if (!assignedAgent) {
-                    try {
-                        const availableAgent = await agentService.getBestAvailableAgent();
-                        if (availableAgent) {
-                            await conversationService.assignConversation(conversationId, availableAgent.id);
-                            assignedAgent = availableAgent.id;
-                            console.log(`🎯 Auto-assigned existing conversation ${conversationId} to agent ${availableAgent.id}`);
-                        } else {
-                            console.log(`⚠️ No online agents available for conversation ${conversationId}, marking as unseen`);
-                        }
-                    } catch (error) {
-                        console.error('Failed to auto-assign existing conversation:', error);
-                    }
-                }
-                
-                let shouldMarkAsUnseen = !assignedAgent;
-                
-                aiMessage = {
-                    id: uuidv4(),
-                    conversationId,
-                    content: shouldMarkAsUnseen ? 
-                        '[No agents online - Message awaiting assignment]' : 
-                        '[Message pending agent response - AI suggestion available]',
-                    sender: 'system',
-                    timestamp: new Date(),
-                    metadata: { 
-                        pendingAgent: true,
-                        aiSuggestion: aiSuggestion,
-                        confidence: 0.85,
-                        customerMessage: message,
-                        messageCount: customerMessageCount,
-                        conversationContext: conversationContext.substring(0, 200) + '...',
-                        assignedAgent: assignedAgent,
-                        unseenByAgents: shouldMarkAsUnseen,
-                        needsManualAssignment: shouldMarkAsUnseen
-                    }
-                };
-                
-                // Pending messages already cleared when customer message arrived
-                await conversationService.addMessage(conversationId, aiMessage);
-                console.log(`Generated AI suggestion for conversation ${conversationId} (HITL mode)`);
+                aiMessage = await this.processHitlModeMessage(conversationId, customerMessageCount, message, enableRAG);
             }
             
             // Note: Customer message already emitted immediately above

@@ -123,6 +123,12 @@ function getFallbackResponse(conversationContext) {
  * Also captures debug information for developer transparency
  */
 async function generateAISuggestion(conversationId, conversationContext, enableRAG = true) {
+    // DEBUGGING: Log who called this function
+    console.log('🔍 DEBUG: generateAISuggestion called for conversation:', conversationId);
+    console.log('🔍 DEBUG: Call stack:');
+    const stack = new Error().stack;
+    console.log(stack.split('\n').slice(1, 5).join('\n'));
+
     // Initialize debug information collection
     const debugInfo = {
         timestamp: new Date().toISOString(),

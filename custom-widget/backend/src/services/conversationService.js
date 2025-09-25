@@ -328,6 +328,7 @@ class ConversationService {
                     where: { id: lastMessage.id },
                     data: {
                         content: newMessage.content,
+                        senderType: this.mapSenderTypeToEnum(newMessage.sender),
                         metadata: newMessage.metadata || lastMessage.metadata
                     },
                     include: {
@@ -352,6 +353,39 @@ class ConversationService {
         } catch (error) {
             console.error('Failed to replace last message:', error);
             throw new Error('Failed to replace last message: ' + error.message);
+        }
+    }
+
+    /**
+     * Get existing offline notification message for a conversation
+     */
+    async getExistingOfflineMessage(conversationId) {
+        try {
+            const offlineMessage = await prisma.messages.findFirst({
+                where: {
+                    ticket_id: conversationId,
+                    metadata: {
+                        path: ['messageType'],
+                        equals: 'offline_notification'
+                    }
+                },
+                orderBy: { created_at: 'desc' }
+            });
+
+            if (offlineMessage) {
+                return {
+                    id: offlineMessage.id,
+                    conversationId: offlineMessage.ticket_id,
+                    content: offlineMessage.content,
+                    sender: this.mapSenderType(offlineMessage.senderType),
+                    timestamp: offlineMessage.created_at,
+                    metadata: offlineMessage.metadata
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('Failed to get existing offline message:', error);
+            return null;
         }
     }
 
