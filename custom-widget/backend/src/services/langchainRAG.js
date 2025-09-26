@@ -52,6 +52,16 @@ class LangChainRAG {
             // Load configuration first
             await this.loadConfiguration();
 
+            // Get current AI provider config for initialization
+            let providerConfig = {};
+            if (this.settingsService) {
+                try {
+                    providerConfig = await this.settingsService.getAIProviderConfig();
+                } catch (error) {
+                    console.warn('Could not load AI provider config for initialization:', error.message);
+                }
+            }
+
             // Now initialize the RAG chain with proper configuration
             this.ragChain = new VilniusRAGChain({
                 k: parseInt(process.env.RAG_K) || 100,
@@ -60,12 +70,16 @@ class LangChainRAG {
                 includeDebug: true,
                 verbose: process.env.NODE_ENV === 'development',
                 timeout: 60000,
-                rephrasingModel: process.env.REPHRASING_MODEL
+                rephrasingModel: process.env.REPHRASING_MODEL,
+                providerConfig: providerConfig
             });
 
             // Keep reference to individual components for advanced usage
             this.retriever = this.ragChain.retriever;
             this.rephraseChain = this.ragChain.rephraseChain;
+
+            // Set up event listeners for dynamic configuration updates
+            this.setupEventListeners();
 
             this.initialized = true;
 
@@ -74,6 +88,7 @@ class LangChainRAG {
             console.log(`   - Query rephrasing: ${this.ragChain.enableRephrasing ? 'ENABLED' : 'DISABLED'}`);
             console.log(`   - Source attribution: ${this.ragChain.showSources ? 'ENABLED' : 'DISABLED'}`);
             console.log(`   - Rephrasing model: ${process.env.REPHRASING_MODEL}`);
+            console.log(`   - Event listeners: ${this.settingsService ? 'ENABLED' : 'DISABLED'}`);
 
         } catch (error) {
             console.error('❌ Failed to initialize LangChain RAG Service:', error.message);
@@ -118,6 +133,85 @@ class LangChainRAG {
         } catch (error) {
             console.warn('⚠️ LangChain RAG: Could not initialize settings service, using env defaults:', error.message);
         }
+    }
+
+    /**
+     * Set up event listeners for dynamic configuration updates
+     */
+    setupEventListeners() {
+        if (!this.settingsService) {
+            console.warn('⚠️ LangChainRAG: No settings service available, skipping event listeners');
+            return;
+        }
+
+        // Listen for AI provider setting changes
+        this.settingsService.on('settingChanged', async (event) => {
+            const { key, value, category } = event;
+
+            // Only react to AI provider configuration changes
+            if (category === 'ai_providers') {
+                console.log(`🔄 LangChainRAG: AI provider setting changed: ${key} = ${value}`);
+
+                // Guard: ensure ragChain is initialized before updating
+                if (!this.ragChain || !this.initialized) {
+                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    return;
+                }
+
+                // Reload and apply the entire provider configuration
+                try {
+                    await this.reloadConfiguration();
+                } catch (error) {
+                    console.error('❌ LangChainRAG: Failed to reload configuration after setting change:', error);
+                }
+            }
+        });
+
+        // Listen for bulk settings changes
+        this.settingsService.on('settingsChanged', async (event) => {
+            const { settings, category } = event;
+
+            // Only react to AI provider configuration changes
+            if (category === 'ai_providers') {
+                console.log(`🔄 LangChainRAG: AI provider settings changed (bulk update):`, Object.keys(settings));
+
+                // Guard: ensure ragChain is initialized before updating
+                if (!this.ragChain || !this.initialized) {
+                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    return;
+                }
+
+                // Reload and apply the entire provider configuration
+                try {
+                    await this.reloadConfiguration();
+                } catch (error) {
+                    console.error('❌ LangChainRAG: Failed to reload configuration after bulk setting change:', error);
+                }
+            }
+        });
+
+        // Listen for settings reset
+        this.settingsService.on('settingsReset', async (event) => {
+            const { category } = event;
+
+            if (category === 'ai_providers') {
+                console.log('🔄 LangChainRAG: AI provider settings reset to defaults');
+
+                // Guard: ensure ragChain is initialized before updating
+                if (!this.ragChain || !this.initialized) {
+                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    return;
+                }
+
+                try {
+                    await this.reloadConfiguration();
+                } catch (error) {
+                    console.error('❌ LangChainRAG: Failed to reload configuration after settings reset:', error);
+                }
+            }
+        });
+
+        console.log('✅ LangChainRAG: Event listeners set up for dynamic configuration updates');
     }
 
     /**
@@ -355,6 +449,59 @@ class LangChainRAG {
     updateConfig(config) {
         this.ragChain.updateConfig(config);
         return this;
+    }
+
+    /**
+     * Update AI provider configuration dynamically
+     * This is called when settings are changed in the admin interface
+     */
+    async updateProviderConfig(providerConfig) {
+        try {
+            console.log('🔧 LangChainRAG: Updating provider configuration');
+            console.log('   Config keys:', Object.keys(providerConfig));
+
+            // Update the RAG chain configuration
+            const result = await this.ragChain.updateProviderConfig(providerConfig);
+
+            if (result.success) {
+                console.log('✅ LangChainRAG: Provider configuration updated successfully');
+                if (result.recreated) {
+                    console.log('   - LLM instances recreated with new configuration');
+                }
+            } else {
+                console.error('❌ LangChainRAG: Failed to update provider configuration:', result.error);
+            }
+
+            return result;
+        } catch (error) {
+            console.error('❌ LangChainRAG: Error updating provider configuration:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Reload configuration from database
+     * This is called when we need to refresh configuration from the database
+     */
+    async reloadConfiguration() {
+        try {
+            console.log('🔄 LangChainRAG: Reloading configuration from database');
+
+            // Load fresh configuration from database
+            await this.loadConfiguration();
+
+            // Get the current provider config
+            if (this.settingsService) {
+                const config = await this.settingsService.getAIProviderConfig();
+                await this.updateProviderConfig(config);
+            }
+
+            console.log('✅ LangChainRAG: Configuration reloaded successfully');
+            return { success: true };
+        } catch (error) {
+            console.error('❌ LangChainRAG: Error reloading configuration:', error);
+            return { success: false, error: error.message };
+        }
     }
 
     /**
