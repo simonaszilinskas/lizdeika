@@ -30,17 +30,24 @@ class LangChainRAG {
         this.retriever = null;
         this.rephraseChain = null;
         this.initialized = false;
+        this.initializationPromise = null;
+        this.verbose = process.env.NODE_ENV === 'development';
 
-        // Initialize asynchronously
-        this.initializeAsync();
+        // Initialize asynchronously and retain promise for later awaiters
+        this.initializationPromise = this.initializeAsync();
 
         // Initialize Langfuse client for scoring
-        this.langfuse = new Langfuse({
-            publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-            secretKey: process.env.LANGFUSE_SECRET_KEY,
-            baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
-            debug: process.env.LANGFUSE_DEBUG === 'true'
-        });
+        this.langfuse = null;
+        if (process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY) {
+            this.langfuse = new Langfuse({
+                publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+                secretKey: process.env.LANGFUSE_SECRET_KEY,
+                baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
+                debug: process.env.LANGFUSE_DEBUG === 'true'
+            });
+        } else {
+            console.log('ℹ️ Langfuse scoring disabled - missing credentials');
+        }
 
     }
 
@@ -68,7 +75,7 @@ class LangChainRAG {
                 enableRephrasing: process.env.ENABLE_QUERY_REPHRASING !== 'false',
                 showSources: process.env.RAG_SHOW_SOURCES !== 'false',
                 includeDebug: true,
-                verbose: process.env.NODE_ENV === 'development',
+                verbose: this.verbose,
                 timeout: 60000,
                 rephrasingModel: process.env.REPHRASING_MODEL,
                 providerConfig: providerConfig
@@ -77,6 +84,9 @@ class LangChainRAG {
             // Keep reference to individual components for advanced usage
             this.retriever = this.ragChain.retriever;
             this.rephraseChain = this.ragChain.rephraseChain;
+
+            // Keep chain verbosity aligned with service level
+            this.verbose = Boolean(this.ragChain?.verbose) || this.verbose;
 
             // Set up event listeners for dynamic configuration updates
             this.setupEventListeners();
@@ -257,17 +267,9 @@ class LangChainRAG {
         const startTime = Date.now();
 
         // Wait for initialization to complete
-        if (!this.initialized) {
-            console.log('⏳ Waiting for LangChain RAG initialization...');
-            let attempts = 0;
-            while (!this.initialized && attempts < 30) { // Wait up to 15 seconds
-                await new Promise(resolve => setTimeout(resolve, 500));
-                attempts++;
-            }
-
-            if (!this.initialized) {
-                throw new Error('LangChain RAG service failed to initialize within timeout');
-            }
+        const ready = await this.waitForInitialization();
+        if (!ready) {
+            throw new Error('LangChain RAG service failed to initialize within timeout');
         }
 
         try {
@@ -516,6 +518,45 @@ class LangChainRAG {
     }
 
     /**
+     * Indicates if the service and underlying chain are ready for use
+     */
+    get isReady() {
+        return Boolean(
+            this.initialized &&
+            this.ragChain &&
+            !this.ragChain._destroyed
+        );
+    }
+
+    /**
+     * Await initialization sequence completion with timeout guard
+     */
+    async waitForInitialization(timeoutMs = 15000) {
+        if (this.isReady) {
+            return true;
+        }
+
+        if (this.initializationPromise) {
+            try {
+                await this.initializationPromise;
+            } catch (error) {
+                console.warn('⚠️ LangChain RAG initialization promise rejected:', error.message);
+            }
+        }
+
+        if (this.isReady) {
+            return true;
+        }
+
+        const start = Date.now();
+        while (!this.isReady && Date.now() - start < timeoutMs) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+
+        return this.isReady;
+    }
+
+    /**
      * Test individual components
      */
     async testComponents() {
@@ -588,10 +629,19 @@ class LangChainRAG {
      */
     async scoreAgentAction(conversationId, suggestionAction, originalSuggestion = null) {
         try {
+            const ready = await this.waitForInitialization(5000);
+            const verboseLogging = (this.ragChain && this.ragChain.verbose) || this.verbose;
+
+            if (!ready) {
+                if (verboseLogging) {
+                    console.warn('⚠️ LangChainRAG not ready during scoring request - proceeding with degraded logging');
+                }
+            }
+
             // Don't score actions in autopilot mode - agents aren't involved
             const systemMode = await this.getSystemMode();
             if (systemMode === 'autopilot') {
-                if (this.ragChain.verbose) {
+                if (verboseLogging) {
                     console.log('🚫 Skipping agent action scoring - autopilot mode active');
                 }
                 return;
@@ -599,6 +649,13 @@ class LangChainRAG {
 
             if (!conversationId || !suggestionAction) {
                 console.warn('⚠️ Missing conversationId or suggestionAction for scoring');
+                return;
+            }
+
+            if (!this.langfuse) {
+                if (verboseLogging) {
+                    console.warn('⚠️ Langfuse client unavailable - skipping agent action scoring');
+                }
                 return;
             }
 
@@ -614,7 +671,7 @@ class LangChainRAG {
             const scoreName = scoreMapping[suggestionAction] || suggestionAction;
             const scoreValue = this.getScoreValue(suggestionAction);
 
-            if (this.ragChain.verbose) {
+            if (verboseLogging) {
                 console.log('📊 Scoring agent action:');
                 console.log(`   Session: ${sessionId}`);
                 console.log(`   Action: ${suggestionAction} → "${scoreName}"`);

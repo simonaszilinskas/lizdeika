@@ -146,6 +146,40 @@ class LangfusePromptManager {
      * Create standardized prompt object
      */
     createPromptObject(langfusePrompt, fallback, variables, fromLangfuse, source = 'langfuse') {
+        const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        const replacePlaceholders = (template, key, value) => {
+            const safeValue = value === undefined || value === null ? '' : String(value);
+            const escapedKey = escapeRegExp(key);
+            const patterns = [
+                new RegExp(`\\{\\{\\s*${escapedKey}\\s*\\}\\}`, 'g'),
+                new RegExp(`\\{\\s*${escapedKey}\\s*\\}`, 'g')
+            ];
+
+            return patterns.reduce((current, pattern) => current.replace(pattern, safeValue), template);
+        };
+
+        const collectUnresolvedPlaceholders = (template) => {
+            const matches = template.matchAll(/\{\{\s*([^}\s]+)\s*\}\}|\{\s*([^}\s]+)\s*\}/g);
+            const placeholders = new Set();
+            for (const match of matches) {
+                const placeholder = match[1] || match[2];
+                if (placeholder) {
+                    placeholders.add(placeholder.trim());
+                }
+            }
+            return Array.from(placeholders);
+        };
+
+        const logUnresolved = (compiledTemplate, phase) => {
+            const unresolved = collectUnresolvedPlaceholders(compiledTemplate);
+            if (unresolved.length > 0) {
+                console.warn(`⚠️ Prompt '${nextName}' (${phase}) missing variables:`, unresolved);
+            }
+        };
+
+        const nextName = langfusePrompt?.name || name;
+
         const prompt = {
             content: langfusePrompt?.prompt || fallback,
             config: langfusePrompt?.config || {},
@@ -164,10 +198,11 @@ class LangfusePromptManager {
                 
                 // Replace variables in format {{variable}}
                 Object.entries(allVariables).forEach(([key, value]) => {
-                    const regex = new RegExp(`{{${key}}}`, 'g');
-                    compiledPrompt = compiledPrompt.replace(regex, value);
+                    compiledPrompt = replacePlaceholders(compiledPrompt, key, value);
                 });
-                
+
+                logUnresolved(compiledPrompt, 'compile');
+
                 return compiledPrompt;
             },
 
@@ -180,12 +215,13 @@ class LangfusePromptManager {
                 
                 // Pre-compile specified variables
                 Object.entries(allVariables).forEach(([key, value]) => {
-                    const regex = new RegExp(`{{${key}}}`, 'g');
-                    langchainPrompt = langchainPrompt.replace(regex, value);
+                    langchainPrompt = replacePlaceholders(langchainPrompt, key, value);
                 });
                 
-                // Convert remaining {{variable}} to {variable} for LangChain
-                langchainPrompt = langchainPrompt.replace(/{{([^}]+)}}/g, '{$1}');
+                // Convert remaining double-brace syntax to LangChain format
+                langchainPrompt = langchainPrompt.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, '{$1}');
+
+                logUnresolved(langchainPrompt, 'langchain');
                 
                 return langchainPrompt;
             }
