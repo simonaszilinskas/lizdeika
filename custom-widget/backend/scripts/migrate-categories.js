@@ -59,7 +59,6 @@ async function migrateCategories() {
         data: {
           name: finalName,
           created_by: cat.owner_id,
-          scope: 'global', // All migrated categories become global
           created_at: cat.first_used,
           color: '#6B7280' // Default color
         }

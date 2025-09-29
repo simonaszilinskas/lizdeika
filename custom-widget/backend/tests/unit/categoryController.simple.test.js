@@ -33,7 +33,6 @@ describe('CategoryController HTTP Logic', () => {
     describe('Query Parameter Processing', () => {
         it('should process query parameters correctly', () => {
             const query = {
-                scope: 'personal',
                 include_archived: 'true',
                 search: 'Bug Report',
                 limit: '25',
@@ -42,7 +41,6 @@ describe('CategoryController HTTP Logic', () => {
 
             const processFilters = (query) => {
                 const {
-                    scope = 'all',
                     include_archived = 'false',
                     search = '',
                     limit = '50',
@@ -50,7 +48,6 @@ describe('CategoryController HTTP Logic', () => {
                 } = query;
 
                 return {
-                    scope,
                     include_archived: include_archived === 'true',
                     search,
                     limit: Math.min(parseInt(limit, 10) || 50, 100),
@@ -61,7 +58,6 @@ describe('CategoryController HTTP Logic', () => {
             const filters = processFilters(query);
 
             expect(filters).toEqual({
-                scope: 'personal',
                 include_archived: true,
                 search: 'Bug Report',
                 limit: 25,
@@ -72,7 +68,6 @@ describe('CategoryController HTTP Logic', () => {
         it('should apply default values for missing parameters', () => {
             const processFilters = (query) => {
                 const {
-                    scope = 'all',
                     include_archived = 'false',
                     search = '',
                     limit = '50',
@@ -80,7 +75,6 @@ describe('CategoryController HTTP Logic', () => {
                 } = query;
 
                 return {
-                    scope,
                     include_archived: include_archived === 'true',
                     search,
                     limit: Math.min(parseInt(limit, 10) || 50, 100),
@@ -91,7 +85,6 @@ describe('CategoryController HTTP Logic', () => {
             const filters = processFilters({});
 
             expect(filters).toEqual({
-                scope: 'all',
                 include_archived: false,
                 search: '',
                 limit: 50,
@@ -206,12 +199,11 @@ describe('CategoryController HTTP Logic', () => {
 
     describe('HTTP Method Handling', () => {
         it('should handle GET requests for listing categories', () => {
-            // Simulate GET /api/categories?scope=all&limit=50
+            // Simulate GET /api/categories?limit=50
             req.method = 'GET';
-            req.query = { scope: 'all', limit: '50' };
+            req.query = { limit: '50' };
 
             expect(req.method).toBe('GET');
-            expect(req.query.scope).toBe('all');
             expect(parseInt(req.query.limit)).toBe(50);
         });
 
@@ -221,13 +213,11 @@ describe('CategoryController HTTP Logic', () => {
             req.body = {
                 name: 'New Category',
                 description: 'Category description',
-                color: '#FF0000',
-                scope: 'personal'
+                color: '#FF0000'
             };
 
             expect(req.method).toBe('POST');
             expect(req.body.name).toBe('New Category');
-            expect(req.body.scope).toBe('personal');
         });
 
         it('should handle PUT requests for updating categories', () => {

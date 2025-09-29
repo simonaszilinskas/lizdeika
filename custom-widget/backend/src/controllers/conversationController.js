@@ -890,14 +890,7 @@ class ConversationController {
                 return res.status(404).json({ error: 'Category not found' });
             }
 
-            // Check if user can use this category
-            const canUse = category.scope === 'global' ||
-                          (category.scope === 'personal' && category.created_by === user.id) ||
-                          user.role === 'admin';
-
-            if (!canUse) {
-                return res.status(403).json({ error: 'Cannot assign this category' });
-            }
+            // All categories are global now - any user can assign them
 
             // Check if category is archived
             if (category.is_archived) {
@@ -984,14 +977,7 @@ class ConversationController {
                     return res.status(404).json({ error: 'Category not found' });
                 }
 
-                // Check if user can use this category
-                const canUse = category.scope === 'global' ||
-                              (category.scope === 'personal' && category.created_by === user.id) ||
-                              user.role === 'admin';
-
-                if (!canUse) {
-                    return res.status(403).json({ error: 'Cannot assign this category' });
-                }
+                // All categories are global now - any user can assign them
 
                 // Check if category is archived
                 if (category.is_archived && skip_archived) {

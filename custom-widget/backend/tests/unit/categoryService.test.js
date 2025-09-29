@@ -60,16 +60,12 @@ jest.mock('../../src/services/categoryService', () => {
                 return category;
             }
 
-            const canAccess = category.scope === 'global' ||
-                             (category.scope === 'personal' && category.created_by === user.id) ||
-                             user.role === 'admin';
-
-            return canAccess ? category : null;
+            // All categories are now accessible to all users
+            return category;
         }
 
         async getCategoriesForUser(user, filters = {}) {
             const {
-                scope = 'all',
                 include_archived = false,
                 search = '',
                 limit = 50,
@@ -80,21 +76,7 @@ jest.mock('../../src/services/categoryService', () => {
                 is_archived: include_archived ? undefined : false
             };
 
-            if (scope === 'personal') {
-                whereConditions.AND = [
-                    { scope: 'personal' },
-                    { created_by: user.id }
-                ];
-            } else if (scope === 'global') {
-                whereConditions.scope = 'global';
-            } else if (scope === 'all') {
-                if (user.role !== 'admin') {
-                    whereConditions.OR = [
-                        { scope: 'global' },
-                        { AND: [{ scope: 'personal' }, { created_by: user.id }] }
-                    ];
-                }
-            }
+            // No scope filtering needed anymore - all categories are global
 
             if (search.trim()) {
                 whereConditions.name = {
@@ -119,7 +101,6 @@ jest.mock('../../src/services/categoryService', () => {
                     }
                 },
                 orderBy: [
-                    { scope: 'asc' },
                     { name: 'asc' }
                 ],
                 skip: offset,
@@ -128,7 +109,7 @@ jest.mock('../../src/services/categoryService', () => {
         }
 
         async createCategory(categoryData, user) {
-            const { name, description, color = '#6B7280', scope = 'personal' } = categoryData;
+            const { name, description, color = '#6B7280' } = categoryData;
 
             if (!name || name.trim().length === 0) {
                 throw new Error('Category name is required');
@@ -138,21 +119,17 @@ jest.mock('../../src/services/categoryService', () => {
                 throw new Error('Category name must be 100 characters or less');
             }
 
-            if (scope === 'global' && user.role !== 'admin') {
-                throw new Error('Only administrators can create global categories');
-            }
+            // All categories are now global by default, no role restriction needed
 
             const existingCategory = await mockPrismaInstance.ticket_categories.findFirst({
                 where: {
                     name: name.trim(),
-                    scope,
-                    created_by: scope === 'personal' ? user.id : undefined,
                     is_archived: false
                 }
             });
 
             if (existingCategory) {
-                throw new Error(`A ${scope} category with this name already exists`);
+                throw new Error('A category with this name already exists');
             }
 
             return await mockPrismaInstance.ticket_categories.create({
@@ -160,7 +137,6 @@ jest.mock('../../src/services/categoryService', () => {
                     name: name.trim(),
                     description: description?.trim() || null,
                     color: color,
-                    scope: scope,
                     created_by: user.id
                 },
                 include: {
@@ -203,15 +179,13 @@ jest.mock('../../src/services/categoryService', () => {
                     const duplicate = await mockPrismaInstance.ticket_categories.findFirst({
                         where: {
                             name: updates.name.trim(),
-                            scope: existingCategory.scope,
-                            created_by: existingCategory.scope === 'personal' ? existingCategory.created_by : undefined,
                             is_archived: false,
                             NOT: { id: categoryId }
                         }
                     });
 
                     if (duplicate) {
-                        throw new Error(`A ${existingCategory.scope} category with this name already exists`);
+                        throw new Error('A category with this name already exists');
                     }
                 }
 
@@ -230,12 +204,7 @@ jest.mock('../../src/services/categoryService', () => {
                 validatedUpdates.color = updates.color;
             }
 
-            if (updates.scope !== undefined && updates.scope !== existingCategory.scope) {
-                if (user.role !== 'admin') {
-                    throw new Error('Only administrators can change category scope');
-                }
-                validatedUpdates.scope = updates.scope;
-            }
+            // Scope field no longer exists - no validation needed
 
             validatedUpdates.updated_by = user.id;
             validatedUpdates.updated_at = new Date();
@@ -324,13 +293,8 @@ jest.mock('../../src/services/categoryService', () => {
                 take: 10
             });
 
-            const scopeBreakdown = await mockPrismaInstance.ticket_categories.groupBy({
-                by: ['scope'],
-                where: { is_archived: false },
-                _count: {
-                    _all: true
-                }
-            });
+            // No scope breakdown needed anymore
+            const scopeBreakdown = [];
 
             return {
                 totals: {
@@ -339,14 +303,10 @@ jest.mock('../../src/services/categoryService', () => {
                     archived_categories: archivedCategories,
                     categorized_tickets: totalCategorizedTickets
                 },
-                scope_breakdown: scopeBreakdown.reduce((acc, item) => {
-                    acc[item.scope] = item._count._all;
-                    return acc;
-                }, {}),
+                // No scope breakdown needed
                 top_categories: categoryUsage.map(cat => ({
                     id: cat.id,
                     name: cat.name,
-                    scope: cat.scope,
                     creator_name: `${cat.creator.first_name} ${cat.creator.last_name}`,
                     ticket_count: cat._count.tickets
                 }))
@@ -359,9 +319,8 @@ jest.mock('../../src/services/categoryService', () => {
                 return false;
             }
 
-            return category.scope === 'global' ||
-                   (category.scope === 'personal' && category.created_by === user.id) ||
-                   user.role === 'admin';
+            // All categories are accessible to all users now
+            return true;
         }
     }
 
@@ -397,7 +356,6 @@ describe('CategoryService', () => {
             name: 'Bug Report',
             description: 'Bug reports and issues',
             color: '#FF0000',
-            scope: 'global',
             created_by: 'admin123',
             is_archived: false,
             creator: {
@@ -446,7 +404,7 @@ describe('CategoryService', () => {
         });
 
         it('should return category for admin user', async () => {
-            const personalCategory = { ...mockCategory, scope: 'personal', created_by: 'other123' };
+            const personalCategory = { ...mockCategory, created_by: 'other123' };
             prisma.ticket_categories.findUnique.mockResolvedValue(personalCategory);
 
             const result = await CategoryService.getCategoryById('cat123', mockAdmin);
@@ -463,7 +421,7 @@ describe('CategoryService', () => {
         });
 
         it('should return personal category for owner', async () => {
-            const personalCategory = { ...mockCategory, scope: 'personal', created_by: 'user123' };
+            const personalCategory = { ...mockCategory, created_by: 'user123' };
             prisma.ticket_categories.findUnique.mockResolvedValue(personalCategory);
 
             const result = await CategoryService.getCategoryById('cat123', mockUser);
@@ -472,7 +430,7 @@ describe('CategoryService', () => {
         });
 
         it('should return null for personal category of other user', async () => {
-            const personalCategory = { ...mockCategory, scope: 'personal', created_by: 'other123' };
+            const personalCategory = { ...mockCategory, created_by: 'other123' };
             prisma.ticket_categories.findUnique.mockResolvedValue(personalCategory);
 
             const result = await CategoryService.getCategoryById('cat123', mockUser);
@@ -492,14 +450,10 @@ describe('CategoryService', () => {
             expect(prisma.ticket_categories.findMany).toHaveBeenCalledWith({
                 where: {
                     is_archived: false,
-                    OR: [
-                        { scope: 'global' },
-                        { AND: [{ scope: 'personal' }, { created_by: 'user123' }] }
-                    ]
+                    // No scope filtering needed anymore
                 },
                 include: expect.any(Object),
                 orderBy: [
-                    { scope: 'asc' },
                     { name: 'asc' }
                 ],
                 skip: 0,
@@ -543,16 +497,16 @@ describe('CategoryService', () => {
             );
         });
 
-        it('should handle scope filter for personal categories', async () => {
-            await CategoryService.getCategoriesForUser(mockUser, { scope: 'personal' });
+        it('should handle search filter correctly', async () => {
+            await CategoryService.getCategoriesForUser(mockUser, { search: 'Bug' });
 
             expect(prisma.ticket_categories.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: expect.objectContaining({
-                        AND: [
-                            { scope: 'personal' },
-                            { created_by: 'user123' }
-                        ]
+                        name: {
+                            contains: 'Bug',
+                            mode: 'insensitive'
+                        }
                     })
                 })
             );
@@ -560,12 +514,11 @@ describe('CategoryService', () => {
     });
 
     describe('createCategory', () => {
-        it('should create global category for admin', async () => {
+        it('should create category for admin', async () => {
             const categoryData = {
                 name: 'Feature Request',
                 description: 'New feature requests',
-                color: '#00FF00',
-                scope: 'global'
+                color: '#00FF00'
             };
 
             prisma.ticket_categories.findFirst.mockResolvedValue(null);
@@ -579,14 +532,13 @@ describe('CategoryService', () => {
                     name: 'Feature Request',
                     description: 'New feature requests',
                     color: '#00FF00',
-                    scope: 'global',
                     created_by: 'admin123'
                 },
                 include: expect.any(Object)
             });
         });
 
-        it('should create personal category for regular user', async () => {
+        it('should create category for regular user', async () => {
             const categoryData = {
                 name: 'My Category',
                 description: 'Personal category'
@@ -602,7 +554,6 @@ describe('CategoryService', () => {
                     name: 'My Category',
                     description: 'Personal category',
                     color: '#6B7280',
-                    scope: 'personal',
                     created_by: 'user123'
                 },
                 include: expect.any(Object)
@@ -623,14 +574,16 @@ describe('CategoryService', () => {
                 .rejects.toThrow('Category name must be 100 characters or less');
         });
 
-        it('should throw error if non-admin tries to create global category', async () => {
+        it('should allow any user to create categories', async () => {
             const categoryData = {
-                name: 'Global Category',
-                scope: 'global'
+                name: 'User Category'
             };
 
-            await expect(CategoryService.createCategory(categoryData, mockUser))
-                .rejects.toThrow('Only administrators can create global categories');
+            prisma.ticket_categories.findFirst.mockResolvedValue(null);
+            prisma.ticket_categories.create.mockResolvedValue(mockCategory);
+
+            const result = await CategoryService.createCategory(categoryData, mockUser);
+            expect(result).toEqual(mockCategory);
         });
 
         it('should throw error if duplicate category exists', async () => {
@@ -638,7 +591,7 @@ describe('CategoryService', () => {
             prisma.ticket_categories.findFirst.mockResolvedValue(mockCategory);
 
             await expect(CategoryService.createCategory(categoryData, mockUser))
-                .rejects.toThrow('A personal category with this name already exists');
+                .rejects.toThrow('A category with this name already exists');
         });
     });
 
@@ -705,13 +658,15 @@ describe('CategoryService', () => {
                 .rejects.toThrow('Color must be a valid hex color');
         });
 
-        it('should prevent non-admin from changing scope', async () => {
-            const updates = { scope: 'global' };
-            const userCategory = { ...mockCategory, created_by: 'user123', scope: 'personal' };
+        it('should validate update permissions correctly', async () => {
+            const updates = { name: 'Updated Name' };
+            const userCategory = { ...mockCategory, created_by: 'user123' };
             jest.spyOn(CategoryService, 'getCategoryById').mockResolvedValue(userCategory);
+            prisma.ticket_categories.findFirst.mockResolvedValue(null);
+            prisma.ticket_categories.update.mockResolvedValue({ ...userCategory, ...updates });
 
-            await expect(CategoryService.updateCategory('cat123', updates, mockUser))
-                .rejects.toThrow('Only administrators can change category scope');
+            const result = await CategoryService.updateCategory('cat123', updates, mockUser);
+            expect(result.name).toBe('Updated Name');
         });
     });
 
@@ -767,8 +722,7 @@ describe('CategoryService', () => {
                     {
                         id: 'cat123',
                         name: 'Bug Report',
-                        scope: 'global',
-                        creator_name: 'Admin User',
+                                    creator_name: 'Admin User',
                         ticket_count: 5
                     }
                 ]
@@ -783,15 +737,12 @@ describe('CategoryService', () => {
 
             prisma.ticket_categories.findMany.mockResolvedValue([mockCategory]);
 
-            prisma.ticket_categories.groupBy.mockResolvedValue([
-                { scope: 'global', _count: { _all: 5 } },
-                { scope: 'personal', _count: { _all: 3 } }
-            ]);
+            prisma.ticket_categories.groupBy.mockResolvedValue([]);
 
             const result = await CategoryService.getCategoryStats(mockAdmin);
 
             expect(result.totals.total_categories).toBe(10);
-            expect(result.scope_breakdown).toEqual({ global: 5, personal: 3 });
+            // No scope breakdown needed anymore
             expect(result.top_categories).toHaveLength(1);
         });
 
@@ -811,7 +762,7 @@ describe('CategoryService', () => {
         });
 
         it('should return true for personal category owner', async () => {
-            const personalCategory = { ...mockCategory, scope: 'personal', created_by: 'user123' };
+            const personalCategory = { ...mockCategory, created_by: 'user123' };
             jest.spyOn(CategoryService, 'getCategoryById').mockResolvedValue(personalCategory);
 
             const result = await CategoryService.canUseCategory('cat123', mockUser);
@@ -820,7 +771,7 @@ describe('CategoryService', () => {
         });
 
         it('should return true for admin', async () => {
-            const personalCategory = { ...mockCategory, scope: 'personal', created_by: 'other123' };
+            const personalCategory = { ...mockCategory, created_by: 'other123' };
             jest.spyOn(CategoryService, 'getCategoryById').mockResolvedValue(personalCategory);
 
             const result = await CategoryService.canUseCategory('cat123', mockAdmin);

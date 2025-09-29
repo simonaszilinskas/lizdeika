@@ -29,7 +29,6 @@ describe('CategoryService Business Logic', () => {
             name: 'Bug Report',
             description: 'Bug reports and issues',
             color: '#FF0000',
-            scope: 'global',
             created_by: 'admin123',
             is_archived: false,
             creator: {
@@ -45,39 +44,22 @@ describe('CategoryService Business Logic', () => {
     });
 
     describe('Permission Logic', () => {
-        it('should allow access to global categories for any user', () => {
-            const globalCategory = { ...mockCategory, scope: 'global' };
+        it('should allow all users to access categories', () => {
+            const category = { ...mockCategory };
 
-            const canAccessUser = globalCategory.scope === 'global' ||
-                                 (globalCategory.scope === 'personal' && globalCategory.created_by === mockUser.id) ||
-                                 mockUser.role === 'admin';
-
-            const canAccessAdmin = globalCategory.scope === 'global' ||
-                                  (globalCategory.scope === 'personal' && globalCategory.created_by === mockAdmin.id) ||
-                                  mockAdmin.role === 'admin';
+            const canAccessUser = true; // All users can access all categories now
+            const canAccessAdmin = true;
 
             expect(canAccessUser).toBe(true);
             expect(canAccessAdmin).toBe(true);
         });
 
-        it('should allow access to personal categories only for owner or admin', () => {
-            const personalCategory = { ...mockCategory, scope: 'personal', created_by: 'user123' };
+        it('should allow admin special permissions for management', () => {
+            const canManageUser = mockUser.role === 'admin';
+            const canManageAdmin = mockAdmin.role === 'admin';
 
-            const canAccessOwner = personalCategory.scope === 'global' ||
-                                  (personalCategory.scope === 'personal' && personalCategory.created_by === mockUser.id) ||
-                                  mockUser.role === 'admin';
-
-            const canAccessOtherUser = personalCategory.scope === 'global' ||
-                                     (personalCategory.scope === 'personal' && personalCategory.created_by === 'other123') ||
-                                     mockUser.role === 'admin';
-
-            const canAccessAdmin = personalCategory.scope === 'global' ||
-                                 (personalCategory.scope === 'personal' && personalCategory.created_by === mockAdmin.id) ||
-                                 mockAdmin.role === 'admin';
-
-            expect(canAccessOwner).toBe(true);
-            expect(canAccessOtherUser).toBe(false);
-            expect(canAccessAdmin).toBe(true);
+            expect(canManageUser).toBe(false);
+            expect(canManageAdmin).toBe(true);
         });
     });
 
@@ -113,14 +95,13 @@ describe('CategoryService Business Logic', () => {
             });
         });
 
-        it('should validate scope permissions', () => {
-            const canCreateGlobal = (scope, userRole) => {
-                return scope !== 'global' || userRole === 'admin';
+        it('should validate admin permissions for management operations', () => {
+            const canManage = (userRole) => {
+                return userRole === 'admin';
             };
 
-            expect(canCreateGlobal('personal', 'agent')).toBe(true);
-            expect(canCreateGlobal('global', 'agent')).toBe(false);
-            expect(canCreateGlobal('global', 'admin')).toBe(true);
+            expect(canManage('agent')).toBe(false);
+            expect(canManage('admin')).toBe(true);
         });
     });
 
@@ -128,7 +109,6 @@ describe('CategoryService Business Logic', () => {
         it('should build correct where conditions for user categories', () => {
             const buildWhereConditions = (user, filters = {}) => {
                 const {
-                    scope = 'all',
                     include_archived = false,
                     search = ''
                 } = filters;
@@ -136,22 +116,6 @@ describe('CategoryService Business Logic', () => {
                 const whereConditions = {
                     is_archived: include_archived ? undefined : false
                 };
-
-                if (scope === 'personal') {
-                    whereConditions.AND = [
-                        { scope: 'personal' },
-                        { created_by: user.id }
-                    ];
-                } else if (scope === 'global') {
-                    whereConditions.scope = 'global';
-                } else if (scope === 'all') {
-                    if (user.role !== 'admin') {
-                        whereConditions.OR = [
-                            { scope: 'global' },
-                            { AND: [{ scope: 'personal' }, { created_by: user.id }] }
-                        ];
-                    }
-                }
 
                 if (search.trim()) {
                     whereConditions.name = {
@@ -163,20 +127,13 @@ describe('CategoryService Business Logic', () => {
                 return whereConditions;
             };
 
-            // Test regular user with all scope
-            const userAllScope = buildWhereConditions(mockUser, { scope: 'all' });
-            expect(userAllScope).toHaveProperty('OR');
-            expect(userAllScope.OR).toHaveLength(2);
+            // Test basic filtering
+            const basicFilter = buildWhereConditions(mockUser);
+            expect(basicFilter.is_archived).toBe(false);
 
-            // Test admin with all scope
-            const adminAllScope = buildWhereConditions(mockAdmin, { scope: 'all' });
-            expect(adminAllScope).not.toHaveProperty('OR');
-
-            // Test personal scope
-            const personalScope = buildWhereConditions(mockUser, { scope: 'personal' });
-            expect(personalScope).toHaveProperty('AND');
-            expect(personalScope.AND).toContainEqual({ scope: 'personal' });
-            expect(personalScope.AND).toContainEqual({ created_by: 'user123' });
+            // Test with archived inclusion
+            const withArchived = buildWhereConditions(mockUser, { include_archived: true });
+            expect(withArchived.is_archived).toBeUndefined();
 
             // Test search filter
             const withSearch = buildWhereConditions(mockUser, { search: 'Bug' });
@@ -213,35 +170,32 @@ describe('CategoryService Business Logic', () => {
             expect(canEdit(otherCategory, mockAdmin)).toBe(true);
         });
 
-        it('should validate scope change permissions', () => {
-            const canChangeScope = (currentScope, newScope, userRole) => {
-                if (newScope === undefined || newScope === currentScope) {
-                    return true;
-                }
+        it('should validate admin-only operations', () => {
+            const canPerformAdminAction = (userRole) => {
                 return userRole === 'admin';
             };
 
-            expect(canChangeScope('personal', 'global', 'agent')).toBe(false);
-            expect(canChangeScope('personal', 'global', 'admin')).toBe(true);
-            expect(canChangeScope('global', 'global', 'agent')).toBe(true);
+            expect(canPerformAdminAction('agent')).toBe(false);
+            expect(canPerformAdminAction('admin')).toBe(true);
         });
     });
 
     describe('Statistics Logic', () => {
-        it('should calculate scope breakdown correctly', () => {
-            const scopeData = [
-                { scope: 'global', _count: { _all: 5 } },
-                { scope: 'personal', _count: { _all: 3 } }
+        it('should calculate category statistics correctly', () => {
+            const categoryData = [
+                { name: 'Bug Reports', _count: { _all: 5 } },
+                { name: 'Feature Requests', _count: { _all: 3 } }
             ];
 
-            const breakdown = scopeData.reduce((acc, item) => {
-                acc[item.scope] = item._count._all;
+            const totals = categoryData.reduce((acc, item) => {
+                acc.total_categories += 1;
+                acc.total_usage += item._count._all;
                 return acc;
-            }, {});
+            }, { total_categories: 0, total_usage: 0 });
 
-            expect(breakdown).toEqual({
-                global: 5,
-                personal: 3
+            expect(totals).toEqual({
+                total_categories: 2,
+                total_usage: 8
             });
         });
 
@@ -250,8 +204,7 @@ describe('CategoryService Business Logic', () => {
                 {
                     id: 'cat1',
                     name: 'Bug Report',
-                    scope: 'global',
-                    creator: { first_name: 'John', last_name: 'Doe' },
+                            creator: { first_name: 'John', last_name: 'Doe' },
                     _count: { tickets: 10 }
                 }
             ];
@@ -259,7 +212,6 @@ describe('CategoryService Business Logic', () => {
             const formatted = categoryUsage.map(cat => ({
                 id: cat.id,
                 name: cat.name,
-                scope: cat.scope,
                 creator_name: `${cat.creator.first_name} ${cat.creator.last_name}`,
                 ticket_count: cat._count.tickets
             }));
@@ -267,7 +219,6 @@ describe('CategoryService Business Logic', () => {
             expect(formatted[0]).toEqual({
                 id: 'cat1',
                 name: 'Bug Report',
-                scope: 'global',
                 creator_name: 'John Doe',
                 ticket_count: 10
             });

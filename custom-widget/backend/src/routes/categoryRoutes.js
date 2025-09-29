@@ -5,7 +5,7 @@
 
 const express = require('express');
 const categoryController = require('../controllers/categoryController');
-const { authenticateToken, requireAgentOrAdmin } = require('../middleware/authMiddleware');
+const { authenticateToken, requireAgentOrAdmin, requireAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -17,7 +17,6 @@ router.use(requireAgentOrAdmin);
  * @route GET /api/categories
  * @desc Get all categories with filtering and pagination
  * @access Agent/Admin
- * @query {string} scope - Filter by scope: 'all', 'personal', 'global'
  * @query {boolean} include_archived - Include archived categories
  * @query {number} page - Page number for pagination
  * @query {number} limit - Results per page (max 100)
@@ -35,25 +34,23 @@ router.get('/stats', categoryController.getCategoryStats);
 /**
  * @route POST /api/categories
  * @desc Create a new category
- * @access Agent/Admin
+ * @access Admin only
  * @body {string} name - Category name (required, max 100 chars)
  * @body {string} description - Category description (optional)
  * @body {string} color - Hex color code (optional, default: #6B7280)
- * @body {string} scope - Category scope: 'personal' or 'global' (default: 'personal')
  */
-router.post('/', categoryController.createCategory);
+router.post('/', requireAdmin, categoryController.createCategory);
 
 /**
  * @route PUT /api/categories/:id
  * @desc Update category
- * @access Owner/Admin
+ * @access Admin only
  * @param {string} id - Category ID
  * @body {string} name - Category name (optional)
  * @body {string} description - Category description (optional)
  * @body {string} color - Hex color code (optional)
- * @body {string} scope - Category scope (admin only)
  */
-router.put('/:id', categoryController.updateCategory);
+router.put('/:id', requireAdmin, categoryController.updateCategory);
 
 /**
  * @route DELETE /api/categories/:id

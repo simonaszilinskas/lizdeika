@@ -95,7 +95,6 @@ describe('CategoryController Integration Tests', () => {
                     name: 'Personal Category',
                     description: 'Test personal category',
                     color: '#FF0000',
-                    scope: 'personal',
                     created_by: testUserId
                 }
             });
@@ -106,7 +105,6 @@ describe('CategoryController Integration Tests', () => {
                     name: 'Global Category',
                     description: 'Test global category',
                     color: '#00FF00',
-                    scope: 'global',
                     created_by: adminUserId
                 }
             });
@@ -118,39 +116,35 @@ describe('CategoryController Integration Tests', () => {
             expect(response.status).toBe(200);
             expect(response.body.success).toBe(true);
             expect(response.body.categories).toHaveLength(2);
-            expect(response.body.categories[0].scope).toBe('global'); // Global first
-            expect(response.body.categories[1].scope).toBe('personal');
         });
 
-        it('should filter categories by scope', async () => {
+        it('should handle pagination correctly', async () => {
             // Create test categories
             await prisma.ticket_categories.createMany({
                 data: [
                     {
                         id: 'cat1',
-                        name: 'Personal',
-                        scope: 'personal',
+                        name: 'Category 1',
                         created_by: testUserId,
                         color: '#FF0000'
                     },
                     {
                         id: 'cat2',
-                        name: 'Global',
-                        scope: 'global',
+                        name: 'Category 2',
                         created_by: adminUserId,
                         color: '#00FF00'
                     }
                 ]
             });
 
-            // Filter for personal only
+            // Test pagination
             const response = await request(app)
-                .get('/api/categories?scope=personal')
+                .get('/api/categories?limit=1')
                 .set('Authorization', `Bearer ${agentToken}`);
 
             expect(response.status).toBe(200);
             expect(response.body.categories).toHaveLength(1);
-            expect(response.body.categories[0].scope).toBe('personal');
+            expect(response.body.pagination.total).toBe(2);
         });
 
         it('should search categories by name', async () => {
@@ -159,15 +153,13 @@ describe('CategoryController Integration Tests', () => {
                     {
                         id: 'cat1',
                         name: 'Bug Report',
-                        scope: 'personal',
-                        created_by: testUserId,
+                            created_by: testUserId,
                         color: '#FF0000'
                     },
                     {
                         id: 'cat2',
                         name: 'Feature Request',
-                        scope: 'personal',
-                        created_by: testUserId,
+                            created_by: testUserId,
                         color: '#00FF00'
                     }
                 ]
@@ -189,7 +181,6 @@ describe('CategoryController Integration Tests', () => {
                 name: 'Test Category',
                 description: 'Test description',
                 color: '#FF0000',
-                scope: 'personal'
             };
 
             const response = await request(app)
@@ -200,16 +191,14 @@ describe('CategoryController Integration Tests', () => {
             expect(response.status).toBe(201);
             expect(response.body.success).toBe(true);
             expect(response.body.category.name).toBe(categoryData.name);
-            expect(response.body.category.scope).toBe('personal');
             expect(response.body.category.created_by).toBe(testUserId);
         });
 
-        it('should not allow agent to create global category', async () => {
+        it('should allow agent to create category', async () => {
             const categoryData = {
-                name: 'Global Category',
-                description: 'Should fail',
-                color: '#FF0000',
-                scope: 'global'
+                name: 'Agent Category',
+                description: 'Created by agent',
+                color: '#FF0000'
             };
 
             const response = await request(app)
@@ -217,16 +206,16 @@ describe('CategoryController Integration Tests', () => {
                 .set('Authorization', `Bearer ${agentToken}`)
                 .send(categoryData);
 
-            expect(response.status).toBe(403);
-            expect(response.body.error).toContain('administrators');
+            expect(response.status).toBe(201);
+            expect(response.body.success).toBe(true);
+            expect(response.body.category.name).toBe(categoryData.name);
         });
 
-        it('should allow admin to create global category', async () => {
+        it('should allow admin to create category', async () => {
             const categoryData = {
                 name: 'Global Category',
                 description: 'Admin created',
                 color: '#00FF00',
-                scope: 'global'
             };
 
             const response = await request(app)
@@ -236,7 +225,6 @@ describe('CategoryController Integration Tests', () => {
 
             expect(response.status).toBe(201);
             expect(response.body.success).toBe(true);
-            expect(response.body.category.scope).toBe('global');
         });
 
         it('should validate required fields', async () => {
@@ -262,26 +250,24 @@ describe('CategoryController Integration Tests', () => {
             expect(response.body.error).toContain('hex color');
         });
 
-        it('should prevent duplicate category names within same scope', async () => {
+        it('should prevent duplicate category names', async () => {
             // Create first category
             await prisma.ticket_categories.create({
                 data: {
                     id: 'cat1',
                     name: 'Duplicate Name',
-                    scope: 'personal',
                     created_by: testUserId,
                     color: '#FF0000'
                 }
             });
 
-            // Try to create another with same name and scope
+            // Try to create another with same name
             const response = await request(app)
                 .post('/api/categories')
                 .set('Authorization', `Bearer ${agentToken}`)
                 .send({
                     name: 'Duplicate Name',
-                    scope: 'personal'
-                });
+                    });
 
             expect(response.status).toBe(409);
             expect(response.body.error).toContain('already exists');
@@ -298,7 +284,6 @@ describe('CategoryController Integration Tests', () => {
                     name: 'Original Name',
                     description: 'Original description',
                     color: '#FF0000',
-                    scope: 'personal',
                     created_by: testUserId
                 }
             });
@@ -380,7 +365,6 @@ describe('CategoryController Integration Tests', () => {
                 data: {
                     id: 'test-category',
                     name: 'To Delete',
-                    scope: 'personal',
                     created_by: testUserId,
                     color: '#FF0000'
                 }
@@ -430,22 +414,19 @@ describe('CategoryController Integration Tests', () => {
                     {
                         id: 'cat1',
                         name: 'Bug Report',
-                        scope: 'personal',
-                        created_by: testUserId,
+                            created_by: testUserId,
                         color: '#FF0000'
                     },
                     {
                         id: 'cat2',
                         name: 'Feature Request',
-                        scope: 'global',
-                        created_by: adminUserId,
+                            created_by: adminUserId,
                         color: '#00FF00'
                     },
                     {
                         id: 'cat3',
                         name: 'Archived Category',
-                        scope: 'personal',
-                        created_by: testUserId,
+                            created_by: testUserId,
                         color: '#0000FF',
                         is_archived: true
                     }
@@ -472,8 +453,6 @@ describe('CategoryController Integration Tests', () => {
             expect(response.body.stats.totals.total_categories).toBe(3);
             expect(response.body.stats.totals.active_categories).toBe(2);
             expect(response.body.stats.totals.archived_categories).toBe(1);
-            expect(response.body.stats.scope_breakdown.personal).toBe(1);
-            expect(response.body.stats.scope_breakdown.global).toBe(1);
         });
     });
 

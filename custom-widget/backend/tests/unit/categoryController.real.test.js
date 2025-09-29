@@ -66,7 +66,7 @@ describe('CategoryController Real Implementation Tests', () => {
 
     describe('getCategories method', () => {
         it('should call Prisma with correct filters for agent', async () => {
-            req.query = { scope: 'all', limit: '10' };
+            req.query = { limit: '10' };
 
             // Mock Prisma responses
             mockPrisma.ticket_categories.findMany.mockResolvedValue([]);
@@ -82,11 +82,7 @@ describe('CategoryController Real Implementation Tests', () => {
             // Verify Prisma was called with correct parameters
             expect(mockPrisma.ticket_categories.findMany).toHaveBeenCalledWith({
                 where: {
-                    is_archived: false,
-                    OR: [
-                        { scope: 'global' },
-                        { AND: [{ scope: 'personal' }, { created_by: 'user123' }] }
-                    ]
+                    is_archived: false
                 },
                 include: {
                     creator: {
@@ -102,7 +98,6 @@ describe('CategoryController Real Implementation Tests', () => {
                     }
                 },
                 orderBy: [
-                    { scope: 'asc' },
                     { name: 'asc' }
                 ],
                 skip: 0,
@@ -143,8 +138,8 @@ describe('CategoryController Real Implementation Tests', () => {
             );
         });
 
-        it('should handle personal scope filter correctly', async () => {
-            req.query = { scope: 'personal' };
+        it('should handle search filter correctly', async () => {
+            req.query = { search: 'Bug Report' };
 
             mockPrisma.ticket_categories.findMany.mockResolvedValue([]);
             mockPrisma.ticket_categories.count.mockResolvedValue(0);
@@ -154,10 +149,10 @@ describe('CategoryController Real Implementation Tests', () => {
             expect(mockPrisma.ticket_categories.findMany).toHaveBeenCalledWith(
                 expect.objectContaining({
                     where: expect.objectContaining({
-                        AND: [
-                            { scope: 'personal' },
-                            { created_by: 'user123' }
-                        ]
+                        name: {
+                            contains: 'Bug Report',
+                            mode: 'insensitive'
+                        }
                     })
                 })
             );
@@ -169,7 +164,6 @@ describe('CategoryController Real Implementation Tests', () => {
                 name: 'Test Category',
                 description: 'Test description',
                 color: '#FF0000',
-                scope: 'personal',
                 created_by: 'user123',
                 is_archived: false,
                 created_at: '2023-01-01T00:00:00.000Z',
@@ -195,7 +189,6 @@ describe('CategoryController Real Implementation Tests', () => {
                     name: 'Test Category',
                     description: 'Test description',
                     color: '#FF0000',
-                    scope: 'personal',
                     created_by: 'user123',
                     creator: mockCategories[0].creator,
                     creator_name: 'John Doe',
@@ -218,12 +211,11 @@ describe('CategoryController Real Implementation Tests', () => {
     });
 
     describe('createCategory method', () => {
-        it('should create personal category successfully', async () => {
+        it('should create category successfully', async () => {
             req.body = {
                 name: 'Test Category',
                 description: 'Test description',
-                color: '#FF0000',
-                scope: 'personal'
+                color: '#FF0000'
             };
 
             const mockCreatedCategory = {
@@ -231,7 +223,6 @@ describe('CategoryController Real Implementation Tests', () => {
                 name: 'Test Category',
                 description: 'Test description',
                 color: '#FF0000',
-                scope: 'personal',
                 created_by: 'user123',
                 is_archived: false,
                 created_at: new Date(),
@@ -255,8 +246,7 @@ describe('CategoryController Real Implementation Tests', () => {
                     name: 'Test Category',
                     description: 'Test description',
                     color: '#FF0000',
-                    scope: 'personal',
-                    created_by: 'user123'
+                        created_by: 'user123'
                 }),
                 include: {
                     creator: {
@@ -308,24 +298,37 @@ describe('CategoryController Real Implementation Tests', () => {
             });
         });
 
-        it('should prevent non-admin from creating global category', async () => {
+        it('should allow agents to create categories', async () => {
             req.body = {
-                name: 'Global Category',
-                scope: 'global'
+                name: 'Agent Category'
             };
+
+            const mockCreatedCategory = {
+                id: 'new-cat',
+                name: 'Agent Category',
+                created_by: 'user123',
+                is_archived: false,
+                created_at: new Date(),
+                updated_at: new Date(),
+                creator: {
+                    first_name: 'John',
+                    last_name: 'Doe',
+                    email: 'john@example.com'
+                },
+                _count: { tickets: 0 }
+            };
+
+            mockPrisma.ticket_categories.findFirst.mockResolvedValue(null);
+            mockPrisma.ticket_categories.create.mockResolvedValue(mockCreatedCategory);
 
             await categoryController.createCategory(req, res);
 
-            expect(res.status).toHaveBeenCalledWith(403);
-            expect(res.json).toHaveBeenCalledWith({
-                error: 'Only administrators can create global categories'
-            });
+            expect(res.status).toHaveBeenCalledWith(201);
         });
 
         it('should detect duplicate category names', async () => {
             req.body = {
-                name: 'Duplicate Name',
-                scope: 'personal'
+                name: 'Duplicate Name'
             };
 
             // Mock finding existing category
@@ -338,7 +341,7 @@ describe('CategoryController Real Implementation Tests', () => {
 
             expect(res.status).toHaveBeenCalledWith(409);
             expect(res.json).toHaveBeenCalledWith({
-                error: 'A personal category with this name already exists'
+                error: 'A category with this name already exists'
             });
         });
     });
@@ -362,7 +365,6 @@ describe('CategoryController Real Implementation Tests', () => {
                 name: 'Original Name',
                 description: 'Original description',
                 color: '#FF0000',
-                scope: 'personal',
                 created_by: 'user123',
                 creator: {
                     first_name: 'John',
@@ -445,7 +447,6 @@ describe('CategoryController Real Implementation Tests', () => {
             const mockExistingCategory = {
                 id: categoryId,
                 name: 'Original Name',
-                scope: 'personal',
                 created_by: 'different-user',
                 creator: { first_name: 'John', last_name: 'Doe' },
                 _count: { tickets: 0 }
@@ -552,16 +553,12 @@ describe('CategoryController Real Implementation Tests', () => {
                 {
                     id: 'cat1',
                     name: 'Bug Report',
-                    scope: 'global',
-                    creator: { first_name: 'John', last_name: 'Doe' },
+                        creator: { first_name: 'John', last_name: 'Doe' },
                     _count: { tickets: 25 }
                 }
             ]);
 
-            mockPrisma.ticket_categories.groupBy.mockResolvedValue([
-                { scope: 'global', _count: { _all: 5 } },
-                { scope: 'personal', _count: { _all: 3 } }
-            ]);
+            mockPrisma.ticket_categories.groupBy.mockResolvedValue([]);
 
             await categoryController.getCategoryStats(req, res);
 
@@ -574,14 +571,9 @@ describe('CategoryController Real Implementation Tests', () => {
                         archived_categories: 2,
                         categorized_tickets: 50
                     },
-                    scope_breakdown: {
-                        global: 5,
-                        personal: 3
-                    },
                     top_categories: [{
                         id: 'cat1',
                         name: 'Bug Report',
-                        scope: 'global',
                         creator_name: 'John Doe',
                         ticket_count: 25
                     }]
@@ -618,8 +610,7 @@ describe('CategoryController Real Implementation Tests', () => {
                     id: 'test',
                     name: 'Test Category',
                     color,
-                    scope: 'personal',
-                    created_by: 'user123',
+                        created_by: 'user123',
                     creator: { first_name: 'John', last_name: 'Doe' },
                     _count: { tickets: 0 },
                     created_at: new Date(),

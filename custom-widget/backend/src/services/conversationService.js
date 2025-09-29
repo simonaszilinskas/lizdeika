@@ -120,8 +120,7 @@ class ConversationService {
                         select: {
                             id: true,
                             name: true,
-                            color: true,
-                            scope: true
+                            color: true
                         }
                     },
                     _count: {
@@ -155,8 +154,7 @@ class ConversationService {
                 categoryData: ticket.ticket_category ? {
                     id: ticket.ticket_category.id,
                     name: ticket.ticket_category.name,
-                    color: ticket.ticket_category.color,
-                    scope: ticket.ticket_category.scope
+                    color: ticket.ticket_category.color
                 } : null,
                 messageCount: ticket._count.messages
             };
@@ -489,8 +487,7 @@ class ConversationService {
                         select: {
                             id: true,
                             name: true,
-                            color: true,
-                            scope: true
+                            color: true
                         }
                     },
                     messages: {
@@ -532,8 +529,7 @@ class ConversationService {
                 categoryData: ticket.ticket_category ? {
                     id: ticket.ticket_category.id,
                     name: ticket.ticket_category.name,
-                    color: ticket.ticket_category.color,
-                    scope: ticket.ticket_category.scope
+                    color: ticket.ticket_category.color
                 } : null,
                 messageCount: ticket._count.messages,
                 lastMessage: ticket.messages[0] ? {
@@ -629,8 +625,7 @@ class ConversationService {
                         select: {
                             id: true,
                             name: true,
-                            color: true,
-                            scope: true
+                            color: true
                         }
                     },
                     _count: {
@@ -655,8 +650,7 @@ class ConversationService {
                 categoryData: ticket.ticket_category ? {
                     id: ticket.ticket_category.id,
                     name: ticket.ticket_category.name,
-                    color: ticket.ticket_category.color,
-                    scope: ticket.ticket_category.scope
+                    color: ticket.ticket_category.color
                 } : null,
                 messageCount: ticket._count.messages
             }));
@@ -1143,8 +1137,7 @@ class ConversationService {
                         select: {
                             id: true,
                             name: true,
-                            color: true,
-                            scope: true
+                            color: true
                         }
                     }
                 }
@@ -1175,8 +1168,7 @@ class ConversationService {
                         select: {
                             id: true,
                             name: true,
-                            color: true,
-                            scope: true
+                            color: true
                         }
                     },
                     users_tickets_assigned_agent_idTousers: {

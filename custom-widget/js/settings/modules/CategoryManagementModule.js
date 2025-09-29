@@ -22,7 +22,6 @@ export class CategoryManagementModule {
             categories: [],
             filteredCategories: [],
             filters: {
-                scope: 'all',
                 search: '',
                 includeArchived: false
             },
@@ -35,7 +34,6 @@ export class CategoryManagementModule {
             // Category list and controls
             categoriesList: null,
             createCategoryBtn: null,
-            scopeFilter: null,
             searchInput: null,
             includeArchivedCheckbox: null,
 
@@ -47,7 +45,6 @@ export class CategoryManagementModule {
             descriptionInput: null,
             colorInput: null,
             colorHexInput: null,
-            scopeSelect: null,
             saveButton: null,
             saveButtonText: null,
             closeCategoryModal: null,
@@ -83,6 +80,9 @@ export class CategoryManagementModule {
             // Load initial categories
             await this.loadCategories();
 
+            // Setup UI permissions
+            this.setupPermissions();
+
             // Load statistics if admin
             if (this.isAdmin()) {
                 await this.loadStatistics();
@@ -103,7 +103,6 @@ export class CategoryManagementModule {
         // Category list and controls
         this.elements.categoriesList = document.getElementById('categories-list');
         this.elements.createCategoryBtn = document.getElementById('create-category-btn');
-        this.elements.scopeFilter = document.getElementById('category-scope-filter');
         this.elements.searchInput = document.getElementById('category-search');
         this.elements.includeArchivedCheckbox = document.getElementById('include-archived-categories');
 
@@ -115,7 +114,6 @@ export class CategoryManagementModule {
         this.elements.descriptionInput = document.getElementById('category-description');
         this.elements.colorInput = document.getElementById('category-color');
         this.elements.colorHexInput = document.getElementById('category-color-hex');
-        this.elements.scopeSelect = document.getElementById('category-scope');
         this.elements.saveButton = document.getElementById('save-category');
         this.elements.saveButtonText = document.getElementById('save-category-text');
         this.elements.closeCategoryModal = document.getElementById('close-category-modal');
@@ -126,7 +124,7 @@ export class CategoryManagementModule {
 
         // Validate all required elements exist
         const requiredElements = [
-            'categoriesList', 'createCategoryBtn', 'scopeFilter', 'searchInput',
+            'categoriesList', 'createCategoryBtn', 'searchInput',
             'categoryModal', 'categoryForm', 'modalTitle', 'nameInput'
         ];
 
@@ -153,13 +151,6 @@ export class CategoryManagementModule {
         });
 
         // Filter controls
-        const scopeFilterHandler = (e) => this.handleFilterChange('scope', e.target.value);
-        this.elements.scopeFilter.addEventListener('change', scopeFilterHandler);
-        this.eventListeners.push({
-            element: this.elements.scopeFilter,
-            event: 'change',
-            handler: scopeFilterHandler
-        });
 
         const searchHandler = (e) => this.handleFilterChange('search', e.target.value);
         this.elements.searchInput.addEventListener('input', searchHandler);
@@ -252,7 +243,6 @@ export class CategoryManagementModule {
 
         try {
             const params = new URLSearchParams({
-                scope: this.state.filters.scope,
                 include_archived: this.state.filters.includeArchived.toString(),
                 search: this.state.filters.search,
                 limit: '100'
@@ -306,7 +296,7 @@ export class CategoryManagementModule {
         this.state.filters[filterType] = value;
 
         // Reload data if needed or apply local filters
-        if (filterType === 'scope' || filterType === 'includeArchived') {
+        if (filterType === 'includeArchived') {
             this.loadCategories();
         } else {
             this.applyFilters();
@@ -366,8 +356,6 @@ export class CategoryManagementModule {
         const isArchived = category.is_archived;
         const canEdit = this.canEditCategory(category);
         const canDelete = this.canDeleteCategory(category);
-        const isGlobal = category.scope === 'global';
-
         return `
             <div class="category-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${isArchived ? 'opacity-60' : ''}" data-category-id="${category.id}">
                 <div class="flex items-start justify-between">
@@ -376,7 +364,6 @@ export class CategoryManagementModule {
                         <div class="flex-1 min-w-0">
                             <h3 class="font-medium text-gray-900 flex items-center gap-2">
                                 ${category.name}
-                                ${isGlobal ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"><i class="fas fa-globe mr-1"></i>Global</span>' : '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"><i class="fas fa-user mr-1"></i>Personal</span>'}
                                 ${isArchived ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"><i class="fas fa-archive mr-1"></i>Archived</span>' : ''}
                             </h3>
                             ${category.description ? `<p class="text-sm text-gray-600 mt-1">${category.description}</p>` : ''}
@@ -433,13 +420,6 @@ export class CategoryManagementModule {
         this.elements.categoryForm.reset();
         this.elements.colorInput.value = '#6B7280';
         this.elements.colorHexInput.value = '#6B7280';
-        this.elements.scopeSelect.value = 'personal';
-
-        // Show/hide global option based on user role
-        const globalOption = this.elements.scopeSelect.querySelector('option[value="global"]');
-        if (globalOption) {
-            globalOption.style.display = this.isAdmin() ? 'block' : 'none';
-        }
 
         this.elements.categoryModal.classList.remove('hidden');
         this.elements.nameInput.focus();
@@ -464,13 +444,6 @@ export class CategoryManagementModule {
         this.elements.descriptionInput.value = category.description || '';
         this.elements.colorInput.value = category.color;
         this.elements.colorHexInput.value = category.color;
-        this.elements.scopeSelect.value = category.scope;
-
-        // Show/hide global option based on user role
-        const globalOption = this.elements.scopeSelect.querySelector('option[value="global"]');
-        if (globalOption) {
-            globalOption.style.display = this.isAdmin() ? 'block' : 'none';
-        }
 
         this.elements.categoryModal.classList.remove('hidden');
         this.elements.nameInput.focus();
@@ -495,8 +468,7 @@ export class CategoryManagementModule {
         const categoryData = {
             name: formData.get('name').trim(),
             description: formData.get('description').trim() || null,
-            color: formData.get('color'),
-            scope: formData.get('scope')
+            color: formData.get('color')
         };
 
         // Validate required fields
@@ -614,21 +586,7 @@ export class CategoryManagementModule {
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-6">
-                <div>
-                    <h4 class="font-medium text-gray-900 mb-3">Scope Breakdown</h4>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Global Categories</span>
-                            <span class="font-medium">${stats.scope_breakdown?.global || 0}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Personal Categories</span>
-                            <span class="font-medium">${stats.scope_breakdown?.personal || 0}</span>
-                        </div>
-                    </div>
-                </div>
-
+            <div class="grid md:grid-cols-1 gap-6">
                 <div>
                     <h4 class="font-medium text-gray-900 mb-3">Most Used Categories</h4>
                     <div class="space-y-2">
@@ -678,14 +636,26 @@ export class CategoryManagementModule {
     }
 
     /**
+     * Setup UI permissions based on user role
+     */
+    setupPermissions() {
+        const isAdmin = this.isAdmin();
+
+        // Hide create category button for non-admins
+        if (this.elements.createCategoryBtn) {
+            this.elements.createCategoryBtn.style.display = isAdmin ? 'block' : 'none';
+        }
+    }
+
+    /**
      * Check if user can edit category
      */
     canEditCategory(category) {
         const user = this.stateManager.getCurrentUser();
         if (!user) return false;
 
-        // Admin can edit any category, others can only edit their own
-        return user.role === 'admin' || category.created_by === user.id;
+        // Only admin can edit categories
+        return user.role === 'admin';
     }
 
     /**
@@ -763,7 +733,6 @@ export class CategoryManagementModule {
             categories: [],
             filteredCategories: [],
             filters: {
-                scope: 'all',
                 search: '',
                 includeArchived: false
             },

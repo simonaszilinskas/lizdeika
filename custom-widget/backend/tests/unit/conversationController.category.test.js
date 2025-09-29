@@ -388,8 +388,7 @@ describe('ConversationController - Category Operations', () => {
             const mockCategory = {
                 id: 'cat123',
                 name: 'Bug Report',
-                color: '#FF0000',
-                scope: 'global'
+                color: '#FF0000'
             };
 
             conversationService.getConversationByTicketId.mockResolvedValue({ id: 'conv123' });
@@ -409,8 +408,7 @@ describe('ConversationController - Category Operations', () => {
                 categoryData: {
                     id: 'cat123',
                     name: 'Bug Report',
-                    color: '#FF0000',
-                    scope: 'global'
+                    color: '#FF0000'
                 },
                 assignedBy: {
                     id: 'user123',

@@ -53,12 +53,8 @@ class CategoryService {
             return category;
         }
 
-        // Check if user can access this category
-        const canAccess = category.scope === 'global' ||
-                         (category.scope === 'personal' && category.created_by === user.id) ||
-                         user.role === 'admin';
-
-        return canAccess ? category : null;
+        // All categories are global now - any user can access
+        return category;
     }
 
     /**
@@ -69,35 +65,16 @@ class CategoryService {
      */
     async getCategoriesForUser(user, filters = {}) {
         const {
-            scope = 'all',
             include_archived = false,
             search = '',
             limit = 50,
             offset = 0
         } = filters;
 
-        // Build base filter
+        // Build base filter - all categories are global
         const whereConditions = {
             is_archived: include_archived ? undefined : false
         };
-
-        // Handle scope filtering
-        if (scope === 'personal') {
-            whereConditions.AND = [
-                { scope: 'personal' },
-                { created_by: user.id }
-            ];
-        } else if (scope === 'global') {
-            whereConditions.scope = 'global';
-        } else if (scope === 'all') {
-            // Show global + user's personal categories
-            if (user.role !== 'admin') {
-                whereConditions.OR = [
-                    { scope: 'global' },
-                    { AND: [{ scope: 'personal' }, { created_by: user.id }] }
-                ];
-            }
-        }
 
         // Add search filter
         if (search.trim()) {
@@ -123,7 +100,6 @@ class CategoryService {
                 }
             },
             orderBy: [
-                { scope: 'asc' }, // Global first
                 { name: 'asc' }
             ],
             skip: offset,
@@ -138,7 +114,12 @@ class CategoryService {
      * @returns {Object} Created category
      */
     async createCategory(categoryData, user) {
-        const { name, description, color = '#6B7280', scope = 'personal' } = categoryData;
+        const { name, description, color = '#6B7280' } = categoryData;
+
+        // Only admins can create categories
+        if (user.role !== 'admin') {
+            throw new Error('Only administrators can create categories');
+        }
 
         // Validate name
         if (!name || name.trim().length === 0) {
@@ -149,23 +130,16 @@ class CategoryService {
             throw new Error('Category name must be 100 characters or less');
         }
 
-        // Only admins can create global categories
-        if (scope === 'global' && user.role !== 'admin') {
-            throw new Error('Only administrators can create global categories');
-        }
-
-        // Check for duplicate names within scope
+        // Check for duplicate names
         const existingCategory = await prisma.ticket_categories.findFirst({
             where: {
                 name: name.trim(),
-                scope,
-                created_by: scope === 'personal' ? user.id : undefined,
                 is_archived: false
             }
         });
 
         if (existingCategory) {
-            throw new Error(`A ${scope} category with this name already exists`);
+            throw new Error('A category with this name already exists');
         }
 
         // Create category
@@ -174,7 +148,6 @@ class CategoryService {
                 name: name.trim(),
                 description: description?.trim() || null,
                 color: color,
-                scope: scope,
                 created_by: user.id
             },
             include: {
@@ -206,10 +179,9 @@ class CategoryService {
             throw new Error('Category not found');
         }
 
-        // Check permissions
-        const canEdit = user.role === 'admin' || existingCategory.created_by === user.id;
-        if (!canEdit) {
-            throw new Error('You can only edit your own categories');
+        // Check permissions - only admins can edit categories
+        if (user.role !== 'admin') {
+            throw new Error('Only administrators can edit categories');
         }
 
         // Validate updates
@@ -228,15 +200,13 @@ class CategoryService {
                 const duplicate = await prisma.ticket_categories.findFirst({
                     where: {
                         name: updates.name.trim(),
-                        scope: existingCategory.scope,
-                        created_by: existingCategory.scope === 'personal' ? existingCategory.created_by : undefined,
                         is_archived: false,
                         NOT: { id: categoryId }
                     }
                 });
 
                 if (duplicate) {
-                    throw new Error(`A ${existingCategory.scope} category with this name already exists`);
+                    throw new Error('A category with this name already exists');
                 }
             }
 
@@ -255,13 +225,7 @@ class CategoryService {
             validatedUpdates.color = updates.color;
         }
 
-        // Only admins can change scope
-        if (updates.scope !== undefined && updates.scope !== existingCategory.scope) {
-            if (user.role !== 'admin') {
-                throw new Error('Only administrators can change category scope');
-            }
-            validatedUpdates.scope = updates.scope;
-        }
+        // Scope is no longer supported - ignore scope updates
 
         // Add metadata
         validatedUpdates.updated_by = user.id;
@@ -368,9 +332,9 @@ class CategoryService {
             take: 10 // Top 10 most used categories
         });
 
-        // Get scope breakdown
-        const scopeBreakdown = await prisma.ticket_categories.groupBy({
-            by: ['scope'],
+        // Get creator breakdown
+        const creatorBreakdown = await prisma.ticket_categories.groupBy({
+            by: ['created_by'],
             where: { is_archived: false },
             _count: {
                 _all: true
@@ -384,14 +348,13 @@ class CategoryService {
                 archived_categories: archivedCategories,
                 categorized_tickets: totalCategorizedTickets
             },
-            scope_breakdown: scopeBreakdown.reduce((acc, item) => {
-                acc[item.scope] = item._count._all;
+            creator_breakdown: creatorBreakdown.reduce((acc, item) => {
+                acc[item.created_by] = item._count._all;
                 return acc;
             }, {}),
             top_categories: categoryUsage.map(cat => ({
                 id: cat.id,
                 name: cat.name,
-                scope: cat.scope,
                 creator_name: `${cat.creator.first_name} ${cat.creator.last_name}`,
                 ticket_count: cat._count.tickets
             }))
@@ -410,9 +373,8 @@ class CategoryService {
             return false;
         }
 
-        return category.scope === 'global' ||
-               (category.scope === 'personal' && category.created_by === user.id) ||
-               user.role === 'admin';
+        // All categories are global now - any user can use them
+        return true;
     }
 }
 

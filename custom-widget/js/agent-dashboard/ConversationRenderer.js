@@ -229,17 +229,15 @@ export class ConversationRenderer {
         }
 
         const color = categoryData.color || '#6B7280';
-        const isGlobal = categoryData.scope === 'global';
-        const badgeClass = isGlobal
-            ? 'bg-blue-100 text-blue-700 border border-blue-200'
-            : 'bg-gray-100 text-gray-700 border border-gray-200';
+        // All categories are global now
+        const badgeClass = 'bg-blue-100 text-blue-700 border border-blue-200';
 
         return `
             <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${badgeClass}"
-                 title="Category: ${categoryData.name}${isGlobal ? ' (Global)' : ''}">
+                 title="Category: ${categoryData.name} (Global)">
                 <div class="w-2 h-2 rounded-full" style="background-color: ${color};"></div>
                 <span class="max-w-16 truncate">${categoryData.name}</span>
-                ${isGlobal ? '<i class="fas fa-globe text-xs"></i>' : ''}
+                <i class="fas fa-globe text-xs"></i>
             </div>
         `;
     }

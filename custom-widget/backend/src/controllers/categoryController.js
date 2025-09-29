@@ -56,7 +56,6 @@ class CategoryController {
      */
     getCategories = asyncHandler(async (req, res) => {
         const {
-            scope = 'all',
             include_archived = 'false',
             page = '1',
             limit = '50',
@@ -68,30 +67,10 @@ class CategoryController {
         const limitNum = Math.min(parseInt(limit), 100); // Max 100 per page
         const skip = (pageNum - 1) * limitNum;
 
-        // Build filters based on user role and permissions
+        // Build filters - all categories are global now
         const filters = {
             is_archived: include_archived === 'true' ? undefined : false
         };
-
-        // Handle scope filtering
-        if (scope !== 'all') {
-            if (scope === 'personal') {
-                filters.AND = [
-                    { scope: 'personal' },
-                    { created_by: user.id }
-                ];
-            } else if (scope === 'global') {
-                filters.scope = 'global';
-            }
-        } else {
-            // For 'all', show global + user's personal categories
-            if (user.role !== 'admin') {
-                filters.OR = [
-                    { scope: 'global' },
-                    { AND: [{ scope: 'personal' }, { created_by: user.id }] }
-                ];
-            }
-        }
 
         // Add search filter
         if (search.trim()) {
@@ -118,7 +97,6 @@ class CategoryController {
                 }
             },
             orderBy: [
-                { scope: 'asc' }, // Global first
                 { name: 'asc' }
             ],
             skip,
@@ -134,7 +112,6 @@ class CategoryController {
             name: category.name,
             description: category.description,
             color: category.color,
-            scope: category.scope,
             created_by: category.created_by,
             creator: category.creator,
             creator_name: `${category.creator.first_name} ${category.creator.last_name}`,
@@ -143,8 +120,8 @@ class CategoryController {
             ticket_count: category._count.tickets,
             created_at: category.created_at,
             updated_at: category.updated_at,
-            can_edit: user.role === 'admin' || category.created_by === user.id,
-            can_delete: user.role === 'admin' || (category.created_by === user.id && category._count.tickets === 0)
+            can_edit: user.role === 'admin',
+            can_delete: user.role === 'admin' && category._count.tickets === 0
         }));
 
         res.json({
@@ -162,12 +139,17 @@ class CategoryController {
     /**
      * Create new category
      * @route POST /api/categories
-     * @access Agent/Admin
-     * @body { name, description?, color?, scope? }
+     * @access Admin only
+     * @body { name, description?, color? }
      */
     createCategory = asyncHandler(async (req, res) => {
-        const { name, description, color = '#6B7280', scope = 'personal' } = req.body;
+        const { name, description, color = '#6B7280' } = req.body;
         const { user } = req;
+
+        // Only admins can create categories
+        if (user.role !== 'admin') {
+            return res.status(403).json({ error: 'Only administrators can create categories' });
+        }
 
         // Validation
         if (!name || name.trim().length === 0) {
@@ -178,30 +160,23 @@ class CategoryController {
             return res.status(400).json({ error: 'Category name must be 100 characters or less' });
         }
 
-        // Only admins can create global categories
-        if (scope === 'global' && user.role !== 'admin') {
-            return res.status(403).json({ error: 'Only administrators can create global categories' });
-        }
-
         // Validate color format (hex)
         const colorRegex = /^#[0-9A-F]{6}$/i;
         if (color && !colorRegex.test(color)) {
             return res.status(400).json({ error: 'Color must be a valid hex color (e.g., #FF0000)' });
         }
 
-        // Check for duplicate names within scope
+        // Check for duplicate names
         const existingCategory = await prisma.ticket_categories.findFirst({
             where: {
                 name: name.trim(),
-                scope,
-                created_by: scope === 'personal' ? user.id : undefined,
                 is_archived: false
             }
         });
 
         if (existingCategory) {
             return res.status(409).json({
-                error: `A ${scope} category with this name already exists`
+                error: 'A category with this name already exists'
             });
         }
 
@@ -212,7 +187,6 @@ class CategoryController {
                 name: name.trim(),
                 description: description?.trim() || null,
                 color: color,
-                scope: scope,
                 created_by: user.id
             },
             include: {
@@ -237,7 +211,6 @@ class CategoryController {
                 name: category.name,
                 description: category.description,
                 color: category.color,
-                scope: category.scope,
                 created_by: category.created_by,
                 creator: category.creator,
                 creator_name: `${category.creator.first_name} ${category.creator.last_name}`,
@@ -267,7 +240,7 @@ class CategoryController {
                         creator: { select: { first_name: true, last_name: true, email: true } },
                         _count: { select: { tickets: true } }
                     },
-                    orderBy: [{ scope: 'asc' }, { name: 'asc' }]
+                    orderBy: [{ name: 'asc' }]
                 });
                 wsService.broadcastCategoryUpdate(allCategories);
             } catch (error) {
@@ -279,13 +252,18 @@ class CategoryController {
     /**
      * Update category
      * @route PUT /api/categories/:id
-     * @access Owner/Admin
-     * @body { name?, description?, color?, scope? }
+     * @access Admin only
+     * @body { name?, description?, color? }
      */
     updateCategory = asyncHandler(async (req, res) => {
         const { id } = req.params;
-        const { name, description, color, scope } = req.body;
+        const { name, description, color } = req.body;
         const { user } = req;
+
+        // Only admins can update categories
+        if (user.role !== 'admin') {
+            return res.status(403).json({ error: 'Only administrators can update categories' });
+        }
 
         // Get existing category
         const existingCategory = await prisma.ticket_categories.findUnique({
@@ -308,12 +286,6 @@ class CategoryController {
             return res.status(404).json({ error: 'Category not found' });
         }
 
-        // Check permissions
-        const canEdit = user.role === 'admin' || existingCategory.created_by === user.id;
-        if (!canEdit) {
-            return res.status(403).json({ error: 'You can only edit your own categories' });
-        }
-
         // Validate updates
         const updates = {};
 
@@ -330,8 +302,6 @@ class CategoryController {
                 const duplicate = await prisma.ticket_categories.findFirst({
                     where: {
                         name: name.trim(),
-                        scope: existingCategory.scope,
-                        created_by: existingCategory.scope === 'personal' ? existingCategory.created_by : undefined,
                         is_archived: false,
                         NOT: { id }
                     }
@@ -339,7 +309,7 @@ class CategoryController {
 
                 if (duplicate) {
                     return res.status(409).json({
-                        error: `A ${existingCategory.scope} category with this name already exists`
+                        error: 'A category with this name already exists'
                     });
                 }
             }
@@ -359,13 +329,6 @@ class CategoryController {
             updates.color = color;
         }
 
-        // Only admins can change scope
-        if (scope !== undefined && scope !== existingCategory.scope) {
-            if (user.role !== 'admin') {
-                return res.status(403).json({ error: 'Only administrators can change category scope' });
-            }
-            updates.scope = scope;
-        }
 
         // Add metadata
         updates.updated_by = user.id;
@@ -397,7 +360,6 @@ class CategoryController {
                 name: updatedCategory.name,
                 description: updatedCategory.description,
                 color: updatedCategory.color,
-                scope: updatedCategory.scope,
                 created_by: updatedCategory.created_by,
                 creator: updatedCategory.creator,
                 creator_name: `${updatedCategory.creator.first_name} ${updatedCategory.creator.last_name}`,
@@ -406,8 +368,8 @@ class CategoryController {
                 ticket_count: updatedCategory._count.tickets,
                 created_at: updatedCategory.created_at,
                 updated_at: updatedCategory.updated_at,
-                can_edit: canEdit,
-                can_delete: user.role === 'admin' || (updatedCategory.created_by === user.id && updatedCategory._count.tickets === 0)
+                can_edit: user.role === 'admin',
+                can_delete: user.role === 'admin' && updatedCategory._count.tickets === 0
             }
         };
 
@@ -427,7 +389,7 @@ class CategoryController {
                         creator: { select: { first_name: true, last_name: true, email: true } },
                         _count: { select: { tickets: true } }
                     },
-                    orderBy: [{ scope: 'asc' }, { name: 'asc' }]
+                    orderBy: [{ name: 'asc' }]
                 });
                 wsService.broadcastCategoryUpdate(allCategories);
             } catch (error) {
@@ -490,7 +452,7 @@ class CategoryController {
                         creator: { select: { first_name: true, last_name: true, email: true } },
                         _count: { select: { tickets: true } }
                     },
-                    orderBy: [{ scope: 'asc' }, { name: 'asc' }]
+                    orderBy: [{ name: 'asc' }]
                 });
                 wsService.broadcastCategoryUpdate(allCategories);
             } catch (error) {
@@ -541,9 +503,9 @@ class CategoryController {
             take: 10 // Top 10 most used categories
         });
 
-        // Get scope breakdown
-        const scopeBreakdown = await prisma.ticket_categories.groupBy({
-            by: ['scope'],
+        // Get creator breakdown
+        const creatorBreakdown = await prisma.ticket_categories.groupBy({
+            by: ['created_by'],
             where: { is_archived: false },
             _count: {
                 _all: true
@@ -559,14 +521,13 @@ class CategoryController {
                     archived_categories: archivedCategories,
                     categorized_tickets: totalCategorizedTickets
                 },
-                scope_breakdown: scopeBreakdown.reduce((acc, item) => {
-                    acc[item.scope] = item._count._all;
+                creator_breakdown: creatorBreakdown.reduce((acc, item) => {
+                    acc[item.created_by] = item._count._all;
                     return acc;
                 }, {}),
                 top_categories: categoryUsage.map(cat => ({
                     id: cat.id,
                     name: cat.name,
-                    scope: cat.scope,
                     creator_name: `${cat.creator.first_name} ${cat.creator.last_name}`,
                     ticket_count: cat._count.tickets
                 }))

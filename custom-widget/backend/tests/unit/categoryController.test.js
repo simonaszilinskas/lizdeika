@@ -25,7 +25,6 @@ class CategoryController {
     async getCategories(req, res) {
         try {
             const {
-                scope = 'all',
                 include_archived = 'false',
                 search = '',
                 limit = '50',
@@ -33,7 +32,6 @@ class CategoryController {
             } = req.query;
 
             const filters = {
-                scope,
                 include_archived: include_archived === 'true',
                 search,
                 limit: Math.min(parseInt(limit, 10) || 50, 100),
@@ -206,7 +204,6 @@ describe('CategoryController', () => {
                 {
                     id: 'cat123',
                     name: 'Bug Report',
-                    scope: 'global',
                     _count: { tickets: 5 }
                 }
             ];
@@ -216,7 +213,6 @@ describe('CategoryController', () => {
             await controller.getCategories(req, res);
 
             expect(mockCategoryService.getCategoriesForUser).toHaveBeenCalledWith(req.user, {
-                scope: 'all',
                 include_archived: false,
                 search: '',
                 limit: 50,
@@ -236,7 +232,6 @@ describe('CategoryController', () => {
 
         it('should handle query parameters', async () => {
             req.query = {
-                scope: 'personal',
                 include_archived: 'true',
                 search: 'bug',
                 limit: '25',
@@ -248,7 +243,6 @@ describe('CategoryController', () => {
             await controller.getCategories(req, res);
 
             expect(mockCategoryService.getCategoriesForUser).toHaveBeenCalledWith(req.user, {
-                scope: 'personal',
                 include_archived: true,
                 search: 'bug',
                 limit: 25,
@@ -288,7 +282,6 @@ describe('CategoryController', () => {
             const mockCategory = {
                 id: 'cat123',
                 name: 'Bug Report',
-                scope: 'global'
             };
 
             categoryService.getCategoryById.mockResolvedValue(mockCategory);
@@ -337,7 +330,6 @@ describe('CategoryController', () => {
                 name: 'Feature Request',
                 description: 'New features',
                 color: '#00FF00',
-                scope: 'personal'
             };
 
             const mockCategory = { id: 'cat123', ...req.body };
@@ -367,9 +359,9 @@ describe('CategoryController', () => {
             });
         });
 
-        it('should handle permission errors', async () => {
-            req.body = { name: 'Global Category', scope: 'global' };
-            const error = new Error('Only administrators can create global categories');
+        it('should handle admin-only permission errors', async () => {
+            req.body = { name: 'Test Category' };
+            const error = new Error('Only administrators can perform this action');
             categoryService.createCategory.mockRejectedValue(error);
 
             await controller.createCategory(req, res);
