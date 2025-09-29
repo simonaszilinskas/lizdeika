@@ -147,6 +147,11 @@ export class ConnectionManager {
             }
         });
 
+        this.socket.on('categories-updated', (data) => {
+            console.log('🏷️ ConnectionManager: Categories updated via WebSocket:', data.categories?.length || 'unknown');
+            this.stateManager.emit('categoriesUpdated', data.categories);
+        });
+
         // Generic real-time update event
         this.socket.on('settings-update', (data) => {
             console.log('⚡ ConnectionManager: Settings update received:', data.type);
@@ -199,11 +204,15 @@ export class ConnectionManager {
                     this.stateManager.setUsers(data.payload.users);
                 }
                 break;
-                
+
             case 'widget-config':
                 this.stateManager.setWidgetConfiguration(data.payload.config);
                 break;
-                
+
+            case 'categories':
+                this.stateManager.emit('categoriesUpdated', data.payload.categories);
+                break;
+
             default:
                 console.log('❓ ConnectionManager: Unknown settings update type:', data.type);
         }

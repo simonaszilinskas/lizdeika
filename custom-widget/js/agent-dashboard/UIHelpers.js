@@ -243,7 +243,18 @@ export class UIHelpers {
                             ${this.renderAgentOptions(conversationId)}
                         </div>
                     </div>
-                    <button onclick="dashboard.archiveConversation('${conversationId}', event)" 
+                    <div class="relative">
+                        <button onclick="dashboard.assignmentManager.toggleCategoryDropdown('${conversationId}', event)"
+                                class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded"
+                                title="Assign category">
+                            <i class="fas fa-tag"></i>
+                        </button>
+                        <div id="category-dropdown-${conversationId}"
+                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 min-w-40 opacity-100 max-h-48 overflow-y-auto">
+                            <!-- Categories will be loaded dynamically -->
+                        </div>
+                    </div>
+                    <button onclick="dashboard.archiveConversation('${conversationId}', event)"
                             class="px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs rounded"
                             title="Archive conversation">
                         <i class="fas fa-archive"></i>
@@ -266,7 +277,18 @@ export class UIHelpers {
                             ${this.renderAgentOptions(conversationId)}
                         </div>
                     </div>
-                    <button onclick="dashboard.archiveConversation('${conversationId}', event)" 
+                    <div class="relative">
+                        <button onclick="dashboard.assignmentManager.toggleCategoryDropdown('${conversationId}', event)"
+                                class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded"
+                                title="Assign category">
+                            <i class="fas fa-tag"></i>
+                        </button>
+                        <div id="category-dropdown-${conversationId}"
+                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 min-w-40 opacity-100 max-h-48 overflow-y-auto">
+                            <!-- Categories will be loaded dynamically -->
+                        </div>
+                    </div>
+                    <button onclick="dashboard.archiveConversation('${conversationId}', event)"
                             class="px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs rounded"
                             title="Archive conversation">
                         <i class="fas fa-archive"></i>

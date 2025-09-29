@@ -231,6 +231,112 @@ export class AssignmentManager {
     }
 
     /**
+     * Assign category to conversation
+     * @param {string} conversationId - Conversation ID
+     * @param {string} categoryId - Category ID (null to remove category)
+     * @param {Event} event - Click event to prevent propagation
+     */
+    async assignCategory(conversationId, categoryId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+
+        // Close category dropdown
+        const dropdown = document.getElementById(`category-dropdown-${conversationId}`);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+
+        try {
+            console.log('🏷️ Assigning category:', categoryId, 'to conversation:', conversationId);
+            await this.apiManager.assignCategory(conversationId, categoryId);
+            console.log('✅ Category assignment successful, refreshing conversation list...');
+
+            // Clear modern loader cache to force fresh data
+            this.modernConversationLoader.refresh();
+            await this.dashboard.loadConversations();
+            console.log('✅ Conversation list refreshed after category assignment');
+        } catch (error) {
+            this.handleAssignmentError(error, 'assign category to');
+        }
+    }
+
+    /**
+     * Toggle category dropdown visibility
+     * @param {string} conversationId - Conversation ID
+     * @param {Event} event - Click event
+     */
+    async toggleCategoryDropdown(conversationId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+
+        const dropdown = document.getElementById(`category-dropdown-${conversationId}`);
+        if (!dropdown) {
+            console.error('Category dropdown not found for conversation:', conversationId);
+            return;
+        }
+
+        // Toggle visibility
+        const isHidden = dropdown.classList.contains('hidden');
+
+        // Hide all other dropdowns first
+        document.querySelectorAll('[id^="category-dropdown-"]').forEach(d => {
+            if (d.id !== `category-dropdown-${conversationId}`) {
+                d.classList.add('hidden');
+            }
+        });
+
+        if (isHidden) {
+            // Load categories and populate dropdown
+            try {
+                const categories = await this.apiManager.loadCategories();
+                dropdown.innerHTML = this.renderCategoryOptions(conversationId, categories);
+                dropdown.classList.remove('hidden');
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+                dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500">Error loading categories</div>';
+                dropdown.classList.remove('hidden');
+            }
+        } else {
+            dropdown.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Render category dropdown options
+     * @param {string} conversationId - Conversation ID
+     * @param {Array} categories - Array of category objects
+     * @returns {string} HTML string for category options
+     */
+    renderCategoryOptions(conversationId, categories) {
+        if (!categories || categories.length === 0) {
+            return '<div class="px-3 py-2 text-xs text-gray-500">No categories available</div>';
+        }
+
+        let html = `
+            <div onclick="dashboard.assignmentManager.assignCategory('${conversationId}', null, event)"
+                 class="px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100">
+                <span class="text-gray-500">No Category</span>
+            </div>
+        `;
+
+        categories.forEach(category => {
+            const colorStyle = category.color ? `style="color: ${category.color};"` : '';
+            html += `
+                <div onclick="dashboard.assignmentManager.assignCategory('${conversationId}', '${category.id}', event)"
+                     class="px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full" style="background-color: ${category.color || '#6B7280'};"></div>
+                    <span ${colorStyle}>${category.name}</span>
+                    ${category.scope === 'global' ? '<span class="text-xs text-blue-500">[Global]</span>' : ''}
+                </div>
+            `;
+        });
+
+        return html;
+    }
+
+    /**
      * Reset chat view - delegate to state manager
      */
     resetChatView() {

@@ -213,9 +213,35 @@ export class ConversationRenderer {
      * @returns {boolean} True if needs response
      */
     conversationNeedsResponse(conv) {
-        return conv.lastMessage && 
-               conv.lastMessage.metadata && 
+        return conv.lastMessage &&
+               conv.lastMessage.metadata &&
                conv.lastMessage.metadata.pendingAgent;
+    }
+
+    /**
+     * Render category badge for conversation
+     * @param {Object} categoryData - Category data object
+     * @returns {string} HTML string for category badge
+     */
+    renderCategoryBadge(categoryData) {
+        if (!categoryData || !categoryData.name) {
+            return '';
+        }
+
+        const color = categoryData.color || '#6B7280';
+        const isGlobal = categoryData.scope === 'global';
+        const badgeClass = isGlobal
+            ? 'bg-blue-100 text-blue-700 border border-blue-200'
+            : 'bg-gray-100 text-gray-700 border border-gray-200';
+
+        return `
+            <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${badgeClass}"
+                 title="Category: ${categoryData.name}${isGlobal ? ' (Global)' : ''}">
+                <div class="w-2 h-2 rounded-full" style="background-color: ${color};"></div>
+                <span class="max-w-16 truncate">${categoryData.name}</span>
+                ${isGlobal ? '<i class="fas fa-globe text-xs"></i>' : ''}
+            </div>
+        `;
     }
 
 
@@ -268,6 +294,7 @@ export class ConversationRenderer {
                                 <span>User #${conv.userNumber || 'Unknown'}</span>
                                 ${unseenCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unseenCount}</span>` : ''}
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
+                                ${this.renderCategoryBadge(conv.categoryData)}
                             </div>
                             <div class="text-xs text-gray-500">
                                 ${UIHelpers.formatConversationDate(conv.startedAt)}
