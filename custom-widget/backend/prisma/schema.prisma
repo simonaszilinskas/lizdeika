@@ -126,50 +126,77 @@ model ticket_actions {
   @@index([ticket_id])
 }
 
+model ticket_categories {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  color       String        @default("#6B7280")
+  created_by  String
+  scope       CategoryScope @default(personal)
+  is_archived Boolean       @default(false)
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
+  updated_by  String?
+
+  creator users    @relation("CategoryCreator", fields: [created_by], references: [id])
+  updater users?   @relation("CategoryUpdater", fields: [updated_by], references: [id])
+  tickets tickets[]
+
+  @@unique([name, scope, created_by], name: "unique_category_per_scope_owner")
+  @@index([scope, is_archived], name: "scope_archived_lookup")
+  @@index([created_by, is_archived], name: "owner_archived_lookup")
+  @@index([name], name: "name_search")
+}
+
 model tickets {
-  id                                     String           @id
-  ticket_number                          String           @unique
+  id                                     String             @id
+  ticket_number                          String             @unique
   user_id                                String?
   assigned_agent_id                      String?
-  user_number                            Int?             @unique
-  priority                               TicketPriority   @default(medium)
-  category                               String?
+  user_number                            Int?               @unique
+  priority                               TicketPriority     @default(medium)
+  category                               String?            // Legacy field - will be removed after migration
+  category_id                            String?            // New FK to ticket_categories
   subject                                String
   description                            String?
-  source                                 TicketSource     @default(widget)
-  archived                               Boolean          @default(false)
-  created_at                             DateTime         @default(now())
+  source                                 TicketSource       @default(widget)
+  archived                               Boolean            @default(false)
+  created_at                             DateTime           @default(now())
   updated_at                             DateTime
   messages                               messages[]
   ticket_actions                         ticket_actions[]
-  users_tickets_assigned_agent_idTousers users?           @relation("tickets_assigned_agent_idTousers", fields: [assigned_agent_id], references: [id])
-  users_tickets_user_idTousers           users?           @relation("tickets_user_idTousers", fields: [user_id], references: [id])
+  ticket_category                        ticket_categories? @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  users_tickets_assigned_agent_idTousers users?             @relation("tickets_assigned_agent_idTousers", fields: [assigned_agent_id], references: [id])
+  users_tickets_user_idTousers           users?             @relation("tickets_user_idTousers", fields: [user_id], references: [id])
 
   @@index([assigned_agent_id])
   @@index([created_at])
   @@index([archived])
+  @@index([category_id])
 }
 
 model users {
-  id                                       String            @id
-  email                                    String            @unique
+  id                                       String              @id
+  email                                    String              @unique
   password_hash                            String
   first_name                               String
   last_name                                String
-  role                                     UserRole          @default(user)
-  is_active                                Boolean           @default(true)
-  email_verified                           Boolean           @default(false)
+  role                                     UserRole            @default(user)
+  is_active                                Boolean             @default(true)
+  email_verified                           Boolean             @default(false)
   last_login                               DateTime?
-  created_at                               DateTime          @default(now())
+  created_at                               DateTime            @default(now())
   updated_at                               DateTime
-  user_number                              Int?              @unique
+  user_number                              Int?                @unique
   agent_status                             agent_status?
   messages                                 messages[]
   refresh_tokens                           refresh_tokens[]
   ticket_actions                           ticket_actions[]
-  tickets_tickets_assigned_agent_idTousers tickets[]         @relation("tickets_assigned_agent_idTousers")
-  tickets_tickets_user_idTousers           tickets[]         @relation("tickets_user_idTousers")
+  tickets_tickets_assigned_agent_idTousers tickets[]           @relation("tickets_assigned_agent_idTousers")
+  tickets_tickets_user_idTousers           tickets[]           @relation("tickets_user_idTousers")
   user_activities                          user_activities[]
+  created_categories                       ticket_categories[] @relation("CategoryCreator")
+  updated_categories                       ticket_categories[] @relation("CategoryUpdater")
 
   @@index([is_active])
   @@index([last_login])
@@ -229,4 +256,9 @@ enum UserActivityType {
   system
   profile
   security
+}
+
+enum CategoryScope {
+  personal
+  global
 }

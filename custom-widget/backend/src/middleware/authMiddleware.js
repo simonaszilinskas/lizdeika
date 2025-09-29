@@ -147,6 +147,11 @@ const requireAdmin = requireRoles('admin');
 const requireAgent = requireRoles('agent', 'admin');
 
 /**
+ * Alias for requireAgent - clearer naming for category endpoints
+ */
+const requireAgentOrAdmin = requireAgent;
+
+/**
  * Require user to be verified
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -301,6 +306,7 @@ module.exports = {
   requireRoles,
   requireAdmin,
   requireAgent,
+  requireAgentOrAdmin,
   requireVerified,
   requireOwnershipOrAdmin,
   requireOnlineAgent,

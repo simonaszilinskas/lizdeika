@@ -839,6 +839,234 @@ class ConversationController {
             });
         }
     }
+
+    /**
+     * Assign category to conversation
+     * @route PATCH /api/conversations/:conversationId/category
+     * @access Agent/Admin
+     */
+    async assignCategory(req, res) {
+        try {
+            const { conversationId } = req.params;
+            const { category_id } = req.body;
+            const { user } = req;
+
+            // Validate user has agent/admin role
+            if (!['agent', 'admin'].includes(user.role)) {
+                return res.status(403).json({ error: 'Agent or admin access required' });
+            }
+
+            // Validate conversation exists
+            const conversation = await conversationService.getConversation(conversationId);
+            if (!conversation) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+
+            // If removing category (category_id is null)
+            if (category_id === null) {
+                await conversationService.updateConversationCategory(conversationId, null);
+
+                // Emit WebSocket event
+                if (this.io) {
+                    this.io.to('agents').emit('ticket:category_removed', {
+                        ticket_id: conversationId,
+                        old_category_id: conversation.category_id || conversation.categoryId
+                    });
+                }
+
+                return res.json({
+                    id: conversationId,
+                    category_id: null,
+                    category_name: null,
+                    category_color: null
+                });
+            }
+
+            // Validate category exists if provided
+            const categoryService = require('../services/categoryService');
+            const category = await categoryService.getCategoryById(category_id);
+
+            if (!category) {
+                return res.status(404).json({ error: 'Category not found' });
+            }
+
+            // Check if user can use this category
+            const canUse = category.scope === 'global' ||
+                          (category.scope === 'personal' && category.created_by === user.id) ||
+                          user.role === 'admin';
+
+            if (!canUse) {
+                return res.status(403).json({ error: 'Cannot assign this category' });
+            }
+
+            // Check if category is archived
+            if (category.is_archived) {
+                return res.status(403).json({ error: 'Cannot assign archived category' });
+            }
+
+            // Update conversation
+            await conversationService.updateConversationCategory(conversationId, category_id);
+
+            // Log activity
+            await activityService.logActivity({
+                userId: user.id,
+                action: 'assign_category',
+                resource: 'conversation',
+                resourceId: conversationId,
+                details: {
+                    category_id: category_id,
+                    category_name: category.name
+                }
+            });
+
+            // Emit WebSocket event
+            if (this.io) {
+                this.io.to('agents').emit('ticket:category_assigned', {
+                    ticket_id: conversationId,
+                    category_id: category_id,
+                    category_name: category.name
+                });
+            }
+
+            res.json({
+                id: conversationId,
+                category_id: category_id,
+                category_name: category.name,
+                category_color: category.color
+            });
+
+        } catch (error) {
+            console.error('Error assigning category:', error);
+            res.status(500).json({ error: 'Failed to assign category' });
+        }
+    }
+
+    /**
+     * Bulk assign category to multiple conversations
+     * @route PATCH /api/admin/conversations/bulk-category
+     * @access Admin/Agent
+     */
+    async bulkAssignCategory(req, res) {
+        try {
+            const { ticket_ids, updates, options = {} } = req.body;
+            const { user } = req;
+
+            // Validate user has agent/admin role
+            if (!['agent', 'admin'].includes(user.role)) {
+                return res.status(403).json({ error: 'Agent or admin access required' });
+            }
+
+            // Validate input
+            if (!Array.isArray(ticket_ids) || ticket_ids.length === 0) {
+                return res.status(400).json({ error: 'ticket_ids array is required' });
+            }
+
+            if (!updates || typeof updates !== 'object') {
+                return res.status(400).json({ error: 'updates object is required' });
+            }
+
+            const { category_id } = updates;
+            const { skip_archived = true, continue_on_error = false } = options;
+
+            const result = {
+                success: [],
+                failed: [],
+                summary: { total: ticket_ids.length, succeeded: 0, failed: 0 }
+            };
+
+            // If assigning a category, validate it exists and user can use it
+            let category = null;
+            if (category_id !== null && category_id !== undefined) {
+                const categoryService = require('../services/categoryService');
+                category = await categoryService.getCategoryById(category_id);
+
+                if (!category) {
+                    return res.status(404).json({ error: 'Category not found' });
+                }
+
+                // Check if user can use this category
+                const canUse = category.scope === 'global' ||
+                              (category.scope === 'personal' && category.created_by === user.id) ||
+                              user.role === 'admin';
+
+                if (!canUse) {
+                    return res.status(403).json({ error: 'Cannot assign this category' });
+                }
+
+                // Check if category is archived
+                if (category.is_archived && skip_archived) {
+                    return res.status(403).json({ error: 'Cannot assign archived category' });
+                }
+            }
+
+            // Process each ticket
+            for (const ticketId of ticket_ids) {
+                try {
+                    // Validate conversation exists
+                    const conversation = await conversationService.getConversation(ticketId);
+                    if (!conversation) {
+                        result.failed.push({ ticket_id: ticketId, error: 'Conversation not found' });
+                        continue;
+                    }
+
+                    // Update conversation
+                    await conversationService.updateConversationCategory(ticketId, category_id);
+                    result.success.push(ticketId);
+
+                    // Emit WebSocket event
+                    if (this.io) {
+                        if (category_id === null) {
+                            this.io.to('agents').emit('ticket:category_removed', {
+                                ticket_id: ticketId,
+                                old_category_id: conversation.category_id || conversation.categoryId
+                            });
+                        } else {
+                            this.io.to('agents').emit('ticket:category_assigned', {
+                                ticket_id: ticketId,
+                                category_id: category_id,
+                                category_name: category.name
+                            });
+                        }
+                    }
+
+                } catch (error) {
+                    console.error(`Error processing ticket ${ticketId}:`, error);
+                    result.failed.push({
+                        ticket_id: ticketId,
+                        error: error.message || 'Unknown error'
+                    });
+
+                    if (!continue_on_error) {
+                        break;
+                    }
+                }
+            }
+
+            // Update summary
+            result.summary.succeeded = result.success.length;
+            result.summary.failed = result.failed.length;
+
+            // Log activity
+            await activityService.logActivity({
+                userId: user.id,
+                action: 'bulk_assign_category',
+                resource: 'conversation',
+                details: {
+                    category_id: category_id,
+                    category_name: category?.name || null,
+                    tickets_processed: result.summary.total,
+                    tickets_succeeded: result.summary.succeeded,
+                    tickets_failed: result.summary.failed
+                }
+            });
+
+            res.json(result);
+
+        } catch (error) {
+            console.error('Bulk category assignment error:', error);
+            res.status(500).json({ error: 'Failed to assign categories' });
+        }
+    }
 }
 
 module.exports = ConversationController;

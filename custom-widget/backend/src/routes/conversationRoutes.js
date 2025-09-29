@@ -30,6 +30,7 @@
  */
 const express = require('express');
 const ConversationController = require('../controllers/conversationController');
+const { authenticateToken, requireAgentOrAdmin } = require('../middleware/authMiddleware');
 
 function createConversationRoutes(io) {
     const router = express.Router();
@@ -86,6 +87,11 @@ function createConversationRoutes(io) {
         conversationController.markMessagesAsSeen(req, res);
     });
 
+    // Category assignment endpoints (authenticated agents/admins only)
+    router.patch('/conversations/:conversationId/category', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.assignCategory(req, res);
+    });
+
     // Bulk operations (admin-only endpoints)
     router.post('/admin/conversations/bulk-archive', (req, res) => {
         conversationController.bulkArchiveConversations(req, res);
@@ -97,6 +103,10 @@ function createConversationRoutes(io) {
 
     router.post('/admin/conversations/bulk-assign', (req, res) => {
         conversationController.bulkAssignConversations(req, res);
+    });
+
+    router.patch('/admin/conversations/bulk-category', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.bulkAssignCategory(req, res);
     });
 
     return router;

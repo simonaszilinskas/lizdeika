@@ -116,6 +116,14 @@ class ConversationService {
                 include: {
                     users_tickets_user_idTousers: true,
                     users_tickets_assigned_agent_idTousers: true,
+                    ticket_category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                            scope: true
+                        }
+                    },
                     _count: {
                         select: { messages: true }
                     }
@@ -131,7 +139,7 @@ class ConversationService {
                 assignedAgentId = agentService.getUserAgentId(ticket.users_tickets_assigned_agent_idTousers);
             }
             
-            // Return in expected format
+            // Return in expected format with normalized category data
             return {
                 id: ticket.id,
                 visitorId: 'anonymous-session', // All website visitors are session-based
@@ -141,7 +149,15 @@ class ConversationService {
                 updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
-                category: ticket.category,
+                category: ticket.category, // Legacy field for backward compatibility
+                categoryId: ticket.category_id, // New FK field
+                category_id: ticket.category_id, // Alias for consistency
+                categoryData: ticket.ticket_category ? {
+                    id: ticket.ticket_category.id,
+                    name: ticket.ticket_category.name,
+                    color: ticket.ticket_category.color,
+                    scope: ticket.ticket_category.scope
+                } : null,
                 messageCount: ticket._count.messages
             };
         } catch (error) {
@@ -469,6 +485,14 @@ class ConversationService {
                 include: {
                     users_tickets_user_idTousers: true,
                     users_tickets_assigned_agent_idTousers: true,
+                    ticket_category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                            scope: true
+                        }
+                    },
                     messages: {
                         where: {
                             senderType: {
@@ -502,6 +526,15 @@ class ConversationService {
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 archived: ticket.archived, // Include archived status
+                category: ticket.category, // Legacy field for backward compatibility
+                categoryId: ticket.category_id, // New FK field
+                category_id: ticket.category_id, // Alias for consistency
+                categoryData: ticket.ticket_category ? {
+                    id: ticket.ticket_category.id,
+                    name: ticket.ticket_category.name,
+                    color: ticket.ticket_category.color,
+                    scope: ticket.ticket_category.scope
+                } : null,
                 messageCount: ticket._count.messages,
                 lastMessage: ticket.messages[0] ? {
                     id: ticket.messages[0].id,
@@ -586,12 +619,20 @@ class ConversationService {
             const userId = agentUser.id;
             
             const tickets = await prisma.tickets.findMany({
-                where: { 
+                where: {
                     assigned_agent_id: userId  // Use the database user ID
                 },
                 include: {
                     users_tickets_user_idTousers: true,
                     users_tickets_assigned_agent_idTousers: true,
+                    ticket_category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                            scope: true
+                        }
+                    },
                     _count: {
                         select: { messages: true }
                     }
@@ -608,6 +649,15 @@ class ConversationService {
                 updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
+                category: ticket.category, // Legacy field for backward compatibility
+                categoryId: ticket.category_id, // New FK field
+                category_id: ticket.category_id, // Alias for consistency
+                categoryData: ticket.ticket_category ? {
+                    id: ticket.ticket_category.id,
+                    name: ticket.ticket_category.name,
+                    color: ticket.ticket_category.color,
+                    scope: ticket.ticket_category.scope
+                } : null,
                 messageCount: ticket._count.messages
             }));
         } catch (error) {
@@ -1070,6 +1120,141 @@ class ConversationService {
 
         } catch (error) {
             console.error(`Failed to mark conversation as seen:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update conversation category
+     * @param {string} conversationId - Conversation ID
+     * @param {string|null} categoryId - Category ID or null to remove
+     * @returns {Object} Updated conversation
+     */
+    async updateConversationCategory(conversationId, categoryId) {
+        try {
+            return await prisma.tickets.update({
+                where: { id: conversationId },
+                data: {
+                    category_id: categoryId,
+                    updated_at: new Date()
+                },
+                include: {
+                    ticket_category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                            scope: true
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error(`Failed to update conversation category: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get conversations by category
+     * @param {string} categoryId - Category ID
+     * @param {Object} options - Query options
+     * @returns {Array} Array of conversations
+     */
+    async getConversationsByCategory(categoryId, options = {}) {
+        const { limit = 50, offset = 0, includeArchived = false } = options;
+
+        try {
+            return await prisma.tickets.findMany({
+                where: {
+                    category_id: categoryId,
+                    archived: includeArchived ? undefined : false
+                },
+                include: {
+                    ticket_category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                            scope: true
+                        }
+                    },
+                    users_tickets_assigned_agent_idTousers: {
+                        select: {
+                            id: true,
+                            first_name: true,
+                            last_name: true,
+                            email: true
+                        }
+                    },
+                    users_tickets_user_idTousers: {
+                        select: {
+                            id: true,
+                            first_name: true,
+                            last_name: true,
+                            email: true
+                        }
+                    },
+                    _count: {
+                        select: { messages: true }
+                    }
+                },
+                orderBy: { updated_at: 'desc' },
+                skip: offset,
+                take: limit
+            });
+        } catch (error) {
+            console.error(`Failed to get conversations by category: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get conversation category statistics
+     * @returns {Object} Category statistics
+     */
+    async getCategoryStatistics() {
+        try {
+            const [categorizedCount, uncategorizedCount, categoryBreakdown] = await Promise.all([
+                // Count of categorized conversations
+                prisma.tickets.count({
+                    where: {
+                        category_id: { not: null },
+                        archived: false
+                    }
+                }),
+                // Count of uncategorized conversations
+                prisma.tickets.count({
+                    where: {
+                        category_id: null,
+                        archived: false
+                    }
+                }),
+                // Breakdown by category
+                prisma.tickets.groupBy({
+                    by: ['category_id'],
+                    where: {
+                        category_id: { not: null },
+                        archived: false
+                    },
+                    _count: {
+                        _all: true
+                    }
+                })
+            ]);
+
+            return {
+                total_conversations: categorizedCount + uncategorizedCount,
+                categorized_conversations: categorizedCount,
+                uncategorized_conversations: uncategorizedCount,
+                categorization_rate: categorizedCount / (categorizedCount + uncategorizedCount),
+                category_breakdown: categoryBreakdown.map(item => ({
+                    category_id: item.category_id,
+                    conversation_count: item._count._all
+                }))
+            };
+        } catch (error) {
+            console.error(`Failed to get category statistics: ${error.message}`);
             throw error;
         }
     }

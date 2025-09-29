@@ -41,31 +41,38 @@ class WebSocketService {
                 });
             });
             
+            // Join settings room
+            socket.on('join-room', (room) => {
+                socket.join(room);
+                console.log(`Socket ${socket.id} joined room: ${room}`);
+            });
+
             // Join agent dashboard
             socket.on('join-agent-dashboard', async (agentId) => {
                 socket.join('agents');
+                socket.join('settings');
                 socket.agentId = agentId;
                 console.log('🔥 DEBUG: Socket', socket.id, 'joined agents room for agent:', agentId);
-                
+
                 // Update agent status to online
                 await agentService.setAgentOnline(agentId, socket.id);
-                
+
                 console.log(`Agent ${agentId} connected with socket ${socket.id}`);
-                
+
                 // Send current system mode and connected agents to the joining agent
                 const systemMode = await agentService.getSystemMode();
                 socket.emit('system-mode-update', { mode: systemMode });
-                
-                // Handle gradual ticket redistribution when agents join  
+
+                // Handle gradual ticket redistribution when agents join
                 const redistributions = await agentService.redistributeOrphanedTickets(conversationService, 2);
                 if (redistributions.length > 0) {
                     console.log(`Redistributed ${redistributions.length} tickets to new agent ${agentId}`);
-                    this.io.to('agents').emit('tickets-reassigned', { 
+                    this.io.to('agents').emit('tickets-reassigned', {
                         reassignments: redistributions,
                         reason: 'agent_joined'
                     });
                 }
-                
+
                 // Broadcast connected agents update to all agents
                 const connectedAgents = await agentService.getConnectedAgents();
                 this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
@@ -199,6 +206,14 @@ class WebSocketService {
     getAgentsRoomSize() {
         const agentsRoom = this.io.sockets.adapter.rooms.get('agents');
         return agentsRoom ? agentsRoom.size : 0;
+    }
+
+    /**
+     * Broadcast category updates to settings room
+     */
+    broadcastCategoryUpdate(categories) {
+        this.io.to('settings').emit('categories-updated', { categories });
+        console.log('📢 WebSocketService: Broadcast category update to settings room');
     }
 
     // Smart update functionality removed for simplicity - using direct WebSocket events
