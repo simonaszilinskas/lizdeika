@@ -643,7 +643,7 @@ export class CategoryManagementModule {
 
         // Hide create category button for non-admins
         if (this.elements.createCategoryBtn) {
-            this.elements.createCategoryBtn.style.display = isAdmin ? 'block' : 'none';
+            this.elements.createCategoryBtn.style.display = isAdmin ? 'flex' : 'none';
         }
     }
 

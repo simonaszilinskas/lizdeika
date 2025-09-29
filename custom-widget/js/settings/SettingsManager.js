@@ -73,7 +73,13 @@ export class SettingsManager {
                 window.location.href = '/login.html';
                 return;
             }
-            
+
+            // Load current user BEFORE initializing modules so they have access to user data
+            console.log('👤 SettingsManager: Loading current user before module initialization');
+            await this.apiManager.loadCurrentUser();
+            this.currentUser = this.stateManager.getCurrentUser();
+            console.log('✅ SettingsManager: User loaded:', this.currentUser?.email, 'Role:', this.currentUser?.role);
+
             // Initialize feature modules
             console.log('🎯 SettingsManager: Initializing feature modules');
             await this.systemModeModule.initialize();
@@ -164,11 +170,9 @@ export class SettingsManager {
     async loadInitialData() {
         try {
             console.log('📊 SettingsManager: Loading initial data');
-            
-            // Load current user to determine admin status
-            await this.apiManager.loadCurrentUser();
-            
-            // Update legacy compatibility properties
+
+            // User already loaded before module initialization
+            // Just ensure legacy compatibility properties are set
             this.currentUser = this.stateManager.getCurrentUser();
             
             // Load system mode and agents
