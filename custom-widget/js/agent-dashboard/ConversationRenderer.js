@@ -872,15 +872,15 @@ export class ConversationRenderer {
             return false;
         }
 
-        // Find and update the category badge
-        const categoryContainer = queueItem.querySelector('.font-medium.text-sm.flex.items-center.gap-2');
+        // Find and update the category badge - use a more flexible selector
+        const categoryContainer = queueItem.querySelector('.font-medium');
         if (!categoryContainer) {
             console.warn(`Category container not found for conversation ${conversationId}`);
             return false;
         }
 
-        // Find existing category badge or its position
-        const existingBadge = categoryContainer.querySelector('.inline-flex.items-center.px-2.py-0\\.5.rounded-full');
+        // Find existing category badge - look for the specific badge structure
+        const existingBadge = categoryContainer.querySelector('[style*="background-color"]');
 
         if (categoryData && categoryData.name) {
             // Create new category badge HTML

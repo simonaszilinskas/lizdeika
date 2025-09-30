@@ -479,7 +479,7 @@ class ConversationService {
     async getAllConversationsWithStats() {
         try {
             const tickets = await prisma.tickets.findMany({
-                orderBy: { updated_at: 'desc' },
+                orderBy: { created_at: 'desc' },
                 include: {
                     users_tickets_user_idTousers: true,
                     users_tickets_assigned_agent_idTousers: true,
