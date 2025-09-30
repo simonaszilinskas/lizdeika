@@ -278,11 +278,8 @@ export class AssignmentManager {
             event.stopPropagation();
         }
 
-        // Close category dropdown
-        const dropdown = document.getElementById(`category-dropdown-${conversationId}`);
-        if (dropdown) {
-            dropdown.classList.add('hidden');
-        }
+        // Close the active dropdown using portal pattern
+        this.closeActiveDropdown();
 
         try {
             console.log('🏷️ Assigning category:', categoryId, 'to conversation:', conversationId);
