@@ -11,6 +11,43 @@ export class AssignmentManager {
         this.apiManager = dashboard.apiManager;
         this.uiHelpers = dashboard.uiHelpers;
         this.modernConversationLoader = dashboard.modernConversationLoader;
+        this.activeDropdown = null;
+        this.setupEventDelegation();
+    }
+
+    /**
+     * Setup event delegation for category dropdown buttons
+     */
+    setupEventDelegation() {
+        // Use event delegation on document body for dynamically created buttons
+        document.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-action="toggle-category-dropdown"]');
+            if (button) {
+                event.preventDefault();
+                event.stopPropagation();
+                const conversationId = button.dataset.conversationId;
+                this.toggleCategoryDropdown(conversationId, button);
+            }
+        });
+
+        // Close dropdown on click outside
+        document.addEventListener('click', (event) => {
+            if (this.activeDropdown &&
+                !event.target.closest('.category-dropdown-portal') &&
+                !event.target.closest('[data-action="toggle-category-dropdown"]')) {
+                this.closeActiveDropdown();
+            }
+        });
+
+        // Close dropdown on scroll
+        const chatQueue = document.getElementById('chat-queue-container');
+        if (chatQueue) {
+            chatQueue.addEventListener('scroll', () => {
+                if (this.activeDropdown) {
+                    this.closeActiveDropdown();
+                }
+            });
+        }
     }
 
     /**
@@ -262,56 +299,83 @@ export class AssignmentManager {
     }
 
     /**
-     * Toggle category dropdown visibility
+     * Toggle category dropdown visibility using portal pattern
      * @param {string} conversationId - Conversation ID
-     * @param {Event} event - Click event
+     * @param {HTMLElement} button - Button that triggered the dropdown
      */
-    async toggleCategoryDropdown(conversationId, event) {
-        if (event) {
-            event.stopPropagation();
-        }
-
-        const dropdown = document.getElementById(`category-dropdown-${conversationId}`);
-        if (!dropdown) {
-            console.error('Category dropdown not found for conversation:', conversationId);
-            return;
-        }
-
-        // Toggle visibility
-        const isHidden = dropdown.classList.contains('hidden');
-
-        // Hide all other dropdowns first
-        document.querySelectorAll('[id^="category-dropdown-"]').forEach(d => {
-            if (d.id !== `category-dropdown-${conversationId}`) {
-                d.classList.add('hidden');
+    async toggleCategoryDropdown(conversationId, button) {
+        // Close any existing dropdown
+        if (this.activeDropdown) {
+            // If clicking the same button, just close
+            if (this.activeDropdown.dataset.conversationId === conversationId) {
+                this.closeActiveDropdown();
+                return;
             }
-        });
+            this.closeActiveDropdown();
+        }
 
-        if (isHidden) {
+        // Create dropdown at body level (portal pattern)
+        const dropdown = document.createElement('div');
+        dropdown.className = 'category-dropdown-portal bg-white border border-gray-200 rounded-lg shadow-2xl max-h-48 overflow-y-auto';
+        dropdown.dataset.conversationId = conversationId;
+        dropdown.style.position = 'fixed';
+        dropdown.style.zIndex = '10000';
+        dropdown.style.minWidth = '200px';
+
+        try {
             // Load categories and populate dropdown
-            try {
-                const categories = await this.apiManager.loadCategories();
-                dropdown.innerHTML = this.renderCategoryOptions(conversationId, categories);
+            const categories = await this.apiManager.loadCategories();
+            dropdown.innerHTML = this.renderCategoryOptions(conversationId, categories);
 
-                // Position dropdown using fixed positioning
-                const button = event.target.closest('button');
-                if (button) {
-                    const rect = button.getBoundingClientRect();
-                    dropdown.style.position = 'fixed';
-                    dropdown.style.top = `${rect.bottom + 4}px`;
-                    dropdown.style.left = `${rect.left}px`;
-                    dropdown.style.width = 'auto';
-                    dropdown.style.minWidth = '160px';
-                }
+            // Position dropdown relative to button
+            const buttonRect = button.getBoundingClientRect();
+            const dropdownHeight = 200; // Approximate max height
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = window.innerWidth;
 
-                dropdown.classList.remove('hidden');
-            } catch (error) {
-                console.error('Failed to load categories:', error);
-                dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500">Error loading categories</div>';
-                dropdown.classList.remove('hidden');
+            // Determine vertical position
+            const spaceBelow = viewportHeight - buttonRect.bottom;
+            const shouldShowAbove = spaceBelow < dropdownHeight && buttonRect.top > dropdownHeight;
+
+            if (shouldShowAbove) {
+                dropdown.style.bottom = `${viewportHeight - buttonRect.top + 5}px`;
+                dropdown.style.top = 'auto';
+            } else {
+                dropdown.style.top = `${buttonRect.bottom + 5}px`;
+                dropdown.style.bottom = 'auto';
             }
-        } else {
-            dropdown.classList.add('hidden');
+
+            // Determine horizontal position
+            const spaceRight = viewportWidth - buttonRect.right;
+            if (spaceRight < 200) {
+                // Not enough space on right, align to button's right edge
+                dropdown.style.right = `${viewportWidth - buttonRect.right}px`;
+                dropdown.style.left = 'auto';
+            } else {
+                // Enough space, align to button's left edge
+                dropdown.style.left = `${buttonRect.left}px`;
+                dropdown.style.right = 'auto';
+            }
+
+            // Add to body
+            document.body.appendChild(dropdown);
+            this.activeDropdown = dropdown;
+
+        } catch (error) {
+            console.error('Failed to load categories:', error);
+            dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500">Error loading categories</div>';
+            document.body.appendChild(dropdown);
+            this.activeDropdown = dropdown;
+        }
+    }
+
+    /**
+     * Close the currently active dropdown
+     */
+    closeActiveDropdown() {
+        if (this.activeDropdown) {
+            this.activeDropdown.remove();
+            this.activeDropdown = null;
         }
     }
 

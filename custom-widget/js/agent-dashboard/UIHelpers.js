@@ -243,18 +243,12 @@ export class UIHelpers {
                             ${this.renderAgentOptions(conversationId)}
                         </div>
                     </div>
-                    <div class="relative">
-                        <button onclick="dashboard.assignmentManager.toggleCategoryDropdown('${conversationId}', event)"
-                                class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded"
-                                title="Assign category">
-                            <i class="fas fa-tag"></i>
-                        </button>
-                        <div id="category-dropdown-${conversationId}"
-                             class="hidden bg-white border border-gray-200 rounded-lg shadow-2xl opacity-100 max-h-48 overflow-y-auto"
-                             style="z-index: 999999;">
-                            <!-- Categories will be loaded dynamically -->
-                        </div>
-                    </div>
+                    <button data-action="toggle-category-dropdown"
+                            data-conversation-id="${conversationId}"
+                            class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded category-dropdown-trigger"
+                            title="Assign category">
+                        <i class="fas fa-tag"></i>
+                    </button>
                     <button onclick="dashboard.archiveConversation('${conversationId}', event)"
                             class="px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs rounded"
                             title="Archive conversation">
@@ -278,18 +272,12 @@ export class UIHelpers {
                             ${this.renderAgentOptions(conversationId)}
                         </div>
                     </div>
-                    <div class="relative">
-                        <button onclick="dashboard.assignmentManager.toggleCategoryDropdown('${conversationId}', event)"
-                                class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded"
-                                title="Assign category">
-                            <i class="fas fa-tag"></i>
-                        </button>
-                        <div id="category-dropdown-${conversationId}"
-                             class="hidden bg-white border border-gray-200 rounded-lg shadow-2xl opacity-100 max-h-48 overflow-y-auto"
-                             style="z-index: 999999;">
-                            <!-- Categories will be loaded dynamically -->
-                        </div>
-                    </div>
+                    <button data-action="toggle-category-dropdown"
+                            data-conversation-id="${conversationId}"
+                            class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded category-dropdown-trigger"
+                            title="Assign category">
+                        <i class="fas fa-tag"></i>
+                    </button>
                     <button onclick="dashboard.archiveConversation('${conversationId}', event)"
                             class="px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs rounded"
                             title="Archive conversation">
