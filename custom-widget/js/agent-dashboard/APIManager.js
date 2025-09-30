@@ -198,12 +198,8 @@ export class APIManager {
 
             const result = await response.json();
 
-            // Show success message
-            const actionText = categoryId ? 'Category assigned' : 'Category removed';
-            this.dashboard.showToast(`${actionText} successfully`, 'success');
-
-            // Refresh conversations to show updated category
-            await this.dashboard.loadConversations();
+            // Don't show toast or reload conversations here
+            // AssignmentManager handles the in-place update and toast
 
             return result;
         } catch (error) {

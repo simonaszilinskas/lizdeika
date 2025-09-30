@@ -1126,22 +1126,35 @@ class ConversationService {
      */
     async updateConversationCategory(conversationId, categoryId) {
         try {
-            return await prisma.tickets.update({
-                where: { id: conversationId },
-                data: {
-                    category_id: categoryId
-                    // Don't update updated_at to preserve conversation order
-                },
-                include: {
-                    ticket_category: {
-                        select: {
-                            id: true,
-                            name: true,
-                            color: true
+            const existing = await prisma.tickets.findUnique({
+                where: { id: conversationId }
+            });
+
+            if (!existing) {
+                throw new Error(`Conversation ${conversationId} not found`);
+            }
+
+            const [affectedRows, updated] = await prisma.$transaction([
+                prisma.$executeRaw`UPDATE tickets SET category_id = ${categoryId} WHERE id = ${conversationId}`,
+                prisma.tickets.findUnique({
+                    where: { id: conversationId },
+                    include: {
+                        ticket_category: {
+                            select: {
+                                id: true,
+                                name: true,
+                                color: true
+                            }
                         }
                     }
-                }
-            });
+                })
+            ]);
+
+            if (affectedRows === 0 || !updated) {
+                throw new Error(`Failed to update category for conversation ${conversationId}`);
+            }
+
+            return updated;
         } catch (error) {
             console.error(`Failed to update conversation category: ${error.message}`);
             throw error;

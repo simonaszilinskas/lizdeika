@@ -21,6 +21,7 @@ export class CategoryManagementModule {
         this.state = {
             categories: [],
             filteredCategories: [],
+            categoryOrder: [],
             filters: {
                 search: '',
                 includeArchived: false
@@ -252,7 +253,8 @@ export class CategoryManagementModule {
 
             // Handle response - some APIs return success field, others don't but have categories
             if ((response && response.success) || (response && response.categories)) {
-                this.state.categories = response.categories || [];
+                const categories = response.categories || [];
+                this.state.categories = this.sortCategoriesByOrder(categories);
                 this.applyFilters();
                 this.renderCategories();
 
@@ -320,6 +322,40 @@ export class CategoryManagementModule {
         }
 
         this.state.filteredCategories = filtered;
+    }
+
+    /**
+     * Maintain a stable display order for categories between updates
+     */
+    sortCategoriesByOrder(categories) {
+        if (!Array.isArray(categories)) {
+            return [];
+        }
+
+        const incomingIds = categories
+            .map(category => category?.id)
+            .filter(Boolean);
+
+        if (incomingIds.length === 0) {
+            return [...categories];
+        }
+
+        const preservedOrder = this.state.categoryOrder
+            .filter(id => incomingIds.includes(id));
+
+        const newIds = incomingIds
+            .filter(id => !this.state.categoryOrder.includes(id));
+
+        const updatedOrder = [...preservedOrder, ...newIds];
+        this.state.categoryOrder = updatedOrder;
+
+        const orderIndex = new Map(updatedOrder.map((id, index) => [id, index]));
+
+        return categories.slice().sort((a, b) => {
+            const aIndex = orderIndex.get(a?.id) ?? Number.MAX_SAFE_INTEGER;
+            const bIndex = orderIndex.get(b?.id) ?? Number.MAX_SAFE_INTEGER;
+            return aIndex - bIndex;
+        });
     }
 
     /**
@@ -692,7 +728,7 @@ export class CategoryManagementModule {
             this.categoriesUpdatedCallback = (categories) => {
                 console.log('🏷️ CategoryManagementModule: Received real-time category update');
                 if (categories && Array.isArray(categories)) {
-                    this.state.categories = categories;
+                    this.state.categories = this.sortCategoriesByOrder(categories);
                     this.applyFilters();
                     this.renderCategories();
                 } else {
@@ -732,6 +768,7 @@ export class CategoryManagementModule {
         this.state = {
             categories: [],
             filteredCategories: [],
+            categoryOrder: [],
             filters: {
                 search: '',
                 includeArchived: false
