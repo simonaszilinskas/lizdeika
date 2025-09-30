@@ -234,10 +234,9 @@ export class ConversationRenderer {
 
         return `
             <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${badgeClass}"
-                 title="Category: ${categoryData.name} (Global)">
+                 title="Category: ${categoryData.name}">
                 <div class="w-2 h-2 rounded-full" style="background-color: ${color};"></div>
                 <span class="max-w-16 truncate">${categoryData.name}</span>
-                <i class="fas fa-globe text-xs"></i>
             </div>
         `;
     }
