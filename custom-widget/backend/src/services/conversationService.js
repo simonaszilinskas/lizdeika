@@ -1129,8 +1129,8 @@ class ConversationService {
             return await prisma.tickets.update({
                 where: { id: conversationId },
                 data: {
-                    category_id: categoryId,
-                    updated_at: new Date()
+                    category_id: categoryId
+                    // Don't update updated_at to preserve conversation order
                 },
                 include: {
                     ticket_category: {
