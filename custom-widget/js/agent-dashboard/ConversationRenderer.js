@@ -844,4 +844,79 @@ export class ConversationRenderer {
 
         console.log(`🔝 Moved conversation ${conversationId} to top of list`);
     }
+
+    /**
+     * Update a conversation's category in-place without reloading the entire list
+     * @param {string} conversationId - ID of the conversation to update
+     * @param {Object|null} categoryData - New category data or null to remove category
+     */
+    updateConversationCategory(conversationId, categoryData) {
+        // Update the conversation data in the modern loader cache
+        const conversationData = this.dashboard.modernConversationLoader.getConversations();
+        const conversation = conversationData.all.find(conv => conv.id === conversationId);
+
+        if (!conversation) {
+            console.warn(`Conversation ${conversationId} not found in cache`);
+            return false;
+        }
+
+        // Update the category data
+        conversation.categoryData = categoryData;
+        conversation.categoryId = categoryData?.id || null;
+        console.log(`📝 Updated category for conversation ${conversationId}:`, categoryData);
+
+        // Update the DOM - find the conversation item
+        const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+        if (!queueItem) {
+            console.warn(`DOM element for conversation ${conversationId} not found`);
+            return false;
+        }
+
+        // Find and update the category badge
+        const categoryContainer = queueItem.querySelector('.font-medium.text-sm.flex.items-center.gap-2');
+        if (!categoryContainer) {
+            console.warn(`Category container not found for conversation ${conversationId}`);
+            return false;
+        }
+
+        // Find existing category badge or its position
+        const existingBadge = categoryContainer.querySelector('.inline-flex.items-center.px-2.py-0\\.5.rounded-full');
+
+        if (categoryData && categoryData.name) {
+            // Create new category badge HTML
+            const newBadgeHTML = this.renderCategoryBadge(categoryData);
+
+            if (existingBadge) {
+                // Replace existing badge
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newBadgeHTML;
+                const newBadge = tempDiv.firstChild;
+                if (newBadge) {
+                    existingBadge.replaceWith(newBadge);
+                }
+            } else {
+                // Add new badge after the user number and unseen count
+                const archiveIcon = categoryContainer.querySelector('.fa-archive');
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newBadgeHTML;
+                const newBadge = tempDiv.firstChild;
+
+                if (newBadge) {
+                    if (archiveIcon) {
+                        // Insert before archive icon
+                        archiveIcon.parentElement.insertBefore(newBadge, archiveIcon);
+                    } else {
+                        // Append to container
+                        categoryContainer.appendChild(newBadge);
+                    }
+                }
+            }
+        } else if (existingBadge) {
+            // Remove category badge if no category
+            existingBadge.remove();
+        }
+
+        console.log(`✅ Successfully updated category badge for conversation ${conversationId}`);
+        return true;
+    }
 }

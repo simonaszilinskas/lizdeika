@@ -283,13 +283,28 @@ export class AssignmentManager {
 
         try {
             console.log('🏷️ Assigning category:', categoryId, 'to conversation:', conversationId);
-            await this.apiManager.assignCategory(conversationId, categoryId);
-            console.log('✅ Category assignment successful, refreshing conversation list...');
+            const response = await this.apiManager.assignCategory(conversationId, categoryId);
+            console.log('✅ Category assignment successful, updating conversation in-place...');
 
-            // Clear modern loader cache to force fresh data
-            this.modernConversationLoader.refresh();
-            await this.dashboard.loadConversations();
-            console.log('✅ Conversation list refreshed after category assignment');
+            // Prepare category data from response
+            const categoryData = categoryId ? {
+                id: response.category_id || categoryId,
+                name: response.category_name || 'Unknown',
+                color: response.category_color || '#888888'
+            } : null;
+
+            // Update the conversation's category in-place without reloading
+            const updated = this.dashboard.conversationRenderer.updateConversationCategory(conversationId, categoryData);
+
+            if (updated) {
+                console.log('✅ Category badge updated successfully without reordering');
+                this.dashboard.showToast('Category updated', 'success');
+            } else {
+                console.warn('⚠️ Failed to update category badge in UI, falling back to reload');
+                // Only reload if in-place update failed
+                this.modernConversationLoader.refresh();
+                await this.dashboard.loadConversations();
+            }
         } catch (error) {
             this.handleAssignmentError(error, 'assign category to');
         }
