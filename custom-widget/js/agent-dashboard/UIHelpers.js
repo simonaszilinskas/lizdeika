@@ -250,8 +250,8 @@ export class UIHelpers {
                             <i class="fas fa-tag"></i>
                         </button>
                         <div id="category-dropdown-${conversationId}"
-                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-xl min-w-40 opacity-100 max-h-48 overflow-y-auto"
-                             style="z-index: 9999;">
+                             class="hidden bg-white border border-gray-200 rounded-lg shadow-2xl opacity-100 max-h-48 overflow-y-auto"
+                             style="z-index: 999999;">
                             <!-- Categories will be loaded dynamically -->
                         </div>
                     </div>
@@ -285,8 +285,8 @@ export class UIHelpers {
                             <i class="fas fa-tag"></i>
                         </button>
                         <div id="category-dropdown-${conversationId}"
-                             class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-xl min-w-40 opacity-100 max-h-48 overflow-y-auto"
-                             style="z-index: 9999;">
+                             class="hidden bg-white border border-gray-200 rounded-lg shadow-2xl opacity-100 max-h-48 overflow-y-auto"
+                             style="z-index: 999999;">
                             <!-- Categories will be loaded dynamically -->
                         </div>
                     </div>

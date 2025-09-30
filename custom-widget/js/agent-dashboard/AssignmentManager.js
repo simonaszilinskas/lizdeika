@@ -292,6 +292,18 @@ export class AssignmentManager {
             try {
                 const categories = await this.apiManager.loadCategories();
                 dropdown.innerHTML = this.renderCategoryOptions(conversationId, categories);
+
+                // Position dropdown using fixed positioning
+                const button = event.target.closest('button');
+                if (button) {
+                    const rect = button.getBoundingClientRect();
+                    dropdown.style.position = 'fixed';
+                    dropdown.style.top = `${rect.bottom + 4}px`;
+                    dropdown.style.left = `${rect.left}px`;
+                    dropdown.style.width = 'auto';
+                    dropdown.style.minWidth = '160px';
+                }
+
                 dropdown.classList.remove('hidden');
             } catch (error) {
                 console.error('Failed to load categories:', error);
