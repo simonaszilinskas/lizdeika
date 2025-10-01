@@ -237,13 +237,13 @@ export class ConversationRenderer {
         const isAiAssigned = categoryMetadata && categoryMetadata.source === 'ai';
         const aiIcon = isAiAssigned ? '<i class="fas fa-robot text-xs opacity-70" title="AI-categorized"></i>' : '';
 
-        // Build tooltip text
-        let tooltipText = `Category: ${categoryData.name}`;
+        // Build tooltip text with proper escaping to prevent XSS
+        let tooltipText = `Category: ${UIHelpers.escapeHtml(categoryData.name)}`;
         if (isAiAssigned && categoryMetadata.reasoning) {
             const confidence = categoryMetadata.confidence
                 ? ` (${(categoryMetadata.confidence * 100).toFixed(0)}% confidence)`
                 : '';
-            tooltipText += `\nAI-suggested${confidence}\nReason: ${categoryMetadata.reasoning}`;
+            tooltipText += `\nAI-suggested${confidence}\nReason: ${UIHelpers.escapeHtml(categoryMetadata.reasoning)}`;
         }
 
         return `
