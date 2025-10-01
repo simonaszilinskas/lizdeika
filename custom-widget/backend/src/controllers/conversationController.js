@@ -903,6 +903,7 @@ class ConversationController {
             // Log activity
             await activityService.logActivity({
                 userId: user.id,
+                action_type: 'conversation',
                 action: 'assign_category',
                 resource: 'conversation',
                 resourceId: conversationId,
@@ -1035,6 +1036,7 @@ class ConversationController {
             // Log activity
             await activityService.logActivity({
                 userId: user.id,
+                action_type: 'conversation',
                 action: 'bulk_assign_category',
                 resource: 'conversation',
                 details: {

@@ -851,8 +851,6 @@ export class ConversationRenderer {
      * @param {Object|null} categoryData - New category data or null to remove category
      */
     updateConversationCategory(conversationId, categoryData) {
-        console.log(`🔍 Attempting to update category for conversation ${conversationId}`, categoryData);
-
         // Update the conversation data in the modern loader cache
         const conversationData = this.dashboard.modernConversationLoader.getConversations();
         const conversation = conversationData.all.find(conv => conv.id === conversationId);
@@ -865,7 +863,6 @@ export class ConversationRenderer {
         // Update the category data
         conversation.categoryData = categoryData;
         conversation.categoryId = categoryData?.id || null;
-        console.log(`📝 Updated category in cache for conversation ${conversationId}:`, categoryData);
 
         // Update the DOM - find the conversation item
         const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
@@ -873,16 +870,13 @@ export class ConversationRenderer {
             console.warn(`❌ DOM element for conversation ${conversationId} not found`);
             return false;
         }
-        console.log(`✅ Found queue item for ${conversationId}`);
 
         // Find the container that has the user number and badges
         const categoryContainer = queueItem.querySelector('.font-medium');
         if (!categoryContainer) {
             console.warn(`❌ Category container (.font-medium) not found for conversation ${conversationId}`);
-            console.log(`Available classes in queue item:`, queueItem.innerHTML.substring(0, 200));
             return false;
         }
-        console.log(`✅ Found category container`);
 
         // Find existing category badge - look for the inline-flex element that contains the category
         // The badge has a child div with background-color for the color dot
@@ -894,7 +888,6 @@ export class ConversationRenderer {
                 existingBadge = colorDot.closest('.inline-flex');
             }
         }
-        console.log(`🔍 Existing badge found: ${existingBadge ? 'yes' : 'no'}`);
 
         if (categoryData && categoryData.name) {
             // Create new category badge HTML
@@ -907,7 +900,6 @@ export class ConversationRenderer {
                 const newBadge = tempDiv.firstElementChild;
                 if (newBadge) {
                     existingBadge.replaceWith(newBadge);
-                    console.log(`✅ Replaced existing badge with new category: ${categoryData.name}`);
                 } else {
                     console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
                 }
@@ -926,18 +918,15 @@ export class ConversationRenderer {
                         // Append to container
                         categoryContainer.appendChild(newBadge);
                     }
-                    console.log(`✅ Added new category badge: ${categoryData.name}`);
                 } else {
                     console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
                 }
             }
         } else if (existingBadge) {
             // Remove category badge if no category
-            console.log(`🗑️ Removing category badge`);
             existingBadge.remove();
         }
 
-        console.log(`✅ Successfully updated category badge for conversation ${conversationId}`);
         return true;
     }
 }
