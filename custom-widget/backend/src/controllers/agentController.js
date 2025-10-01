@@ -141,7 +141,7 @@ class AgentController {
      */
     async sendResponse(req, res) {
         try {
-            const { conversationId, message, agentId, usedSuggestion, suggestionAction, autoAssign } = req.body;
+            const { conversationId, message, agentId, usedSuggestion, suggestionAction, autoAssign, messageType, fileMetadata } = req.body;
             // suggestionAction: 'as-is', 'edited', 'from-scratch'
             // autoAssign: true to automatically assign conversation to responding agent
             
@@ -162,18 +162,29 @@ class AgentController {
             // Get agent details for attribution
             const agent = await agentService.getAgent(agentId);
             const agentName = agent ? (agent.name || agentId) : agentId;
-            
+
+            // Extract text from message (handle both string and AI response object)
+            let messageText = message;
+            if (typeof message === 'object' && message.response) {
+                messageText = message.response;
+            } else if (typeof message === 'object') {
+                messageText = JSON.stringify(message);
+            }
+
             // Store agent message with detailed attribution
             const agentMessage = {
                 id: uuidv4(),
                 conversationId,
-                content: message,
+                content: messageText,
                 sender: 'agent',
                 timestamp: new Date(),
                 agentId,
+                messageType: messageType || 'text',
                 metadata: {
                     suggestionAction: suggestionAction,
                     usedSuggestion: usedSuggestion,
+                    // Add file metadata if present
+                    ...(fileMetadata && { file: fileMetadata }),
                     // Response attribution for admin interface
                     responseAttribution: {
                         respondedBy: agentName, // Agent username/display name

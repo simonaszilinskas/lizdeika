@@ -388,11 +388,30 @@ export class ConversationRenderer {
         const isAI = msg.sender === 'ai';
         const isAgent = msg.sender === 'agent';
         const isSystem = msg.sender === 'system';
-        
-        const formattedContent = (isAI || isAgent) ? 
-            this.markdownToHtml(msg.content) : 
-            UIHelpers.escapeHtml(msg.content);
-        
+
+        let formattedContent;
+
+        // Check for file attachment in metadata
+        if (msg.metadata && msg.metadata.file) {
+            const fileUrl = msg.metadata.file.url;
+            const isImage = msg.metadata.file.mimetype.startsWith('image/');
+
+            if (isImage) {
+                formattedContent = `<a href="${fileUrl}" target="_blank"><img src="${fileUrl}" style="max-width: 300px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
+            } else {
+                formattedContent = `<a href="${fileUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800 underline">📎 ${UIHelpers.escapeHtml(msg.metadata.file.originalName)}</a>`;
+            }
+
+            // Add caption if present
+            if (msg.content) {
+                formattedContent += `<div class="mt-2">${UIHelpers.escapeHtml(msg.content)}</div>`;
+            }
+        } else {
+            formattedContent = (isAI || isAgent) ?
+                this.markdownToHtml(msg.content) :
+                UIHelpers.escapeHtml(msg.content);
+        }
+
         return `
             <div class="flex ${(isCustomer || isSystem) ? '' : 'justify-end'} mb-4" data-message-id="${msg.id}">
                 <div class="max-w-[70%]">

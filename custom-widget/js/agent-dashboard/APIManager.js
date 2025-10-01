@@ -303,7 +303,9 @@ export class APIManager {
                     agentId: this.dashboard.agentId,
                     usedSuggestion: metadata.usedSuggestion,
                     suggestionAction: suggestionAction,
-                    autoAssign: metadata.autoAssign || false
+                    autoAssign: metadata.autoAssign || false,
+                    messageType: metadata.messageType,
+                    fileMetadata: metadata.file
                 })
             });
 

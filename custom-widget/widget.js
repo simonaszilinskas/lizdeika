@@ -517,7 +517,7 @@
                 ${msg.sender === 'visitor' ? 'justify-content: flex-end;' : ''}
             `;
 
-            const bubbleStyle = msg.sender === 'visitor' 
+            const bubbleStyle = msg.sender === 'visitor'
                 ? `background: ${this.config.theme.primaryColor}; color: white;`
                 : 'background: white; color: #1f2937;';
 
@@ -527,7 +527,14 @@
                 content = `🤖 *Atsako robotas - galimos klaidos*\n\n${content}`;
             }
 
-            const formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
+            // Check for file attachment in metadata
+            let formattedText;
+            if (msg.metadata && msg.metadata.file) {
+                const fileUrl = `${this.config.apiUrl}${msg.metadata.file.url}`;
+                formattedText = this.renderFileMessage(msg.metadata.file, content, fileUrl);
+            } else {
+                formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
+            }
 
             messageDiv.innerHTML = `
                 <div style="
@@ -715,7 +722,10 @@
                     tempMsg.setAttribute('data-message-id', data.userMessage.id);
                     // Update message with clickable file link
                     const fileUrl = `${this.config.apiUrl}${uploadData.file.url}`;
-                    tempMsg.querySelector('p').innerHTML = this.renderFileMessage(uploadData.file, caption, fileUrl);
+                    const contentDiv = tempMsg.querySelector('div > div');
+                    if (contentDiv) {
+                        contentDiv.innerHTML = this.renderFileMessage(uploadData.file, caption, fileUrl);
+                    }
                 }
 
                 if (isNewConversation) {
