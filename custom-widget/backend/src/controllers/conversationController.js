@@ -1160,6 +1160,82 @@ class ConversationController {
             });
         }
     }
+
+    /**
+     * Toggle manual category override flag for a ticket
+     * Allows agents to re-enable AI categorization after manual override
+     * @route PUT /api/conversations/:id/category-override
+     * @access Agent/Admin
+     */
+    async toggleCategoryOverride(req, res) {
+        try {
+            const { id: conversationId } = req.params;
+            const { manual_override } = req.body;
+            const { user } = req;
+
+            // Validate user has agent/admin role
+            if (!['agent', 'admin'].includes(user.role)) {
+                return res.status(403).json({ error: 'Agent or admin access required' });
+            }
+
+            // Validate input
+            if (typeof manual_override !== 'boolean') {
+                return res.status(400).json({
+                    error: 'manual_override must be a boolean value'
+                });
+            }
+
+            // Get conversation
+            const conversation = await conversationService.getConversation(conversationId);
+            if (!conversation) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+
+            // Update the override flag
+            const updated = await prisma.tickets.update({
+                where: { id: conversationId },
+                data: {
+                    manual_category_override: manual_override,
+                    // Clear AI metadata when re-enabling AI control
+                    category_metadata: manual_override === false ? null : conversation.category_metadata
+                },
+                select: {
+                    id: true,
+                    manual_category_override: true,
+                    category_id: true,
+                    category_metadata: true
+                }
+            });
+
+            // Log activity
+            await activityService.logActivity({
+                userId: user.id,
+                action_type: 'conversation',
+                action: manual_override ? 'enable_manual_category_override' : 'enable_ai_categorization',
+                resource: 'conversation',
+                resourceId: conversationId,
+                details: {
+                    manual_category_override: manual_override
+                }
+            });
+
+            res.json({
+                success: true,
+                message: manual_override
+                    ? 'Manual category control enabled - AI will not recategorize this ticket'
+                    : 'AI categorization re-enabled - ticket may be auto-categorized',
+                data: updated
+            });
+
+        } catch (error) {
+            console.error('Failed to toggle category override:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to update category override setting',
+                details: error.message
+            });
+        }
+    }
 }
 
 module.exports = ConversationController;

@@ -379,6 +379,7 @@ Tavo atsakymas:`;
                 where: { id: ticketId },
                 data: {
                     category_id: result.categoryId,
+                    manual_category_override: false, // AI categorization, not manual
                     category_metadata: {
                         source: 'ai',
                         confidence: result.confidence,

@@ -122,6 +122,10 @@ function createConversationRoutes(io) {
         conversationController.triggerCategorizationJob(req, res);
     });
 
+    router.put('/conversations/:id/category-override', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.toggleCategoryOverride(req, res);
+    });
+
     return router;
 }
 
