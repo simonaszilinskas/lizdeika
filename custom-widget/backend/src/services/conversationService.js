@@ -1159,6 +1159,48 @@ class ConversationService {
     }
 
     /**
+     * Toggle manual category override flag
+     * @param {string} conversationId - Conversation ID
+     * @param {boolean} manualOverride - Whether manual override is enabled
+     * @returns {Object} Updated ticket with override status
+     */
+    async toggleCategoryOverride(conversationId, manualOverride) {
+        try {
+            const existing = await prisma.tickets.findUnique({
+                where: { id: conversationId },
+                select: {
+                    id: true,
+                    category_metadata: true
+                }
+            });
+
+            if (!existing) {
+                throw new Error(`Conversation ${conversationId} not found`);
+            }
+
+            const updated = await prisma.tickets.update({
+                where: { id: conversationId },
+                data: {
+                    manual_category_override: manualOverride,
+                    // Clear AI metadata when re-enabling AI control
+                    category_metadata: manualOverride === false ? null : existing.category_metadata
+                },
+                select: {
+                    id: true,
+                    manual_category_override: true,
+                    category_id: true,
+                    category_metadata: true
+                }
+            });
+
+            return updated;
+        } catch (error) {
+            console.error(`Failed to toggle category override: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
      * Get conversations by category
      * @param {string} categoryId - Category ID
      * @param {Object} options - Query options

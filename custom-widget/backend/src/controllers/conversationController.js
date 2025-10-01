@@ -1185,27 +1185,8 @@ class ConversationController {
                 });
             }
 
-            // Get conversation
-            const conversation = await conversationService.getConversation(conversationId);
-            if (!conversation) {
-                return res.status(404).json({ error: 'Conversation not found' });
-            }
-
-            // Update the override flag
-            const updated = await prisma.tickets.update({
-                where: { id: conversationId },
-                data: {
-                    manual_category_override: manual_override,
-                    // Clear AI metadata when re-enabling AI control
-                    category_metadata: manual_override === false ? null : conversation.category_metadata
-                },
-                select: {
-                    id: true,
-                    manual_category_override: true,
-                    category_id: true,
-                    category_metadata: true
-                }
-            });
+            // Update the override flag via service
+            const updated = await conversationService.toggleCategoryOverride(conversationId, manual_override);
 
             // Log activity
             await activityService.logActivity({

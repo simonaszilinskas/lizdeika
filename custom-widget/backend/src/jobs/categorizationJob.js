@@ -18,7 +18,7 @@
  * 5. Report summary statistics
  *
  * Configuration:
- * - Runs every 5 minutes via cron schedule: '*/5 * * * *'
+ * - Runs every 5 minutes via cron schedule
  * - Processes max 10 tickets per run
  * - Respects ENABLE_AUTO_CATEGORIZATION environment variable
  * - Uses AI categorization service configuration
@@ -41,7 +41,7 @@ const aiCategorizationService = require('../services/aiCategorizationService');
 class CategorizationJob {
     constructor() {
         this.isRunning = false;
-        this.schedule = '*/5 * * * *'; // Every 5 minutes (asterisk-slash-5)
+        this.schedule = '*/5 * * * *'; // Every 5 minutes
         this.task = null;
         this.stats = {
             totalRuns: 0,
