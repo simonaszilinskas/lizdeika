@@ -439,26 +439,66 @@ Tavo atsakymas:`;
             return [];
         }
 
-        const delayDate = new Date();
-        delayDate.setHours(delayDate.getHours() - CONFIG.delayHours);
-
-        const tickets = await prisma.tickets.findMany({
+        // Find uncategorized tickets with messages
+        const candidates = await prisma.tickets.findMany({
             where: {
                 category_id: null,
                 manual_category_override: { not: true },
-                archived: false,
-                created_at: { lt: delayDate }
+                archived: false
             },
             select: {
                 id: true,
                 ticket_number: true,
-                created_at: true
+                created_at: true,
+                messages: {
+                    orderBy: { created_at: 'desc' },
+                    take: 1,
+                    select: { created_at: true }
+                }
             },
             orderBy: { created_at: 'asc' },
-            take: limit
+            take: limit * 3 // Get more candidates to filter by inactivity
         });
 
-        return tickets;
+        const minIdleMinutes = parseInt(process.env.AUTO_CATEGORIZATION_IDLE_MINUTES || '15');
+        const minMessages = parseInt(process.env.AUTO_CATEGORIZATION_MIN_MESSAGES || '3');
+        const idleThreshold = Date.now() - (minIdleMinutes * 60 * 1000);
+
+        // Filter by eligibility criteria
+        const eligible = [];
+        for (const ticket of candidates) {
+            // Check if has messages
+            if (!ticket.messages || ticket.messages.length === 0) {
+                continue;
+            }
+
+            // Check message count
+            const messageCount = await prisma.messages.count({
+                where: { ticket_id: ticket.id }
+            });
+
+            if (messageCount < minMessages) {
+                continue;
+            }
+
+            // Check inactivity
+            const lastMessageTime = new Date(ticket.messages[0].created_at).getTime();
+            if (lastMessageTime >= idleThreshold) {
+                continue;
+            }
+
+            eligible.push({
+                id: ticket.id,
+                ticket_number: ticket.ticket_number,
+                created_at: ticket.created_at
+            });
+
+            if (eligible.length >= limit) {
+                break;
+            }
+        }
+
+        return eligible;
     }
 
     /**
