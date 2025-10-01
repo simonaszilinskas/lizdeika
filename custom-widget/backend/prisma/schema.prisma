@@ -22,7 +22,7 @@ model messages {
   senderType   SenderType
   content      String
   message_type MessageType @default(text)
-  metadata     Json?
+  metadata     Json?       // For file attachments: {filename, path, mimetype, size, url}
   created_at   DateTime    @default(now())
   users        users?      @relation(fields: [sender_id], references: [id])
   tickets      tickets     @relation(fields: [ticket_id], references: [id], onDelete: Cascade)

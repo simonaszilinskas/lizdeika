@@ -24,6 +24,7 @@ export class EventManager {
         this.setupGlobalClickListener();
         this.setupArchiveToggleListener();
         this.setupBulkActionListeners();
+        this.setupFileAttachmentListeners();
     }
 
     /**
@@ -243,5 +244,51 @@ export class EventManager {
                 }
             });
         }
+    }
+
+    /**
+     * Setup file attachment listeners
+     */
+    setupFileAttachmentListeners() {
+        const attachButton = document.getElementById('agent-attach-button');
+        const fileInput = document.getElementById('agent-file-input');
+        const filePreview = document.getElementById('agent-file-preview');
+
+        if (!attachButton || !fileInput || !filePreview) {
+            console.warn('File attachment elements not found');
+            return;
+        }
+
+        // Attach button click - open file picker
+        attachButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection handler
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.dashboard.selectedFile = file;
+                filePreview.classList.remove('hidden');
+                filePreview.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span><i class="fas fa-paperclip mr-2"></i>${file.name}</span>
+                        <button type="button" id="agent-remove-file" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+
+                // Remove file handler
+                const removeBtn = document.getElementById('agent-remove-file');
+                if (removeBtn) {
+                    removeBtn.addEventListener('click', () => {
+                        this.dashboard.selectedFile = null;
+                        fileInput.value = '';
+                        filePreview.classList.add('hidden');
+                    });
+                }
+            }
+        });
     }
 }

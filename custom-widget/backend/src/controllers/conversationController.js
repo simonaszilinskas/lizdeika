@@ -228,8 +228,8 @@ class ConversationController {
             const validatedMessage = validateMessage(req.body.message);
             
             // Skip validation for visitorId - widget uses visitor-xxx format, not UUID
-            
-            const { conversationId, visitorId, requestHuman, enableRAG } = req.body;
+
+            const { conversationId, visitorId, requestHuman, enableRAG, messageType, fileMetadata } = req.body;
             const message = validatedMessage;
             // Create conversation if doesn't exist
             if (!(await conversationService.conversationExists(conversationId))) {
@@ -239,7 +239,7 @@ class ConversationController {
                     startedAt: new Date(),
                 };
                 await conversationService.createConversation(conversationId, conversation);
-                
+
                 // Auto-assign to available agent if in HITL mode
                 const currentMode = await agentService.getSystemMode();
                 if (currentMode === 'hitl') {
@@ -257,7 +257,7 @@ class ConversationController {
                         // Continue without assignment - conversation will be unassigned
                     }
                 }
-                
+
                 // Emit new conversation event to agents
                 console.log('🆕 New conversation created, notifying agents:', conversationId);
                 this.io.to('agents').emit('new-conversation', {
@@ -266,14 +266,16 @@ class ConversationController {
                     timestamp: new Date()
                 });
             }
-            
-            // Store user message
+
+            // Store user message with file metadata if present
             const userMessage = {
                 id: uuidv4(),
                 conversationId,
                 content: message,
                 sender: 'visitor',
-                timestamp: new Date()
+                timestamp: new Date(),
+                messageType: messageType || 'text',
+                metadata: fileMetadata ? { file: fileMetadata } : undefined
             };
             
             // First, add the user message atomically

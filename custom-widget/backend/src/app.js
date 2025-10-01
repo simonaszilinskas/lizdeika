@@ -58,6 +58,7 @@ const userRoutes = require('./routes/userRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const logsRoutes = require('./routes/logsRoutes');
 const createDocsRoutes = require('./routes/docsRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Import services
 const WebSocketService = require('./services/websocketService');
@@ -128,6 +129,7 @@ function createApp() {
     app.use('/api/users', userRoutes); // User management routes (admin only)
     app.use('/api/activities', activityRoutes); // Activity logging routes
     app.use('/api/logs', logsRoutes); // Centralized logging routes (admin only)
+    app.use('/api', uploadRoutes); // File upload routes
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));
     app.use('/api/knowledge', createKnowledgeRoutes()); // Knowledge management routes
