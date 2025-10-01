@@ -12,9 +12,9 @@
  *
  * Features:
  * - Uses lightweight rephrasing model for fast, cost-effective classification
- * - Only categorizes tickets after 1-hour delay (allows pattern emergence)
+ * - Waits for conversation inactivity before categorizing (configurable idle time)
  * - Skips tickets with manual category assignments
- * - Minimum confidence threshold prevents low-quality suggestions
+ * - Requires minimum message count for sufficient context
  * - Full conversation context analysis for accurate categorization
  * - Lithuanian language support
  *
@@ -22,15 +22,15 @@
  * 1. Check if ticket is eligible for auto-categorization
  * 2. Load full conversation history and available categories
  * 3. Build AI prompt with context and category options
- * 4. Get category suggestion from AI with confidence score
- * 5. Validate confidence threshold and category existence
+ * 4. Get category suggestion from AI with reasoning
+ * 5. Validate category existence
  * 6. Update ticket with AI-suggested category and metadata
  * 7. Broadcast category change via WebSocket
  *
  * Configuration:
  * - ENABLE_AUTO_CATEGORIZATION: Master switch (default: true)
- * - AUTO_CATEGORIZATION_DELAY_HOURS: Wait time before categorizing (default: 1)
- * - AUTO_CATEGORIZATION_MIN_CONFIDENCE: Minimum confidence to apply (default: 0.6)
+ * - AUTO_CATEGORIZATION_IDLE_MINUTES: Minutes of inactivity required (default: 15)
+ * - AUTO_CATEGORIZATION_MIN_MESSAGES: Minimum messages required (default: 3)
  *
  * Dependencies:
  * - AI service with rephrasing model access
@@ -40,11 +40,10 @@
  * - WebSocket service for real-time updates
  */
 
-const { PrismaClient } = require('@prisma/client');
 const { getAIProviderConfig } = require('../../ai-providers');
-const promptManager = require('./promptManager');
+const databaseClient = require('../utils/database');
 
-const prisma = new PrismaClient();
+const getPrisma = () => databaseClient.getClient();
 
 // Configuration from environment variables
 const CONFIG = {
@@ -75,7 +74,7 @@ class AiCategorizationService {
             return { eligible: false, reason: 'Auto-categorization disabled in config' };
         }
 
-        const ticket = await prisma.tickets.findUnique({
+        const ticket = await getPrisma().tickets.findUnique({
             where: { id: ticketId },
             select: {
                 id: true,
@@ -104,7 +103,7 @@ class AiCategorizationService {
         }
 
         // Check message count - need enough context
-        const messageCount = await prisma.messages.count({
+        const messageCount = await getPrisma().messages.count({
             where: { ticket_id: ticketId }
         });
 
@@ -117,7 +116,7 @@ class AiCategorizationService {
         }
 
         // Check conversation inactivity - should be idle to capture full topic
-        const lastMessage = await prisma.messages.findFirst({
+        const lastMessage = await getPrisma().messages.findFirst({
             where: { ticket_id: ticketId },
             orderBy: { created_at: 'desc' },
             select: { created_at: true }
@@ -146,7 +145,7 @@ class AiCategorizationService {
      * @returns {Promise<Array<{role: string, content: string}>>}
      */
     async getConversationContext(ticketId) {
-        const messages = await prisma.messages.findMany({
+        const messages = await getPrisma().messages.findMany({
             where: { ticket_id: ticketId },
             orderBy: { created_at: 'asc' },
             select: {
@@ -169,7 +168,7 @@ class AiCategorizationService {
      * @returns {Promise<Array<{id: string, name: string, description: string}>>}
      */
     async getAvailableCategories() {
-        const categories = await prisma.ticket_categories.findMany({
+        const categories = await getPrisma().ticket_categories.findMany({
             where: { is_archived: false },
             select: {
                 id: true,
@@ -375,7 +374,7 @@ Tavo atsakymas:`;
             }
 
             // Update ticket with AI-suggested category
-            const updatedTicket = await prisma.tickets.update({
+            const updatedTicket = await getPrisma().tickets.update({
                 where: { id: ticketId },
                 data: {
                     category_id: result.categoryId,
@@ -440,8 +439,12 @@ Tavo atsakymas:`;
             return [];
         }
 
-        // Find uncategorized tickets with messages
-        const candidates = await prisma.tickets.findMany({
+        const minIdleMinutes = parseInt(process.env.AUTO_CATEGORIZATION_IDLE_MINUTES || '15');
+        const minMessages = parseInt(process.env.AUTO_CATEGORIZATION_MIN_MESSAGES || '3');
+        const idleThreshold = Date.now() - (minIdleMinutes * 60 * 1000);
+
+        // Find uncategorized tickets with message count and last message in single query
+        const candidates = await getPrisma().tickets.findMany({
             where: {
                 category_id: null,
                 manual_category_override: { not: true },
@@ -451,6 +454,9 @@ Tavo atsakymas:`;
                 id: true,
                 ticket_number: true,
                 created_at: true,
+                _count: {
+                    select: { messages: true }
+                },
                 messages: {
                     orderBy: { created_at: 'desc' },
                     take: 1,
@@ -461,10 +467,6 @@ Tavo atsakymas:`;
             take: limit * 3 // Get more candidates to filter by inactivity
         });
 
-        const minIdleMinutes = parseInt(process.env.AUTO_CATEGORIZATION_IDLE_MINUTES || '15');
-        const minMessages = parseInt(process.env.AUTO_CATEGORIZATION_MIN_MESSAGES || '3');
-        const idleThreshold = Date.now() - (minIdleMinutes * 60 * 1000);
-
         // Filter by eligibility criteria
         const eligible = [];
         for (const ticket of candidates) {
@@ -473,12 +475,8 @@ Tavo atsakymas:`;
                 continue;
             }
 
-            // Check message count
-            const messageCount = await prisma.messages.count({
-                where: { ticket_id: ticket.id }
-            });
-
-            if (messageCount < minMessages) {
+            // Check message count (using _count from query)
+            if (ticket._count.messages < minMessages) {
                 continue;
             }
 
@@ -554,7 +552,7 @@ Tavo atsakymas:`;
      * @returns {Promise<{total: number, aiCategorized: number, manuallyOverridden: number, avgConfidence: number}>}
      */
     async getCategorizationStats() {
-        const allTickets = await prisma.tickets.findMany({
+        const allTickets = await getPrisma().tickets.findMany({
             where: { archived: false },
             select: {
                 category_id: true,
