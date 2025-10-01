@@ -1055,6 +1055,111 @@ class ConversationController {
             res.status(500).json({ error: 'Failed to assign categories' });
         }
     }
+
+    /**
+     * Trigger AI auto-categorization for a specific ticket
+     * @route POST /api/conversations/:conversationId/categorize
+     * @access Agent/Admin
+     */
+    async triggerAutoCategorization(req, res) {
+        try {
+            const { conversationId } = req.params;
+            console.log(`🎯 Manual AI categorization trigger for conversation ${conversationId}`);
+
+            // Import AI categorization service
+            const aiCategorizationService = require('../services/aiCategorizationService');
+
+            // Categorize the ticket
+            const result = await aiCategorizationService.categorizeTicket(conversationId);
+
+            if (result.success) {
+                res.json({
+                    success: true,
+                    message: 'Ticket categorized successfully',
+                    data: {
+                        categoryId: result.categoryId,
+                        categoryName: result.categoryName,
+                        confidence: result.confidence,
+                        reasoning: result.reasoning
+                    }
+                });
+            } else {
+                res.status(400).json({
+                    success: false,
+                    message: result.message || 'Failed to categorize ticket'
+                });
+            }
+
+        } catch (error) {
+            console.error('Manual categorization error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to trigger categorization',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Get AI categorization statistics
+     * @route GET /api/categorization/stats
+     * @access Agent/Admin
+     */
+    async getCategorizationStats(req, res) {
+        try {
+            console.log('📊 Fetching categorization statistics');
+
+            // Import AI categorization service
+            const aiCategorizationService = require('../services/aiCategorizationService');
+
+            // Get stats
+            const stats = await aiCategorizationService.getCategorizationStats();
+
+            res.json({
+                success: true,
+                data: stats
+            });
+
+        } catch (error) {
+            console.error('Failed to get categorization stats:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to retrieve categorization statistics',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Manually trigger the categorization background job
+     * @route POST /api/admin/categorization/trigger-job
+     * @access Admin
+     */
+    async triggerCategorizationJob(req, res) {
+        try {
+            console.log('🔧 Manual trigger of categorization background job');
+
+            // Import categorization job
+            const categorizationJob = require('../jobs/categorizationJob');
+
+            // Trigger the job
+            const result = await categorizationJob.trigger();
+
+            res.json({
+                success: true,
+                message: 'Categorization job executed successfully',
+                data: result
+            });
+
+        } catch (error) {
+            console.error('Failed to trigger categorization job:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to trigger categorization job',
+                details: error.message
+            });
+        }
+    }
 }
 
 module.exports = ConversationController;

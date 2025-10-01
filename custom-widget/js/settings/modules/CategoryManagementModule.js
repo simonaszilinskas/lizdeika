@@ -277,12 +277,17 @@ export class CategoryManagementModule {
         if (!this.isAdmin() || !this.elements.categoryStatsContent) return;
 
         try {
-            const response = await this.apiManager.get('/api/categories/stats');
+            // Load both regular category stats and AI categorization stats in parallel
+            const [categoryResponse, aiStatsResponse] = await Promise.all([
+                this.apiManager.get('/api/categories/stats'),
+                this.apiManager.get('/api/categorization/stats').catch(() => ({ success: false, data: null }))
+            ]);
 
-            if (response.success) {
-                this.renderStatistics(response.stats);
+            if (categoryResponse.success) {
+                const aiStats = aiStatsResponse.success ? aiStatsResponse.data : null;
+                this.renderStatistics(categoryResponse.stats, aiStats);
             } else {
-                console.warn('Failed to load category statistics:', response.error);
+                console.warn('Failed to load category statistics:', categoryResponse.error);
                 this.elements.categoryStatsContent.innerHTML = '<p class="text-gray-500">Failed to load statistics</p>';
             }
         } catch (error) {
@@ -599,8 +604,17 @@ export class CategoryManagementModule {
     /**
      * Render statistics (admin only)
      */
-    renderStatistics(stats) {
+    renderStatistics(stats, aiStats = null) {
         if (!this.elements.categoryStatsContent || !stats) return;
+
+        // Calculate AI categorization percentage
+        const aiCategorizedPercent = aiStats && aiStats.categorized > 0
+            ? ((aiStats.aiCategorized / aiStats.categorized) * 100).toFixed(1)
+            : 0;
+
+        const avgConfidencePercent = aiStats && aiStats.avgConfidence
+            ? (aiStats.avgConfidence * 100).toFixed(0)
+            : 0;
 
         const html = `
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -621,6 +635,37 @@ export class CategoryManagementModule {
                     <div class="text-sm text-gray-600">Categorized Tickets</div>
                 </div>
             </div>
+
+            ${aiStats ? `
+                <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-6">
+                    <h4 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <i class="fas fa-robot text-purple-600"></i>
+                        AI Auto-Categorization Statistics
+                    </h4>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-purple-600">${aiStats.aiCategorized || 0}</div>
+                            <div class="text-xs text-gray-600">AI Categorized</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-blue-600">${aiStats.manualCategorized || 0}</div>
+                            <div class="text-xs text-gray-600">Manual</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-indigo-600">${aiCategorizedPercent}%</div>
+                            <div class="text-xs text-gray-600">AI Rate</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-green-600">${avgConfidencePercent}%</div>
+                            <div class="text-xs text-gray-600">Avg Confidence</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-xl font-bold text-orange-600">${aiStats.lowConfidenceAttempts || 0}</div>
+                            <div class="text-xs text-gray-600">Low Confidence</div>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
 
             <div class="grid md:grid-cols-1 gap-6">
                 <div>

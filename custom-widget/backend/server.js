@@ -151,6 +151,15 @@ async function startServer() {
         // Display configuration
         await displayConfiguration();
 
+        // Start AI auto-categorization background job
+        try {
+            const categorizationJob = require('./src/jobs/categorizationJob');
+            categorizationJob.start();
+            console.log('✅ AI categorization job started');
+        } catch (error) {
+            console.warn('⚠️  Failed to start categorization job:', error.message);
+        }
+
         // Start server only after all dependencies are ready
         // Bind to 0.0.0.0 for Railway/Docker, localhost for development
         const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
@@ -205,22 +214,31 @@ startServer();
 // Graceful shutdown
 function gracefulShutdown(signal) {
     console.log(`${signal} received, shutting down gracefully`);
-    
+
+    // Stop categorization job
+    try {
+        const categorizationJob = require('./src/jobs/categorizationJob');
+        categorizationJob.stop();
+        console.log('Categorization job stopped');
+    } catch (error) {
+        console.warn('Failed to stop categorization job:', error.message);
+    }
+
     // Close the HTTP server
     server.close(() => {
         console.log('HTTP server closed');
-        
+
         // Close database connection
         databaseClient.disconnect().then(() => {
             console.log('Database connection closed');
-            
+
             // Close all WebSocket connections
             io.close(() => {
                 console.log('WebSocket server closed');
                 process.exit(0);
             });
         });
-        
+
         // Force exit if WebSocket doesn't close in time
         setTimeout(() => {
             console.log('Forcing shutdown...');
