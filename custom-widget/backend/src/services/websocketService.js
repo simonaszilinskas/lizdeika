@@ -1,18 +1,95 @@
 /**
- * WebSocket Service
- * Handles WebSocket connections and events
+ * WEBSOCKET SERVICE
+ *
+ * Main Purpose: Manage real-time bidirectional communication between clients and server
+ *
+ * Key Responsibilities:
+ * - Connection Management: Handle Socket.IO client connections and disconnections
+ * - Room Management: Organize clients into rooms (conversations, agents, settings)
+ * - Event Routing: Route and broadcast events to appropriate clients
+ * - Agent Lifecycle: Track agent online/offline status with grace periods
+ * - Real-time Updates: Emit messages, typing indicators, and status changes
+ * - Heartbeat Monitoring: Keep agent connections alive and detect stale connections
+ *
+ * Dependencies:
+ * - Socket.IO for WebSocket server functionality
+ * - Agent service for agent status and assignment management
+ * - Conversation service for ticket redistribution
+ * - Logger for structured event logging with correlation IDs
+ *
+ * Features:
+ * - Multi-room support for isolated communication channels
+ * - Automatic ticket redistribution when agents join
+ * - Graceful disconnection handling with reconnection support
+ * - Heartbeat-based connection monitoring
+ * - Typing indicators for both agents and customers
+ * - Real-time system mode and status broadcasts
+ *
+ * WebSocket Rooms:
+ * - 'agents': All connected agents receive broadcasts (new messages, status updates)
+ * - 'settings': Settings page clients receive configuration updates
+ * - [conversationId]: Customers and assigned agents in specific conversations
+ *
+ * WebSocket Events (Client → Server):
+ * - 'join-conversation': Customer joins their conversation room
+ * - 'join-agent-dashboard': Agent connects to dashboard (triggers online status)
+ * - 'join-room': Generic room joining (for settings page)
+ * - 'agent-typing': Agent typing indicator
+ * - 'customer-typing': Customer typing indicator
+ * - 'heartbeat': Keep-alive signal from agents
+ * - 'request-current-state': Request current system state (agents, mode)
+ * - 'disconnect': Client disconnection (handled by Socket.IO)
+ *
+ * WebSocket Events (Server → Client):
+ * - 'new-message': Broadcast customer message to agents
+ * - 'agent-message': Send agent response to customer
+ * - 'agent-typing-status': Typing indicator to customer
+ * - 'customer-typing-status': Typing indicator to agents
+ * - 'system-mode-update': System mode change broadcast
+ * - 'connected-agents-update': Agent status update broadcast
+ * - 'tickets-reassigned': Ticket reassignment notification
+ * - 'categories-updated': Category configuration changes
+ * - 'heartbeat-ack': Heartbeat acknowledgment
+ * - 'current-state': Response to state request
+ *
+ * Grace Period Handling:
+ * - Agents are not immediately marked offline on disconnect
+ * - Heartbeat timeout determines actual offline status
+ * - Allows seamless reconnection when switching browser tabs
+ *
+ * Ticket Redistribution:
+ * - When agents join, orphaned tickets are gradually reassigned
+ * - Limits redistribution to 2 tickets at a time to prevent overload
+ * - Broadcasts reassignments to all agents for UI updates
+ *
+ * Notes:
+ * - Each socket receives a correlation ID for request tracing
+ * - Event listeners are logged in debug mode for troubleshooting
+ * - Agent activity timestamps are updated on typing and heartbeat
+ * - Socket.agentId is stored for agent identification across events
  */
 const agentService = require('./agentService');
 const conversationService = require('./conversationService');
 const { createLogger } = require('../utils/logger');
 
 class WebSocketService {
+    /**
+     * Initialize WebSocket service with Socket.IO instance
+     *
+     * @param {Object} io - Socket.IO server instance
+     */
     constructor(io) {
         this.io = io;
         this.logger = createLogger('websocketService');
         this.setupSocketHandlers();
     }
 
+    /**
+     * Setup all WebSocket event handlers
+     *
+     * Registers handlers for connection, disconnection, and all custom events.
+     * Called once during service initialization.
+     */
     setupSocketHandlers() {
         this.io.on('connection', (socket) => {
             this.logger.info('WebSocket client connected', { 
@@ -158,21 +235,34 @@ class WebSocketService {
     }
 
     /**
-     * Emit new message to agents
+     * Broadcast new customer message to all connected agents
+     *
+     * @param {Object} messageData - Message data object
+     * @param {string} messageData.conversationId - Conversation ID
+     * @param {string} messageData.content - Message content
+     * @param {string} messageData.sender - Sender identifier
      */
     emitNewMessage(messageData) {
         this.io.to('agents').emit('new-message', messageData);
     }
 
     /**
-     * Emit agent message to customer
+     * Send agent's response to customer in specific conversation
+     *
+     * @param {string} conversationId - Conversation room ID
+     * @param {Object} messageData - Message data object
+     * @param {string} messageData.content - Message content
+     * @param {string} messageData.agentId - Agent identifier
      */
     emitAgentMessage(conversationId, messageData) {
         this.io.to(conversationId).emit('agent-message', messageData);
     }
 
     /**
-     * Emit agent status update
+     * Broadcast agent status change to all agents
+     *
+     * @param {string} agentId - Agent user ID
+     * @param {string} status - New status (online/offline/busy)
      */
     emitAgentStatusUpdate(agentId, status) {
         this.io.to('agents').emit('agent-status-update', {
@@ -183,7 +273,12 @@ class WebSocketService {
     }
 
     /**
-     * Emit typing status
+     * Emit typing status to appropriate target
+     *
+     * @param {string} target - Target room ('agents' or conversationId)
+     * @param {Object} data - Typing indicator data
+     * @param {boolean} data.isTyping - Whether user is currently typing
+     * @param {string} data.conversationId - Conversation ID (for customer typing)
      */
     emitTypingStatus(target, data) {
         if (target === 'agents') {
@@ -194,14 +289,18 @@ class WebSocketService {
     }
 
     /**
-     * Get connected clients count
+     * Get total count of connected WebSocket clients
+     *
+     * @returns {number} Number of connected clients (agents + customers)
      */
     getConnectedClientsCount() {
         return this.io.engine.clientsCount;
     }
 
     /**
-     * Get agents room size
+     * Get count of agents in the agents room
+     *
+     * @returns {number} Number of connected agents
      */
     getAgentsRoomSize() {
         const agentsRoom = this.io.sockets.adapter.rooms.get('agents');
@@ -209,7 +308,9 @@ class WebSocketService {
     }
 
     /**
-     * Broadcast category updates to settings room
+     * Broadcast category configuration changes to settings page
+     *
+     * @param {Array} categories - Updated categories array
      */
     broadcastCategoryUpdate(categories) {
         this.io.to('settings').emit('categories-updated', { categories });

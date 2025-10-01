@@ -1,6 +1,75 @@
 /**
- * Agent Dashboard Controller
- * Manages agent interface for handling customer support conversations
+ * AGENT DASHBOARD CONTROLLER
+ *
+ * Main Purpose: Main entry point and coordinator for the agent dashboard interface
+ *
+ * Key Responsibilities:
+ * - Module Initialization: Bootstrap all dashboard modules with dependency injection
+ * - State Coordination: Manage global dashboard state across all modules
+ * - Event Orchestration: Coordinate inter-module communication via events
+ * - UI Lifecycle: Handle dashboard mounting, updating, and cleanup
+ * - Authentication: Manage agent login state and session management
+ * - WebSocket Coordination: Initialize and manage real-time communication
+ *
+ * Dependencies:
+ * - AgentAuthManager: Authentication and authorization
+ * - SocketManager: WebSocket connection and event handling
+ * - StateManager: Centralized state management
+ * - APIManager: HTTP requests and API communication
+ * - ChatManager: Message sending and AI suggestion handling
+ * - ConversationRenderer: UI rendering for conversations and messages
+ * - AssignmentManager: Conversation assignment operations
+ * - BulkOperations: Multi-conversation operations
+ * - EventManager: Event coordination and delegation
+ * - UIHelpers: DOM manipulation utilities
+ * - SoundNotificationManager: Audio notifications
+ * - DebugManager: Development tools and logging
+ *
+ * Architecture Pattern:
+ * - Modular ES6 architecture with dependency injection
+ * - Single Responsibility Principle for each module
+ * - Event-driven communication between modules
+ * - Centralized state management via StateManager
+ * - Separation of concerns (UI, State, Logic, API)
+ *
+ * Module Communication:
+ * - Modules communicate via StateManager events
+ * - Dashboard instance passed to modules for shared context
+ * - Public methods exposed for cross-module coordination
+ * - Events: conversation-selected, filter-changed, message-sent, etc.
+ *
+ * Initialization Sequence:
+ * 1. Check authentication (redirect if not logged in)
+ * 2. Initialize core services (State, API, Socket)
+ * 3. Initialize feature modules (Chat, Assignment, Bulk Ops)
+ * 4. Initialize UI modules (Renderer, Helpers)
+ * 5. Load initial data (conversations, agents)
+ * 6. Setup event listeners and UI bindings
+ * 7. Connect WebSocket and join agent room
+ *
+ * Features:
+ * - Real-time conversation updates via WebSocket
+ * - AI-powered response suggestions with HITL/Autopilot modes
+ * - Conversation filtering (mine, unassigned, others, all)
+ * - Bulk operations (assign, archive, categorize)
+ * - Sound notifications for new messages
+ * - Typing indicators for agents and customers
+ * - Category assignment with real-time updates
+ * - Debug panel for development
+ *
+ * UI State Management:
+ * - Current filter (mine/unassigned/others/all)
+ * - Selected conversation ID
+ * - Current AI suggestion
+ * - Bulk selection set
+ * - System mode (HITL/Autopilot/OFF)
+ *
+ * Notes:
+ * - All modules receive dashboard instance for coordination
+ * - State changes trigger UI updates via events
+ * - WebSocket reconnection is automatic
+ * - Authentication token stored in localStorage
+ * - Supports multiple concurrent agents
  */
 
 // Import utility functions and constants
