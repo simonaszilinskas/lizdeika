@@ -1,6 +1,75 @@
 /**
- * Authentication Service
- * Handles user authentication, registration, and token management
+ * AUTHENTICATION SERVICE
+ *
+ * Main Purpose: Manage user authentication, authorization, and session lifecycle
+ *
+ * Key Responsibilities:
+ * - User Registration: Create new user accounts with secure password hashing
+ * - Login/Logout: Authenticate users and manage session tokens
+ * - Token Management: Generate, verify, and refresh JWT access/refresh tokens
+ * - Password Security: Validate password strength and check against breach databases
+ * - Password Reset: Handle password reset requests with secure token generation
+ * - Agent Status: Automatically manage agent online/offline status during login/logout
+ * - Emergency Recovery: Provide failsafe admin account recovery mechanism
+ *
+ * Dependencies:
+ * - Database client for PostgreSQL operations
+ * - Token utils for JWT generation and verification
+ * - Password utils for bcrypt hashing and breach checking
+ * - UUID for generating unique identifiers
+ * - Logger for security audit trail
+ *
+ * Features:
+ * - JWT-based authentication with access/refresh token pairs
+ * - Automatic token rotation (30% probability on refresh for enhanced security)
+ * - Password breach detection using HaveIBeenPwned API
+ * - Comprehensive password validation (length, complexity, uniqueness)
+ * - Role-based access control (admin, agent, user)
+ * - Agent status synchronization on login/logout
+ * - Refresh token revocation on logout and password changes
+ * - Security audit logging for all authentication events
+ * - Emergency admin recovery with environment-based recovery key
+ *
+ * Security Features:
+ * - Bcrypt password hashing with configurable work factor
+ * - Refresh token storage in database with expiry tracking
+ * - Automatic cleanup of expired tokens
+ * - Token revocation on security-sensitive operations
+ * - Non-revealing error messages for user enumeration prevention
+ * - Account deactivation checks at every authentication step
+ * - Password reuse prevention
+ *
+ * Token Lifecycle:
+ * 1. Login: Generate access token (15min) + refresh token (7 days)
+ * 2. Store refresh token in database with expiry
+ * 3. Access token expires → Client requests refresh
+ * 4. Refresh token verified → New access token issued
+ * 5. Optional: Refresh token rotation (30% probability)
+ * 6. Logout: Revoke all refresh tokens for user
+ *
+ * Emergency Recovery:
+ * - Requires ADMIN_RECOVERY_KEY environment variable
+ * - Can reset admin password if locked out
+ * - Can create initial admin if none exists
+ * - Logs all recovery operations for audit
+ *
+ * Environment Variables:
+ * - ADMIN_RECOVERY_KEY: Emergency admin recovery key
+ * - JWT_ACCESS_EXPIRES_IN: Access token expiry (default: 15m)
+ * - JWT_REFRESH_EXPIRES_IN: Refresh token expiry (default: 7d)
+ *
+ * Database Tables:
+ * - users: User accounts with credentials and roles
+ * - refresh_tokens: Active refresh tokens with expiry
+ * - agent_status: Agent availability status
+ * - system_logs: Security audit trail
+ *
+ * Notes:
+ * - Passwords are never stored in plain text or logged
+ * - All authentication events are logged for security auditing
+ * - Agent users automatically get agent_status records
+ * - Token rotation is probabilistic to balance security and UX
+ * - Database connection is lazy-initialized on first use
  */
 
 const databaseClient = require('../utils/database');
