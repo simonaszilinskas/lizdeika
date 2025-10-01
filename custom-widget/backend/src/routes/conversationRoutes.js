@@ -109,6 +109,23 @@ function createConversationRoutes(io) {
         conversationController.bulkAssignCategory(req, res);
     });
 
+    // AI Auto-Categorization endpoints
+    router.post('/conversations/:conversationId/categorize', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.triggerAutoCategorization(req, res);
+    });
+
+    router.get('/categorization/stats', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.getCategorizationStats(req, res);
+    });
+
+    router.post('/admin/categorization/trigger-job', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.triggerCategorizationJob(req, res);
+    });
+
+    router.put('/conversations/:id/category-override', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.toggleCategoryOverride(req, res);
+    });
+
     return router;
 }
 

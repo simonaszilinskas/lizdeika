@@ -221,9 +221,10 @@ export class ConversationRenderer {
     /**
      * Render category badge for conversation
      * @param {Object} categoryData - Category data object
+     * @param {Object} categoryMetadata - Optional metadata about the category (AI source, confidence, etc.)
      * @returns {string} HTML string for category badge
      */
-    renderCategoryBadge(categoryData) {
+    renderCategoryBadge(categoryData, categoryMetadata = null) {
         if (!categoryData || !categoryData.name) {
             return '';
         }
@@ -232,11 +233,25 @@ export class ConversationRenderer {
         // All categories are global now
         const badgeClass = 'bg-blue-100 text-blue-700 border border-blue-200';
 
+        // Check if category was AI-assigned
+        const isAiAssigned = categoryMetadata && categoryMetadata.source === 'ai';
+        const aiIcon = isAiAssigned ? '<i class="fas fa-robot text-xs opacity-70" title="AI-categorized"></i>' : '';
+
+        // Build tooltip text with proper escaping to prevent XSS
+        let tooltipText = `Category: ${UIHelpers.escapeHtml(categoryData.name)}`;
+        if (isAiAssigned && categoryMetadata.reasoning) {
+            const confidence = categoryMetadata.confidence
+                ? ` (${(categoryMetadata.confidence * 100).toFixed(0)}% confidence)`
+                : '';
+            tooltipText += `\nAI-suggested${confidence}\nReason: ${UIHelpers.escapeHtml(categoryMetadata.reasoning)}`;
+        }
+
         return `
             <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${badgeClass}"
-                 title="Category: ${categoryData.name}">
+                 title="${tooltipText}">
                 <div class="w-2 h-2 rounded-full" style="background-color: ${color};"></div>
                 <span class="max-w-16 truncate">${categoryData.name}</span>
+                ${aiIcon}
             </div>
         `;
     }
@@ -291,7 +306,7 @@ export class ConversationRenderer {
                                 <span>User #${conv.userNumber || 'Unknown'}</span>
                                 ${unseenCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unseenCount}</span>` : ''}
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
-                                ${this.renderCategoryBadge(conv.categoryData)}
+                                ${this.renderCategoryBadge(conv.categoryData, conv.categoryMetadata)}
                             </div>
                             <div class="text-xs text-gray-500">
                                 ${UIHelpers.formatConversationDate(conv.startedAt)}
@@ -849,8 +864,9 @@ export class ConversationRenderer {
      * Update a conversation's category in-place without reloading the entire list
      * @param {string} conversationId - ID of the conversation to update
      * @param {Object|null} categoryData - New category data or null to remove category
+     * @param {Object|null} categoryMetadata - Metadata about the category (AI source, confidence, etc.)
      */
-    updateConversationCategory(conversationId, categoryData) {
+    updateConversationCategory(conversationId, categoryData, categoryMetadata = null) {
         // Update the conversation data in the modern loader cache
         const conversationData = this.dashboard.modernConversationLoader.getConversations();
         const conversation = conversationData.all.find(conv => conv.id === conversationId);
@@ -860,9 +876,10 @@ export class ConversationRenderer {
             return false;
         }
 
-        // Update the category data
+        // Update the category data and metadata
         conversation.categoryData = categoryData;
         conversation.categoryId = categoryData?.id || null;
+        conversation.categoryMetadata = categoryMetadata;
 
         // Update the DOM - find the conversation item
         const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
@@ -890,8 +907,8 @@ export class ConversationRenderer {
         }
 
         if (categoryData && categoryData.name) {
-            // Create new category badge HTML
-            const newBadgeHTML = this.renderCategoryBadge(categoryData);
+            // Create new category badge HTML with metadata
+            const newBadgeHTML = this.renderCategoryBadge(categoryData, categoryMetadata);
 
             if (existingBadge) {
                 // Replace existing badge

@@ -40,6 +40,7 @@
     "langfuse-langchain": "^3.38.4",
     "mammoth": "^1.10.0",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
     "node-fetch": "^3.3.2",
     "socket.io": "^4.8.1",
     "uuid": "^9.0.1",

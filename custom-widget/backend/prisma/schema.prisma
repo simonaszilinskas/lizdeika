@@ -155,6 +155,8 @@ model tickets {
   priority                               TicketPriority     @default(medium)
   category                               String?            // Legacy field - will be removed after migration
   category_id                            String?            // New FK to ticket_categories
+  category_metadata                      Json?              // Stores AI categorization info (source, confidence, reasoning)
+  manual_category_override               Boolean            @default(false) // Prevents AI from overriding manual selection
   subject                                String
   description                            String?
   source                                 TicketSource       @default(widget)
@@ -171,6 +173,7 @@ model tickets {
   @@index([created_at])
   @@index([archived])
   @@index([category_id])
+  @@index([manual_category_override])
 }
 
 model users {

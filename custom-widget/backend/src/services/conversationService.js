@@ -1113,9 +1113,10 @@ class ConversationService {
      * Update conversation category
      * @param {string} conversationId - Conversation ID
      * @param {string|null} categoryId - Category ID or null to remove
+     * @param {boolean} isManualOverride - Whether this is a manual agent action (default: true)
      * @returns {Object} Updated conversation
      */
-    async updateConversationCategory(conversationId, categoryId) {
+    async updateConversationCategory(conversationId, categoryId, isManualOverride = true) {
         try {
             const existing = await prisma.tickets.findUnique({
                 where: { id: conversationId }
@@ -1125,29 +1126,76 @@ class ConversationService {
                 throw new Error(`Conversation ${conversationId} not found`);
             }
 
-            const [affectedRows, updated] = await prisma.$transaction([
-                prisma.$executeRaw`UPDATE tickets SET category_id = ${categoryId} WHERE id = ${conversationId}`,
-                prisma.tickets.findUnique({
-                    where: { id: conversationId },
-                    include: {
-                        ticket_category: {
-                            select: {
-                                id: true,
-                                name: true,
-                                color: true
-                            }
+            // Set manual_category_override when agent manually changes category
+            // This prevents AI from immediately re-categorizing
+            const updated = await prisma.tickets.update({
+                where: { id: conversationId },
+                data: {
+                    category_id: categoryId,
+                    manual_category_override: isManualOverride,
+                    // Clear AI metadata when manually overriding
+                    category_metadata: isManualOverride ? null : existing.category_metadata
+                },
+                include: {
+                    ticket_category: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true
                         }
                     }
-                })
-            ]);
+                }
+            });
 
-            if (affectedRows === 0 || !updated) {
+            if (!updated) {
                 throw new Error(`Failed to update category for conversation ${conversationId}`);
             }
 
             return updated;
         } catch (error) {
             console.error(`Failed to update conversation category: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Toggle manual category override flag
+     * @param {string} conversationId - Conversation ID
+     * @param {boolean} manualOverride - Whether manual override is enabled
+     * @returns {Object} Updated ticket with override status
+     */
+    async toggleCategoryOverride(conversationId, manualOverride) {
+        try {
+            const existing = await prisma.tickets.findUnique({
+                where: { id: conversationId },
+                select: {
+                    id: true,
+                    category_metadata: true
+                }
+            });
+
+            if (!existing) {
+                throw new Error(`Conversation ${conversationId} not found`);
+            }
+
+            const updated = await prisma.tickets.update({
+                where: { id: conversationId },
+                data: {
+                    manual_category_override: manualOverride,
+                    // Clear AI metadata when re-enabling AI control
+                    category_metadata: manualOverride === false ? null : existing.category_metadata
+                },
+                select: {
+                    id: true,
+                    manual_category_override: true,
+                    category_id: true,
+                    category_metadata: true
+                }
+            });
+
+            return updated;
+        } catch (error) {
+            console.error(`Failed to toggle category override: ${error.message}`);
             throw error;
         }
     }
