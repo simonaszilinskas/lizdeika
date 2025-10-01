@@ -80,7 +80,6 @@ class ConversationService {
                 visitorId: conversation.visitorId || 'anonymous',
                 assignedAgent: ticket.assigned_agent_id,
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 category: ticket.category
@@ -145,7 +144,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: assignedAgentId,
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 category: ticket.category, // Legacy field for backward compatibility
@@ -200,7 +198,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: assignedAgentId,
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 category: ticket.category
@@ -519,7 +516,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.users_tickets_assigned_agent_idTousers ? this.mapUserIdToAgentId(ticket.users_tickets_assigned_agent_idTousers) : null,
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 archived: ticket.archived, // Include archived status
@@ -641,7 +637,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: agentId,  // Return the original agent ID for compatibility
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject,
                 category: ticket.category, // Legacy field for backward compatibility
@@ -679,7 +674,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.assigned_agent_id,
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             }));
@@ -728,7 +722,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.assigned_agent_id,
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             }));
@@ -786,7 +779,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: agentId,  // Return the original agent ID for compatibility
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             };
@@ -819,7 +811,6 @@ class ConversationService {
                 userNumber: ticket.user_number, // Sequential number for anonymous user tracking
                 assignedAgent: ticket.assigned_agent_id,
                 startedAt: ticket.created_at,
-                updatedAt: ticket.updated_at,
                 ticketNumber: ticket.ticket_number,
                 subject: ticket.subject
             }));

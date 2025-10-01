@@ -200,9 +200,9 @@ export class ConversationRenderer {
             if (aNeedsResponse && !bNeedsResponse) return -1;
             if (bNeedsResponse && !aNeedsResponse) return 1;
             
-            // Priority 4: Sort by most recent activity (updatedAt or startedAt)
-            const aTime = new Date(a.updatedAt || a.startedAt);
-            const bTime = new Date(b.updatedAt || b.startedAt);
+            // Priority 4: Sort by creation time (startedAt only, ignore updates)
+            const aTime = new Date(a.startedAt);
+            const bTime = new Date(b.startedAt);
             return bTime - aTime;
         });
     }
@@ -851,36 +851,50 @@ export class ConversationRenderer {
      * @param {Object|null} categoryData - New category data or null to remove category
      */
     updateConversationCategory(conversationId, categoryData) {
+        console.log(`🔍 Attempting to update category for conversation ${conversationId}`, categoryData);
+
         // Update the conversation data in the modern loader cache
         const conversationData = this.dashboard.modernConversationLoader.getConversations();
         const conversation = conversationData.all.find(conv => conv.id === conversationId);
 
         if (!conversation) {
-            console.warn(`Conversation ${conversationId} not found in cache`);
+            console.warn(`❌ Conversation ${conversationId} not found in cache`);
             return false;
         }
 
         // Update the category data
         conversation.categoryData = categoryData;
         conversation.categoryId = categoryData?.id || null;
-        console.log(`📝 Updated category for conversation ${conversationId}:`, categoryData);
+        console.log(`📝 Updated category in cache for conversation ${conversationId}:`, categoryData);
 
         // Update the DOM - find the conversation item
         const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
         if (!queueItem) {
-            console.warn(`DOM element for conversation ${conversationId} not found`);
+            console.warn(`❌ DOM element for conversation ${conversationId} not found`);
             return false;
         }
+        console.log(`✅ Found queue item for ${conversationId}`);
 
-        // Find and update the category badge - use a more flexible selector
+        // Find the container that has the user number and badges
         const categoryContainer = queueItem.querySelector('.font-medium');
         if (!categoryContainer) {
-            console.warn(`Category container not found for conversation ${conversationId}`);
+            console.warn(`❌ Category container (.font-medium) not found for conversation ${conversationId}`);
+            console.log(`Available classes in queue item:`, queueItem.innerHTML.substring(0, 200));
             return false;
         }
+        console.log(`✅ Found category container`);
 
-        // Find existing category badge - look for the specific badge structure
-        const existingBadge = categoryContainer.querySelector('[style*="background-color"]');
+        // Find existing category badge - look for the inline-flex element that contains the category
+        // The badge has a child div with background-color for the color dot
+        let existingBadge = categoryContainer.querySelector('.inline-flex.rounded-full');
+        if (!existingBadge) {
+            // Fallback: look for any element with a color dot inside
+            const colorDot = categoryContainer.querySelector('div[style*="background-color"]');
+            if (colorDot) {
+                existingBadge = colorDot.closest('.inline-flex');
+            }
+        }
+        console.log(`🔍 Existing badge found: ${existingBadge ? 'yes' : 'no'}`);
 
         if (categoryData && categoryData.name) {
             // Create new category badge HTML
@@ -889,17 +903,20 @@ export class ConversationRenderer {
             if (existingBadge) {
                 // Replace existing badge
                 const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = newBadgeHTML;
-                const newBadge = tempDiv.firstChild;
+                tempDiv.innerHTML = newBadgeHTML.trim();
+                const newBadge = tempDiv.firstElementChild;
                 if (newBadge) {
                     existingBadge.replaceWith(newBadge);
+                    console.log(`✅ Replaced existing badge with new category: ${categoryData.name}`);
+                } else {
+                    console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
                 }
             } else {
                 // Add new badge after the user number and unseen count
                 const archiveIcon = categoryContainer.querySelector('.fa-archive');
                 const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = newBadgeHTML;
-                const newBadge = tempDiv.firstChild;
+                tempDiv.innerHTML = newBadgeHTML.trim();
+                const newBadge = tempDiv.firstElementChild;
 
                 if (newBadge) {
                     if (archiveIcon) {
@@ -909,10 +926,14 @@ export class ConversationRenderer {
                         // Append to container
                         categoryContainer.appendChild(newBadge);
                     }
+                    console.log(`✅ Added new category badge: ${categoryData.name}`);
+                } else {
+                    console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
                 }
             }
         } else if (existingBadge) {
             // Remove category badge if no category
+            console.log(`🗑️ Removing category badge`);
             existingBadge.remove();
         }
 
