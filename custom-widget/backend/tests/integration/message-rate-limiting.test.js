@@ -103,31 +103,37 @@ describe('Customer Message Rate Limiting', () => {
     });
 
     it('should reset rate limit after 1 minute', async () => {
-        // Send 10 messages
-        for (let i = 0; i < 10; i++) {
-            await request(app)
+        jest.useFakeTimers();
+
+        try {
+            // Send 10 messages
+            for (let i = 0; i < 10; i++) {
+                await request(app)
+                    .post('/api/messages')
+                    .send({
+                        conversationId,
+                        content: `Test message ${i}`,
+                        userId: 'test-user'
+                    });
+            }
+
+            // Advance time by 1 minute + buffer
+            jest.advanceTimersByTime(61000);
+
+            // Should be able to send another message
+            const response = await request(app)
                 .post('/api/messages')
                 .send({
                     conversationId,
-                    content: `Test message ${i}`,
+                    content: 'Message after reset',
                     userId: 'test-user'
                 });
+
+            expect(response.status).toBe(200);
+        } finally {
+            jest.useRealTimers();
         }
-
-        // Wait for rate limit window to reset (1 minute + buffer)
-        await new Promise(resolve => setTimeout(resolve, 61000));
-
-        // Should be able to send another message
-        const response = await request(app)
-            .post('/api/messages')
-            .send({
-                conversationId,
-                content: 'Message after reset',
-                userId: 'test-user'
-            });
-
-        expect(response.status).toBe(200);
-    }, 70000); // Extend timeout for this test
+    });
 
     it('should track rate limits per IP address independently', async () => {
         // Send 10 messages from first IP

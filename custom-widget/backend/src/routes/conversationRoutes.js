@@ -33,7 +33,24 @@ const rateLimit = require('express-rate-limit');
 const ConversationController = require('../controllers/conversationController');
 const { authenticateToken, requireAgentOrAdmin } = require('../middleware/authMiddleware');
 
-// Rate limiting for customer messages to prevent spam
+/**
+ * Rate limiting for customer messages to prevent spam
+ *
+ * Limits: 10 messages per minute per IP address
+ *
+ * IP Detection:
+ * - Uses req.ip which is validated by Express when trust proxy is enabled (see app.js)
+ * - When behind reverse proxy/load balancer, Express parses X-Forwarded-For header
+ * - Prevents IP spoofing by trusting only validated proxy headers
+ *
+ * Limitations:
+ * - Users behind same NAT/proxy share the same rate limit bucket (e.g., office networks)
+ * - In-memory storage: rate limits reset on server restart
+ *
+ * TODO: For multi-instance deployments (horizontal scaling), consider using Redis store:
+ *   const RedisStore = require('rate-limit-redis');
+ *   store: new RedisStore({ client: redisClient })
+ */
 const customerMessageRateLimit = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 10, // 10 messages per minute per IP
