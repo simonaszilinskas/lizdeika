@@ -45,7 +45,8 @@ const customerMessageRateLimit = rateLimit({
         code: 'RATE_LIMIT_EXCEEDED'
     },
     keyGenerator: (req) => {
-        return req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+        // Prioritize x-forwarded-for for proxied requests, then req.ip (when trust proxy is enabled)
+        return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
     }
 });
 

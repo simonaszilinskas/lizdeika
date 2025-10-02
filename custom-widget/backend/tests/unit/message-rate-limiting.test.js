@@ -4,16 +4,22 @@
 
 describe('Customer Message Rate Limiting Key Generator', () => {
     const keyGenerator = (req) => {
-        return req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+        // Prioritize x-forwarded-for for proxied requests, then req.ip (when trust proxy is enabled)
+        return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
     };
 
-    it('should extract IP from req.ip', () => {
-        const mockReq = { ip: '192.168.1.100', headers: {} };
+    it('should prioritize x-forwarded-for over req.ip for proxied requests', () => {
+        const mockReq = {
+            ip: '192.168.1.100',
+            headers: {
+                'x-forwarded-for': '203.0.113.1'
+            }
+        };
         const key = keyGenerator(mockReq);
-        expect(key).toBe('192.168.1.100');
+        expect(key).toBe('203.0.113.1');
     });
 
-    it('should extract IP from x-forwarded-for header when req.ip is missing', () => {
+    it('should extract IP from x-forwarded-for header when present', () => {
         const mockReq = {
             headers: {
                 'x-forwarded-for': '10.0.0.1, 192.168.1.1'
@@ -33,21 +39,16 @@ describe('Customer Message Rate Limiting Key Generator', () => {
         expect(key).toBe('203.0.113.1');
     });
 
+    it('should fall back to req.ip when x-forwarded-for is not present', () => {
+        const mockReq = { ip: '192.168.1.100', headers: {} };
+        const key = keyGenerator(mockReq);
+        expect(key).toBe('192.168.1.100');
+    });
+
     it('should handle missing IP with fallback to unknown', () => {
         const mockReq = { headers: {} };
         const key = keyGenerator(mockReq);
         expect(key).toBe('unknown');
-    });
-
-    it('should prefer req.ip over x-forwarded-for', () => {
-        const mockReq = {
-            ip: '192.168.1.100',
-            headers: {
-                'x-forwarded-for': '10.0.0.1'
-            }
-        };
-        const key = keyGenerator(mockReq);
-        expect(key).toBe('192.168.1.100');
     });
 
     it('should trim whitespace from x-forwarded-for IP', () => {

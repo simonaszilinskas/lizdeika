@@ -78,12 +78,15 @@ function createApp() {
     // Create logger for app initialization
     const logger = createLogger('app');
 
+    // Trust proxy to get correct client IPs behind load balancers/reverse proxies
+    app.set('trust proxy', true);
+
     // Middleware - IMPORTANT: Order matters!
     app.use(cors());
-    
+
     // Correlation ID middleware must be first to track all requests
     app.use(correlationMiddleware);
-    
+
     app.use(express.json());
 
     // Static file serving - Railway vs local development paths
