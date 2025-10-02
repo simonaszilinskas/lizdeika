@@ -32,6 +32,34 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+/**
+ * Validate file path to prevent directory traversal attacks
+ * @param {string} requestedPath - Path requested by user
+ * @param {string} allowedDir - Base directory that's allowed
+ * @returns {boolean} True if path is safe
+ */
+function isPathSafe(requestedPath, allowedDir) {
+    const resolvedPath = path.resolve(requestedPath);
+    const resolvedAllowedDir = path.resolve(allowedDir);
+    return resolvedPath.startsWith(resolvedAllowedDir + path.sep);
+}
+
+/**
+ * Generate file metadata from multer file object
+ * @param {Object} file - Multer file object
+ * @returns {Object} File metadata for API response
+ */
+function generateFileMetadata(file) {
+    return {
+        filename: file.originalname,
+        storedFilename: file.filename,
+        path: file.path,
+        mimetype: file.mimetype,
+        size: file.size,
+        url: `/api/uploads/${file.filename}`
+    };
+}
+
 // Configure multer storage
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -88,14 +116,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
         }
 
         // Generate file metadata
-        const fileMetadata = {
-            filename: req.file.originalname,
-            storedFilename: req.file.filename,
-            path: req.file.path,
-            mimetype: req.file.mimetype,
-            size: req.file.size,
-            url: `/api/uploads/${req.file.filename}`
-        };
+        const fileMetadata = generateFileMetadata(req.file);
 
         res.json({
             success: true,
@@ -117,9 +138,7 @@ router.get('/uploads/:filename', optionalAuth, async (req, res) => {
         const filePath = path.join(uploadsDir, filename);
 
         // Security check: prevent directory traversal
-        const resolvedPath = path.resolve(filePath);
-        const resolvedUploadsDir = path.resolve(uploadsDir);
-        if (!resolvedPath.startsWith(resolvedUploadsDir + path.sep)) {
+        if (!isPathSafe(filePath, uploadsDir)) {
             return res.status(403).json({
                 success: false,
                 error: 'Access denied'
@@ -193,4 +212,4 @@ router.get('/uploads/:filename', optionalAuth, async (req, res) => {
     }
 });
 
-module.exports = router;
+module.exports = { router, isPathSafe, generateFileMetadata };

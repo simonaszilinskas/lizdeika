@@ -58,7 +58,7 @@ const userRoutes = require('./routes/userRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const logsRoutes = require('./routes/logsRoutes');
 const createDocsRoutes = require('./routes/docsRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
+const { router: uploadRoutes } = require('./routes/uploadRoutes');
 
 // Import services
 const WebSocketService = require('./services/websocketService');
