@@ -29,8 +29,25 @@
  * - All routes are prefixed with /api when mounted in main application
  */
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const ConversationController = require('../controllers/conversationController');
 const { authenticateToken, requireAgentOrAdmin } = require('../middleware/authMiddleware');
+
+// Rate limiting for customer messages to prevent spam
+const customerMessageRateLimit = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 10, // 10 messages per minute per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        error: 'Too many messages. Please wait before sending more.',
+        code: 'RATE_LIMIT_EXCEEDED'
+    },
+    keyGenerator: (req) => {
+        return req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
+    }
+});
 
 function createConversationRoutes(io) {
     const router = express.Router();
@@ -41,8 +58,8 @@ function createConversationRoutes(io) {
         conversationController.createConversation(req, res);
     });
 
-    // Send message and get AI response
-    router.post('/messages', (req, res) => {
+    // Send message and get AI response (with rate limiting)
+    router.post('/messages', customerMessageRateLimit, (req, res) => {
         conversationController.sendMessage(req, res);
     });
 
