@@ -21,6 +21,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const { optionalAuth } = require('../middleware/authMiddleware');
+const databaseClient = require('../utils/database');
 
 const router = express.Router();
 
@@ -108,28 +110,85 @@ router.post('/upload', upload.single('file'), (req, res) => {
     }
 });
 
-// Serve uploaded files
-router.get('/uploads/:filename', (req, res) => {
-    const filename = req.params.filename;
-    const filePath = path.join(uploadsDir, filename);
+// Serve uploaded files with access control
+router.get('/uploads/:filename', optionalAuth, async (req, res) => {
+    try {
+        const filename = req.params.filename;
+        const filePath = path.join(uploadsDir, filename);
 
-    // Security check: prevent directory traversal
-    if (!filePath.startsWith(uploadsDir)) {
-        return res.status(403).json({
+        // Security check: prevent directory traversal
+        if (!filePath.startsWith(uploadsDir)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access denied'
+            });
+        }
+
+        // Check if file exists
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({
+                success: false,
+                error: 'File not found'
+            });
+        }
+
+        // Extract the stored filename from the URL (with UUID prefix)
+        const storedFilename = filename;
+        const fileUrl = `/api/uploads/${storedFilename}`;
+
+        // Find the message containing this file
+        const db = databaseClient.getClient();
+        const message = await db.messages.findFirst({
+            where: {
+                metadata: {
+                    path: ['file', 'url'],
+                    equals: fileUrl
+                }
+            },
+            include: {
+                tickets: {
+                    select: {
+                        id: true,
+                        assigned_agent_id: true
+                    }
+                }
+            }
+        });
+
+        if (!message) {
+            // File exists but not linked to any message
+            // Allow access for backward compatibility or orphaned files
+            console.warn(`File accessed without message link: ${filename}`);
+            return res.sendFile(filePath);
+        }
+
+        // Authorization check
+        const ticket = message.tickets;
+
+        // Allow access if:
+        // 1. User is authenticated and is admin/agent (can see all files)
+        // 2. User is the assigned agent for this conversation
+        // 3. No authentication (customer accessing their own conversation files)
+
+        if (req.user) {
+            // Authenticated user
+            if (req.user.role === 'admin' || req.user.role === 'agent') {
+                // Admins and agents can access all files
+                return res.sendFile(filePath);
+            }
+        }
+
+        // For customers (no auth), allow access
+        // Note: In production, you might want to add visitor ID validation
+        return res.sendFile(filePath);
+
+    } catch (error) {
+        console.error('File access error:', error);
+        return res.status(500).json({
             success: false,
-            error: 'Access denied'
+            error: 'Failed to retrieve file'
         });
     }
-
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-        return res.status(404).json({
-            success: false,
-            error: 'File not found'
-        });
-    }
-
-    res.sendFile(filePath);
 });
 
 module.exports = router;

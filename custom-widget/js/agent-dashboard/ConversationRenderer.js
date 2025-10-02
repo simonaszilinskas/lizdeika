@@ -399,11 +399,12 @@ export class ConversationRenderer {
             if (isImage) {
                 formattedContent = `<a href="${fileUrl}" target="_blank"><img src="${fileUrl}" style="max-width: 300px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
             } else {
-                formattedContent = `<a href="${fileUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800 underline">📎 ${UIHelpers.escapeHtml(msg.metadata.file.originalName)}</a>`;
+                formattedContent = `<a href="${fileUrl}" download="${UIHelpers.escapeHtml(msg.metadata.file.filename || msg.metadata.file.originalName)}" class="text-indigo-600 hover:text-indigo-800 underline">📎 ${UIHelpers.escapeHtml(msg.metadata.file.filename || msg.metadata.file.originalName)}</a>`;
             }
 
-            // Add caption if present
-            if (msg.content) {
+            // Add caption if present and different from filename
+            const filename = msg.metadata.file.filename || msg.metadata.file.originalName;
+            if (msg.content && msg.content !== filename) {
                 formattedContent += `<div class="mt-2">${UIHelpers.escapeHtml(msg.content)}</div>`;
             }
         } else {

@@ -755,10 +755,11 @@
             if (isImage) {
                 html = `<a href="${fileUrl}" target="_blank"><img src="${fileUrl}" style="max-width: 200px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
             } else {
-                html = `<a href="${fileUrl}" target="_blank" style="color: #4F46E5; text-decoration: underline;">📎 ${fileMetadata.filename}</a>`;
+                html = `<a href="${fileUrl}" download="${fileMetadata.filename}" style="color: #4F46E5; text-decoration: underline;">📎 ${fileMetadata.filename}</a>`;
             }
 
-            if (caption) {
+            // Only add caption if it's different from filename
+            if (caption && caption !== fileMetadata.filename) {
                 html += `<br/>${caption}`;
             }
 
