@@ -748,19 +748,34 @@
             }
         },
 
+        escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
         renderFileMessage(fileMetadata, caption, fileUrl) {
-            const isImage = fileMetadata.mimetype.startsWith('image/');
+            // Validate file URL to prevent XSS
+            if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('/api/uploads/')) {
+                return '<div style="color: red;">⚠️ Invalid file attachment</div>';
+            }
+
+            const isImage = fileMetadata.mimetype && fileMetadata.mimetype.startsWith('image/');
             let html = '';
 
+            const escapedUrl = this.escapeHtml(fileUrl);
+            const escapedFilename = this.escapeHtml(fileMetadata.filename || 'file');
+
             if (isImage) {
-                html = `<a href="${fileUrl}" target="_blank"><img src="${fileUrl}" style="max-width: 200px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
+                html = `<a href="${escapedUrl}" target="_blank"><img src="${escapedUrl}" style="max-width: 200px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
             } else {
-                html = `<a href="${fileUrl}" download="${fileMetadata.filename}" style="color: #4F46E5; text-decoration: underline;">📎 ${fileMetadata.filename}</a>`;
+                html = `<a href="${escapedUrl}" download="${escapedFilename}" style="color: #4F46E5; text-decoration: underline;">📎 ${escapedFilename}</a>`;
             }
 
             // Only add caption if it's different from filename
             if (caption && caption !== fileMetadata.filename) {
-                html += `<br/>${caption}`;
+                html += `<br/>${this.escapeHtml(caption)}`;
             }
 
             return html;

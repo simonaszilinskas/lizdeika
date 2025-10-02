@@ -63,6 +63,47 @@ const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
 const activityService = require('../services/activityService');
 
+/**
+ * Validate file metadata to prevent XSS and injection attacks
+ * @param {Object} fileMetadata - File metadata object from upload
+ * @returns {Object|null} Sanitized file metadata or null if invalid
+ */
+function validateFileMetadata(fileMetadata) {
+    if (!fileMetadata) return null;
+
+    // Validate URL - must start with /api/uploads/
+    if (!fileMetadata.url || typeof fileMetadata.url !== 'string') {
+        throw new Error('Invalid file URL');
+    }
+    if (!fileMetadata.url.startsWith('/api/uploads/')) {
+        throw new Error('File URL must start with /api/uploads/');
+    }
+
+    // Validate mimetype against allowlist
+    const allowedMimetypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/plain'
+    ];
+
+    if (!fileMetadata.mimetype || !allowedMimetypes.includes(fileMetadata.mimetype)) {
+        throw new Error('Invalid or disallowed file type');
+    }
+
+    // Return sanitized metadata (only trusted fields)
+    return {
+        filename: String(fileMetadata.filename || '').substring(0, 255),
+        storedFilename: String(fileMetadata.storedFilename || '').substring(0, 255),
+        mimetype: fileMetadata.mimetype,
+        size: parseInt(fileMetadata.size) || 0,
+        url: fileMetadata.url
+    };
+}
+
 class ConversationController {
     constructor(io) {
         this.io = io;
@@ -231,6 +272,20 @@ class ConversationController {
 
             const { conversationId, visitorId, requestHuman, enableRAG, messageType, fileMetadata } = req.body;
             const message = validatedMessage;
+
+            // Validate file metadata if present
+            let sanitizedFileMetadata = null;
+            if (fileMetadata) {
+                try {
+                    sanitizedFileMetadata = validateFileMetadata(fileMetadata);
+                } catch (error) {
+                    return res.status(400).json({
+                        success: false,
+                        error: `Invalid file metadata: ${error.message}`
+                    });
+                }
+            }
+
             // Create conversation if doesn't exist
             if (!(await conversationService.conversationExists(conversationId))) {
                 const conversation = {
@@ -275,7 +330,7 @@ class ConversationController {
                 sender: 'visitor',
                 timestamp: new Date(),
                 messageType: messageType || 'text',
-                metadata: fileMetadata ? { file: fileMetadata } : undefined
+                metadata: sanitizedFileMetadata ? { file: sanitizedFileMetadata } : undefined
             };
             
             // First, add the user message atomically

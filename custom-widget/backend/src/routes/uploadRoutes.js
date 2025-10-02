@@ -117,7 +117,9 @@ router.get('/uploads/:filename', optionalAuth, async (req, res) => {
         const filePath = path.join(uploadsDir, filename);
 
         // Security check: prevent directory traversal
-        if (!filePath.startsWith(uploadsDir)) {
+        const resolvedPath = path.resolve(filePath);
+        const resolvedUploadsDir = path.resolve(uploadsDir);
+        if (!resolvedPath.startsWith(resolvedUploadsDir + path.sep)) {
             return res.status(403).json({
                 success: false,
                 error: 'Access denied'
