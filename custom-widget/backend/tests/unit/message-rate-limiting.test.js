@@ -4,11 +4,48 @@
 
 describe('Customer Message Rate Limiting Key Generator', () => {
     const keyGenerator = (req) => {
-        // Prioritize x-forwarded-for for proxied requests, then req.ip (when trust proxy is enabled)
-        return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+        // Use req.ip which is validated by Express when trust proxy is enabled
+        // This prevents clients from spoofing x-forwarded-for header
+        return req.ip || 'unknown';
     };
 
-    it('should prioritize x-forwarded-for over req.ip for proxied requests', () => {
+    it('should use req.ip when available', () => {
+        const mockReq = { ip: '192.168.1.100' };
+        const key = keyGenerator(mockReq);
+        expect(key).toBe('192.168.1.100');
+    });
+
+    it('should handle IPv4 addresses', () => {
+        const mockReq = { ip: '203.0.113.1' };
+        const key = keyGenerator(mockReq);
+        expect(key).toBe('203.0.113.1');
+    });
+
+    it('should handle IPv6 addresses', () => {
+        const mockReq = { ip: '2001:0db8:85a3:0000:0000:8a2e:0370:7334' };
+        const key = keyGenerator(mockReq);
+        expect(key).toBe('2001:0db8:85a3:0000:0000:8a2e:0370:7334');
+    });
+
+    it('should handle localhost IPv4', () => {
+        const mockReq = { ip: '127.0.0.1' };
+        const key = keyGenerator(mockReq);
+        expect(key).toBe('127.0.0.1');
+    });
+
+    it('should handle localhost IPv6', () => {
+        const mockReq = { ip: '::1' };
+        const key = keyGenerator(mockReq);
+        expect(key).toBe('::1');
+    });
+
+    it('should fallback to unknown when req.ip is missing', () => {
+        const mockReq = {};
+        const key = keyGenerator(mockReq);
+        expect(key).toBe('unknown');
+    });
+
+    it('should not be affected by x-forwarded-for header (prevents spoofing)', () => {
         const mockReq = {
             ip: '192.168.1.100',
             headers: {
@@ -16,49 +53,8 @@ describe('Customer Message Rate Limiting Key Generator', () => {
             }
         };
         const key = keyGenerator(mockReq);
-        expect(key).toBe('203.0.113.1');
-    });
-
-    it('should extract IP from x-forwarded-for header when present', () => {
-        const mockReq = {
-            headers: {
-                'x-forwarded-for': '10.0.0.1, 192.168.1.1'
-            }
-        };
-        const key = keyGenerator(mockReq);
-        expect(key).toBe('10.0.0.1');
-    });
-
-    it('should handle multiple IPs in x-forwarded-for and take the first', () => {
-        const mockReq = {
-            headers: {
-                'x-forwarded-for': '203.0.113.1, 192.168.1.1, 10.0.0.1'
-            }
-        };
-        const key = keyGenerator(mockReq);
-        expect(key).toBe('203.0.113.1');
-    });
-
-    it('should fall back to req.ip when x-forwarded-for is not present', () => {
-        const mockReq = { ip: '192.168.1.100', headers: {} };
-        const key = keyGenerator(mockReq);
+        // Should use req.ip, not x-forwarded-for
         expect(key).toBe('192.168.1.100');
-    });
-
-    it('should handle missing IP with fallback to unknown', () => {
-        const mockReq = { headers: {} };
-        const key = keyGenerator(mockReq);
-        expect(key).toBe('unknown');
-    });
-
-    it('should trim whitespace from x-forwarded-for IP', () => {
-        const mockReq = {
-            headers: {
-                'x-forwarded-for': '  10.0.0.1  , 192.168.1.1'
-            }
-        };
-        const key = keyGenerator(mockReq);
-        expect(key).toBe('10.0.0.1');
     });
 });
 
