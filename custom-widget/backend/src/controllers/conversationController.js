@@ -48,16 +48,17 @@
  * - WebSocket events ensure real-time updates to agent dashboards
  */
 const { v4: uuidv4 } = require('uuid');
-const { 
-    ValidationError, 
-    validateRequired, 
-    validateString, 
-    validateUUID, 
+const {
+    ValidationError,
+    validateRequired,
+    validateString,
+    validateUUID,
     validateConversationId,
-    validateObject, 
-    validateMessage 
+    validateObject,
+    validateMessage
 } = require('../utils/validation');
 const { handleControllerError } = require('../utils/errorHandler');
+const { validateFileMetadata } = require('../utils/fileValidation');
 const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
@@ -228,9 +229,23 @@ class ConversationController {
             const validatedMessage = validateMessage(req.body.message);
             
             // Skip validation for visitorId - widget uses visitor-xxx format, not UUID
-            
-            const { conversationId, visitorId, requestHuman, enableRAG } = req.body;
+
+            const { conversationId, visitorId, requestHuman, enableRAG, messageType, fileMetadata } = req.body;
             const message = validatedMessage;
+
+            // Validate file metadata if present
+            let sanitizedFileMetadata = null;
+            if (fileMetadata) {
+                try {
+                    sanitizedFileMetadata = validateFileMetadata(fileMetadata);
+                } catch (error) {
+                    return res.status(400).json({
+                        success: false,
+                        error: `Invalid file metadata: ${error.message}`
+                    });
+                }
+            }
+
             // Create conversation if doesn't exist
             if (!(await conversationService.conversationExists(conversationId))) {
                 const conversation = {
@@ -239,7 +254,7 @@ class ConversationController {
                     startedAt: new Date(),
                 };
                 await conversationService.createConversation(conversationId, conversation);
-                
+
                 // Auto-assign to available agent if in HITL mode
                 const currentMode = await agentService.getSystemMode();
                 if (currentMode === 'hitl') {
@@ -257,7 +272,7 @@ class ConversationController {
                         // Continue without assignment - conversation will be unassigned
                     }
                 }
-                
+
                 // Emit new conversation event to agents
                 console.log('🆕 New conversation created, notifying agents:', conversationId);
                 this.io.to('agents').emit('new-conversation', {
@@ -266,14 +281,16 @@ class ConversationController {
                     timestamp: new Date()
                 });
             }
-            
-            // Store user message
+
+            // Store user message with file metadata if present
             const userMessage = {
                 id: uuidv4(),
                 conversationId,
                 content: message,
                 sender: 'visitor',
-                timestamp: new Date()
+                timestamp: new Date(),
+                messageType: messageType || 'text',
+                metadata: sanitizedFileMetadata ? { file: sanitizedFileMetadata } : undefined
             };
             
             // First, add the user message atomically

@@ -427,11 +427,37 @@ export class ConversationRenderer {
         const isAI = msg.sender === 'ai';
         const isAgent = msg.sender === 'agent';
         const isSystem = msg.sender === 'system';
-        
-        const formattedContent = (isAI || isAgent) ? 
-            this.markdownToHtml(msg.content) : 
-            UIHelpers.escapeHtml(msg.content);
-        
+
+        let formattedContent;
+
+        // Check for file attachment in metadata
+        if (msg.metadata && msg.metadata.file) {
+            const fileUrl = msg.metadata.file.url;
+
+            // Validate file URL to prevent XSS
+            if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('/api/uploads/')) {
+                formattedContent = `<div class="text-red-600">⚠️ Invalid file attachment</div>`;
+            } else {
+                const isImage = msg.metadata.file.mimetype && msg.metadata.file.mimetype.startsWith('image/');
+
+                if (isImage) {
+                    formattedContent = `<a href="${UIHelpers.escapeHtml(fileUrl)}" target="_blank"><img src="${UIHelpers.escapeHtml(fileUrl)}" style="max-width: 300px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
+                } else {
+                    formattedContent = `<a href="${UIHelpers.escapeHtml(fileUrl)}" download="${UIHelpers.escapeHtml(msg.metadata.file.filename || msg.metadata.file.originalName)}" class="text-indigo-600 hover:text-indigo-800 underline">📎 ${UIHelpers.escapeHtml(msg.metadata.file.filename || msg.metadata.file.originalName)}</a>`;
+                }
+
+                // Add caption if present and different from filename
+                const filename = msg.metadata.file.filename || msg.metadata.file.originalName;
+                if (msg.content && msg.content !== filename) {
+                    formattedContent += `<div class="mt-2">${UIHelpers.escapeHtml(msg.content)}</div>`;
+                }
+            }
+        } else {
+            formattedContent = (isAI || isAgent) ?
+                this.markdownToHtml(msg.content) :
+                UIHelpers.escapeHtml(msg.content);
+        }
+
         return `
             <div class="flex ${(isCustomer || isSystem) ? '' : 'justify-end'} mb-4" data-message-id="${msg.id}">
                 <div class="max-w-[70%]">
