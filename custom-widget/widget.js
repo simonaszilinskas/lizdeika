@@ -756,8 +756,8 @@
         },
 
         renderFileMessage(fileMetadata, caption, fileUrl) {
-            // Validate file URL to prevent XSS
-            if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('/api/uploads/')) {
+            // Validate the RELATIVE URL path from metadata (not the absolute fileUrl)
+            if (!fileMetadata.url || typeof fileMetadata.url !== 'string' || !fileMetadata.url.startsWith('/api/uploads/')) {
                 return '<div style="color: red;">⚠️ Invalid file attachment</div>';
             }
 
