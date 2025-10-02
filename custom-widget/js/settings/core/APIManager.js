@@ -24,7 +24,8 @@ export class APIManager {
         try {
             // Get authentication token
             this.agentToken = localStorage.getItem('agent_token');
-            
+
+
             console.log('✅ APIManager: Initialization complete');
         } catch (error) {
             ErrorHandler.logError(error, 'APIManager initialization failed');
@@ -39,11 +40,11 @@ export class APIManager {
         const headers = {
             'Content-Type': 'application/json'
         };
-        
+
         if (this.agentToken) {
             headers['Authorization'] = `Bearer ${this.agentToken}`;
         }
-        
+
         return headers;
     }
 

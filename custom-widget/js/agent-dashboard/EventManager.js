@@ -185,10 +185,15 @@ export class EventManager {
      * Setup global click listener for closing dropdowns
      */
     setupGlobalClickListener() {
-        // Close assignment dropdowns when clicking elsewhere
+        // Close assignment and category dropdowns when clicking elsewhere
         document.addEventListener('click', (e) => {
             if (!e.target.closest('[id^="assign-dropdown-"]') && !e.target.closest('button[onclick*="toggleAssignDropdown"]')) {
                 document.querySelectorAll('[id^="assign-dropdown-"]').forEach(dropdown => {
+                    dropdown.classList.add('hidden');
+                });
+            }
+            if (!e.target.closest('[id^="category-dropdown-"]') && !e.target.closest('button[onclick*="toggleCategoryDropdown"]')) {
+                document.querySelectorAll('[id^="category-dropdown-"]').forEach(dropdown => {
                     dropdown.classList.add('hidden');
                 });
             }

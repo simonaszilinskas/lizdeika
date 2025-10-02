@@ -200,9 +200,9 @@ export class ConversationRenderer {
             if (aNeedsResponse && !bNeedsResponse) return -1;
             if (bNeedsResponse && !aNeedsResponse) return 1;
             
-            // Priority 4: Sort by most recent activity (updatedAt or startedAt)
-            const aTime = new Date(a.updatedAt || a.startedAt);
-            const bTime = new Date(b.updatedAt || b.startedAt);
+            // Priority 4: Sort by creation time (startedAt only, ignore updates)
+            const aTime = new Date(a.startedAt);
+            const bTime = new Date(b.startedAt);
             return bTime - aTime;
         });
     }
@@ -213,9 +213,47 @@ export class ConversationRenderer {
      * @returns {boolean} True if needs response
      */
     conversationNeedsResponse(conv) {
-        return conv.lastMessage && 
-               conv.lastMessage.metadata && 
+        return conv.lastMessage &&
+               conv.lastMessage.metadata &&
                conv.lastMessage.metadata.pendingAgent;
+    }
+
+    /**
+     * Render category badge for conversation
+     * @param {Object} categoryData - Category data object
+     * @param {Object} categoryMetadata - Optional metadata about the category (AI source, confidence, etc.)
+     * @returns {string} HTML string for category badge
+     */
+    renderCategoryBadge(categoryData, categoryMetadata = null) {
+        if (!categoryData || !categoryData.name) {
+            return '';
+        }
+
+        const color = categoryData.color || '#6B7280';
+        // All categories are global now
+        const badgeClass = 'bg-blue-100 text-blue-700 border border-blue-200';
+
+        // Check if category was AI-assigned
+        const isAiAssigned = categoryMetadata && categoryMetadata.source === 'ai';
+        const aiIcon = isAiAssigned ? '<i class="fas fa-robot text-xs opacity-70" title="AI-categorized"></i>' : '';
+
+        // Build tooltip text with proper escaping to prevent XSS
+        let tooltipText = `Category: ${UIHelpers.escapeHtml(categoryData.name)}`;
+        if (isAiAssigned && categoryMetadata.reasoning) {
+            const confidence = categoryMetadata.confidence
+                ? ` (${(categoryMetadata.confidence * 100).toFixed(0)}% confidence)`
+                : '';
+            tooltipText += `\nAI-suggested${confidence}\nReason: ${UIHelpers.escapeHtml(categoryMetadata.reasoning)}`;
+        }
+
+        return `
+            <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${badgeClass}"
+                 title="${tooltipText}">
+                <div class="w-2 h-2 rounded-full" style="background-color: ${color};"></div>
+                <span class="max-w-16 truncate">${categoryData.name}</span>
+                ${aiIcon}
+            </div>
+        `;
     }
 
 
@@ -268,6 +306,7 @@ export class ConversationRenderer {
                                 <span>User #${conv.userNumber || 'Unknown'}</span>
                                 ${unseenCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unseenCount}</span>` : ''}
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
+                                ${this.renderCategoryBadge(conv.categoryData, conv.categoryMetadata)}
                             </div>
                             <div class="text-xs text-gray-500">
                                 ${UIHelpers.formatConversationDate(conv.startedAt)}
@@ -845,5 +884,92 @@ export class ConversationRenderer {
         }
 
         console.log(`🔝 Moved conversation ${conversationId} to top of list`);
+    }
+
+    /**
+     * Update a conversation's category in-place without reloading the entire list
+     * @param {string} conversationId - ID of the conversation to update
+     * @param {Object|null} categoryData - New category data or null to remove category
+     * @param {Object|null} categoryMetadata - Metadata about the category (AI source, confidence, etc.)
+     */
+    updateConversationCategory(conversationId, categoryData, categoryMetadata = null) {
+        // Update the conversation data in the modern loader cache
+        const conversationData = this.dashboard.modernConversationLoader.getConversations();
+        const conversation = conversationData.all.find(conv => conv.id === conversationId);
+
+        if (!conversation) {
+            console.warn(`❌ Conversation ${conversationId} not found in cache`);
+            return false;
+        }
+
+        // Update the category data and metadata
+        conversation.categoryData = categoryData;
+        conversation.categoryId = categoryData?.id || null;
+        conversation.categoryMetadata = categoryMetadata;
+
+        // Update the DOM - find the conversation item
+        const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+        if (!queueItem) {
+            console.warn(`❌ DOM element for conversation ${conversationId} not found`);
+            return false;
+        }
+
+        // Find the container that has the user number and badges
+        const categoryContainer = queueItem.querySelector('.font-medium');
+        if (!categoryContainer) {
+            console.warn(`❌ Category container (.font-medium) not found for conversation ${conversationId}`);
+            return false;
+        }
+
+        // Find existing category badge - look for the inline-flex element that contains the category
+        // The badge has a child div with background-color for the color dot
+        let existingBadge = categoryContainer.querySelector('.inline-flex.rounded-full');
+        if (!existingBadge) {
+            // Fallback: look for any element with a color dot inside
+            const colorDot = categoryContainer.querySelector('div[style*="background-color"]');
+            if (colorDot) {
+                existingBadge = colorDot.closest('.inline-flex');
+            }
+        }
+
+        if (categoryData && categoryData.name) {
+            // Create new category badge HTML with metadata
+            const newBadgeHTML = this.renderCategoryBadge(categoryData, categoryMetadata);
+
+            if (existingBadge) {
+                // Replace existing badge
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newBadgeHTML.trim();
+                const newBadge = tempDiv.firstElementChild;
+                if (newBadge) {
+                    existingBadge.replaceWith(newBadge);
+                } else {
+                    console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
+                }
+            } else {
+                // Add new badge after the user number and unseen count
+                const archiveIcon = categoryContainer.querySelector('.fa-archive');
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newBadgeHTML.trim();
+                const newBadge = tempDiv.firstElementChild;
+
+                if (newBadge) {
+                    if (archiveIcon) {
+                        // Insert before archive icon
+                        archiveIcon.parentElement.insertBefore(newBadge, archiveIcon);
+                    } else {
+                        // Append to container
+                        categoryContainer.appendChild(newBadge);
+                    }
+                } else {
+                    console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
+                }
+            }
+        } else if (existingBadge) {
+            // Remove category badge if no category
+            existingBadge.remove();
+        }
+
+        return true;
     }
 }

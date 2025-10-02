@@ -32,16 +32,18 @@ class VilniusRAGChain extends BaseChain {
     constructor(options = {}) {
         super(options);
 
-        // Initialize the main LLM
-        const mainModel = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
+        // Use provided config or fall back to env vars
+        const config = options.providerConfig || {};
+        const mainModel = config.OPENROUTER_MODEL || process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
+
         this.llm = new ChatOpenAI({
             model: mainModel,
-            apiKey: process.env.OPENROUTER_API_KEY,
+            apiKey: config.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY,
             configuration: {
                 baseURL: "https://openrouter.ai/api/v1",
                 defaultHeaders: {
-                    "HTTP-Referer": process.env.SITE_URL || "http://localhost:3002",
-                    "X-Title": process.env.SITE_NAME || "Vilnius Chatbot"
+                    "HTTP-Referer": config.SITE_URL || process.env.SITE_URL || "http://localhost:3002",
+                    "X-Title": config.SITE_NAME || process.env.SITE_NAME || "Vilnius Chatbot"
                 }
             },
             temperature: 0.2,
@@ -545,6 +547,92 @@ class VilniusRAGChain extends BaseChain {
             this.timeout = config.timeout;
         }
         return this;
+    }
+
+    /**
+     * Update AI provider configuration dynamically
+     */
+    async updateProviderConfig(providerConfig) {
+        // Store current config for rollback
+        const previousConfig = {
+            model: this.mainModelName,
+            llm: this.llm
+        };
+
+        try {
+            let needsRecreation = false;
+
+            // Update environment variables
+            if (providerConfig.OPENROUTER_API_KEY && providerConfig.OPENROUTER_API_KEY !== process.env.OPENROUTER_API_KEY) {
+                process.env.OPENROUTER_API_KEY = providerConfig.OPENROUTER_API_KEY;
+                needsRecreation = true;
+            }
+
+            if (providerConfig.OPENROUTER_MODEL && providerConfig.OPENROUTER_MODEL !== process.env.OPENROUTER_MODEL) {
+                process.env.OPENROUTER_MODEL = providerConfig.OPENROUTER_MODEL;
+                needsRecreation = true;
+            }
+
+            if (providerConfig.SITE_URL) {
+                process.env.SITE_URL = providerConfig.SITE_URL;
+                needsRecreation = true;
+            }
+
+            if (providerConfig.SITE_NAME) {
+                process.env.SITE_NAME = providerConfig.SITE_NAME;
+                needsRecreation = true;
+            }
+
+            // Recreate main LLM if needed
+            if (needsRecreation) {
+                const mainModel = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
+                const newLLM = new ChatOpenAI({
+                    model: mainModel,
+                    apiKey: process.env.OPENROUTER_API_KEY,
+                    configuration: {
+                        baseURL: "https://openrouter.ai/api/v1",
+                        defaultHeaders: {
+                            "HTTP-Referer": process.env.SITE_URL || "http://localhost:3002",
+                            "X-Title": process.env.SITE_NAME || "Vilnius Chatbot"
+                        }
+                    },
+                    temperature: 0.2,
+                    streaming: false
+                });
+
+                // Test the new LLM with a simple call before committing
+                try {
+                    await newLLM.invoke([{ role: "user", content: "test" }]);
+                    this.llm = newLLM;
+                    this.mainModelName = mainModel;
+                } catch (testError) {
+                    console.error('❌ New LLM configuration failed test:', testError.message);
+                    // Restore previous LLM
+                    this.llm = previousConfig.llm;
+                    this.mainModelName = previousConfig.model;
+                    throw new Error(`Invalid LLM configuration: ${testError.message}`);
+                }
+
+                console.log('🔧 VilniusRAGChain: Updated main LLM configuration');
+                console.log(`   Model: ${mainModel}`);
+                console.log(`   API Key: ${process.env.OPENROUTER_API_KEY ? 'Set' : 'Not set'}`);
+            }
+
+            // Update rephrasing chain if needed
+            if (providerConfig.REPHRASING_MODEL) {
+                await this.rephraseChain.updateConfiguration({
+                    rephrasingModel: providerConfig.REPHRASING_MODEL,
+                    apiKey: providerConfig.OPENROUTER_API_KEY,
+                    siteUrl: providerConfig.SITE_URL,
+                    siteName: providerConfig.SITE_NAME
+                });
+            }
+
+            return { success: true, recreated: needsRecreation };
+        } catch (error) {
+            console.error('❌ Error updating provider configuration:', error);
+            return { success: false, error: error.message };
+        }
     }
 }
 

@@ -30,6 +30,7 @@
  */
 const express = require('express');
 const ConversationController = require('../controllers/conversationController');
+const { authenticateToken, requireAgentOrAdmin } = require('../middleware/authMiddleware');
 
 function createConversationRoutes(io) {
     const router = express.Router();
@@ -86,6 +87,11 @@ function createConversationRoutes(io) {
         conversationController.markMessagesAsSeen(req, res);
     });
 
+    // Category assignment endpoints (authenticated agents/admins only)
+    router.patch('/conversations/:conversationId/category', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.assignCategory(req, res);
+    });
+
     // Bulk operations (admin-only endpoints)
     router.post('/admin/conversations/bulk-archive', (req, res) => {
         conversationController.bulkArchiveConversations(req, res);
@@ -97,6 +103,27 @@ function createConversationRoutes(io) {
 
     router.post('/admin/conversations/bulk-assign', (req, res) => {
         conversationController.bulkAssignConversations(req, res);
+    });
+
+    router.patch('/admin/conversations/bulk-category', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.bulkAssignCategory(req, res);
+    });
+
+    // AI Auto-Categorization endpoints
+    router.post('/conversations/:conversationId/categorize', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.triggerAutoCategorization(req, res);
+    });
+
+    router.get('/categorization/stats', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.getCategorizationStats(req, res);
+    });
+
+    router.post('/admin/categorization/trigger-job', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.triggerCategorizationJob(req, res);
+    });
+
+    router.put('/conversations/:id/category-override', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.toggleCategoryOverride(req, res);
     });
 
     return router;

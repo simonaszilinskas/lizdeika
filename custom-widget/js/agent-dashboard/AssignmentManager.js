@@ -11,6 +11,43 @@ export class AssignmentManager {
         this.apiManager = dashboard.apiManager;
         this.uiHelpers = dashboard.uiHelpers;
         this.modernConversationLoader = dashboard.modernConversationLoader;
+        this.activeDropdown = null;
+        this.setupEventDelegation();
+    }
+
+    /**
+     * Setup event delegation for category dropdown buttons
+     */
+    setupEventDelegation() {
+        // Use event delegation on document body for dynamically created buttons
+        document.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-action="toggle-category-dropdown"]');
+            if (button) {
+                event.preventDefault();
+                event.stopPropagation();
+                const conversationId = button.dataset.conversationId;
+                this.toggleCategoryDropdown(conversationId, button);
+            }
+        });
+
+        // Close dropdown on click outside
+        document.addEventListener('click', (event) => {
+            if (this.activeDropdown &&
+                !event.target.closest('.category-dropdown-portal') &&
+                !event.target.closest('[data-action="toggle-category-dropdown"]')) {
+                this.closeActiveDropdown();
+            }
+        });
+
+        // Close dropdown on scroll
+        const chatQueue = document.getElementById('chat-queue-container');
+        if (chatQueue) {
+            chatQueue.addEventListener('scroll', () => {
+                if (this.activeDropdown) {
+                    this.closeActiveDropdown();
+                }
+            });
+        }
     }
 
     /**
@@ -228,6 +265,162 @@ export class AssignmentManager {
         }
         
         this.dashboard.showToast(message, 'error');
+    }
+
+    /**
+     * Assign category to conversation
+     * @param {string} conversationId - Conversation ID
+     * @param {string} categoryId - Category ID (null to remove category)
+     * @param {Event} event - Click event to prevent propagation
+     */
+    async assignCategory(conversationId, categoryId, event) {
+        if (event) {
+            event.stopPropagation();
+        }
+
+        // Close the active dropdown using portal pattern
+        this.closeActiveDropdown();
+
+        try {
+            console.log('🏷️ Assigning category:', categoryId, 'to conversation:', conversationId);
+            const response = await this.apiManager.assignCategory(conversationId, categoryId);
+            console.log('✅ Category assignment successful, updating conversation in-place...');
+
+            // Prepare category data from response
+            const categoryData = categoryId ? {
+                id: response.category_id || categoryId,
+                name: response.category_name || 'Unknown',
+                color: response.category_color || '#888888'
+            } : null;
+
+            // Update the conversation's category in-place without reloading
+            const updated = this.dashboard.conversationRenderer.updateConversationCategory(conversationId, categoryData);
+
+            if (updated) {
+                console.log('✅ Category badge updated successfully without reordering');
+                this.dashboard.showToast('Category updated', 'success');
+            } else {
+                console.warn('⚠️ Failed to update category badge in UI, falling back to reload');
+                // Only reload if in-place update failed
+                this.modernConversationLoader.refresh();
+                await this.dashboard.loadConversations();
+            }
+        } catch (error) {
+            this.handleAssignmentError(error, 'assign category to');
+        }
+    }
+
+    /**
+     * Toggle category dropdown visibility using portal pattern
+     * @param {string} conversationId - Conversation ID
+     * @param {HTMLElement} button - Button that triggered the dropdown
+     */
+    async toggleCategoryDropdown(conversationId, button) {
+        // Close any existing dropdown
+        if (this.activeDropdown) {
+            // If clicking the same button, just close
+            if (this.activeDropdown.dataset.conversationId === conversationId) {
+                this.closeActiveDropdown();
+                return;
+            }
+            this.closeActiveDropdown();
+        }
+
+        // Create dropdown at body level (portal pattern)
+        const dropdown = document.createElement('div');
+        dropdown.className = 'category-dropdown-portal bg-white border border-gray-200 rounded-lg shadow-2xl max-h-48 overflow-y-auto';
+        dropdown.dataset.conversationId = conversationId;
+        dropdown.style.position = 'fixed';
+        dropdown.style.zIndex = '10000';
+        dropdown.style.minWidth = '200px';
+
+        try {
+            // Load categories and populate dropdown
+            const categories = await this.apiManager.loadCategories();
+            dropdown.innerHTML = this.renderCategoryOptions(conversationId, categories);
+
+            // Position dropdown relative to button
+            const buttonRect = button.getBoundingClientRect();
+            const dropdownHeight = 200; // Approximate max height
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = window.innerWidth;
+
+            // Determine vertical position
+            const spaceBelow = viewportHeight - buttonRect.bottom;
+            const shouldShowAbove = spaceBelow < dropdownHeight && buttonRect.top > dropdownHeight;
+
+            if (shouldShowAbove) {
+                dropdown.style.bottom = `${viewportHeight - buttonRect.top + 5}px`;
+                dropdown.style.top = 'auto';
+            } else {
+                dropdown.style.top = `${buttonRect.bottom + 5}px`;
+                dropdown.style.bottom = 'auto';
+            }
+
+            // Determine horizontal position
+            const spaceRight = viewportWidth - buttonRect.right;
+            if (spaceRight < 200) {
+                // Not enough space on right, align to button's right edge
+                dropdown.style.right = `${viewportWidth - buttonRect.right}px`;
+                dropdown.style.left = 'auto';
+            } else {
+                // Enough space, align to button's left edge
+                dropdown.style.left = `${buttonRect.left}px`;
+                dropdown.style.right = 'auto';
+            }
+
+            // Add to body
+            document.body.appendChild(dropdown);
+            this.activeDropdown = dropdown;
+
+        } catch (error) {
+            console.error('Failed to load categories:', error);
+            dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500">Error loading categories</div>';
+            document.body.appendChild(dropdown);
+            this.activeDropdown = dropdown;
+        }
+    }
+
+    /**
+     * Close the currently active dropdown
+     */
+    closeActiveDropdown() {
+        if (this.activeDropdown) {
+            this.activeDropdown.remove();
+            this.activeDropdown = null;
+        }
+    }
+
+    /**
+     * Render category dropdown options
+     * @param {string} conversationId - Conversation ID
+     * @param {Array} categories - Array of category objects
+     * @returns {string} HTML string for category options
+     */
+    renderCategoryOptions(conversationId, categories) {
+        if (!categories || categories.length === 0) {
+            return '<div class="px-3 py-2 text-xs text-gray-500">No categories available</div>';
+        }
+
+        let html = `
+            <div onclick="dashboard.assignmentManager.assignCategory('${conversationId}', null, event)"
+                 class="px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100">
+                <span class="text-gray-500">No Category</span>
+            </div>
+        `;
+
+        categories.forEach(category => {
+            const colorStyle = category.color ? `style="color: ${category.color};"` : '';
+            html += `
+                <div onclick="dashboard.assignmentManager.assignCategory('${conversationId}', '${category.id}', event)"
+                     class="px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full" style="background-color: ${category.color || '#6B7280'};"></div>
+                    <span ${colorStyle}>${category.name}</span>
+                </div>
+            `;
+        });
+
+        return html;
     }
 
     /**

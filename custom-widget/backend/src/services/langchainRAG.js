@@ -30,17 +30,24 @@ class LangChainRAG {
         this.retriever = null;
         this.rephraseChain = null;
         this.initialized = false;
+        this.initializationPromise = null;
+        this.verbose = process.env.NODE_ENV === 'development';
 
-        // Initialize asynchronously
-        this.initializeAsync();
+        // Initialize asynchronously and retain promise for later awaiters
+        this.initializationPromise = this.initializeAsync();
 
         // Initialize Langfuse client for scoring
-        this.langfuse = new Langfuse({
-            publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-            secretKey: process.env.LANGFUSE_SECRET_KEY,
-            baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
-            debug: process.env.LANGFUSE_DEBUG === 'true'
-        });
+        this.langfuse = null;
+        if (process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY) {
+            this.langfuse = new Langfuse({
+                publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+                secretKey: process.env.LANGFUSE_SECRET_KEY,
+                baseUrl: process.env.LANGFUSE_BASE_URL || "https://cloud.langfuse.com",
+                debug: process.env.LANGFUSE_DEBUG === 'true'
+            });
+        } else {
+            console.log('ℹ️ Langfuse scoring disabled - missing credentials');
+        }
 
     }
 
@@ -52,20 +59,37 @@ class LangChainRAG {
             // Load configuration first
             await this.loadConfiguration();
 
+            // Get current AI provider config for initialization
+            let providerConfig = {};
+            if (this.settingsService) {
+                try {
+                    providerConfig = await this.settingsService.getAIProviderConfig();
+                } catch (error) {
+                    console.warn('Could not load AI provider config for initialization:', error.message);
+                }
+            }
+
             // Now initialize the RAG chain with proper configuration
             this.ragChain = new VilniusRAGChain({
                 k: parseInt(process.env.RAG_K) || 100,
                 enableRephrasing: process.env.ENABLE_QUERY_REPHRASING !== 'false',
                 showSources: process.env.RAG_SHOW_SOURCES !== 'false',
                 includeDebug: true,
-                verbose: process.env.NODE_ENV === 'development',
+                verbose: this.verbose,
                 timeout: 60000,
-                rephrasingModel: process.env.REPHRASING_MODEL
+                rephrasingModel: process.env.REPHRASING_MODEL,
+                providerConfig: providerConfig
             });
 
             // Keep reference to individual components for advanced usage
             this.retriever = this.ragChain.retriever;
             this.rephraseChain = this.ragChain.rephraseChain;
+
+            // Keep chain verbosity aligned with service level
+            this.verbose = Boolean(this.ragChain?.verbose) || this.verbose;
+
+            // Set up event listeners for dynamic configuration updates
+            this.setupEventListeners();
 
             this.initialized = true;
 
@@ -74,6 +98,7 @@ class LangChainRAG {
             console.log(`   - Query rephrasing: ${this.ragChain.enableRephrasing ? 'ENABLED' : 'DISABLED'}`);
             console.log(`   - Source attribution: ${this.ragChain.showSources ? 'ENABLED' : 'DISABLED'}`);
             console.log(`   - Rephrasing model: ${process.env.REPHRASING_MODEL}`);
+            console.log(`   - Event listeners: ${this.settingsService ? 'ENABLED' : 'DISABLED'}`);
 
         } catch (error) {
             console.error('❌ Failed to initialize LangChain RAG Service:', error.message);
@@ -121,6 +146,85 @@ class LangChainRAG {
     }
 
     /**
+     * Set up event listeners for dynamic configuration updates
+     */
+    setupEventListeners() {
+        if (!this.settingsService) {
+            console.warn('⚠️ LangChainRAG: No settings service available, skipping event listeners');
+            return;
+        }
+
+        // Listen for AI provider setting changes
+        this.settingsService.on('settingChanged', async (event) => {
+            const { key, value, category } = event;
+
+            // Only react to AI provider configuration changes
+            if (category === 'ai_providers') {
+                console.log(`🔄 LangChainRAG: AI provider setting changed: ${key} = ${value}`);
+
+                // Guard: ensure ragChain is initialized before updating
+                if (!this.ragChain || !this.initialized) {
+                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    return;
+                }
+
+                // Reload and apply the entire provider configuration
+                try {
+                    await this.reloadConfiguration();
+                } catch (error) {
+                    console.error('❌ LangChainRAG: Failed to reload configuration after setting change:', error);
+                }
+            }
+        });
+
+        // Listen for bulk settings changes
+        this.settingsService.on('settingsChanged', async (event) => {
+            const { settings, category } = event;
+
+            // Only react to AI provider configuration changes
+            if (category === 'ai_providers') {
+                console.log(`🔄 LangChainRAG: AI provider settings changed (bulk update):`, Object.keys(settings));
+
+                // Guard: ensure ragChain is initialized before updating
+                if (!this.ragChain || !this.initialized) {
+                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    return;
+                }
+
+                // Reload and apply the entire provider configuration
+                try {
+                    await this.reloadConfiguration();
+                } catch (error) {
+                    console.error('❌ LangChainRAG: Failed to reload configuration after bulk setting change:', error);
+                }
+            }
+        });
+
+        // Listen for settings reset
+        this.settingsService.on('settingsReset', async (event) => {
+            const { category } = event;
+
+            if (category === 'ai_providers') {
+                console.log('🔄 LangChainRAG: AI provider settings reset to defaults');
+
+                // Guard: ensure ragChain is initialized before updating
+                if (!this.ragChain || !this.initialized) {
+                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    return;
+                }
+
+                try {
+                    await this.reloadConfiguration();
+                } catch (error) {
+                    console.error('❌ LangChainRAG: Failed to reload configuration after settings reset:', error);
+                }
+            }
+        });
+
+        console.log('✅ LangChainRAG: Event listeners set up for dynamic configuration updates');
+    }
+
+    /**
      * Get current RAG settings from database or environment
      */
     async getCurrentSettings() {
@@ -163,17 +267,9 @@ class LangChainRAG {
         const startTime = Date.now();
 
         // Wait for initialization to complete
-        if (!this.initialized) {
-            console.log('⏳ Waiting for LangChain RAG initialization...');
-            let attempts = 0;
-            while (!this.initialized && attempts < 30) { // Wait up to 15 seconds
-                await new Promise(resolve => setTimeout(resolve, 500));
-                attempts++;
-            }
-
-            if (!this.initialized) {
-                throw new Error('LangChain RAG service failed to initialize within timeout');
-            }
+        const ready = await this.waitForInitialization();
+        if (!ready) {
+            throw new Error('LangChain RAG service failed to initialize within timeout');
         }
 
         try {
@@ -358,6 +454,59 @@ class LangChainRAG {
     }
 
     /**
+     * Update AI provider configuration dynamically
+     * This is called when settings are changed in the admin interface
+     */
+    async updateProviderConfig(providerConfig) {
+        try {
+            console.log('🔧 LangChainRAG: Updating provider configuration');
+            console.log('   Config keys:', Object.keys(providerConfig));
+
+            // Update the RAG chain configuration
+            const result = await this.ragChain.updateProviderConfig(providerConfig);
+
+            if (result.success) {
+                console.log('✅ LangChainRAG: Provider configuration updated successfully');
+                if (result.recreated) {
+                    console.log('   - LLM instances recreated with new configuration');
+                }
+            } else {
+                console.error('❌ LangChainRAG: Failed to update provider configuration:', result.error);
+            }
+
+            return result;
+        } catch (error) {
+            console.error('❌ LangChainRAG: Error updating provider configuration:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Reload configuration from database
+     * This is called when we need to refresh configuration from the database
+     */
+    async reloadConfiguration() {
+        try {
+            console.log('🔄 LangChainRAG: Reloading configuration from database');
+
+            // Load fresh configuration from database
+            await this.loadConfiguration();
+
+            // Get the current provider config
+            if (this.settingsService) {
+                const config = await this.settingsService.getAIProviderConfig();
+                await this.updateProviderConfig(config);
+            }
+
+            console.log('✅ LangChainRAG: Configuration reloaded successfully');
+            return { success: true };
+        } catch (error) {
+            console.error('❌ LangChainRAG: Error reloading configuration:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Get retriever statistics
      */
     async getRetrieverStats() {
@@ -366,6 +515,45 @@ class LangChainRAG {
         } catch (error) {
             return { error: error.message };
         }
+    }
+
+    /**
+     * Indicates if the service and underlying chain are ready for use
+     */
+    get isReady() {
+        return Boolean(
+            this.initialized &&
+            this.ragChain &&
+            !this.ragChain._destroyed
+        );
+    }
+
+    /**
+     * Await initialization sequence completion with timeout guard
+     */
+    async waitForInitialization(timeoutMs = 15000) {
+        if (this.isReady) {
+            return true;
+        }
+
+        if (this.initializationPromise) {
+            try {
+                await this.initializationPromise;
+            } catch (error) {
+                console.warn('⚠️ LangChain RAG initialization promise rejected:', error.message);
+            }
+        }
+
+        if (this.isReady) {
+            return true;
+        }
+
+        const start = Date.now();
+        while (!this.isReady && Date.now() - start < timeoutMs) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+
+        return this.isReady;
     }
 
     /**
@@ -441,10 +629,19 @@ class LangChainRAG {
      */
     async scoreAgentAction(conversationId, suggestionAction, originalSuggestion = null) {
         try {
+            const ready = await this.waitForInitialization(5000);
+            const verboseLogging = (this.ragChain && this.ragChain.verbose) || this.verbose;
+
+            if (!ready) {
+                if (verboseLogging) {
+                    console.warn('⚠️ LangChainRAG not ready during scoring request - proceeding with degraded logging');
+                }
+            }
+
             // Don't score actions in autopilot mode - agents aren't involved
             const systemMode = await this.getSystemMode();
             if (systemMode === 'autopilot') {
-                if (this.ragChain.verbose) {
+                if (verboseLogging) {
                     console.log('🚫 Skipping agent action scoring - autopilot mode active');
                 }
                 return;
@@ -452,6 +649,13 @@ class LangChainRAG {
 
             if (!conversationId || !suggestionAction) {
                 console.warn('⚠️ Missing conversationId or suggestionAction for scoring');
+                return;
+            }
+
+            if (!this.langfuse) {
+                if (verboseLogging) {
+                    console.warn('⚠️ Langfuse client unavailable - skipping agent action scoring');
+                }
                 return;
             }
 
@@ -467,7 +671,7 @@ class LangChainRAG {
             const scoreName = scoreMapping[suggestionAction] || suggestionAction;
             const scoreValue = this.getScoreValue(suggestionAction);
 
-            if (this.ragChain.verbose) {
+            if (verboseLogging) {
                 console.log('📊 Scoring agent action:');
                 console.log(`   Session: ${sessionId}`);
                 console.log(`   Action: ${suggestionAction} → "${scoreName}"`);
