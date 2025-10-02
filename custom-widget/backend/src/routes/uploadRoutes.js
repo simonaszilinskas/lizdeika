@@ -200,7 +200,9 @@ router.get('/uploads/:filename', optionalAuth, async (req, res) => {
         }
 
         // For customers (no auth), allow access
-        // Note: In production, you might want to add visitor ID validation
+        // TODO: Add visitor ID validation for enhanced security
+        // Implementation needed: Store visitor_id in tickets table and validate here
+        // See PR review comment for implementation details
         return res.sendFile(filePath);
 
     } catch (error) {

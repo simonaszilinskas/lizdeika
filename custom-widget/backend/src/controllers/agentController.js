@@ -38,47 +38,7 @@ const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
 const { asyncHandler } = require('../utils/errors');
-
-/**
- * Validate file metadata to prevent XSS and injection attacks
- * @param {Object} fileMetadata - File metadata object from upload
- * @returns {Object|null} Sanitized file metadata or null if invalid
- */
-function validateFileMetadata(fileMetadata) {
-    if (!fileMetadata) return null;
-
-    // Validate URL - must start with /api/uploads/
-    if (!fileMetadata.url || typeof fileMetadata.url !== 'string') {
-        throw new Error('Invalid file URL');
-    }
-    if (!fileMetadata.url.startsWith('/api/uploads/')) {
-        throw new Error('File URL must start with /api/uploads/');
-    }
-
-    // Validate mimetype against allowlist
-    const allowedMimetypes = [
-        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/plain'
-    ];
-
-    if (!fileMetadata.mimetype || !allowedMimetypes.includes(fileMetadata.mimetype)) {
-        throw new Error('Invalid or disallowed file type');
-    }
-
-    // Return sanitized metadata (only trusted fields)
-    return {
-        filename: String(fileMetadata.filename || '').substring(0, 255),
-        storedFilename: String(fileMetadata.storedFilename || '').substring(0, 255),
-        mimetype: fileMetadata.mimetype,
-        size: parseInt(fileMetadata.size) || 0,
-        url: fileMetadata.url
-    };
-}
+const { validateFileMetadata } = require('../utils/fileValidation');
 
 class AgentController {
     constructor(io) {
