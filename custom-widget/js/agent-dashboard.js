@@ -618,24 +618,35 @@ class AgentDashboard {
         if (totalAgentsCompact) {
             totalAgentsCompact.textContent = agents.length;
 
-            // Create tooltip content with agent names grouped by status
-            const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
-            const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
+            // Create tooltip content with agent names
+            if (agents.length === 0) {
+                totalAgentsCompact.title = 'No agents connected';
+            } else {
+                // Group agents by status
+                const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
+                const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
+                const afkAgents = agents.filter(agent => agent.personalStatus === 'afk' || agent.personalStatus === 'away');
 
-            let tooltipContent = '';
-            if (onlineAgents.length > 0) {
-                tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
-            }
-            if (offlineAgents.length > 0) {
-                if (tooltipContent) tooltipContent += '\n';
-                tooltipContent += `Offline (${offlineAgents.length}): ${offlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
-            }
-            if (!tooltipContent) {
-                tooltipContent = 'No agents connected';
-            }
+                // Build tooltip with agent names
+                const tooltipParts = [];
 
-            // Add tooltip to the agent count element
-            totalAgentsCompact.title = tooltipContent;
+                if (onlineAgents.length > 0) {
+                    const names = onlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+                    tooltipParts.push(`Online (${onlineAgents.length}): ${names}`);
+                }
+
+                if (afkAgents.length > 0) {
+                    const names = afkAgents.map(a => getAgentDisplayName(a)).join(', ');
+                    tooltipParts.push(`AFK (${afkAgents.length}): ${names}`);
+                }
+
+                if (offlineAgents.length > 0) {
+                    const names = offlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+                    tooltipParts.push(`Offline (${offlineAgents.length}): ${names}`);
+                }
+
+                totalAgentsCompact.title = tooltipParts.join('\n');
+            }
         }
         
         // Update old format (for compatibility if it exists elsewhere)
