@@ -571,6 +571,16 @@ export class ChatManager {
         const filePreview = document.getElementById('agent-file-preview');
 
         try {
+            // Validate file size (max 10MB, configurable via env)
+            const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSizeBytes) {
+                this.dashboard.showToast(
+                    `File size exceeds maximum allowed (${Math.round(maxSizeBytes / 1024 / 1024)}MB)`,
+                    'error'
+                );
+                return;
+            }
+
             // Disable UI
             if (input) input.disabled = true;
 
