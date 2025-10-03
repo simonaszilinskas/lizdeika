@@ -530,7 +530,7 @@
             // Check for file attachment in metadata
             let formattedText;
             if (msg.metadata && msg.metadata.file) {
-                const fileUrl = `${this.config.apiUrl}${msg.metadata.file.url}`;
+                const fileUrl = `${this.config.apiUrl}${msg.metadata.file.url}?conversationId=${this.conversationId}`;
                 formattedText = this.renderFileMessage(msg.metadata.file, content, fileUrl);
             } else {
                 formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
@@ -676,9 +676,16 @@
             const typingId = this.showTypingIndicator();
 
             try {
-                // Upload file first
+                // Ensure we have a conversation ID BEFORE uploading
+                const isNewConversation = !this.conversationId;
+                if (isNewConversation) {
+                    this.conversationId = this.generateSessionId();
+                }
+
+                // Upload file first with conversationId for authentication
                 const formData = new FormData();
                 formData.append('file', file);
+                formData.append('conversationId', this.conversationId);
 
                 const uploadResponse = await fetch(`${this.config.apiUrl}/api/upload`, {
                     method: 'POST',
@@ -689,12 +696,6 @@
 
                 if (!uploadData.success) {
                     throw new Error(uploadData.error || 'File upload failed');
-                }
-
-                // Ensure we have a conversation ID
-                const isNewConversation = !this.conversationId;
-                if (isNewConversation) {
-                    this.conversationId = this.generateSessionId();
                 }
 
                 // Send message with file metadata
@@ -720,8 +721,8 @@
                 const tempMsg = document.querySelector(`[data-message-id="${tempMessageId}"]`);
                 if (tempMsg && data.userMessage) {
                     tempMsg.setAttribute('data-message-id', data.userMessage.id);
-                    // Update message with clickable file link
-                    const fileUrl = `${this.config.apiUrl}${uploadData.file.url}`;
+                    // Update message with clickable file link (include conversationId for authorization)
+                    const fileUrl = `${this.config.apiUrl}${uploadData.file.url}?conversationId=${this.conversationId}`;
                     const contentDiv = tempMsg.querySelector('div > div');
                     if (contentDiv) {
                         contentDiv.innerHTML = this.renderFileMessage(uploadData.file, caption, fileUrl);

@@ -134,7 +134,13 @@ const upload = multer({
 router.post('/upload', uploadRateLimit, optionalAuth, upload.single('file'), (req, res) => {
     try {
         // Validate authentication - only authenticated users or valid widget sessions can upload
+        // Note: conversationId comes from FormData and is available in req.body after multer processing
         if (!req.user && !req.body.conversationId) {
+            console.warn('Upload attempt without authentication:', {
+                hasUser: !!req.user,
+                hasConversationId: !!req.body.conversationId,
+                ip: req.ip
+            });
             return res.status(401).json({
                 success: false,
                 error: 'Authentication or valid conversation required for file upload',
@@ -148,6 +154,13 @@ router.post('/upload', uploadRateLimit, optionalAuth, upload.single('file'), (re
                 error: 'No file uploaded'
             });
         }
+
+        // Log successful upload
+        console.log('File uploaded successfully:', {
+            filename: req.file.filename,
+            conversationId: req.body.conversationId,
+            authenticated: !!req.user
+        });
 
         // Generate file metadata
         const fileMetadata = generateFileMetadata(req.file);
