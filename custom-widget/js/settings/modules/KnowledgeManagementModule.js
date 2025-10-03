@@ -1407,7 +1407,7 @@ ${this.escapeHtml(doc.content || 'No content available')}
     updateApiBaseUrls() {
         const baseUrl = window.location.origin;
 
-        this.elements.apiBaseBurlElements.forEach(element => {
+        this.elements.apiBaseUrlElements.forEach(element => {
             element.textContent = baseUrl;
         });
 
