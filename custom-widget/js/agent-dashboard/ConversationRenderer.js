@@ -438,8 +438,9 @@ export class ConversationRenderer {
             if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('/api/uploads/')) {
                 formattedContent = `<div class="text-red-600">⚠️ Invalid file attachment</div>`;
             } else {
-                // Add conversationId query param for authorization (agents can view all files in their conversations)
-                const conversationId = msg.conversation_id || msg.ticket_id;
+                // Add conversationId query param for authorization
+                // Get conversationId from the message, or from current chat context
+                const conversationId = msg.ticket_id || msg.conversation_id || this.stateManager.getCurrentChatId();
                 if (conversationId) {
                     fileUrl += `?conversationId=${encodeURIComponent(conversationId)}`;
                 }
