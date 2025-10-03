@@ -1,6 +1,72 @@
 /**
- * Document Processing Service
- * Handles file uploads, text extraction, and chunking for RAG
+ * DOCUMENT PROCESSING SERVICE
+ *
+ * Main Purpose: Process uploaded documents for RAG knowledge base integration
+ *
+ * Key Responsibilities:
+ * - File Upload Handling: Manage document uploads with validation and storage
+ * - Text Extraction: Extract plain text from .txt and .docx files
+ * - Intelligent Chunking: Split documents into optimal-sized chunks for embedding
+ * - Boundary Detection: Respect paragraph, sentence, and phrase boundaries during chunking
+ * - Fallback Strategy: Automatically retry with smaller chunks if embedding fails
+ * - File Management: Store, retrieve, and delete uploaded documents
+ *
+ * Dependencies:
+ * - fs (promises) for async file system operations
+ * - mammoth for .docx text extraction
+ * - UUID for unique document identifiers
+ * - Node.js path module for file path management
+ *
+ * Features:
+ * - Supported formats: .txt (plain text), .docx (Microsoft Word)
+ * - Intelligent chunk size selection with 6-tier fallback strategy
+ * - Context-preserving chunking (respects paragraphs, sentences, phrases)
+ * - Configurable overlap between chunks for context continuity
+ * - Automatic text normalization (line endings, whitespace, tabs)
+ * - File size validation (10MB for .txt, 50MB for .docx)
+ * - Metadata tracking for each chunk (source, index, length, timestamp)
+ *
+ * Chunking Strategy:
+ * 1. Maximum: 25,000 chars (min 12,000) - Best for comprehensive context
+ * 2. Large: 15,000 chars (min 8,000) - Good balance
+ * 3. Medium: 8,000 chars (min 4,000) - Standard size
+ * 4. Standard: 4,000 chars (min 2,000) - Safe default
+ * 5. Small: 2,000 chars (min 1,000) - Conservative
+ * 6. Fallback: 1,000 chars (min 500) - Last resort
+ *
+ * Boundary Priority (when splitting chunks):
+ * 1. Paragraph breaks (\n\n) - Highest priority
+ * 2. Sentence endings (. ! ?) - Maintain complete thoughts
+ * 3. Clause boundaries (, ; :) - Preserve sub-sentences
+ * 4. Line breaks (\n) - Visual separations
+ * 5. Word boundaries (spaces) - Avoid word splitting
+ * 6. Character position - Last resort
+ *
+ * Chunk Metadata:
+ * - source_document_id: Original document UUID
+ * - source_document_name: Original filename
+ * - chunk_index: Sequential chunk number (0-based)
+ * - chunk_length: Character count
+ * - upload_source: 'manual' (UI) or 'api' (programmatic)
+ * - upload_time: ISO 8601 timestamp
+ * - category: Always 'uploaded_document'
+ *
+ * File Storage:
+ * - Original files: uploads/[uuid]_[filename]
+ * - Extracted text: uploads/[uuid]_extracted.txt
+ * - Directory: custom-widget/backend/uploads/
+ *
+ * Validation Limits:
+ * - Minimum text content: 10 characters
+ * - Maximum chunk size for embeddings: ~32,000 chars (~8,000 tokens)
+ * - File size limits: 10MB (.txt), 50MB (.docx)
+ *
+ * Notes:
+ * - Chunks overlap by 100-500 chars to maintain context across boundaries
+ * - mammoth warnings are logged but don't fail processing
+ * - Empty or whitespace-only files are rejected
+ * - Text normalization ensures consistent processing
+ * - Fallback system ensures documents always get processed
  */
 const fs = require('fs').promises;
 const path = require('path');

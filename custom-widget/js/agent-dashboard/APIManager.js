@@ -177,6 +177,62 @@ export class APIManager {
     }
 
     /**
+     * Assign category to conversation
+     * @param {string} conversationId - Conversation ID
+     * @param {string} categoryId - Category ID (can be null to remove category)
+     */
+    async assignCategory(conversationId, categoryId) {
+        try {
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/category`, {
+                method: 'PATCH',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({
+                    category_id: categoryId,
+                    assignedBy: this.dashboard.agentId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to assign category: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            // Don't show toast or reload conversations here
+            // AssignmentManager handles the in-place update and toast
+
+            return result;
+        } catch (error) {
+            console.error('Failed to assign category:', error);
+            this.dashboard.showToast('Failed to assign category', 'error');
+            throw error;
+        }
+    }
+
+    /**
+     * Load available categories for assignment
+     * @returns {Array} Array of category objects
+     */
+    async loadCategories() {
+        try {
+            const response = await fetch(`${this.apiUrl}/api/categories?scope=all&include_archived=false`, {
+                method: 'GET',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load categories: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            return result.categories || [];
+        } catch (error) {
+            console.error('Failed to load categories:', error);
+            return [];
+        }
+    }
+
+    /**
      * Archive conversations in bulk
      * @param {Array} conversationIds - Array of conversation IDs
      */
@@ -303,7 +359,9 @@ export class APIManager {
                     agentId: this.dashboard.agentId,
                     usedSuggestion: metadata.usedSuggestion,
                     suggestionAction: suggestionAction,
-                    autoAssign: metadata.autoAssign || false
+                    autoAssign: metadata.autoAssign || false,
+                    messageType: metadata.messageType,
+                    fileMetadata: metadata.file
                 })
             });
 

@@ -48,16 +48,17 @@
  * - WebSocket events ensure real-time updates to agent dashboards
  */
 const { v4: uuidv4 } = require('uuid');
-const { 
-    ValidationError, 
-    validateRequired, 
-    validateString, 
-    validateUUID, 
+const {
+    ValidationError,
+    validateRequired,
+    validateString,
+    validateUUID,
     validateConversationId,
-    validateObject, 
-    validateMessage 
+    validateObject,
+    validateMessage
 } = require('../utils/validation');
 const { handleControllerError } = require('../utils/errorHandler');
+const { validateFileMetadata } = require('../utils/fileValidation');
 const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
@@ -228,9 +229,23 @@ class ConversationController {
             const validatedMessage = validateMessage(req.body.message);
             
             // Skip validation for visitorId - widget uses visitor-xxx format, not UUID
-            
-            const { conversationId, visitorId, requestHuman, enableRAG } = req.body;
+
+            const { conversationId, visitorId, requestHuman, enableRAG, messageType, fileMetadata } = req.body;
             const message = validatedMessage;
+
+            // Validate file metadata if present
+            let sanitizedFileMetadata = null;
+            if (fileMetadata) {
+                try {
+                    sanitizedFileMetadata = validateFileMetadata(fileMetadata);
+                } catch (error) {
+                    return res.status(400).json({
+                        success: false,
+                        error: `Invalid file metadata: ${error.message}`
+                    });
+                }
+            }
+
             // Create conversation if doesn't exist
             if (!(await conversationService.conversationExists(conversationId))) {
                 const conversation = {
@@ -239,7 +254,7 @@ class ConversationController {
                     startedAt: new Date(),
                 };
                 await conversationService.createConversation(conversationId, conversation);
-                
+
                 // Auto-assign to available agent if in HITL mode
                 const currentMode = await agentService.getSystemMode();
                 if (currentMode === 'hitl') {
@@ -257,7 +272,7 @@ class ConversationController {
                         // Continue without assignment - conversation will be unassigned
                     }
                 }
-                
+
                 // Emit new conversation event to agents
                 console.log('🆕 New conversation created, notifying agents:', conversationId);
                 this.io.to('agents').emit('new-conversation', {
@@ -266,14 +281,16 @@ class ConversationController {
                     timestamp: new Date()
                 });
             }
-            
-            // Store user message
+
+            // Store user message with file metadata if present
             const userMessage = {
                 id: uuidv4(),
                 conversationId,
                 content: message,
                 sender: 'visitor',
-                timestamp: new Date()
+                timestamp: new Date(),
+                messageType: messageType || 'text',
+                metadata: sanitizedFileMetadata ? { file: sanitizedFileMetadata } : undefined
             };
             
             // First, add the user message atomically
@@ -836,6 +853,384 @@ class ConversationController {
             console.error('Bulk unarchive error:', error);
             res.status(500).json({
                 error: 'Failed to unarchive conversations'
+            });
+        }
+    }
+
+    /**
+     * Assign category to conversation
+     * @route PATCH /api/conversations/:conversationId/category
+     * @access Agent/Admin
+     */
+    async assignCategory(req, res) {
+        try {
+            const { conversationId } = req.params;
+            const { category_id } = req.body;
+            const { user } = req;
+
+            // Validate user has agent/admin role
+            if (!['agent', 'admin'].includes(user.role)) {
+                return res.status(403).json({ error: 'Agent or admin access required' });
+            }
+
+            // Validate conversation exists
+            const conversation = await conversationService.getConversation(conversationId);
+            if (!conversation) {
+                return res.status(404).json({ error: 'Conversation not found' });
+            }
+
+            // If removing category (category_id is null)
+            if (category_id === null) {
+                await conversationService.updateConversationCategory(conversationId, null);
+
+                // Emit WebSocket event
+                if (this.io) {
+                    this.io.to('agents').emit('ticket:category_removed', {
+                        ticket_id: conversationId,
+                        old_category_id: conversation.category_id || conversation.categoryId
+                    });
+                }
+
+                return res.json({
+                    id: conversationId,
+                    category_id: null,
+                    category_name: null,
+                    category_color: null
+                });
+            }
+
+            // Validate category exists if provided
+            const categoryService = require('../services/categoryService');
+            const category = await categoryService.getCategoryById(category_id);
+
+            if (!category) {
+                return res.status(404).json({ error: 'Category not found' });
+            }
+
+            // All categories are global now - any user can assign them
+
+            // Check if category is archived
+            if (category.is_archived) {
+                return res.status(403).json({ error: 'Cannot assign archived category' });
+            }
+
+            // Update conversation
+            await conversationService.updateConversationCategory(conversationId, category_id);
+
+            // Log activity
+            await activityService.logActivity({
+                userId: user.id,
+                actionType: 'conversation',
+                action: 'assign_category',
+                resource: 'conversation',
+                resourceId: conversationId,
+                details: {
+                    category_id: category_id,
+                    category_name: category.name
+                }
+            });
+
+            // Emit WebSocket event
+            if (this.io) {
+                this.io.to('agents').emit('ticket:category_assigned', {
+                    ticket_id: conversationId,
+                    category_id: category_id,
+                    category_name: category.name
+                });
+            }
+
+            res.json({
+                id: conversationId,
+                category_id: category_id,
+                category_name: category.name,
+                category_color: category.color
+            });
+
+        } catch (error) {
+            console.error('Error assigning category:', error);
+            res.status(500).json({ error: 'Failed to assign category' });
+        }
+    }
+
+    /**
+     * Bulk assign category to multiple conversations
+     * @route PATCH /api/admin/conversations/bulk-category
+     * @access Admin/Agent
+     */
+    async bulkAssignCategory(req, res) {
+        try {
+            const { ticket_ids, updates, options = {} } = req.body;
+            const { user } = req;
+
+            // Validate user has agent/admin role
+            if (!['agent', 'admin'].includes(user.role)) {
+                return res.status(403).json({ error: 'Agent or admin access required' });
+            }
+
+            // Validate input
+            if (!Array.isArray(ticket_ids) || ticket_ids.length === 0) {
+                return res.status(400).json({ error: 'ticket_ids array is required' });
+            }
+
+            if (!updates || typeof updates !== 'object') {
+                return res.status(400).json({ error: 'updates object is required' });
+            }
+
+            const { category_id } = updates;
+            const { skip_archived = true, continue_on_error = false } = options;
+
+            const result = {
+                success: [],
+                failed: [],
+                summary: { total: ticket_ids.length, succeeded: 0, failed: 0 }
+            };
+
+            // If assigning a category, validate it exists and user can use it
+            let category = null;
+            if (category_id !== null && category_id !== undefined) {
+                const categoryService = require('../services/categoryService');
+                category = await categoryService.getCategoryById(category_id);
+
+                if (!category) {
+                    return res.status(404).json({ error: 'Category not found' });
+                }
+
+                // All categories are global now - any user can assign them
+
+                // Check if category is archived
+                if (category.is_archived && skip_archived) {
+                    return res.status(403).json({ error: 'Cannot assign archived category' });
+                }
+            }
+
+            // Process each ticket
+            for (const ticketId of ticket_ids) {
+                try {
+                    // Validate conversation exists
+                    const conversation = await conversationService.getConversation(ticketId);
+                    if (!conversation) {
+                        result.failed.push({ ticket_id: ticketId, error: 'Conversation not found' });
+                        continue;
+                    }
+
+                    // Update conversation
+                    await conversationService.updateConversationCategory(ticketId, category_id);
+                    result.success.push(ticketId);
+
+                    // Emit WebSocket event
+                    if (this.io) {
+                        if (category_id === null) {
+                            this.io.to('agents').emit('ticket:category_removed', {
+                                ticket_id: ticketId,
+                                old_category_id: conversation.category_id || conversation.categoryId
+                            });
+                        } else {
+                            this.io.to('agents').emit('ticket:category_assigned', {
+                                ticket_id: ticketId,
+                                category_id: category_id,
+                                category_name: category.name
+                            });
+                        }
+                    }
+
+                } catch (error) {
+                    console.error(`Error processing ticket ${ticketId}:`, error);
+                    result.failed.push({
+                        ticket_id: ticketId,
+                        error: error.message || 'Unknown error'
+                    });
+
+                    if (!continue_on_error) {
+                        break;
+                    }
+                }
+            }
+
+            // Update summary
+            result.summary.succeeded = result.success.length;
+            result.summary.failed = result.failed.length;
+
+            // Log activity
+            await activityService.logActivity({
+                userId: user.id,
+                actionType: 'conversation',
+                action: 'bulk_assign_category',
+                resource: 'conversation',
+                details: {
+                    category_id: category_id,
+                    category_name: category?.name || null,
+                    tickets_processed: result.summary.total,
+                    tickets_succeeded: result.summary.succeeded,
+                    tickets_failed: result.summary.failed
+                }
+            });
+
+            res.json(result);
+
+        } catch (error) {
+            console.error('Bulk category assignment error:', error);
+            res.status(500).json({ error: 'Failed to assign categories' });
+        }
+    }
+
+    /**
+     * Trigger AI auto-categorization for a specific ticket
+     * @route POST /api/conversations/:conversationId/categorize
+     * @access Agent/Admin
+     */
+    async triggerAutoCategorization(req, res) {
+        try {
+            const { conversationId } = req.params;
+            console.log(`🎯 Manual AI categorization trigger for conversation ${conversationId}`);
+
+            // Import AI categorization service
+            const aiCategorizationService = require('../services/aiCategorizationService');
+
+            // Categorize the ticket
+            const result = await aiCategorizationService.categorizeTicket(conversationId);
+
+            if (result.success) {
+                res.json({
+                    success: true,
+                    message: 'Ticket categorized successfully',
+                    data: {
+                        categoryId: result.categoryId,
+                        categoryName: result.categoryName,
+                        confidence: result.confidence,
+                        reasoning: result.reasoning
+                    }
+                });
+            } else {
+                res.status(400).json({
+                    success: false,
+                    message: result.message || 'Failed to categorize ticket'
+                });
+            }
+
+        } catch (error) {
+            console.error('Manual categorization error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to trigger categorization',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Get AI categorization statistics
+     * @route GET /api/categorization/stats
+     * @access Agent/Admin
+     */
+    async getCategorizationStats(req, res) {
+        try {
+            console.log('📊 Fetching categorization statistics');
+
+            // Import AI categorization service
+            const aiCategorizationService = require('../services/aiCategorizationService');
+
+            // Get stats
+            const stats = await aiCategorizationService.getCategorizationStats();
+
+            res.json({
+                success: true,
+                data: stats
+            });
+
+        } catch (error) {
+            console.error('Failed to get categorization stats:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to retrieve categorization statistics',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Manually trigger the categorization background job
+     * @route POST /api/admin/categorization/trigger-job
+     * @access Admin
+     */
+    async triggerCategorizationJob(req, res) {
+        try {
+            console.log('🔧 Manual trigger of categorization background job');
+
+            // Import categorization job
+            const categorizationJob = require('../jobs/categorizationJob');
+
+            // Trigger the job
+            const result = await categorizationJob.trigger();
+
+            res.json({
+                success: true,
+                message: 'Categorization job executed successfully',
+                data: result
+            });
+
+        } catch (error) {
+            console.error('Failed to trigger categorization job:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to trigger categorization job',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Toggle manual category override flag for a ticket
+     * Allows agents to re-enable AI categorization after manual override
+     * @route PUT /api/conversations/:id/category-override
+     * @access Agent/Admin
+     */
+    async toggleCategoryOverride(req, res) {
+        try {
+            const { id: conversationId } = req.params;
+            const { manual_override } = req.body;
+            const { user } = req;
+
+            // Validate user has agent/admin role
+            if (!['agent', 'admin'].includes(user.role)) {
+                return res.status(403).json({ error: 'Agent or admin access required' });
+            }
+
+            // Validate input
+            if (typeof manual_override !== 'boolean') {
+                return res.status(400).json({
+                    error: 'manual_override must be a boolean value'
+                });
+            }
+
+            // Update the override flag via service
+            const updated = await conversationService.toggleCategoryOverride(conversationId, manual_override);
+
+            // Log activity
+            await activityService.logActivity({
+                userId: user.id,
+                actionType: 'conversation',
+                action: manual_override ? 'enable_manual_category_override' : 'enable_ai_categorization',
+                resource: 'conversation',
+                resourceId: conversationId,
+                details: {
+                    manual_category_override: manual_override
+                }
+            });
+
+            res.json({
+                success: true,
+                message: manual_override
+                    ? 'Manual category control enabled - AI will not recategorize this ticket'
+                    : 'AI categorization re-enabled - ticket may be auto-categorized',
+                data: updated
+            });
+
+        } catch (error) {
+            console.error('Failed to toggle category override:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to update category override setting',
+                details: error.message
             });
         }
     }

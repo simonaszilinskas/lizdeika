@@ -115,7 +115,13 @@ export class KnowledgeManagementModule {
 
             // Stats elements (enhanced)
             lastUpdated: document.getElementById('last-updated'),
-            uploadedFiles: document.getElementById('uploaded-files')
+            uploadedFiles: document.getElementById('uploaded-files'),
+
+            // API Documentation elements
+            apiDocumentationToggles: document.querySelectorAll('[data-toggle]'),
+            copyCodeButtons: document.querySelectorAll('.copy-code-btn'),
+            apiBaseUrlElements: document.querySelectorAll('[id^="api-base-url-"]'),
+            currentSessionStatus: document.getElementById('current-session-status')
         };
 
         console.log('📚 KnowledgeManagementModule: DOM elements initialized');
@@ -202,6 +208,9 @@ export class KnowledgeManagementModule {
             this.elements.refreshIndexedButton.addEventListener('click', () => this.refreshIndexedDocuments());
         }
 
+        // API Documentation controls
+        this.attachApiDocumentationListeners();
+
         console.log('📚 KnowledgeManagementModule: Event listeners attached');
     }
 
@@ -223,6 +232,9 @@ export class KnowledgeManagementModule {
 
             // Load indexed documents
             await this.loadIndexedDocuments();
+
+            // Initialize API documentation
+            await this.initializeApiDocumentation();
 
         } catch (error) {
             console.error('❌ KnowledgeManagementModule: Failed to load knowledge settings:', error);
@@ -1278,6 +1290,182 @@ ${this.escapeHtml(doc.content || 'No content available')}
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // =========================================================================
+    // API DOCUMENTATION METHODS
+    // =========================================================================
+
+    /**
+     * Attach event listeners for API documentation functionality
+     */
+    attachApiDocumentationListeners() {
+        console.log('📚 KnowledgeManagementModule: Initializing API documentation listeners');
+
+        // Toggle collapsible sections
+        this.elements.apiDocumentationToggles.forEach(toggle => {
+            toggle.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.toggleApiSection(toggle);
+            });
+        });
+
+        // Copy code buttons
+        this.elements.copyCodeButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const copyType = button.getAttribute('data-copy');
+                this.copyToClipboard(copyType, button);
+            });
+        });
+
+        // Initialize API base URLs
+        this.updateApiBaseUrls();
+
+        // Check current session status
+        this.updateSessionStatus();
+
+        console.log('📚 KnowledgeManagementModule: API documentation listeners attached');
+    }
+
+    /**
+     * Toggle API documentation section visibility
+     */
+    toggleApiSection(toggle) {
+        const sectionName = toggle.getAttribute('data-toggle');
+        const section = document.getElementById(sectionName);
+        const chevron = document.getElementById(sectionName.replace('-section', '-chevron'));
+
+        if (section) {
+            const isHidden = section.classList.contains('hidden');
+
+            if (isHidden) {
+                section.classList.remove('hidden');
+                if (chevron) {
+                    chevron.classList.add('rotate-180');
+                }
+            } else {
+                section.classList.add('hidden');
+                if (chevron) {
+                    chevron.classList.remove('rotate-180');
+                }
+            }
+        }
+    }
+
+    /**
+     * Copy code examples to clipboard
+     */
+    async copyToClipboard(copyType, button) {
+        try {
+            let textToCopy = '';
+
+            // Get the text content from the corresponding code element
+            const codeElement = document.getElementById(`${copyType}-code`);
+            if (codeElement) {
+                textToCopy = codeElement.textContent;
+            }
+
+            if (textToCopy) {
+                await navigator.clipboard.writeText(textToCopy);
+
+                // Provide visual feedback
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check mr-1"></i>Copied!';
+                button.classList.remove('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+                button.classList.add('bg-green-100', 'text-green-700');
+
+                // Restore original state after 2 seconds
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.classList.remove('bg-green-100', 'text-green-700');
+                    button.classList.add('bg-gray-100', 'text-gray-700', 'hover:bg-gray-200');
+                }, 2000);
+
+                console.log('📋 KnowledgeManagementModule: Code copied to clipboard:', copyType);
+            }
+        } catch (error) {
+            console.error('❌ KnowledgeManagementModule: Failed to copy to clipboard:', error);
+
+            // Show fallback message
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i>Copy failed';
+            button.classList.remove('bg-gray-100', 'text-gray-700');
+            button.classList.add('bg-red-100', 'text-red-700');
+
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.classList.remove('bg-red-100', 'text-red-700');
+                button.classList.add('bg-gray-100', 'text-gray-700');
+            }, 2000);
+        }
+    }
+
+    /**
+     * Update API base URLs dynamically
+     */
+    updateApiBaseUrls() {
+        const baseUrl = window.location.origin;
+
+        this.elements.apiBaseUrlElements.forEach(element => {
+            element.textContent = baseUrl;
+        });
+
+        console.log(`📚 KnowledgeManagementModule: Updated API base URLs to: ${baseUrl}`);
+    }
+
+    /**
+     * Check and update current session status
+     */
+    async updateSessionStatus() {
+        const statusElement = this.elements.currentSessionStatus;
+        if (!statusElement) return;
+
+        try {
+            const token = localStorage.getItem('agent_token');
+
+            if (!token) {
+                statusElement.textContent = 'No active session';
+                statusElement.className = 'font-medium text-red-600';
+                return;
+            }
+
+            // Test token validity with a simple API call
+            const response = await fetch('/api/settings/ai_providers', {
+                headers: this.getAuthHeaders()
+            });
+
+            if (response.ok) {
+                statusElement.textContent = 'Active session (token valid)';
+                statusElement.className = 'font-medium text-green-600';
+            } else {
+                statusElement.textContent = 'Session expired';
+                statusElement.className = 'font-medium text-red-600';
+            }
+        } catch (error) {
+            console.error('❌ KnowledgeManagementModule: Failed to check session status:', error);
+            statusElement.textContent = 'Session check failed';
+            statusElement.className = 'font-medium text-red-600';
+        }
+    }
+
+    /**
+     * Initialize API documentation when knowledge management tab is opened
+     */
+    async initializeApiDocumentation() {
+        try {
+            console.log('📚 KnowledgeManagementModule: Initializing API documentation');
+
+            // Update base URLs in case they changed
+            this.updateApiBaseUrls();
+
+            // Check current session
+            await this.updateSessionStatus();
+
+            console.log('✅ KnowledgeManagementModule: API documentation initialized');
+        } catch (error) {
+            console.error('❌ KnowledgeManagementModule: Failed to initialize API documentation:', error);
+        }
     }
 
     /**

@@ -15,6 +15,7 @@ import { UserManagementModule } from './modules/UserManagementModule.js';
 import { BrandingConfigModule } from './modules/BrandingConfigModule.js';
 import { ContextEngineeringModule } from './modules/ContextEngineeringModule.js';
 import { KnowledgeManagementModule } from './modules/KnowledgeManagementModule.js';
+import { CategoryManagementModule } from './modules/CategoryManagementModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
@@ -35,6 +36,7 @@ export class SettingsManager {
         this.brandingConfigModule = new BrandingConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         this.contextEngineeringModule = new ContextEngineeringModule(this.apiManager, this.stateManager, this.connectionManager);
         this.knowledgeManagementModule = new KnowledgeManagementModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.categoryManagementModule = new CategoryManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         
         // DOM elements - will be initialized in initializeElements
         this.elements = {};
@@ -71,7 +73,13 @@ export class SettingsManager {
                 window.location.href = '/login.html';
                 return;
             }
-            
+
+            // Load current user BEFORE initializing modules so they have access to user data
+            console.log('👤 SettingsManager: Loading current user before module initialization');
+            await this.apiManager.loadCurrentUser();
+            this.currentUser = this.stateManager.getCurrentUser();
+            console.log('✅ SettingsManager: User loaded:', this.currentUser?.email, 'Role:', this.currentUser?.role);
+
             // Initialize feature modules
             console.log('🎯 SettingsManager: Initializing feature modules');
             await this.systemModeModule.initialize();
@@ -81,6 +89,7 @@ export class SettingsManager {
             await this.brandingConfigModule.initialize();
             await this.contextEngineeringModule.initialize();
             await this.knowledgeManagementModule.initialize();
+            await this.categoryManagementModule.initialize();
             console.log('✅ SettingsManager: Feature modules initialized');
             
             // Load initial data
@@ -161,11 +170,9 @@ export class SettingsManager {
     async loadInitialData() {
         try {
             console.log('📊 SettingsManager: Loading initial data');
-            
-            // Load current user to determine admin status
-            await this.apiManager.loadCurrentUser();
-            
-            // Update legacy compatibility properties
+
+            // User already loaded before module initialization
+            // Just ensure legacy compatibility properties are set
             this.currentUser = this.stateManager.getCurrentUser();
             
             // Load system mode and agents

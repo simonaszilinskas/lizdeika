@@ -23,18 +23,19 @@ const {
 
 class QueryRephraseChain extends LLMChain {
     constructor(options = {}) {
-        // Get rephrasing model from options or use default (lightweight model for fast rephrasing)
-        const rephrasingModel = options.rephrasingModel || process.env.REPHRASING_MODEL || "google/gemini-2.5-flash-lite";
+        // Use provided config or fall back to options/env vars
+        const config = options.providerConfig || {};
+        const rephrasingModel = config.REPHRASING_MODEL || options.rephrasingModel || process.env.REPHRASING_MODEL || "google/gemini-2.5-flash-lite";
 
         // Create the rephrasing model (using configurable model)
         const rephraseModel = new ChatOpenAI({
             model: rephrasingModel,
-            apiKey: process.env.OPENROUTER_API_KEY,
+            apiKey: config.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY,
             configuration: {
                 baseURL: "https://openrouter.ai/api/v1",
                 defaultHeaders: {
-                    "HTTP-Referer": process.env.SITE_URL || "http://localhost:3002",
-                    "X-Title": process.env.SITE_NAME || "Vilnius Chatbot"
+                    "HTTP-Referer": config.SITE_URL || process.env.SITE_URL || "http://localhost:3002",
+                    "X-Title": config.SITE_NAME || process.env.SITE_NAME || "Vilnius Chatbot"
                 }
             },
             temperature: 0.1, // Low temperature for consistent rephrasing
@@ -330,6 +331,76 @@ class QueryRephraseChain extends LLMChain {
     setMinHistoryLength(length) {
         this.minHistoryLength = Math.max(0, length);
         return this;
+    }
+
+    /**
+     * Update AI provider configuration dynamically
+     * Accepts both camelCase and UPPERCASE config keys
+     */
+    async updateConfiguration(config) {
+        try {
+            let needsRecreation = false;
+
+            // Normalize config keys - accept both camelCase and UPPERCASE
+            const rephrasingModel = config.rephrasingModel || config.REPHRASING_MODEL;
+            const apiKey = config.apiKey || config.OPENROUTER_API_KEY;
+            const siteUrl = config.siteUrl || config.SITE_URL;
+            const siteName = config.siteName || config.SITE_NAME;
+
+            // Check if rephrasing model changed
+            if (rephrasingModel && rephrasingModel !== this.rephrasingModel) {
+                this.rephrasingModel = rephrasingModel;
+                process.env.REPHRASING_MODEL = rephrasingModel;
+                needsRecreation = true;
+            }
+
+            // Check if API key changed
+            if (apiKey && apiKey !== process.env.OPENROUTER_API_KEY) {
+                process.env.OPENROUTER_API_KEY = apiKey;
+                needsRecreation = true;
+            }
+
+            // Check if site URL changed
+            if (siteUrl && siteUrl !== process.env.SITE_URL) {
+                process.env.SITE_URL = siteUrl;
+                needsRecreation = true;
+            }
+
+            // Check if site name changed
+            if (siteName && siteName !== process.env.SITE_NAME) {
+                process.env.SITE_NAME = siteName;
+                needsRecreation = true;
+            }
+
+            // Recreate LLM if configuration changed
+            if (needsRecreation) {
+                this.llm = new ChatOpenAI({
+                    model: this.rephrasingModel,
+                    apiKey: process.env.OPENROUTER_API_KEY,
+                    configuration: {
+                        baseURL: "https://openrouter.ai/api/v1",
+                        defaultHeaders: {
+                            "HTTP-Referer": process.env.SITE_URL || "http://localhost:3002",
+                            "X-Title": process.env.SITE_NAME || "Vilnius Chatbot"
+                        }
+                    },
+                    temperature: 0.1,
+                    streaming: false
+                });
+
+                // Reset managed prompt cache to force reload
+                this.managedPrompt = null;
+
+                console.log('🔧 QueryRephraseChain: Updated configuration');
+                console.log(`   Rephrasing Model: ${this.rephrasingModel}`);
+                console.log(`   API Key: ${process.env.OPENROUTER_API_KEY ? 'Set' : 'Not set'}`);
+            }
+
+            return { success: true, recreated: needsRecreation };
+        } catch (error) {
+            console.error('❌ Error updating QueryRephraseChain configuration:', error);
+            return { success: false, error: error.message };
+        }
     }
 }
 

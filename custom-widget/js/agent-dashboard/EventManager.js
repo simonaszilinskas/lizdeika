@@ -24,6 +24,7 @@ export class EventManager {
         this.setupGlobalClickListener();
         this.setupArchiveToggleListener();
         this.setupBulkActionListeners();
+        this.setupFileAttachmentListeners();
     }
 
     /**
@@ -184,10 +185,15 @@ export class EventManager {
      * Setup global click listener for closing dropdowns
      */
     setupGlobalClickListener() {
-        // Close assignment dropdowns when clicking elsewhere
+        // Close assignment and category dropdowns when clicking elsewhere
         document.addEventListener('click', (e) => {
             if (!e.target.closest('[id^="assign-dropdown-"]') && !e.target.closest('button[onclick*="toggleAssignDropdown"]')) {
                 document.querySelectorAll('[id^="assign-dropdown-"]').forEach(dropdown => {
+                    dropdown.classList.add('hidden');
+                });
+            }
+            if (!e.target.closest('[id^="category-dropdown-"]') && !e.target.closest('button[onclick*="toggleCategoryDropdown"]')) {
+                document.querySelectorAll('[id^="category-dropdown-"]').forEach(dropdown => {
                     dropdown.classList.add('hidden');
                 });
             }
@@ -243,5 +249,66 @@ export class EventManager {
                 }
             });
         }
+    }
+
+    /**
+     * Setup file attachment listeners
+     */
+    setupFileAttachmentListeners() {
+        const attachButton = document.getElementById('agent-attach-button');
+        const fileInput = document.getElementById('agent-file-input');
+        const filePreview = document.getElementById('agent-file-preview');
+
+        if (!attachButton || !fileInput || !filePreview) {
+            console.warn('File attachment elements not found');
+            return;
+        }
+
+        // Attach button click - open file picker
+        attachButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection handler
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.dashboard.selectedFile = file;
+                filePreview.classList.remove('hidden');
+
+                // Build file preview securely using DOM creation (prevents XSS)
+                filePreview.innerHTML = ''; // Clear previous content
+
+                const container = document.createElement('div');
+                container.className = 'flex justify-between items-center';
+
+                const fileInfo = document.createElement('span');
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-paperclip mr-2';
+                fileInfo.appendChild(icon);
+
+                // Use textContent to safely insert file name (prevents XSS)
+                const fileName = document.createTextNode(file.name);
+                fileInfo.appendChild(fileName);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'agent-remove-file text-red-600 hover:text-red-800';
+                const removeIcon = document.createElement('i');
+                removeIcon.className = 'fas fa-times';
+                removeBtn.appendChild(removeIcon);
+
+                container.appendChild(fileInfo);
+                container.appendChild(removeBtn);
+                filePreview.appendChild(container);
+
+                // Remove file handler
+                removeBtn.addEventListener('click', () => {
+                    this.dashboard.selectedFile = null;
+                    fileInput.value = '';
+                    filePreview.classList.add('hidden');
+                });
+            }
+        });
     }
 }

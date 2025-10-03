@@ -107,26 +107,36 @@ export class ChatManager {
     async sendMessage() {
         const input = document.getElementById('message-input');
         if (!input) return;
-        
+
         const message = input.value.trim();
-        
-        // Validate message and provide feedback
+
+        // Check if sending a file
+        if (this.dashboard.selectedFile) {
+            if (!this.stateManager.getCurrentChatId()) {
+                this.dashboard.showToast('Please select a conversation first', 'warning');
+                return;
+            }
+            await this.sendFileMessage(this.dashboard.selectedFile, message);
+            return;
+        }
+
+        // Validate text message
         if (!message) {
             this.dashboard.showToast('Please enter a message before sending', 'warning');
             input.focus();
             return;
         }
-        
+
         if (!this.stateManager.getCurrentChatId()) {
             this.dashboard.showToast('Please select a conversation first', 'warning');
             return;
         }
-        
+
         // Determine suggestion action
-        const suggestionAction = this.stateManager.getCurrentSuggestion() ? 
-            (message === this.stateManager.getCurrentSuggestion() ? 'as-is' : 'edited') : 
+        const suggestionAction = this.stateManager.getCurrentSuggestion() ?
+            (message === this.stateManager.getCurrentSuggestion() ? 'as-is' : 'edited') :
             'from-scratch';
-        
+
         await this.sendAgentResponse(message, suggestionAction);
     }
 
@@ -547,6 +557,103 @@ export class ChatManager {
 
         } catch (error) {
             this._handleAISuggestionError(error, 'AI suggestion recovery');
+        }
+    }
+
+    /**
+     * Send file message from agent
+     * @param {File} file - File to send
+     * @param {string} caption - Optional message caption
+     */
+    async sendFileMessage(file, caption = '') {
+        const input = document.getElementById('message-input');
+        const fileInput = document.getElementById('agent-file-input');
+        const filePreview = document.getElementById('agent-file-preview');
+
+        try {
+            // Validate file size (max 10MB, configurable via env)
+            const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSizeBytes) {
+                this.dashboard.showToast(
+                    `File size exceeds maximum allowed (${Math.round(maxSizeBytes / 1024 / 1024)}MB)`,
+                    'error'
+                );
+                return;
+            }
+
+            // Disable UI
+            if (input) input.disabled = true;
+
+            this.dashboard.showToast('Uploading file...', 'info');
+
+            // Upload file first with authentication
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('conversationId', this.stateManager.getCurrentChatId());
+
+            // Get auth token for agents
+            const token = localStorage.getItem('agent_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const uploadResponse = await fetch(`${this.apiManager.apiUrl}/api/upload`, {
+                method: 'POST',
+                headers: headers,
+                body: formData
+            });
+
+            const uploadData = await uploadResponse.json();
+
+            if (!uploadData.success) {
+                throw new Error(uploadData.error || 'File upload failed');
+            }
+
+            // Send message with file metadata
+            const response = await this.apiManager.sendAgentMessage(
+                this.stateManager.getCurrentChatId(),
+                caption || file.name,
+                'from-scratch',
+                {
+                    messageType: 'file',
+                    file: uploadData.file
+                }
+            );
+
+            if (response.success === true) {
+                // Clear input and file
+                if (input) input.value = '';
+                this.dashboard.selectedFile = null;
+                if (fileInput) fileInput.value = '';
+                if (filePreview) filePreview.classList.add('hidden');
+                this.resizeTextarea();
+
+                // Hide suggestion panel
+                this.hideAISuggestion();
+
+                // Refresh messages
+                await this.loadChatMessages(this.stateManager.getCurrentChatId());
+
+                // Move conversation to top
+                this.conversationRenderer.reorderConversationList(this.stateManager.getCurrentChatId());
+
+                this.dashboard.showToast('File sent successfully', 'success');
+
+                // Check for new suggestions in HITL mode
+                if (this.dashboard.systemMode === 'hitl') {
+                    setTimeout(() => {
+                        this.checkForPendingSuggestion(this.stateManager.getCurrentChatId());
+                    }, 1500);
+                }
+            }
+        } catch (error) {
+            console.error('Error sending file:', error);
+            this.dashboard.showToast('Failed to send file. Please try again.', 'error');
+        } finally {
+            // Re-enable UI
+            if (input) input.disabled = false;
+            if (input) input.focus();
         }
     }
 

@@ -200,9 +200,9 @@ export class ConversationRenderer {
             if (aNeedsResponse && !bNeedsResponse) return -1;
             if (bNeedsResponse && !aNeedsResponse) return 1;
             
-            // Priority 4: Sort by most recent activity (updatedAt or startedAt)
-            const aTime = new Date(a.updatedAt || a.startedAt);
-            const bTime = new Date(b.updatedAt || b.startedAt);
+            // Priority 4: Sort by creation time (startedAt only, ignore updates)
+            const aTime = new Date(a.startedAt);
+            const bTime = new Date(b.startedAt);
             return bTime - aTime;
         });
     }
@@ -213,9 +213,68 @@ export class ConversationRenderer {
      * @returns {boolean} True if needs response
      */
     conversationNeedsResponse(conv) {
-        return conv.lastMessage && 
-               conv.lastMessage.metadata && 
+        return conv.lastMessage &&
+               conv.lastMessage.metadata &&
                conv.lastMessage.metadata.pendingAgent;
+    }
+
+    /**
+     * Render category badge for conversation
+     * @param {Object} categoryData - Category data object
+     * @param {Object} categoryMetadata - Optional metadata about the category (AI source, confidence, etc.)
+     * @returns {string} HTML string for category badge
+     */
+    renderCategoryBadge(categoryData, categoryMetadata = null) {
+        if (!categoryData || !categoryData.name) {
+            return '';
+        }
+
+        // Validate and sanitize color to prevent CSS/HTML injection
+        const rawColor = categoryData.color || '#6B7280';
+        const color = this.sanitizeColor(rawColor);
+
+        // All categories are global now
+        const badgeClass = 'bg-blue-100 text-blue-700 border border-blue-200';
+
+        // Check if category was AI-assigned
+        const isAiAssigned = categoryMetadata && categoryMetadata.source === 'ai';
+        const aiIcon = isAiAssigned ? '<i class="fas fa-robot text-xs opacity-70" title="AI-categorized"></i>' : '';
+
+        // Build tooltip text with proper escaping to prevent XSS
+        let tooltipText = `Category: ${UIHelpers.escapeHtml(categoryData.name)}`;
+        if (isAiAssigned && categoryMetadata.reasoning) {
+            const confidence = categoryMetadata.confidence
+                ? ` (${(categoryMetadata.confidence * 100).toFixed(0)}% confidence)`
+                : '';
+            tooltipText += `\nAI-suggested${confidence}\nReason: ${UIHelpers.escapeHtml(categoryMetadata.reasoning)}`;
+        }
+
+        return `
+            <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${badgeClass}"
+                 title="${tooltipText}">
+                <div class="w-2 h-2 rounded-full" style="background-color: ${color};"></div>
+                <span class="max-w-16 truncate">${UIHelpers.escapeHtml(categoryData.name)}</span>
+                ${aiIcon}
+            </div>
+        `;
+    }
+
+    /**
+     * Sanitize color value to prevent CSS injection
+     * @param {string} color - Color value to sanitize
+     * @returns {string} Safe color value
+     */
+    sanitizeColor(color) {
+        if (!color) return '#6B7280';
+
+        // Only allow hex colors (3 or 6 digits)
+        const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+        if (hexColorRegex.test(color)) {
+            return color;
+        }
+
+        // Fallback to default color if invalid
+        return '#6B7280';
     }
 
 
@@ -268,6 +327,7 @@ export class ConversationRenderer {
                                 <span>User #${conv.userNumber || 'Unknown'}</span>
                                 ${unseenCount > 0 ? `<span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">${unseenCount}</span>` : ''}
                                 ${conv.archived ? '<i class="fas fa-archive text-gray-400" title="Archived"></i>' : ''}
+                                ${this.renderCategoryBadge(conv.categoryData, conv.categoryMetadata)}
                             </div>
                             <div class="text-xs text-gray-500">
                                 ${UIHelpers.formatConversationDate(conv.startedAt)}
@@ -388,11 +448,44 @@ export class ConversationRenderer {
         const isAI = msg.sender === 'ai';
         const isAgent = msg.sender === 'agent';
         const isSystem = msg.sender === 'system';
-        
-        const formattedContent = (isAI || isAgent) ? 
-            this.markdownToHtml(msg.content) : 
-            UIHelpers.escapeHtml(msg.content);
-        
+
+        let formattedContent;
+
+        // Check for file attachment in metadata
+        if (msg.metadata && msg.metadata.file) {
+            let fileUrl = msg.metadata.file.url;
+
+            // Validate file URL to prevent XSS
+            if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('/api/uploads/')) {
+                formattedContent = `<div class="text-red-600">⚠️ Invalid file attachment</div>`;
+            } else {
+                // Add conversationId query param for authorization
+                // Get conversationId from the message, or from current chat context
+                const conversationId = msg.ticket_id || msg.conversation_id || this.stateManager.getCurrentChatId();
+                if (conversationId) {
+                    fileUrl += `?conversationId=${encodeURIComponent(conversationId)}`;
+                }
+
+                const isImage = msg.metadata.file.mimetype && msg.metadata.file.mimetype.startsWith('image/');
+
+                if (isImage) {
+                    formattedContent = `<a href="${UIHelpers.escapeHtml(fileUrl)}" target="_blank"><img src="${UIHelpers.escapeHtml(fileUrl)}" style="max-width: 300px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
+                } else {
+                    formattedContent = `<a href="${UIHelpers.escapeHtml(fileUrl)}" download="${UIHelpers.escapeHtml(msg.metadata.file.filename || msg.metadata.file.originalName)}" class="text-indigo-600 hover:text-indigo-800 underline">📎 ${UIHelpers.escapeHtml(msg.metadata.file.filename || msg.metadata.file.originalName)}</a>`;
+                }
+
+                // Add caption if present and different from filename
+                const filename = msg.metadata.file.filename || msg.metadata.file.originalName;
+                if (msg.content && msg.content !== filename) {
+                    formattedContent += `<div class="mt-2">${UIHelpers.escapeHtml(msg.content)}</div>`;
+                }
+            }
+        } else {
+            formattedContent = (isAI || isAgent) ?
+                this.markdownToHtml(msg.content) :
+                UIHelpers.escapeHtml(msg.content);
+        }
+
         return `
             <div class="flex ${(isCustomer || isSystem) ? '' : 'justify-end'} mb-4" data-message-id="${msg.id}">
                 <div class="max-w-[70%]">
@@ -819,5 +912,92 @@ export class ConversationRenderer {
         }
 
         console.log(`🔝 Moved conversation ${conversationId} to top of list`);
+    }
+
+    /**
+     * Update a conversation's category in-place without reloading the entire list
+     * @param {string} conversationId - ID of the conversation to update
+     * @param {Object|null} categoryData - New category data or null to remove category
+     * @param {Object|null} categoryMetadata - Metadata about the category (AI source, confidence, etc.)
+     */
+    updateConversationCategory(conversationId, categoryData, categoryMetadata = null) {
+        // Update the conversation data in the modern loader cache
+        const conversationData = this.dashboard.modernConversationLoader.getConversations();
+        const conversation = conversationData.all.find(conv => conv.id === conversationId);
+
+        if (!conversation) {
+            console.warn(`❌ Conversation ${conversationId} not found in cache`);
+            return false;
+        }
+
+        // Update the category data and metadata
+        conversation.categoryData = categoryData;
+        conversation.categoryId = categoryData?.id || null;
+        conversation.categoryMetadata = categoryMetadata;
+
+        // Update the DOM - find the conversation item
+        const queueItem = document.querySelector(`[data-conversation-id="${conversationId}"]`);
+        if (!queueItem) {
+            console.warn(`❌ DOM element for conversation ${conversationId} not found`);
+            return false;
+        }
+
+        // Find the container that has the user number and badges
+        const categoryContainer = queueItem.querySelector('.font-medium');
+        if (!categoryContainer) {
+            console.warn(`❌ Category container (.font-medium) not found for conversation ${conversationId}`);
+            return false;
+        }
+
+        // Find existing category badge - look for the inline-flex element that contains the category
+        // The badge has a child div with background-color for the color dot
+        let existingBadge = categoryContainer.querySelector('.inline-flex.rounded-full');
+        if (!existingBadge) {
+            // Fallback: look for any element with a color dot inside
+            const colorDot = categoryContainer.querySelector('div[style*="background-color"]');
+            if (colorDot) {
+                existingBadge = colorDot.closest('.inline-flex');
+            }
+        }
+
+        if (categoryData && categoryData.name) {
+            // Create new category badge HTML with metadata
+            const newBadgeHTML = this.renderCategoryBadge(categoryData, categoryMetadata);
+
+            if (existingBadge) {
+                // Replace existing badge
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newBadgeHTML.trim();
+                const newBadge = tempDiv.firstElementChild;
+                if (newBadge) {
+                    existingBadge.replaceWith(newBadge);
+                } else {
+                    console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
+                }
+            } else {
+                // Add new badge after the user number and unseen count
+                const archiveIcon = categoryContainer.querySelector('.fa-archive');
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newBadgeHTML.trim();
+                const newBadge = tempDiv.firstElementChild;
+
+                if (newBadge) {
+                    if (archiveIcon) {
+                        // Insert before archive icon
+                        archiveIcon.parentElement.insertBefore(newBadge, archiveIcon);
+                    } else {
+                        // Append to container
+                        categoryContainer.appendChild(newBadge);
+                    }
+                } else {
+                    console.error(`❌ Failed to create new badge element from HTML: ${newBadgeHTML}`);
+                }
+            }
+        } else if (existingBadge) {
+            // Remove category badge if no category
+            existingBadge.remove();
+        }
+
+        return true;
     }
 }

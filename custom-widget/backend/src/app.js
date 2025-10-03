@@ -55,9 +55,11 @@ const createKnowledgeRoutes = require('./routes/knowledgeRoutes');
 const createWidgetRoutes = require('./routes/widgetRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const logsRoutes = require('./routes/logsRoutes');
 const createDocsRoutes = require('./routes/docsRoutes');
+const { router: uploadRoutes } = require('./routes/uploadRoutes');
 
 // Import services
 const WebSocketService = require('./services/websocketService');
@@ -76,12 +78,15 @@ function createApp() {
     // Create logger for app initialization
     const logger = createLogger('app');
 
+    // Trust proxy to get correct client IPs behind load balancers/reverse proxies
+    app.set('trust proxy', true);
+
     // Middleware - IMPORTANT: Order matters!
     app.use(cors());
-    
+
     // Correlation ID middleware must be first to track all requests
     app.use(correlationMiddleware);
-    
+
     app.use(express.json());
 
     // Static file serving - Railway vs local development paths
@@ -126,8 +131,10 @@ function createApp() {
     // Routes
     app.use('/api/auth', authRoutes); // Authentication routes
     app.use('/api/users', userRoutes); // User management routes (admin only)
+    app.use('/api/categories', categoryRoutes); // Category management routes (agent/admin)
     app.use('/api/activities', activityRoutes); // Activity logging routes
     app.use('/api/logs', logsRoutes); // Centralized logging routes (admin only)
+    app.use('/api', uploadRoutes); // File upload routes
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));
     app.use('/api/knowledge', createKnowledgeRoutes()); // Knowledge management routes

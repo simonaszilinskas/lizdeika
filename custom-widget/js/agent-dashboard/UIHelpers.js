@@ -243,7 +243,13 @@ export class UIHelpers {
                             ${this.renderAgentOptions(conversationId)}
                         </div>
                     </div>
-                    <button onclick="dashboard.archiveConversation('${conversationId}', event)" 
+                    <button data-action="toggle-category-dropdown"
+                            data-conversation-id="${conversationId}"
+                            class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded category-dropdown-trigger"
+                            title="Assign category">
+                        <i class="fas fa-tag"></i>
+                    </button>
+                    <button onclick="dashboard.archiveConversation('${conversationId}', event)"
                             class="px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs rounded"
                             title="Archive conversation">
                         <i class="fas fa-archive"></i>
@@ -266,7 +272,13 @@ export class UIHelpers {
                             ${this.renderAgentOptions(conversationId)}
                         </div>
                     </div>
-                    <button onclick="dashboard.archiveConversation('${conversationId}', event)" 
+                    <button data-action="toggle-category-dropdown"
+                            data-conversation-id="${conversationId}"
+                            class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs rounded category-dropdown-trigger"
+                            title="Assign category">
+                        <i class="fas fa-tag"></i>
+                    </button>
+                    <button onclick="dashboard.archiveConversation('${conversationId}', event)"
                             class="px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 text-xs rounded"
                             title="Archive conversation">
                         <i class="fas fa-archive"></i>

@@ -492,12 +492,24 @@
             <div id="message-input-area" class="hidden bg-white border-t border-gray-200 p-4">
                 <form id="message-form" class="flex gap-3 items-end">
                     <div class="flex-1 relative">
-                        <textarea 
-                            id="message-input" 
-                            placeholder="Rašykite savo pranešimą..."
-                            class="w-full border border-gray-300 rounded-lg px-4 py-2 resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            style="resize: none; overflow-y: auto; height: 80px; min-height: 80px; max-height: 300px; transition: height 0.2s ease;"
-                        ></textarea>
+                        <input
+                            type="file"
+                            id="agent-file-input"
+                            style="display: none;"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                        />
+                        <div class="flex items-start gap-2">
+                            <button type="button" id="agent-attach-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Prisegti failą">
+                                <i class="fas fa-paperclip text-xl"></i>
+                            </button>
+                            <textarea
+                                id="message-input"
+                                placeholder="Rašykite savo pranešimą..."
+                                class="flex-1 border border-gray-300 rounded-lg px-4 py-2 resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                style="resize: none; overflow-y: auto; height: 80px; min-height: 80px; max-height: 300px; transition: height 0.2s ease;"
+                            ></textarea>
+                        </div>
+                        <div id="agent-file-preview" class="hidden mt-2 p-2 bg-gray-100 rounded-lg text-sm"></div>
                     </div>
                     <div class="flex flex-col items-end gap-2">
                         <button type="button" onclick="dashboard.getAIAssistance()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm flex items-center transition-colors">

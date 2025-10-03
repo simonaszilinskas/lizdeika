@@ -1,28 +1,50 @@
 /**
- * Knowledge Service - Document Management and Semantic Search
- * 
- * This service provides the interface between the RAG system and the vector database,
- * managing document storage, retrieval, and semantic search for the Vilnius assistant.
- * 
- * Key Features:
- * - Document upload and text extraction (.txt, .docx support)
- * - Semantic search using Mistral embeddings (1024-dimensional vectors)
- * - Integration with Chroma DB Cloud vector database
- * - Sample Vilnius city data initialization and management
- * - Context retrieval for RAG-enhanced responses
- * 
+ * KNOWLEDGE SERVICE
+ *
+ * Main Purpose: Interface for RAG (Retrieval-Augmented Generation) knowledge base operations
+ *
+ * Key Responsibilities:
+ * - Document Management: Upload, store, and organize knowledge base documents
+ * - Semantic Search: Find relevant context using vector similarity search
+ * - Provider Coordination: Route between Flowise built-in RAG and external ChromaDB
+ * - Context Retrieval: Provide document chunks for AI response enhancement
+ * - Statistics Reporting: Track knowledge base size and usage
+ *
  * Dependencies:
- * - chromaService - Vector database operations and embedding management
- * - Chroma DB Cloud - Hosted vector database service
- * - Mistral embeddings - Text-to-vector conversion
- * 
- * Configuration:
- * - Uses 'vilnius-knowledge-base-mistral-1024' collection
- * - HNSW indexing with cosine similarity
- * - Default k=3 for similarity search results
- * 
- * @author AI Assistant System
- * @version 1.0.0
+ * - ChromaService for external vector database operations
+ * - SettingsService for AI provider configuration
+ * - Mistral API for text embedding generation (1024-dimensional vectors)
+ * - ChromaDB Cloud for hosted vector storage
+ *
+ * Features:
+ * - Dual RAG mode support (Flowise built-in vs external ChromaDB)
+ * - Document format support: .txt, .docx with text extraction
+ * - Vector similarity search using cosine distance
+ * - HNSW indexing for fast nearest neighbor search
+ * - Metadata filtering and document organization
+ * - Manual and automatic knowledge base initialization
+ *
+ * AI Provider Modes:
+ * - Flowise: Uses built-in RAG, skips external vector DB setup
+ * - OpenRouter/Other: Uses external ChromaDB with Mistral embeddings
+ *
+ * Vector Database Configuration:
+ * - Collection: 'vilnius-knowledge-base-mistral-1024'
+ * - Embedding Model: Mistral embeddings (1024 dimensions)
+ * - Index Type: HNSW (Hierarchical Navigable Small World)
+ * - Distance Metric: Cosine similarity
+ * - Default k (results per query): 2-3 chunks
+ *
+ * Document Metadata Schema:
+ * - All values must be string, number, boolean, or null
+ * - No nested objects or arrays (ChromaDB limitation)
+ * - Common fields: source, category, timestamp, author
+ *
+ * Notes:
+ * - Sample data loading is skipped on startup to avoid automatic embeddings
+ * - Provider detection is dynamic based on database settings
+ * - External RAG is only initialized for non-Flowise providers
+ * - Statistics include document count, embedding count, collection info
  */
 const chromaService = require('./chromaService');
 const SettingsService = require('./settingsService');
@@ -33,7 +55,10 @@ const SAMPLE_VILNIUS_DATA = [];
 
 class KnowledgeService {
     /**
-     * Helper method to get AI provider from database settings
+     * Get current AI provider from database settings with fallback
+     *
+     * @private
+     * @returns {Promise<string>} AI provider name ('flowise', 'openrouter', etc.)
      */
     async _getAIProvider() {
         try {
@@ -52,7 +77,13 @@ class KnowledgeService {
     }
 
     /**
-     * Initialize the knowledge base connection (sample data loading skipped to avoid automatic embeddings)
+     * Initialize knowledge base connection
+     *
+     * Connects to external ChromaDB for non-Flowise providers.
+     * Flowise providers skip this step as they use built-in RAG.
+     * Sample data loading is skipped to avoid automatic embedding generation.
+     *
+     * @returns {Promise<boolean>} True if initialization successful, false otherwise
      */
     async initializeSampleData() {
         const currentProvider = await this._getAIProvider();
@@ -85,20 +116,31 @@ class KnowledgeService {
 
     /**
      * Get knowledge base statistics
+     *
+     * @returns {Promise<Object>} Stats object with document count and collection info
      */
     async getStats() {
         return await chromaService.getStats();
     }
 
     /**
-     * Search for relevant context
+     * Search for relevant document context using semantic similarity
+     *
+     * @param {string} query - Search query text
+     * @param {number} nResults - Number of results to return (default: 2)
+     * @returns {Promise<Array>} Array of relevant document chunks with metadata
      */
     async searchContext(query, nResults = 2) {
         return await chromaService.searchContext(query, nResults);
     }
 
     /**
-     * Get all indexed documents from Chroma vector database
+     * Retrieve all indexed documents from vector database
+     *
+     * For Flowise providers, returns empty array as they use built-in RAG.
+     *
+     * @param {number} limit - Maximum number of documents to retrieve (default: 100)
+     * @returns {Promise<Object>} Object with connected status and documents array
      */
     async getAllIndexedDocuments(limit = 100) {
         const currentProvider = await this._getAIProvider();
@@ -115,7 +157,12 @@ class KnowledgeService {
     }
 
     /**
-     * Manually load sample data to knowledge base (for testing purposes)
+     * Manually load sample data to knowledge base
+     *
+     * For testing and demonstration purposes only.
+     * Skipped for Flowise providers.
+     *
+     * @returns {Promise<boolean>} True if sample data loaded successfully
      */
     async loadSampleData() {
         const currentProvider = process.env.AI_PROVIDER || 'flowise';

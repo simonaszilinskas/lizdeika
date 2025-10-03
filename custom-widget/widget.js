@@ -172,10 +172,32 @@
                             <form id="vilnius-chat-form" style="
                                 display: flex;
                                 gap: 12px;
+                                align-items: center;
                             ">
-                                <input 
+                                <input
+                                    type="file"
+                                    id="vilnius-file-input"
+                                    style="display: none;"
+                                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                                />
+                                <button type="button" id="vilnius-attach-button" style="
+                                    background: none;
+                                    border: none;
+                                    color: #6b7280;
+                                    cursor: pointer;
+                                    padding: 8px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    transition: color 0.3s;
+                                ">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/>
+                                    </svg>
+                                </button>
+                                <input
                                     id="vilnius-chat-input"
-                                    type="text" 
+                                    type="text"
                                     placeholder="Rašykite savo pranešimą..."
                                     style="
                                         flex: 1;
@@ -205,6 +227,14 @@
                                     </svg>
                                 </button>
                             </form>
+                            <div id="vilnius-file-preview" style="
+                                margin-top: 8px;
+                                display: none;
+                                padding: 8px;
+                                background: #f3f4f6;
+                                border-radius: 8px;
+                                font-size: 14px;
+                            "></div>
                         </div>
                     </div>
                 </div>
@@ -219,6 +249,9 @@
             const closeBtn = document.getElementById('vilnius-close-chat');
             const form = document.getElementById('vilnius-chat-form');
             const input = document.getElementById('vilnius-chat-input');
+            const attachButton = document.getElementById('vilnius-attach-button');
+            const fileInput = document.getElementById('vilnius-file-input');
+            const filePreview = document.getElementById('vilnius-file-preview');
 
             bubble.addEventListener('click', () => {
                 window.style.display = window.style.display === 'none' ? 'flex' : 'none';
@@ -231,13 +264,51 @@
                 window.style.display = 'none';
             });
 
+            // File attachment handling
+            attachButton.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.selectedFile = file;
+                    filePreview.style.display = 'block';
+                    filePreview.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>📎 ${file.name}</span>
+                            <button type="button" id="vilnius-remove-file" style="
+                                background: none;
+                                border: none;
+                                color: #ef4444;
+                                cursor: pointer;
+                                padding: 4px;
+                            ">✕</button>
+                        </div>
+                    `;
+
+                    document.getElementById('vilnius-remove-file').addEventListener('click', () => {
+                        this.selectedFile = null;
+                        fileInput.value = '';
+                        filePreview.style.display = 'none';
+                    });
+                }
+            });
+
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const message = input.value.trim();
-                if (message) {
+
+                if (this.selectedFile) {
+                    await this.sendFileMessage(this.selectedFile, message);
+                    this.selectedFile = null;
+                    fileInput.value = '';
+                    filePreview.style.display = 'none';
+                } else if (message) {
                     await this.sendMessage(message);
-                    input.value = '';
                 }
+
+                input.value = '';
             });
             
             // Add typing indicators for customer
@@ -446,7 +517,7 @@
                 ${msg.sender === 'visitor' ? 'justify-content: flex-end;' : ''}
             `;
 
-            const bubbleStyle = msg.sender === 'visitor' 
+            const bubbleStyle = msg.sender === 'visitor'
                 ? `background: ${this.config.theme.primaryColor}; color: white;`
                 : 'background: white; color: #1f2937;';
 
@@ -456,7 +527,14 @@
                 content = `🤖 *Atsako robotas - galimos klaidos*\n\n${content}`;
             }
 
-            const formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
+            // Check for file attachment in metadata
+            let formattedText;
+            if (msg.metadata && msg.metadata.file) {
+                const fileUrl = `${this.config.apiUrl}${msg.metadata.file.url}?conversationId=${this.conversationId}`;
+                formattedText = this.renderFileMessage(msg.metadata.file, content, fileUrl);
+            } else {
+                formattedText = (msg.sender === 'agent' || msg.sender === 'ai') ? this.markdownToHtml(content) : content;
+            }
 
             messageDiv.innerHTML = `
                 <div style="
@@ -586,6 +664,122 @@
                 // Ensure polling is active as fallback
                 this.ensurePollingActive();
             }
+        },
+
+        async sendFileMessage(file, caption = '') {
+            const tempMessageId = 'temp-' + Date.now();
+
+            // Show uploading message
+            const uploadingText = caption ? `📎 ${file.name}\n${caption}` : `📎 ${file.name}`;
+            this.addMessage(uploadingText, 'user', tempMessageId);
+
+            const typingId = this.showTypingIndicator();
+
+            try {
+                // Ensure we have a conversation ID BEFORE uploading
+                const isNewConversation = !this.conversationId;
+                if (isNewConversation) {
+                    this.conversationId = this.generateSessionId();
+                }
+
+                // Upload file first with conversationId for authentication
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('conversationId', this.conversationId);
+
+                const uploadResponse = await fetch(`${this.config.apiUrl}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const uploadData = await uploadResponse.json();
+
+                if (!uploadData.success) {
+                    throw new Error(uploadData.error || 'File upload failed');
+                }
+
+                // Send message with file metadata
+                const response = await fetch(`${this.config.apiUrl}/api/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        conversationId: this.conversationId,
+                        message: caption || file.name,
+                        visitorId: this.getVisitorId(),
+                        messageType: 'file',
+                        fileMetadata: uploadData.file
+                    })
+                });
+
+                const data = await response.json();
+
+                this.removeTypingIndicator(typingId);
+
+                // Replace temp message with actual file message
+                const tempMsg = document.querySelector(`[data-message-id="${tempMessageId}"]`);
+                if (tempMsg && data.userMessage) {
+                    tempMsg.setAttribute('data-message-id', data.userMessage.id);
+                    // Update message with clickable file link (include conversationId for authorization)
+                    const fileUrl = `${this.config.apiUrl}${uploadData.file.url}?conversationId=${this.conversationId}`;
+                    const contentDiv = tempMsg.querySelector('div > div');
+                    if (contentDiv) {
+                        contentDiv.innerHTML = this.renderFileMessage(uploadData.file, caption, fileUrl);
+                    }
+                }
+
+                if (isNewConversation) {
+                    this.startPolling();
+                    if (this.socket && this.socket.connected) {
+                        this.socket.emit('join-conversation', this.conversationId);
+                    }
+                }
+
+                if (data.aiMessage) {
+                    if (!this.isInternalSystemMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.metadata)) {
+                        this.addMessage(data.aiMessage.content, data.aiMessage.sender, data.aiMessage.id, data.aiMessage.metadata);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error sending file:', error);
+                this.removeTypingIndicator(typingId);
+                this.addMessage('Nepavyko nusiųsti failo. Pabandykite dar kartą.', 'ai', 'error-' + Date.now());
+            }
+        },
+
+        escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        },
+
+        renderFileMessage(fileMetadata, caption, fileUrl) {
+            // Validate the RELATIVE URL path from metadata (not the absolute fileUrl)
+            if (!fileMetadata.url || typeof fileMetadata.url !== 'string' || !fileMetadata.url.startsWith('/api/uploads/')) {
+                return '<div style="color: red;">⚠️ Invalid file attachment</div>';
+            }
+
+            const isImage = fileMetadata.mimetype && fileMetadata.mimetype.startsWith('image/');
+            let html = '';
+
+            const escapedUrl = this.escapeHtml(fileUrl);
+            const escapedFilename = this.escapeHtml(fileMetadata.filename || 'file');
+
+            if (isImage) {
+                html = `<a href="${escapedUrl}" target="_blank"><img src="${escapedUrl}" style="max-width: 200px; border-radius: 8px; margin-bottom: 4px;" /></a>`;
+            } else {
+                html = `<a href="${escapedUrl}" download="${escapedFilename}" style="color: #4F46E5; text-decoration: underline;">📎 ${escapedFilename}</a>`;
+            }
+
+            // Only add caption if it's different from filename
+            if (caption && caption !== fileMetadata.filename) {
+                html += `<br/>${this.escapeHtml(caption)}`;
+            }
+
+            return html;
         },
 
         getVisitorId() {

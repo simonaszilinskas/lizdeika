@@ -38,6 +38,7 @@ const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
 const { asyncHandler } = require('../utils/errors');
+const { validateFileMetadata } = require('../utils/fileValidation');
 
 class AgentController {
     constructor(io) {
@@ -141,9 +142,19 @@ class AgentController {
      */
     async sendResponse(req, res) {
         try {
-            const { conversationId, message, agentId, usedSuggestion, suggestionAction, autoAssign } = req.body;
+            const { conversationId, message, agentId, usedSuggestion, suggestionAction, autoAssign, messageType, fileMetadata } = req.body;
             // suggestionAction: 'as-is', 'edited', 'from-scratch'
             // autoAssign: true to automatically assign conversation to responding agent
+
+            // Validate file metadata if present
+            let sanitizedFileMetadata = null;
+            if (fileMetadata) {
+                try {
+                    sanitizedFileMetadata = validateFileMetadata(fileMetadata);
+                } catch (error) {
+                    return res.status(400).json({ error: `Invalid file metadata: ${error.message}` });
+                }
+            }
             
             const conversation = await conversationService.getConversation(conversationId);
             if (!conversation) {
@@ -162,18 +173,29 @@ class AgentController {
             // Get agent details for attribution
             const agent = await agentService.getAgent(agentId);
             const agentName = agent ? (agent.name || agentId) : agentId;
-            
+
+            // Extract text from message (handle both string and AI response object)
+            let messageText = message;
+            if (typeof message === 'object' && message.response) {
+                messageText = message.response;
+            } else if (typeof message === 'object') {
+                messageText = JSON.stringify(message);
+            }
+
             // Store agent message with detailed attribution
             const agentMessage = {
                 id: uuidv4(),
                 conversationId,
-                content: message,
+                content: messageText,
                 sender: 'agent',
                 timestamp: new Date(),
                 agentId,
+                messageType: messageType || 'text',
                 metadata: {
                     suggestionAction: suggestionAction,
                     usedSuggestion: usedSuggestion,
+                    // Add file metadata if present
+                    ...(sanitizedFileMetadata && { file: sanitizedFileMetadata }),
                     // Response attribution for admin interface
                     responseAttribution: {
                         respondedBy: agentName, // Agent username/display name
