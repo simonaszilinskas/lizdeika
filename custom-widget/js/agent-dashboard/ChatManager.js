@@ -586,12 +586,21 @@ export class ChatManager {
 
             this.dashboard.showToast('Uploading file...', 'info');
 
-            // Upload file first
+            // Upload file first with authentication
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('conversationId', this.stateManager.getCurrentChatId());
+
+            // Get auth token for agents
+            const token = localStorage.getItem('agent_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
 
             const uploadResponse = await fetch(`${this.apiManager.apiUrl}/api/upload`, {
                 method: 'POST',
+                headers: headers,
                 body: formData
             });
 
