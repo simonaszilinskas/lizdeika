@@ -16,6 +16,7 @@ export class EventManager {
     initializeAllEventListeners() {
         this.setupPersonalStatusListener();
         this.setupFilterButtonListeners();
+        this.setupSearchListener();
         this.setupMessageFormListener();
         this.setupMessageKeyboardShortcuts();
         this.setupAIAssistanceListener();
@@ -54,6 +55,47 @@ export class EventManager {
                 this.dashboard.setFilter(clickedFilter);
             });
         });
+    }
+
+    /**
+     * Setup conversation search listener
+     */
+    setupSearchListener() {
+        const searchInput = document.getElementById('conversation-search');
+        const clearSearchBtn = document.getElementById('clear-search');
+
+        if (searchInput) {
+            // Debounce search to avoid filtering on every keystroke
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value;
+
+                // Show/hide clear button
+                if (clearSearchBtn) {
+                    if (query) {
+                        clearSearchBtn.classList.remove('hidden');
+                    } else {
+                        clearSearchBtn.classList.add('hidden');
+                    }
+                }
+
+                // Debounce search
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    this.dashboard.stateManager.setSearchQuery(query);
+                }, 300); // 300ms debounce
+            });
+        }
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    clearSearchBtn.classList.add('hidden');
+                    this.dashboard.stateManager.clearSearchQuery();
+                }
+            });
+        }
     }
 
     /**

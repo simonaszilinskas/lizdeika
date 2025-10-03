@@ -124,17 +124,67 @@ class ConversationFilter {
     }
 
     /**
+     * Apply search filter
+     */
+    applySearchFilter(conversations, searchQuery) {
+        if (!searchQuery || searchQuery.trim() === '') {
+            return conversations;
+        }
+
+        const query = searchQuery.toLowerCase().trim();
+
+        return conversations.filter(conv => {
+            // Search in conversation number
+            const userNumber = String(conv.userNumber || '').toLowerCase();
+            if (userNumber.includes(query)) {
+                return true;
+            }
+
+            // Search in category name
+            if (conv.categoryData && conv.categoryData.name) {
+                const categoryName = conv.categoryData.name.toLowerCase();
+                if (categoryName.includes(query)) {
+                    return true;
+                }
+            }
+
+            // Search in last message content
+            if (conv.lastMessage && conv.lastMessage.content) {
+                const messageContent = conv.lastMessage.content.toLowerCase();
+                if (messageContent.includes(query)) {
+                    return true;
+                }
+            }
+
+            // Search in all messages if available
+            if (conv.messages && Array.isArray(conv.messages)) {
+                const hasMatchingMessage = conv.messages.some(msg =>
+                    msg.content && msg.content.toLowerCase().includes(query)
+                );
+                if (hasMatchingMessage) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+    }
+
+    /**
      * Apply all filters
      */
     filterConversations(conversations, filters) {
-        const { archiveFilter, assignmentFilter, agentId } = filters;
-        
+        const { archiveFilter, assignmentFilter, agentId, searchQuery } = filters;
+
         let filtered = this.applyArchiveFilter(conversations, archiveFilter);
-        
+
         // Don't apply assignment filters to archived conversations
         if (archiveFilter !== 'archived') {
             filtered = this.applyAssignmentFilter(filtered, assignmentFilter, agentId);
         }
+
+        // Apply search filter
+        filtered = this.applySearchFilter(filtered, searchQuery);
 
         this.logger.log(`🔍 Filtered ${conversations.length} → ${filtered.length} conversations`);
         return filtered;
