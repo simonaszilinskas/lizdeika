@@ -275,24 +275,39 @@ export class EventManager {
             if (file) {
                 this.dashboard.selectedFile = file;
                 filePreview.classList.remove('hidden');
-                filePreview.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span><i class="fas fa-paperclip mr-2"></i>${file.name}</span>
-                        <button type="button" id="agent-remove-file" class="text-red-600 hover:text-red-800">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                `;
+
+                // Build file preview securely using DOM creation (prevents XSS)
+                filePreview.innerHTML = ''; // Clear previous content
+
+                const container = document.createElement('div');
+                container.className = 'flex justify-between items-center';
+
+                const fileInfo = document.createElement('span');
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-paperclip mr-2';
+                fileInfo.appendChild(icon);
+
+                // Use textContent to safely insert file name (prevents XSS)
+                const fileName = document.createTextNode(file.name);
+                fileInfo.appendChild(fileName);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'agent-remove-file text-red-600 hover:text-red-800';
+                const removeIcon = document.createElement('i');
+                removeIcon.className = 'fas fa-times';
+                removeBtn.appendChild(removeIcon);
+
+                container.appendChild(fileInfo);
+                container.appendChild(removeBtn);
+                filePreview.appendChild(container);
 
                 // Remove file handler
-                const removeBtn = document.getElementById('agent-remove-file');
-                if (removeBtn) {
-                    removeBtn.addEventListener('click', () => {
-                        this.dashboard.selectedFile = null;
-                        fileInput.value = '';
-                        filePreview.classList.add('hidden');
-                    });
-                }
+                removeBtn.addEventListener('click', () => {
+                    this.dashboard.selectedFile = null;
+                    fileInput.value = '';
+                    filePreview.classList.add('hidden');
+                });
             }
         });
     }

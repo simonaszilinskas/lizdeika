@@ -920,7 +920,7 @@ class ConversationController {
             // Log activity
             await activityService.logActivity({
                 userId: user.id,
-                action_type: 'conversation',
+                actionType: 'conversation',
                 action: 'assign_category',
                 resource: 'conversation',
                 resourceId: conversationId,
@@ -1053,7 +1053,7 @@ class ConversationController {
             // Log activity
             await activityService.logActivity({
                 userId: user.id,
-                action_type: 'conversation',
+                actionType: 'conversation',
                 action: 'bulk_assign_category',
                 resource: 'conversation',
                 details: {
@@ -1208,7 +1208,7 @@ class ConversationController {
             // Log activity
             await activityService.logActivity({
                 userId: user.id,
-                action_type: 'conversation',
+                actionType: 'conversation',
                 action: manual_override ? 'enable_manual_category_override' : 'enable_ai_categorization',
                 resource: 'conversation',
                 resourceId: conversationId,
