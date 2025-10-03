@@ -553,10 +553,16 @@ class VilniusRAGChain extends BaseChain {
      * Update AI provider configuration dynamically
      */
     async updateProviderConfig(providerConfig) {
-        // Store current config for rollback
+        // Store current config for rollback (both LLM and env vars)
         const previousConfig = {
             model: this.mainModelName,
-            llm: this.llm
+            llm: this.llm,
+            env: {
+                OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+                OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
+                SITE_URL: process.env.SITE_URL,
+                SITE_NAME: process.env.SITE_NAME
+            }
         };
 
         try {
@@ -631,6 +637,13 @@ class VilniusRAGChain extends BaseChain {
             return { success: true, recreated: needsRecreation };
         } catch (error) {
             console.error('❌ Error updating provider configuration:', error);
+
+            // Restore environment variables on failure
+            process.env.OPENROUTER_API_KEY = previousConfig.env.OPENROUTER_API_KEY;
+            process.env.OPENROUTER_MODEL = previousConfig.env.OPENROUTER_MODEL;
+            process.env.SITE_URL = previousConfig.env.SITE_URL;
+            process.env.SITE_NAME = previousConfig.env.SITE_NAME;
+
             return { success: false, error: error.message };
         }
     }

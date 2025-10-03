@@ -1287,11 +1287,13 @@ class ConversationService {
                 })
             ]);
 
+            const total = categorizedCount + uncategorizedCount;
+
             return {
-                total_conversations: categorizedCount + uncategorizedCount,
+                total_conversations: total,
                 categorized_conversations: categorizedCount,
                 uncategorized_conversations: uncategorizedCount,
-                categorization_rate: categorizedCount / (categorizedCount + uncategorizedCount),
+                categorization_rate: total > 0 ? categorizedCount / total : 0,
                 category_breakdown: categoryBreakdown.map(item => ({
                     category_id: item.category_id,
                     conversation_count: item._count._all

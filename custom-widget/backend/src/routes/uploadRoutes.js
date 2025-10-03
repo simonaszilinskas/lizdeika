@@ -71,13 +71,12 @@ function isPathSafe(requestedPath, allowedDir) {
 /**
  * Generate file metadata from multer file object
  * @param {Object} file - Multer file object
- * @returns {Object} File metadata for API response
+ * @returns {Object} File metadata for API response (excludes server filesystem path for security)
  */
 function generateFileMetadata(file) {
     return {
         filename: file.originalname,
         storedFilename: file.filename,
-        path: file.path,
         mimetype: file.mimetype,
         size: file.size,
         url: `/api/uploads/${file.filename}`

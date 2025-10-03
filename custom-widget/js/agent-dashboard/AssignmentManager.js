@@ -4,6 +4,8 @@
  * Extracted from agent-dashboard.js for better modularity
  */
 
+import { UIHelpers } from './UIHelpers.js';
+
 export class AssignmentManager {
     constructor(dashboard) {
         this.dashboard = dashboard;
@@ -373,6 +375,16 @@ export class AssignmentManager {
             document.body.appendChild(dropdown);
             this.activeDropdown = dropdown;
 
+            // Add event delegation for category options
+            dropdown.addEventListener('click', (e) => {
+                const option = e.target.closest('.category-option');
+                if (option) {
+                    const conversationId = option.dataset.conversationId;
+                    const categoryId = option.dataset.categoryId === 'null' ? null : option.dataset.categoryId;
+                    this.assignCategory(conversationId, categoryId, e);
+                }
+            });
+
         } catch (error) {
             console.error('Failed to load categories:', error);
             dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-gray-500">Error loading categories</div>';
@@ -402,25 +414,55 @@ export class AssignmentManager {
             return '<div class="px-3 py-2 text-xs text-gray-500">No categories available</div>';
         }
 
+        // Sanitize conversationId for data attribute
+        const safeConversationId = UIHelpers.escapeHtml(conversationId);
+
         let html = `
-            <div onclick="dashboard.assignmentManager.assignCategory('${conversationId}', null, event)"
-                 class="px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100">
+            <div data-conversation-id="${safeConversationId}"
+                 data-category-id="null"
+                 class="category-option px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer border-b border-gray-100">
                 <span class="text-gray-500">No Category</span>
             </div>
         `;
 
         categories.forEach(category => {
-            const colorStyle = category.color ? `style="color: ${category.color};"` : '';
+            // Validate and sanitize color to prevent CSS injection
+            const rawColor = category.color || '#6B7280';
+            const safeColor = this.sanitizeColor(rawColor);
+
+            // Escape all user-controlled text
+            const safeCategoryId = UIHelpers.escapeHtml(category.id);
+            const safeCategoryName = UIHelpers.escapeHtml(category.name);
+
             html += `
-                <div onclick="dashboard.assignmentManager.assignCategory('${conversationId}', '${category.id}', event)"
-                     class="px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full" style="background-color: ${category.color || '#6B7280'};"></div>
-                    <span ${colorStyle}>${category.name}</span>
+                <div data-conversation-id="${safeConversationId}"
+                     data-category-id="${safeCategoryId}"
+                     class="category-option px-3 py-2 text-xs hover:bg-gray-100 cursor-pointer flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full" style="background-color: ${safeColor};"></div>
+                    <span>${safeCategoryName}</span>
                 </div>
             `;
         });
 
         return html;
+    }
+
+    /**
+     * Sanitize color value to prevent CSS injection
+     * @param {string} color - Color value to sanitize
+     * @returns {string} Safe color value
+     */
+    sanitizeColor(color) {
+        if (!color) return '#6B7280';
+
+        // Only allow hex colors (3 or 6 digits)
+        const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+        if (hexColorRegex.test(color)) {
+            return color;
+        }
+
+        // Fallback to default color if invalid
+        return '#6B7280';
     }
 
     /**

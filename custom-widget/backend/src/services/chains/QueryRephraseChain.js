@@ -335,30 +335,40 @@ class QueryRephraseChain extends LLMChain {
 
     /**
      * Update AI provider configuration dynamically
+     * Accepts both camelCase and UPPERCASE config keys
      */
     async updateConfiguration(config) {
         try {
             let needsRecreation = false;
 
-            // Check if model or API key changed
-            if (config.rephrasingModel && config.rephrasingModel !== this.rephrasingModel) {
-                this.rephrasingModel = config.rephrasingModel;
-                process.env.REPHRASING_MODEL = config.rephrasingModel;
+            // Normalize config keys - accept both camelCase and UPPERCASE
+            const rephrasingModel = config.rephrasingModel || config.REPHRASING_MODEL;
+            const apiKey = config.apiKey || config.OPENROUTER_API_KEY;
+            const siteUrl = config.siteUrl || config.SITE_URL;
+            const siteName = config.siteName || config.SITE_NAME;
+
+            // Check if rephrasing model changed
+            if (rephrasingModel && rephrasingModel !== this.rephrasingModel) {
+                this.rephrasingModel = rephrasingModel;
+                process.env.REPHRASING_MODEL = rephrasingModel;
                 needsRecreation = true;
             }
 
-            if (config.apiKey && config.apiKey !== process.env.OPENROUTER_API_KEY) {
-                process.env.OPENROUTER_API_KEY = config.apiKey;
+            // Check if API key changed
+            if (apiKey && apiKey !== process.env.OPENROUTER_API_KEY) {
+                process.env.OPENROUTER_API_KEY = apiKey;
                 needsRecreation = true;
             }
 
-            if (config.siteUrl) {
-                process.env.SITE_URL = config.siteUrl;
+            // Check if site URL changed
+            if (siteUrl && siteUrl !== process.env.SITE_URL) {
+                process.env.SITE_URL = siteUrl;
                 needsRecreation = true;
             }
 
-            if (config.siteName) {
-                process.env.SITE_NAME = config.siteName;
+            // Check if site name changed
+            if (siteName && siteName !== process.env.SITE_NAME) {
+                process.env.SITE_NAME = siteName;
                 needsRecreation = true;
             }
 

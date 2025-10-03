@@ -229,7 +229,10 @@ export class ConversationRenderer {
             return '';
         }
 
-        const color = categoryData.color || '#6B7280';
+        // Validate and sanitize color to prevent CSS/HTML injection
+        const rawColor = categoryData.color || '#6B7280';
+        const color = this.sanitizeColor(rawColor);
+
         // All categories are global now
         const badgeClass = 'bg-blue-100 text-blue-700 border border-blue-200';
 
@@ -250,10 +253,28 @@ export class ConversationRenderer {
             <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${badgeClass}"
                  title="${tooltipText}">
                 <div class="w-2 h-2 rounded-full" style="background-color: ${color};"></div>
-                <span class="max-w-16 truncate">${categoryData.name}</span>
+                <span class="max-w-16 truncate">${UIHelpers.escapeHtml(categoryData.name)}</span>
                 ${aiIcon}
             </div>
         `;
+    }
+
+    /**
+     * Sanitize color value to prevent CSS injection
+     * @param {string} color - Color value to sanitize
+     * @returns {string} Safe color value
+     */
+    sanitizeColor(color) {
+        if (!color) return '#6B7280';
+
+        // Only allow hex colors (3 or 6 digits)
+        const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+        if (hexColorRegex.test(color)) {
+            return color;
+        }
+
+        // Fallback to default color if invalid
+        return '#6B7280';
     }
 
 

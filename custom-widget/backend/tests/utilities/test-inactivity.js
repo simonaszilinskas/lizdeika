@@ -1,7 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-const service = require('./src/services/aiCategorizationService');
+const service = require('../../src/services/aiCategorizationService');
 
 async function testInactivityDetection() {
     try {
