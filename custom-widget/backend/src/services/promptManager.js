@@ -72,7 +72,7 @@ class LangfusePromptManager {
         if (this.promptCache.has(cacheKey)) {
             const cached = this.promptCache.get(cacheKey);
             if (Date.now() - cached.timestamp < this.cacheTimeout) {
-                return this.createPromptObject(cached.prompt, fallback, variables, cached.fromLangfuse);
+                return this.createPromptObject(cached.prompt, fallback, variables, cached.fromLangfuse, 'cache', name);
             }
         }
 
@@ -92,7 +92,7 @@ class LangfusePromptManager {
                 });
 
                 console.log(`📝 Fetched prompt '${name}' from Langfuse (version: ${langfusePrompt.version || 'latest'})`);
-                return this.createPromptObject(langfusePrompt, fallback, variables, true);
+                return this.createPromptObject(langfusePrompt, fallback, variables, true, 'langfuse', name);
 
             } catch (error) {
                 // Handle specific f-string validation errors gracefully
@@ -115,7 +115,7 @@ class LangfusePromptManager {
         }
 
         // Return fallback prompt object
-        return this.createPromptObject(null, finalFallback, variables, false, source);
+        return this.createPromptObject(null, finalFallback, variables, false, source, name);
     }
 
     /**
@@ -145,7 +145,7 @@ class LangfusePromptManager {
     /**
      * Create standardized prompt object
      */
-    createPromptObject(langfusePrompt, fallback, variables, fromLangfuse, source = 'langfuse') {
+    createPromptObject(langfusePrompt, fallback, variables, fromLangfuse, source = 'langfuse', name = null) {
         const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
         const replacePlaceholders = (template, key, value) => {
@@ -171,7 +171,7 @@ class LangfusePromptManager {
             return Array.from(placeholders);
         };
 
-        const nextName = langfusePrompt?.name || 'unknown';
+        const nextName = name || langfusePrompt?.name || 'unknown';
 
         const logUnresolved = (compiledTemplate, phase) => {
             const unresolved = collectUnresolvedPlaceholders(compiledTemplate);

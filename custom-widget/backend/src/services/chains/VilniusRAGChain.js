@@ -616,6 +616,11 @@ class VilniusRAGChain extends BaseChain {
                     // Restore previous LLM
                     this.llm = previousConfig.llm;
                     this.mainModelName = previousConfig.model;
+                    // Restore environment variables
+                    process.env.OPENROUTER_API_KEY = previousConfig.env.OPENROUTER_API_KEY;
+                    process.env.OPENROUTER_MODEL = previousConfig.env.OPENROUTER_MODEL;
+                    process.env.SITE_URL = previousConfig.env.SITE_URL;
+                    process.env.SITE_NAME = previousConfig.env.SITE_NAME;
                     throw new Error(`Invalid LLM configuration: ${testError.message}`);
                 }
 
