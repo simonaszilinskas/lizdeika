@@ -432,12 +432,19 @@ export class ConversationRenderer {
 
         // Check for file attachment in metadata
         if (msg.metadata && msg.metadata.file) {
-            const fileUrl = msg.metadata.file.url;
+            let fileUrl = msg.metadata.file.url;
 
             // Validate file URL to prevent XSS
             if (!fileUrl || typeof fileUrl !== 'string' || !fileUrl.startsWith('/api/uploads/')) {
                 formattedContent = `<div class="text-red-600">⚠️ Invalid file attachment</div>`;
             } else {
+                // Add conversationId query param for authorization
+                // Get conversationId from the message, or from current chat context
+                const conversationId = msg.ticket_id || msg.conversation_id || this.stateManager.getCurrentChatId();
+                if (conversationId) {
+                    fileUrl += `?conversationId=${encodeURIComponent(conversationId)}`;
+                }
+
                 const isImage = msg.metadata.file.mimetype && msg.metadata.file.mimetype.startsWith('image/');
 
                 if (isImage) {

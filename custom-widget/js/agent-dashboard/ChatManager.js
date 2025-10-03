@@ -571,17 +571,36 @@ export class ChatManager {
         const filePreview = document.getElementById('agent-file-preview');
 
         try {
+            // Validate file size (max 10MB, configurable via env)
+            const maxSizeBytes = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSizeBytes) {
+                this.dashboard.showToast(
+                    `File size exceeds maximum allowed (${Math.round(maxSizeBytes / 1024 / 1024)}MB)`,
+                    'error'
+                );
+                return;
+            }
+
             // Disable UI
             if (input) input.disabled = true;
 
             this.dashboard.showToast('Uploading file...', 'info');
 
-            // Upload file first
+            // Upload file first with authentication
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('conversationId', this.stateManager.getCurrentChatId());
+
+            // Get auth token for agents
+            const token = localStorage.getItem('agent_token');
+            const headers = {};
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
 
             const uploadResponse = await fetch(`${this.apiManager.apiUrl}/api/upload`, {
                 method: 'POST',
+                headers: headers,
                 body: formData
             });
 
