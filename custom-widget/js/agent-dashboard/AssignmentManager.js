@@ -4,6 +4,8 @@
  * Extracted from agent-dashboard.js for better modularity
  */
 
+import { UIHelpers } from './UIHelpers.js';
+
 export class AssignmentManager {
     constructor(dashboard) {
         this.dashboard = dashboard;
