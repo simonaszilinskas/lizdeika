@@ -115,13 +115,20 @@ export class KnowledgeManagementModule {
 
             // Stats elements (enhanced)
             lastUpdated: document.getElementById('last-updated'),
-            uploadedFiles: document.getElementById('uploaded-files'),
-
-            // API Documentation elements
-            apiDocumentationToggles: document.querySelectorAll('[data-toggle]'),
-            copyCodeButtons: document.querySelectorAll('.copy-code-btn'),
-            apiBaseBurlElements: document.querySelectorAll('[id^="api-base-url-"]'),
-            currentSessionStatus: document.getElementById('current-session-status')
+diff --git a/custom-widget/js/settings/modules/KnowledgeManagementModule.js b/custom-widget/js/settings/modules/KnowledgeManagementModule.js
+++ b/custom-widget/js/settings/modules/KnowledgeManagementModule.js
+@@ -118,7 +118,7 @@ export default class KnowledgeManagementModule {
+             apiDocumentationToggles: document.querySelectorAll('[data-toggle]'),
+             copyCodeButtons: document.querySelectorAll('.copy-code-btn'),
+            apiBaseUrlElements: document.querySelectorAll('[id^="api-base-url-"]'),
+             currentSessionStatus: document.getElementById('current-session-status')
+@@ -1410,7 +1410,7 @@ export default class KnowledgeManagementModule {
+         this.elements.copyCodeButtons.forEach(button => {
+             // ...
+         });
+        this.elements.apiBaseUrlElements.forEach(element => {
+             // ...
+         });
         };
 
         console.log('📚 KnowledgeManagementModule: DOM elements initialized');
