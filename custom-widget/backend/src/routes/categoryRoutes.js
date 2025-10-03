@@ -29,7 +29,7 @@ router.get('/', categoryController.getCategories);
  * @desc Get category usage statistics
  * @access Admin only
  */
-router.get('/stats', categoryController.getCategoryStats);
+router.get('/stats', requireAdmin, categoryController.getCategoryStats);
 
 /**
  * @route POST /api/categories
@@ -58,6 +58,6 @@ router.put('/:id', requireAdmin, categoryController.updateCategory);
  * @access Admin only
  * @param {string} id - Category ID
  */
-router.delete('/:id', categoryController.archiveCategory);
+router.delete('/:id', requireAdmin, categoryController.archiveCategory);
 
 module.exports = router;

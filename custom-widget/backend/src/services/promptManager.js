@@ -171,14 +171,14 @@ class LangfusePromptManager {
             return Array.from(placeholders);
         };
 
+        const nextName = langfusePrompt?.name || 'unknown';
+
         const logUnresolved = (compiledTemplate, phase) => {
             const unresolved = collectUnresolvedPlaceholders(compiledTemplate);
             if (unresolved.length > 0) {
                 console.warn(`⚠️ Prompt '${nextName}' (${phase}) missing variables:`, unresolved);
             }
         };
-
-        const nextName = langfusePrompt?.name || name;
 
         const prompt = {
             content: langfusePrompt?.prompt || fallback,

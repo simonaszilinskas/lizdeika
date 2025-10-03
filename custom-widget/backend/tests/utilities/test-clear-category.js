@@ -1,6 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const conversationService = require('./src/services/conversationService');
+const conversationService = require('../../src/services/conversationService');
 
 async function testClearCategory() {
     console.log('🧪 Testing Category Removal with Manual Override\n');

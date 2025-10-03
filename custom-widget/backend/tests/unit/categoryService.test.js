@@ -371,6 +371,9 @@ describe('CategoryService', () => {
     });
 
     describe('getCategoryById', () => {
+        // Alias mockPrismaInstance as prisma for test consistency
+        const prisma = mockPrismaInstance;
+
         it('should return category without user permission check', async () => {
             mockPrismaInstance.ticket_categories.findUnique.mockResolvedValue(mockCategory);
 

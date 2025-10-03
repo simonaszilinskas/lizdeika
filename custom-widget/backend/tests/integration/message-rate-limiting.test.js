@@ -42,11 +42,15 @@ describe('Customer Message Rate Limiting', () => {
     it('should allow up to 10 messages within 1 minute', async () => {
         const promises = [];
 
+        // Use unique IP for this test to isolate rate limit quota
+        const testIP = '10.0.1.1';
+
         // Send 10 messages
         for (let i = 0; i < 10; i++) {
             promises.push(
                 request(app)
                     .post('/api/messages')
+                    .set('X-Forwarded-For', testIP)
                     .send({
                         conversationId,
                         content: `Test message ${i}`,
@@ -63,10 +67,14 @@ describe('Customer Message Rate Limiting', () => {
     });
 
     it('should block the 11th message within 1 minute', async () => {
+        // Use unique IP for this test to isolate rate limit quota
+        const testIP = '10.0.1.2';
+
         // Send 10 messages first
         for (let i = 0; i < 10; i++) {
             await request(app)
                 .post('/api/messages')
+                .set('X-Forwarded-For', testIP)
                 .send({
                     conversationId,
                     content: `Test message ${i}`,
@@ -77,6 +85,7 @@ describe('Customer Message Rate Limiting', () => {
         // 11th message should be rate limited
         const response = await request(app)
             .post('/api/messages')
+            .set('X-Forwarded-For', testIP)
             .send({
                 conversationId,
                 content: 'Message that should be blocked',
@@ -89,8 +98,12 @@ describe('Customer Message Rate Limiting', () => {
     });
 
     it('should include rate limit headers in response', async () => {
+        // Use unique IP for this test to isolate rate limit quota
+        const testIP = '10.0.1.3';
+
         const response = await request(app)
             .post('/api/messages')
+            .set('X-Forwarded-For', testIP)
             .send({
                 conversationId,
                 content: 'Test message',
@@ -105,11 +118,15 @@ describe('Customer Message Rate Limiting', () => {
     it('should reset rate limit after 1 minute', async () => {
         jest.useFakeTimers();
 
+        // Use unique IP for this test to isolate rate limit quota
+        const testIP = '10.0.1.4';
+
         try {
             // Send 10 messages
             for (let i = 0; i < 10; i++) {
                 await request(app)
                     .post('/api/messages')
+                    .set('X-Forwarded-For', testIP)
                     .send({
                         conversationId,
                         content: `Test message ${i}`,
@@ -123,6 +140,7 @@ describe('Customer Message Rate Limiting', () => {
             // Should be able to send another message
             const response = await request(app)
                 .post('/api/messages')
+                .set('X-Forwarded-For', testIP)
                 .send({
                     conversationId,
                     content: 'Message after reset',

@@ -4,7 +4,7 @@
 
 require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
-const databaseClient = require('./src/utils/database');
+const databaseClient = require('../../src/utils/database');
 
 const prisma = new PrismaClient();
 
@@ -54,7 +54,7 @@ async function testCategorization() {
         console.log('\n🤖 Testing AI categorization service...\n');
 
         // 3. Import and test the categorization service
-        const aiCategorizationService = require('./src/services/aiCategorizationService');
+        const aiCategorizationService = require('../../src/services/aiCategorizationService');
 
         // Get conversation context
         const conversationContext = await aiCategorizationService.getConversationContext(tickets[0].id);
