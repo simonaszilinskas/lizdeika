@@ -32,8 +32,6 @@ npm test               # Run all frontend tests
 npm run test:unit      # Run unit tests for frontend modules
 npm run test:coverage  # Generate coverage report
 npm run test:watch     # Watch mode for test development
-npm run test:visual    # Visual regression tests
-npm run test:performance # Performance benchmarks
 ```
 
 ### Docker Development
@@ -82,8 +80,14 @@ The settings system uses a modernized modular ES6 architecture:
 - `UserManagementModule.js` - User CRUD operations (admin only)
 - `AgentStatusModule.js` - Connected agents display and monitoring
 - `WidgetConfigModule.js` - Widget configuration and integration code
+- `BrandingConfigModule.js` - Widget branding and appearance settings
+- `ContextEngineeringModule.js` - RAG and AI prompt configuration
+- `KnowledgeManagementModule.js` - Document upload and knowledge base management
+- `CategoryManagementModule.js` - Ticket categorization settings
 
 **Coordinator**: `SettingsManager.js` - Dependency injection and module coordination
+
+**Note**: All settings features are consolidated in `settings.html` - there are no separate standalone settings pages.
 
 ### Agent Dashboard Architecture
 The agent dashboard uses a modular architecture with focused modules:
@@ -136,15 +140,13 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Maintain event-driven communication via StateManager
 
 **Testing**: Comprehensive testing infrastructure with **190 passing tests** across 9 test suites:
-- `tests/unit/` - 9 unit test files (3363 total lines) covering all major modules
+- `tests/unit/` - 12 unit test files covering all major modules
 - `tests/integration/` - Integration tests for module interactions
 - `tests/baseline/` - Error handling baseline tests
 - `tests/mocks/` - Mock services for isolated testing
 - `tests/utilities/` - ES6 module testing utilities
-- `tests/performance/` - Performance benchmarks
-- `tests/visual/` - Visual regression tests
 
-**Current Status**: 190/190 tests passing, but 3 test files fail due to missing modules. Coverage shows 0% because tests use mocked implementations.
+**Current Status**: 190/190 tests passing. All tests use Jest with JSDOM environment for frontend module testing.
 
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)
