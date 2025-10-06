@@ -320,9 +320,18 @@
                             </div>
 
                             <!-- Connected Agents Count -->
-                            <div class="flex items-center gap-2 border-l border-gray-300 pl-4">
-                                <i class="fas fa-users text-sm" style="color: #666;"></i>
-                                <span id="total-agents-compact" class="text-sm font-medium" style="color: #363636;" title="Connected agents">0</span>
+                            <div class="flex items-center gap-2 border-l border-gray-300 pl-4 relative" id="agents-tooltip-wrapper" role="region" aria-label="Connected agents">
+                                <i class="fas fa-users text-sm" style="color: #666;" aria-hidden="true"></i>
+                                <span id="total-agents-compact" class="text-sm font-medium cursor-help focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 rounded px-1" style="color: #363636;" aria-describedby="agents-tooltip" tabindex="0">0</span>
+
+                                <!-- Custom Tooltip (positioned below) -->
+                                <div id="agents-tooltip" role="tooltip" class="hidden absolute top-full left-1/2 transform -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-50" aria-live="polite">
+                                    <div id="agents-tooltip-content">Loading agents...</div>
+                                    <!-- Tooltip arrow (pointing up) -->
+                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-0" aria-hidden="true">
+                                        <div class="border-4 border-transparent border-b-gray-900"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
