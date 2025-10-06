@@ -56,6 +56,7 @@
             Object.assign(this.config, options);
             this.loadPrivacySettings().then(() => {
                 this.createWidget();
+                this.updatePrivacyText();
                 this.attachEventListeners();
                 this.initializeWebSocket();
                 this.loadConversation();
@@ -174,6 +175,8 @@
                                         <input
                                             type="checkbox"
                                             id="vilnius-privacy-checkbox"
+                                            aria-required="true"
+                                            aria-label="Accept privacy policy and terms of service"
                                             style="
                                                 margin-right: 10px;
                                                 margin-top: 3px;
@@ -184,7 +187,7 @@
                                             "
                                         />
                                         <span id="vilnius-privacy-text" style="flex: 1;">
-                                            Loading...
+                                            ${this.escapeHtml(this.privacyCheckboxText || 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).')}
                                         </span>
                                     </label>
                                 </div>
@@ -361,7 +364,7 @@
 
         attachEventListeners: function() {
             const bubble = document.getElementById('vilnius-chat-bubble');
-            const window = document.getElementById('vilnius-chat-window');
+            const chatWindow = document.getElementById('vilnius-chat-window');
             const closeBtn = document.getElementById('vilnius-close-chat');
             const form = document.getElementById('vilnius-chat-form');
             const input = document.getElementById('vilnius-chat-input');
@@ -398,23 +401,20 @@
                     if (this.privacyAccepted) {
                         privacyGate.style.display = 'none';
                         chatInterface.style.display = 'flex';
-                        // Focus on input after showing chat
-                        setTimeout(() => {
-                            if (input) input.focus();
-                        }, 100);
+                        if (input) input.focus();
                     }
                 });
             }
 
             bubble.addEventListener('click', () => {
-                window.style.display = window.style.display === 'none' ? 'flex' : 'none';
-                if (window.style.display === 'flex') {
+                chatWindow.style.display = chatWindow.style.display === 'none' ? 'flex' : 'none';
+                if (chatWindow.style.display === 'flex') {
                     input.focus();
                 }
             });
 
             closeBtn.addEventListener('click', () => {
-                window.style.display = 'none';
+                chatWindow.style.display = 'none';
             });
 
             // File attachment handling
@@ -584,14 +584,6 @@
                     const data = await response.json();
                     this.privacyCheckboxText = data.data.privacy_checkbox_text?.value ||
                         'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
-
-                    // Update the checkbox text after widget is created
-                    setTimeout(() => {
-                        const privacyTextElement = document.getElementById('vilnius-privacy-text');
-                        if (privacyTextElement) {
-                            privacyTextElement.innerHTML = this.markdownToHtml(this.privacyCheckboxText);
-                        }
-                    }, 100);
                 } else {
                     console.warn('Failed to load privacy settings, using default text');
                     this.privacyCheckboxText = 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
@@ -599,6 +591,13 @@
             } catch (error) {
                 console.error('Error loading privacy settings:', error);
                 this.privacyCheckboxText = 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
+            }
+        },
+
+        updatePrivacyText() {
+            const privacyTextElement = document.getElementById('vilnius-privacy-text');
+            if (privacyTextElement && this.privacyCheckboxText) {
+                privacyTextElement.innerHTML = this.markdownToHtml(this.privacyCheckboxText);
             }
         },
 
@@ -1107,6 +1106,19 @@
             return sessionId;
         },
 
+        sanitizeUrl(url) {
+            try {
+                const parsedUrl = new URL(url, window.location.origin);
+                const protocol = parsedUrl.protocol.toLowerCase();
+                if (protocol === 'http:' || protocol === 'https:') {
+                    return parsedUrl.href;
+                }
+            } catch (e) {
+                // Invalid URL
+            }
+            return '#';
+        },
+
         markdownToHtml(text) {
             if (!text) return '';
 
@@ -1123,13 +1135,19 @@
                 content = String(content);
             }
 
+            // Escape HTML first to prevent injection
+            content = this.escapeHtml(content);
+
             return content
                 // Bold text
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 // Italic text
                 .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                // Links
-                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: #4F46E5; text-decoration: underline;">$1</a>')
+                // Links - sanitize URLs to prevent XSS
+                .replace(/\[(.*?)\]\((.*?)\)/g, (match, text, url) => {
+                    const safeUrl = this.sanitizeUrl(url);
+                    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer nofollow" style="color: #4F46E5; text-decoration: underline;">${text}</a>`;
+                })
                 // Line breaks
                 .replace(/\n/g, '<br>')
                 // Bullet points

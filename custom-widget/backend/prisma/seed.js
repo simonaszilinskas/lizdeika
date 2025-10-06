@@ -123,7 +123,7 @@ async function main() {
     const defaultBrandingSettings = [
       {
         setting_key: 'privacy_checkbox_text',
-        setting_value: 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).',
+        setting_value: process.env.PRIVACY_CHECKBOX_TEXT || 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).',
         setting_type: 'string',
         description: 'Text shown in the privacy policy checkbox (supports Markdown)',
         category: 'branding',

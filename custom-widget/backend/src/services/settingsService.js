@@ -505,7 +505,7 @@ class SettingsService extends EventEmitter {
     isPublicSetting(key, category) {
         // Most branding settings should be public for frontend access
         if (category === 'branding') {
-            return ['widget_name', 'widget_primary_color', 'welcome_message', 'user_message_color'].includes(key);
+            return ['widget_name', 'widget_primary_color', 'welcome_message', 'user_message_color', 'privacy_checkbox_text'].includes(key);
         }
         
         // AI settings should be accessible to admins for context engineering
