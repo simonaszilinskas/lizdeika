@@ -49,13 +49,17 @@
                 position: 'bottom-right'
             }
         },
+        privacyAccepted: false,
+        privacyCheckboxText: '',
 
         init: function(options) {
             Object.assign(this.config, options);
-            this.createWidget();
-            this.attachEventListeners();
-            this.initializeWebSocket();
-            this.loadConversation();
+            this.loadPrivacySettings().then(() => {
+                this.createWidget();
+                this.attachEventListeners();
+                this.initializeWebSocket();
+                this.loadConversation();
+            });
         },
 
         createWidget: function() {
@@ -100,76 +104,191 @@
                         overflow: hidden;
                         flex-direction: column;
                     ">
-                        <!-- Header -->
-                        <div style="
-                            background: ${this.config.theme.primaryColor};
-                            color: white;
-                            padding: 12px 16px;
+                        <!-- Privacy Gate Overlay (shown initially) -->
+                        <div id="vilnius-privacy-gate" style="
                             display: flex;
-                            justify-content: space-between;
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            flex-direction: column;
                             align-items: center;
+                            justify-content: center;
+                            padding: 40px 32px;
+                            background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
                         ">
-                            <div>
-                                <h3 style="margin: 0; font-size: 15px;">Pagalbos asistentas</h3>
-                            </div>
-                            <button id="vilnius-close-chat" style="
-                                background: none;
-                                border: none;
-                                color: white;
-                                cursor: pointer;
-                                padding: 8px;
+                            <div style="
+                                text-align: center;
+                                max-width: 320px;
                             ">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                                </svg>
-                            </button>
-                        </div>
+                                <!-- Icon -->
+                                <div style="
+                                    width: 80px;
+                                    height: 80px;
+                                    margin: 0 auto 24px;
+                                    background: ${this.config.theme.primaryColor};
+                                    border-radius: 50%;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                                ">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="white">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L1 23l6.71-1.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.41 0-2.73-.36-3.88-.99l-.28-.15-2.9.85.85-2.9-.15-.28C4.36 14.73 4 13.41 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
+                                    </svg>
+                                </div>
 
-                        <!-- Messages Container -->
-                        <div id="vilnius-messages" style="
-                            flex: 1;
-                            overflow-y: auto;
-                            padding: 20px;
-                            background: #f9fafb;
-                        ">
-                            <!-- Typing indicator for agent -->
-                            <div id="vilnius-agent-typing" style="
-                                display: none;
-                                margin-bottom: 16px;
-                                font-size: 14px;
-                                font-style: italic;
-                                color: #6b7280;
-                            ">Agentas rašo...</div>
-                            <div class="vilnius-message vilnius-ai" style="
-                                margin-bottom: 16px;
-                                display: flex;
-                                align-items: flex-start;
-                            ">
+                                <!-- Welcome Text -->
+                                <h3 style="
+                                    margin: 0 0 12px 0;
+                                    font-size: 20px;
+                                    font-weight: 600;
+                                    color: #111827;
+                                ">Sveiki!</h3>
+                                <p style="
+                                    margin: 0 0 28px 0;
+                                    font-size: 14px;
+                                    color: #6b7280;
+                                    line-height: 1.6;
+                                ">Prieš pradėdami pokalbį, prašome susipažinti su mūsų privatumo politika.</p>
+
+                                <!-- Privacy Checkbox -->
                                 <div style="
                                     background: white;
-                                    padding: 12px 16px;
+                                    padding: 16px;
                                     border-radius: 12px;
-                                    max-width: 80%;
-                                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                                    margin-bottom: 20px;
+                                    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                                    border: 2px solid #e5e7eb;
                                 ">
-                                    <p style="margin: 0; color: #1f2937;">
-                                        Labas! Aš čia, kad padėčiau. Kuo galiu jums padėti šiandien?
-                                    </p>
+                                    <label style="
+                                        display: flex;
+                                        align-items: flex-start;
+                                        cursor: pointer;
+                                        font-size: 13px;
+                                        color: #374151;
+                                        line-height: 1.6;
+                                        text-align: left;
+                                    ">
+                                        <input
+                                            type="checkbox"
+                                            id="vilnius-privacy-checkbox"
+                                            style="
+                                                margin-right: 10px;
+                                                margin-top: 3px;
+                                                cursor: pointer;
+                                                width: 18px;
+                                                height: 18px;
+                                                flex-shrink: 0;
+                                            "
+                                        />
+                                        <span id="vilnius-privacy-text" style="flex: 1;">
+                                            Loading...
+                                        </span>
+                                    </label>
                                 </div>
+
+                                <!-- Start Chat Button -->
+                                <button id="vilnius-start-chat-btn" disabled style="
+                                    width: 100%;
+                                    padding: 14px 24px;
+                                    background: ${this.config.theme.primaryColor};
+                                    color: white;
+                                    border: none;
+                                    border-radius: 12px;
+                                    font-size: 15px;
+                                    font-weight: 600;
+                                    cursor: pointer;
+                                    transition: all 0.3s ease;
+                                    opacity: 0.5;
+                                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                ">
+                                    Pradėti pokalbį
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Input Area -->
-                        <div style="
-                            background: white;
-                            border-top: 1px solid #e5e7eb;
-                            padding: 16px;
+                        <!-- Main Chat Interface (hidden initially) -->
+                        <div id="vilnius-chat-interface" style="
+                            display: none;
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            right: 0;
+                            bottom: 0;
+                            flex-direction: column;
                         ">
-                            <form id="vilnius-chat-form" style="
+                            <!-- Header -->
+                            <div style="
+                                background: ${this.config.theme.primaryColor};
+                                color: white;
+                                padding: 12px 16px;
                                 display: flex;
-                                gap: 12px;
+                                justify-content: space-between;
                                 align-items: center;
                             ">
+                                <div>
+                                    <h3 style="margin: 0; font-size: 15px;">Pagalbos asistentas</h3>
+                                </div>
+                                <button id="vilnius-close-chat" style="
+                                    background: none;
+                                    border: none;
+                                    color: white;
+                                    cursor: pointer;
+                                    padding: 8px;
+                                ">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <!-- Messages Container -->
+                            <div id="vilnius-messages" style="
+                                flex: 1;
+                                overflow-y: auto;
+                                padding: 20px;
+                                background: #f9fafb;
+                            ">
+                                <!-- Typing indicator for agent -->
+                                <div id="vilnius-agent-typing" style="
+                                    display: none;
+                                    margin-bottom: 16px;
+                                    font-size: 14px;
+                                    font-style: italic;
+                                    color: #6b7280;
+                                ">Agentas rašo...</div>
+                                <div class="vilnius-message vilnius-ai" style="
+                                    margin-bottom: 16px;
+                                    display: flex;
+                                    align-items: flex-start;
+                                ">
+                                    <div style="
+                                        background: white;
+                                        padding: 12px 16px;
+                                        border-radius: 12px;
+                                        max-width: 80%;
+                                        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                                    ">
+                                        <p style="margin: 0; color: #1f2937;">
+                                            Labas! Aš čia, kad padėčiau. Kuo galiu jums padėti šiandien?
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Input Area -->
+                            <div style="
+                                background: white;
+                                border-top: 1px solid #e5e7eb;
+                                padding: 16px;
+                            ">
+                                <form id="vilnius-chat-form" style="
+                                    display: flex;
+                                    gap: 12px;
+                                    align-items: center;
+                                ">
                                 <input
                                     type="file"
                                     id="vilnius-file-input"
@@ -205,7 +324,7 @@
                                         transition: border-color 0.3s;
                                     "
                                 />
-                                <button type="submit" style="
+                                <button id="vilnius-send-button" type="submit" style="
                                     background: ${this.config.theme.primaryColor};
                                     color: white;
                                     border: none;
@@ -231,6 +350,7 @@
                                 border-radius: 8px;
                                 font-size: 14px;
                             "></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -245,9 +365,46 @@
             const closeBtn = document.getElementById('vilnius-close-chat');
             const form = document.getElementById('vilnius-chat-form');
             const input = document.getElementById('vilnius-chat-input');
+            const sendButton = document.getElementById('vilnius-send-button');
             const attachButton = document.getElementById('vilnius-attach-button');
             const fileInput = document.getElementById('vilnius-file-input');
             const filePreview = document.getElementById('vilnius-file-preview');
+            const privacyCheckbox = document.getElementById('vilnius-privacy-checkbox');
+            const startChatBtn = document.getElementById('vilnius-start-chat-btn');
+            const privacyGate = document.getElementById('vilnius-privacy-gate');
+            const chatInterface = document.getElementById('vilnius-chat-interface');
+
+            // Privacy checkbox handler - enables Start Chat button
+            if (privacyCheckbox && startChatBtn) {
+                privacyCheckbox.addEventListener('change', () => {
+                    this.privacyAccepted = privacyCheckbox.checked;
+                    startChatBtn.disabled = !this.privacyAccepted;
+
+                    if (this.privacyAccepted) {
+                        startChatBtn.style.opacity = '1';
+                        startChatBtn.style.cursor = 'pointer';
+                        startChatBtn.style.transform = 'scale(1.02)';
+                    } else {
+                        startChatBtn.style.opacity = '0.5';
+                        startChatBtn.style.cursor = 'not-allowed';
+                        startChatBtn.style.transform = 'scale(1)';
+                    }
+                });
+            }
+
+            // Start Chat button - shows chat interface
+            if (startChatBtn && privacyGate && chatInterface) {
+                startChatBtn.addEventListener('click', () => {
+                    if (this.privacyAccepted) {
+                        privacyGate.style.display = 'none';
+                        chatInterface.style.display = 'flex';
+                        // Focus on input after showing chat
+                        setTimeout(() => {
+                            if (input) input.focus();
+                        }, 100);
+                    }
+                });
+            }
 
             bubble.addEventListener('click', () => {
                 window.style.display = window.style.display === 'none' ? 'flex' : 'none';
@@ -417,6 +574,31 @@
                     conversationId: this.conversationId,
                     isTyping: isTyping
                 });
+            }
+        },
+
+        async loadPrivacySettings() {
+            try {
+                const response = await fetch(`${this.config.apiUrl}/api/config/branding`);
+                if (response.ok) {
+                    const data = await response.json();
+                    this.privacyCheckboxText = data.data.privacy_checkbox_text?.value ||
+                        'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
+
+                    // Update the checkbox text after widget is created
+                    setTimeout(() => {
+                        const privacyTextElement = document.getElementById('vilnius-privacy-text');
+                        if (privacyTextElement) {
+                            privacyTextElement.innerHTML = this.markdownToHtml(this.privacyCheckboxText);
+                        }
+                    }, 100);
+                } else {
+                    console.warn('Failed to load privacy settings, using default text');
+                    this.privacyCheckboxText = 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
+                }
+            } catch (error) {
+                console.error('Error loading privacy settings:', error);
+                this.privacyCheckboxText = 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
             }
         },
 

@@ -119,6 +119,30 @@ async function main() {
     });
     console.log('✅ Created sample message');
 
+    // Create default branding settings including privacy checkbox text
+    const defaultBrandingSettings = [
+      {
+        setting_key: 'privacy_checkbox_text',
+        setting_value: 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).',
+        setting_type: 'string',
+        description: 'Text shown in the privacy policy checkbox (supports Markdown)',
+        category: 'branding',
+        is_public: true,
+      },
+    ];
+
+    for (const setting of defaultBrandingSettings) {
+      await prisma.system_settings.upsert({
+        where: { setting_key: setting.setting_key },
+        update: {},
+        create: {
+          id: `setting_${setting.setting_key}`,
+          ...setting,
+        },
+      });
+    }
+    console.log('✅ Created default branding settings');
+
     console.log('\n🎉 Minimal database seeding completed successfully!');
     console.log('\nDefault credentials:');
     console.log('Admin: admin@vilnius.lt / admin123');

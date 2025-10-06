@@ -32,7 +32,8 @@ const SETTING_SCHEMAS = {
         widget_primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color'),
         widget_allowed_domains: z.string().min(1),
         welcome_message: z.string().max(500).optional(),
-        user_message_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color').optional()
+        user_message_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color').optional(),
+        privacy_checkbox_text: z.string().min(1).max(500)
     },
     ai: {
         system_prompt: z.string().min(10).optional().or(z.literal('')),
@@ -92,6 +93,7 @@ const ENV_FALLBACKS = {
     widget_allowed_domains: process.env.WIDGET_ALLOWED_DOMAINS || '*',
     welcome_message: process.env.WELCOME_MESSAGE || 'Hello! How can I help you today?',
     user_message_color: process.env.USER_MESSAGE_COLOR || '#3b82f6',
+    privacy_checkbox_text: process.env.PRIVACY_CHECKBOX_TEXT || 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).',
     system_prompt: process.env.SYSTEM_PROMPT || '',
     rag_k: parseInt(process.env.RAG_K) || 100,
     rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,

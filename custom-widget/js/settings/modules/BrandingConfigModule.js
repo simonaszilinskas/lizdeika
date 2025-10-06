@@ -92,7 +92,8 @@ export class BrandingConfigModule {
             userMessageColorHexInput: document.getElementById('user-message-color-text'),
             allowedDomainsTextarea: document.getElementById('widget-allowed-domains'),
             welcomeMessageInput: document.getElementById('welcome-message'),
-            
+            privacyCheckboxTextInput: document.getElementById('privacy-checkbox-text'),
+
             // Form and buttons
             form: document.getElementById('branding-form'),
             saveButton: document.getElementById('branding-save-btn'),
@@ -186,7 +187,8 @@ export class BrandingConfigModule {
             'widget-primary-color-text',
             'user-message-color',
             'user-message-color-text',
-            'welcome-message'
+            'welcome-message',
+            'privacy-checkbox-text'
         ];
 
         inputs.forEach(inputId => {
@@ -275,7 +277,8 @@ export class BrandingConfigModule {
             widget_primary_color: document.getElementById('widget-primary-color')?.value || '#2c5530',
             user_message_color: document.getElementById('user-message-color')?.value || '#3b82f6',
             widget_allowed_domains: document.getElementById('widget-allowed-domains')?.value || '*',
-            welcome_message: document.getElementById('welcome-message')?.value || ''
+            welcome_message: document.getElementById('welcome-message')?.value || '',
+            privacy_checkbox_text: document.getElementById('privacy-checkbox-text')?.value || ''
         };
     }
 
@@ -373,7 +376,8 @@ export class BrandingConfigModule {
             widget_primary_color: '#2c5530',
             user_message_color: '#3b82f6',
             widget_allowed_domains: '*',
-            welcome_message: 'Hello! How can I help you today?'
+            welcome_message: 'Hello! How can I help you today?',
+            privacy_checkbox_text: 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).'
         };
         
         for (const [key, defaultValue] of Object.entries(defaults)) {
@@ -579,6 +583,10 @@ export class BrandingConfigModule {
 
         if (this.elements.welcomeMessageInput) {
             this.elements.welcomeMessageInput.value = settings.welcome_message || 'Hello! How can I help you today?';
+        }
+
+        if (this.elements.privacyCheckboxTextInput) {
+            this.elements.privacyCheckboxTextInput.value = settings.privacy_checkbox_text || 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
         }
 
         console.log('📝 BrandingConfigModule: Form populated from settings', settings);
@@ -929,9 +937,13 @@ export class BrandingConfigModule {
         if (this.elements.welcomeMessageInput) {
             this.currentSettings.welcome_message = this.elements.welcomeMessageInput.value;
         }
-        
+
         if (this.elements.allowedDomainsTextarea) {
             this.currentSettings.widget_allowed_domains = this.elements.allowedDomainsTextarea.value;
+        }
+
+        if (this.elements.privacyCheckboxTextInput) {
+            this.currentSettings.privacy_checkbox_text = this.elements.privacyCheckboxTextInput.value;
         }
     }
 
@@ -983,27 +995,34 @@ export class BrandingConfigModule {
      * Validate current settings
      */
     validateSettings() {
-        const { widget_name, widget_primary_color, widget_allowed_domains, welcome_message } = this.currentSettings;
+        const { widget_name, widget_primary_color, widget_allowed_domains, welcome_message, privacy_checkbox_text } = this.currentSettings;
         const errors = [];
-        
+
         // Widget name validation
         if (!widget_name?.trim()) {
             errors.push({ field: 'widget_name', message: 'Widget name is required' });
         } else if (widget_name.length > 100) {
             errors.push({ field: 'widget_name', message: 'Widget name must be 100 characters or less' });
         }
-        
+
         // Primary color validation
         if (!widget_primary_color || !/^#[0-9A-Fa-f]{6}$/.test(widget_primary_color)) {
             errors.push({ field: 'widget_primary_color', message: 'Primary color must be a valid hex color (e.g., #2c5530)' });
         }
-        
-        
+
+
         // Welcome message validation
         if (welcome_message && welcome_message.length > 500) {
             errors.push({ field: 'welcome_message', message: 'Welcome message must be 500 characters or less' });
         }
-        
+
+        // Privacy checkbox text validation
+        if (!privacy_checkbox_text?.trim()) {
+            errors.push({ field: 'privacy_checkbox_text', message: 'Privacy checkbox text is required' });
+        } else if (privacy_checkbox_text.length > 500) {
+            errors.push({ field: 'privacy_checkbox_text', message: 'Privacy checkbox text must be 500 characters or less' });
+        }
+
         // Allowed domains validation
         if (!widget_allowed_domains?.trim()) {
             errors.push({ field: 'widget_allowed_domains', message: 'Allowed domains setting is required' });
@@ -1048,7 +1067,15 @@ export class BrandingConfigModule {
                     errors.push('Welcome message must be 500 characters or less');
                 }
                 break;
-                
+
+            case 'privacy_checkbox_text':
+                if (!value?.trim()) {
+                    errors.push('Privacy checkbox text is required');
+                } else if (value.length > 500) {
+                    errors.push('Privacy checkbox text must be 500 characters or less');
+                }
+                break;
+
             case 'widget_allowed_domains':
                 if (!value?.trim()) {
                     errors.push('Allowed domains setting is required');
@@ -1111,8 +1138,8 @@ export class BrandingConfigModule {
      * Clear all field validation errors
      */
     clearAllFieldErrors() {
-        const fields = ['widget-name', 'widget-primary-color', 'widget-primary-color-text', 'welcome-message', 'widget-allowed-domains'];
-        
+        const fields = ['widget-name', 'widget-primary-color', 'widget-primary-color-text', 'welcome-message', 'privacy-checkbox-text', 'widget-allowed-domains'];
+
         fields.forEach(fieldId => {
             const input = document.getElementById(fieldId);
             if (input) {
@@ -1220,6 +1247,7 @@ export class BrandingConfigModule {
             this.elements.userMessageColorInput,
             this.elements.userMessageColorHexInput,
             this.elements.welcomeMessageInput,
+            this.elements.privacyCheckboxTextInput,
             this.elements.allowedDomainsTextarea
         ];
 
