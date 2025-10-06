@@ -58,11 +58,39 @@ export class EventManager {
     }
 
     /**
-     * Setup conversation search listener
+     * Setup conversation search listener with toggle functionality
      */
     setupSearchListener() {
+        const searchToggle = document.getElementById('search-toggle');
+        const searchContainer = document.getElementById('search-bar-container');
         const searchInput = document.getElementById('conversation-search');
         const clearSearchBtn = document.getElementById('clear-search');
+
+        // Toggle search bar visibility
+        if (searchToggle && searchContainer) {
+            searchToggle.addEventListener('click', () => {
+                const isHidden = searchContainer.classList.contains('hidden');
+
+                if (isHidden) {
+                    // Show search bar
+                    searchContainer.classList.remove('hidden');
+                    searchToggle.classList.add('text-indigo-600');
+                    searchToggle.classList.remove('text-gray-400');
+                    // Focus on input
+                    setTimeout(() => searchInput?.focus(), 100);
+                } else {
+                    // Hide search bar and clear search
+                    searchContainer.classList.add('hidden');
+                    searchToggle.classList.remove('text-indigo-600');
+                    searchToggle.classList.add('text-gray-400');
+                    if (searchInput) {
+                        searchInput.value = '';
+                        clearSearchBtn?.classList.add('hidden');
+                        this.dashboard.stateManager.clearSearchQuery();
+                    }
+                }
+            });
+        }
 
         if (searchInput) {
             // Debounce search to avoid filtering on every keystroke
