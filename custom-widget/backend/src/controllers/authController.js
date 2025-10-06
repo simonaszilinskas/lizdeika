@@ -69,20 +69,42 @@ class AuthController {
    */
   async login(req, res) {
     const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
-    
+
     try {
       const result = await authService.loginUser(req.body);
-      
+
+      // Check if 2FA challenge is required
+      if (result.requiresTotp) {
+        // Log 2FA challenge requested
+        await activityService.logSecurity(
+          result.userId,
+          '2fa_challenge_requested',
+          true,
+          ipAddress,
+          userAgent,
+          { email: result.email }
+        );
+
+        return res.status(200).json({
+          success: true,
+          requiresTwoFactor: true,
+          message: 'Two-factor authentication required',
+          data: {
+            email: result.email,
+          },
+        });
+      }
+
       // Log successful login
       await activityService.logAuth(
-        result.user.id, 
-        'login_success', 
-        true, 
-        ipAddress, 
+        result.user.id,
+        result.user.totp_enabled ? '2fa_success' : 'login_success',
+        true,
+        ipAddress,
         userAgent,
         { role: result.user.role }
       );
-      
+
       res.json({
         success: true,
         message: 'Login successful',
@@ -93,26 +115,29 @@ class AuthController {
       });
     } catch (error) {
       console.error('Login error:', error);
-      
+
+      // Determine if this was a 2FA failure
+      const is2FAFailure = error.message.includes('2FA') || error.message.includes('Too many failed attempts');
+
       // Log failed login attempt
       await activityService.logAuth(
-        null, 
-        'login_failed', 
-        false, 
-        ipAddress, 
+        null,
+        is2FAFailure ? '2fa_failure' : 'login_failed',
+        false,
+        ipAddress,
         userAgent,
-        { 
+        {
           email: req.body.email,
-          error: error.message 
+          error: error.message
         }
       );
-      
+
       const statusCode = error.message.includes('Invalid email or password') ? 401 : 400;
-      
+
       res.status(statusCode).json({
         success: false,
         error: error.message,
-        code: 'LOGIN_FAILED',
+        code: is2FAFailure ? 'TOTP_INVALID' : 'LOGIN_FAILED',
       });
     }
   }

@@ -34,6 +34,9 @@ const { hashPassword, generateSecurePassword } = require('../utils/passwordUtils
 const { asyncHandler } = require('../utils/errors');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const totpUtils = require('../utils/totpUtils');
+const QRCode = require('qrcode');
+const activityService = require('../services/activityService');
 
 const prisma = new PrismaClient();
 
@@ -54,7 +57,10 @@ class UserController {
                 last_login: true,
                 created_at: true,
                 updated_at: true,
-                user_number: true
+                user_number: true,
+                totp_enabled: true,
+                totp_confirmed_at: true,
+                backup_codes: true
             },
             orderBy: [
                 { role: 'asc' }, // admins first, then agents, then users
@@ -74,7 +80,10 @@ class UserController {
             lastLogin: user.last_login,
             createdAt: user.created_at,
             updatedAt: user.updated_at,
-            userNumber: user.user_number
+            userNumber: user.user_number,
+            totpEnabled: user.totp_enabled,
+            totpConfirmedAt: user.totp_confirmed_at,
+            backupCodesRemaining: user.backup_codes ? user.backup_codes.length : 0
         }));
 
         res.json({
@@ -558,6 +567,288 @@ class UserController {
                 active: stats[4],
                 inactive: stats[5],
                 emailVerified: stats[6]
+            }
+        });
+    });
+
+    /**
+     * Initiate 2FA setup for a user (admin only)
+     * POST /api/users/:id/totp/initiate
+     */
+    initiateTOTP = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+
+        const user = await prisma.users.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                email: true,
+                first_name: true,
+                last_name: true,
+                totp_enabled: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        if (user.totp_enabled) {
+            return res.status(400).json({
+                success: false,
+                error: '2FA is already enabled for this user. Disable it first to re-initialize.'
+            });
+        }
+
+        // Generate secret and encrypt it
+        const secret = totpUtils.generateSecret();
+        const encryptedSecret = totpUtils.encryptSecret(secret);
+
+        // Generate otpauth URI for QR code
+        const otpauthUri = totpUtils.generateOtpauthUri(secret, user.email);
+
+        // Generate QR code as data URL
+        const qrCodeDataUrl = await QRCode.toDataURL(otpauthUri);
+
+        // Generate backup codes
+        const backupCodes = totpUtils.generateBackupCodes();
+        const hashedBackupCodes = await totpUtils.hashBackupCodes(backupCodes);
+
+        // Store encrypted secret and hashed backup codes (not yet enabled)
+        await prisma.users.update({
+            where: { id },
+            data: {
+                totp_secret: encryptedSecret,
+                backup_codes: hashedBackupCodes,
+                totp_enabled: false,
+                totp_confirmed_at: null,
+                updated_at: new Date()
+            }
+        });
+
+        // Log 2FA initiation
+        await activityService.logSecurity(
+            req.user.id,
+            '2fa_initiated',
+            true,
+            ipAddress,
+            userAgent,
+            { target_user_id: id, target_email: user.email }
+        );
+
+        res.json({
+            success: true,
+            message: '2FA setup initiated',
+            data: {
+                qrCode: qrCodeDataUrl,
+                otpauthUri: otpauthUri,
+                manualEntryKey: secret,
+                backupCodes: backupCodes
+            }
+        });
+    });
+
+    /**
+     * Verify and enable 2FA for a user (admin only)
+     * POST /api/users/:id/totp/verify
+     */
+    verifyTOTP = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { code } = req.body;
+        const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+
+        if (!code) {
+            return res.status(400).json({
+                success: false,
+                error: '6-digit code is required'
+            });
+        }
+
+        const user = await prisma.users.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                email: true,
+                totp_secret: true,
+                totp_enabled: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        if (!user.totp_secret) {
+            return res.status(400).json({
+                success: false,
+                error: '2FA not initiated. Please initiate setup first.'
+            });
+        }
+
+        if (user.totp_enabled) {
+            return res.status(400).json({
+                success: false,
+                error: '2FA is already enabled'
+            });
+        }
+
+        // Decrypt and verify code
+        const secret = totpUtils.decryptSecret(user.totp_secret);
+        const isValid = totpUtils.verifyToken(code, secret);
+
+        if (!isValid) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid code. Please try again.'
+            });
+        }
+
+        // Enable 2FA
+        await prisma.users.update({
+            where: { id },
+            data: {
+                totp_enabled: true,
+                totp_confirmed_at: new Date(),
+                updated_at: new Date()
+            }
+        });
+
+        // Log 2FA enabled
+        await activityService.logSecurity(
+            req.user.id,
+            '2fa_enabled',
+            true,
+            ipAddress,
+            userAgent,
+            { target_user_id: id, target_email: user.email }
+        );
+
+        res.json({
+            success: true,
+            message: '2FA enabled successfully'
+        });
+    });
+
+    /**
+     * Disable 2FA for a user (admin only)
+     * POST /api/users/:id/totp/disable
+     */
+    disableTOTP = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+
+        const user = await prisma.users.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                email: true,
+                totp_enabled: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        // Disable 2FA and clear all related data
+        await prisma.users.update({
+            where: { id },
+            data: {
+                totp_enabled: false,
+                totp_secret: null,
+                totp_confirmed_at: null,
+                totp_failed_attempts: 0,
+                totp_lock_until: null,
+                backup_codes: null,
+                updated_at: new Date()
+            }
+        });
+
+        // Log 2FA disabled
+        await activityService.logSecurity(
+            req.user.id,
+            '2fa_disabled',
+            true,
+            ipAddress,
+            userAgent,
+            { target_user_id: id, target_email: user.email }
+        );
+
+        res.json({
+            success: true,
+            message: '2FA disabled successfully'
+        });
+    });
+
+    /**
+     * Regenerate backup codes for a user (admin only)
+     * POST /api/users/:id/totp/backup-codes
+     */
+    regenerateBackupCodes = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+
+        const user = await prisma.users.findUnique({
+            where: { id },
+            select: {
+                id: true,
+                email: true,
+                totp_enabled: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        if (!user.totp_enabled) {
+            return res.status(400).json({
+                success: false,
+                error: '2FA is not enabled for this user'
+            });
+        }
+
+        // Generate new backup codes
+        const backupCodes = totpUtils.generateBackupCodes();
+        const hashedBackupCodes = await totpUtils.hashBackupCodes(backupCodes);
+
+        // Update backup codes
+        await prisma.users.update({
+            where: { id },
+            data: {
+                backup_codes: hashedBackupCodes,
+                updated_at: new Date()
+            }
+        });
+
+        // Log backup codes regeneration
+        await activityService.logSecurity(
+            req.user.id,
+            '2fa_backup_codes_regenerated',
+            true,
+            ipAddress,
+            userAgent,
+            { target_user_id: id, target_email: user.email }
+        );
+
+        res.json({
+            success: true,
+            message: 'Backup codes regenerated successfully',
+            data: {
+                backupCodes: backupCodes
             }
         });
     });

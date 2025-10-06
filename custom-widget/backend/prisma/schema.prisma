@@ -189,6 +189,12 @@ model users {
   created_at                               DateTime            @default(now())
   updated_at                               DateTime
   user_number                              Int?                @unique
+  totp_enabled                             Boolean             @default(false)
+  totp_secret                              String?
+  totp_confirmed_at                        DateTime?
+  totp_failed_attempts                     Int                 @default(0)
+  totp_lock_until                          DateTime?
+  backup_codes                             Json?
   agent_status                             agent_status?
   messages                                 messages[]
   refresh_tokens                           refresh_tokens[]
@@ -202,6 +208,7 @@ model users {
   @@index([is_active])
   @@index([last_login])
   @@index([role])
+  @@index([totp_enabled])
 }
 
 enum ActionType {

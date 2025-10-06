@@ -75,6 +75,7 @@
 const databaseClient = require('../utils/database');
 const tokenUtils = require('../utils/tokenUtils');
 const passwordUtils = require('../utils/passwordUtils');
+const totpUtils = require('../utils/totpUtils');
 const { v4: uuidv4 } = require('uuid');
 const { createLogger } = require('../utils/logger');
 
@@ -204,12 +205,12 @@ class AuthService {
   /**
    * Authenticate user login
    * @param {Object} credentials - Login credentials
-   * @returns {Promise<Object>} User data and tokens
+   * @returns {Promise<Object>} User data and tokens, or 2FA challenge
    */
   async loginUser(credentials) {
     await this.initialize();
 
-    const { email, password } = credentials;
+    const { email, password, totpCode, backupCode } = credentials;
 
     // Find user by email
     const user = await this.db.users.findUnique({
@@ -232,6 +233,77 @@ class AuthService {
     const isPasswordValid = await passwordUtils.verifyPassword(password, user.password_hash);
     if (!isPasswordValid) {
       throw new Error('Invalid email or password');
+    }
+
+    // Check if 2FA is enabled
+    if (user.totp_enabled) {
+      // If no TOTP code or backup code provided, return challenge
+      if (!totpCode && !backupCode) {
+        return {
+          requiresTotp: true,
+          userId: user.id,
+          email: user.email,
+        };
+      }
+
+      // Check if user is locked out
+      if (totpUtils.isLockedOut(user)) {
+        const remaining = totpUtils.getLockoutRemaining(user.totp_lock_until);
+        throw new Error(`Too many failed attempts. Try again in ${Math.ceil(remaining / 60)} minutes.`);
+      }
+
+      let verified = false;
+
+      // Try backup code first if provided
+      if (backupCode) {
+        const backupCodes = user.backup_codes || [];
+        const result = await totpUtils.verifyBackupCode(backupCode, backupCodes);
+
+        if (result.valid) {
+          // Remove used backup code
+          backupCodes.splice(result.index, 1);
+          await this.db.users.update({
+            where: { id: user.id },
+            data: {
+              backup_codes: backupCodes,
+              totp_failed_attempts: 0,
+              totp_lock_until: null,
+            },
+          });
+          verified = true;
+        }
+      }
+
+      // Try TOTP code if backup code didn't work
+      if (!verified && totpCode) {
+        const secret = totpUtils.decryptSecret(user.totp_secret);
+        verified = totpUtils.verifyToken(totpCode, secret);
+      }
+
+      // Handle verification result
+      if (!verified) {
+        const newFailedAttempts = user.totp_failed_attempts + 1;
+        const lockUntil = totpUtils.calculateLockoutTime(newFailedAttempts);
+
+        await this.db.users.update({
+          where: { id: user.id },
+          data: {
+            totp_failed_attempts: newFailedAttempts,
+            totp_lock_until: lockUntil,
+          },
+        });
+
+        throw new Error('Invalid 2FA code');
+      }
+
+      // Reset failed attempts on success
+      await this.db.users.update({
+        where: { id: user.id },
+        data: {
+          totp_failed_attempts: 0,
+          totp_lock_until: null,
+        },
+      });
     }
 
     // Generate tokens
@@ -273,16 +345,17 @@ class AuthService {
           user_id: user.id,
           email: user.email,
           role: user.role,
+          totp_used: user.totp_enabled,
           timestamp: new Date().toISOString(),
         },
       },
     });
 
     // Remove sensitive data
-    const { passwordHash, ...userWithoutPassword } = user;
+    const { password_hash, totp_secret, backup_codes, ...userWithoutSensitive } = user;
 
     return {
-      user: userWithoutPassword,
+      user: userWithoutSensitive,
       tokens,
     };
   }

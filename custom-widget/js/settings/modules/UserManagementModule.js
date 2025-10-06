@@ -451,13 +451,17 @@ export class UserManagementModule {
      * Render individual user row
      */
     renderUserRow(user) {
-        const statusBadge = user.isActive 
+        const statusBadge = user.isActive
             ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>'
             : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inactive</span>';
-        
+
         const roleColor = user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800';
         const roleBadge = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleColor}">${this.capitalizeRole(user.role)}</span>`;
-        
+
+        const twoFABadge = user.totpEnabled
+            ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-shield-alt mr-1"></i>Enabled</span>'
+            : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Off</span>';
+
         return `
             <tr>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -471,6 +475,9 @@ export class UserManagementModule {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                     ${statusBadge}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${twoFABadge}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${user.lastLogin ? this.formatDate(user.lastLogin) : 'Never'}
