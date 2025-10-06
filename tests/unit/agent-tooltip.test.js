@@ -33,11 +33,13 @@ describe('Agent Tooltip', () => {
             removeItem: jest.fn()
         };
 
-        // Create dashboard instance with minimal dependencies
+        // Create dashboard instance matching updated implementation
         dashboard = {
             tooltipListenersInitialized: false,
+            tooltipHandlers: null,
             lastAgentListKey: null,
             connectedAgents: new Map(),
+
             updateConnectedAgents: function(agents) {
                 this.connectedAgents.clear();
                 agents.forEach(agent => this.connectedAgents.set(agent.id, agent));
@@ -47,36 +49,7 @@ describe('Agent Tooltip', () => {
                 const tooltip = document.getElementById('agents-tooltip');
                 const tooltipContent = document.getElementById('agents-tooltip-content');
 
-                // Setup listeners (prevent memory leak)
-                if (!this.tooltipListenersInitialized && tooltipWrapper && tooltip && totalAgentsCompact) {
-                    tooltipWrapper.addEventListener('mouseenter', () => {
-                        tooltip.classList.remove('hidden');
-                    });
-
-                    tooltipWrapper.addEventListener('mouseleave', () => {
-                        tooltip.classList.add('hidden');
-                    });
-
-                    tooltip.addEventListener('mouseenter', () => {
-                        tooltip.classList.remove('hidden');
-                    });
-
-                    tooltip.addEventListener('mouseleave', () => {
-                        tooltip.classList.add('hidden');
-                    });
-
-                    totalAgentsCompact.addEventListener('focus', () => {
-                        tooltip.classList.remove('hidden');
-                    });
-
-                    totalAgentsCompact.addEventListener('blur', () => {
-                        tooltip.classList.add('hidden');
-                    });
-
-                    this.tooltipListenersInitialized = true;
-                }
-
-                // Null safety
+                // Null safety BEFORE any operations
                 const missingElements = [];
                 if (!totalAgentsCompact) missingElements.push('total-agents-compact');
                 if (!tooltipWrapper) missingElements.push('agents-tooltip-wrapper');
@@ -88,21 +61,41 @@ describe('Agent Tooltip', () => {
                     return;
                 }
 
-                totalAgentsCompact.textContent = agents.length;
+                // Setup listeners (prevent memory leak)
+                if (!this.tooltipListenersInitialized) {
+                    this.tooltipHandlers = {
+                        wrapperEnter: () => tooltip.classList.remove('hidden'),
+                        wrapperLeave: () => tooltip.classList.add('hidden'),
+                        tooltipEnter: () => tooltip.classList.remove('hidden'),
+                        tooltipLeave: () => tooltip.classList.add('hidden'),
+                        compactFocus: () => tooltip.classList.remove('hidden'),
+                        compactBlur: () => tooltip.classList.add('hidden')
+                    };
 
-                const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
-                const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
+                    tooltipWrapper.addEventListener('mouseenter', this.tooltipHandlers.wrapperEnter);
+                    tooltipWrapper.addEventListener('mouseleave', this.tooltipHandlers.wrapperLeave);
+                    tooltip.addEventListener('mouseenter', this.tooltipHandlers.tooltipEnter);
+                    tooltip.addEventListener('mouseleave', this.tooltipHandlers.tooltipLeave);
+                    totalAgentsCompact.addEventListener('focus', this.tooltipHandlers.compactFocus);
+                    totalAgentsCompact.addEventListener('blur', this.tooltipHandlers.compactBlur);
 
-                // Prevent redundant DOM updates
-                const agentListKey = JSON.stringify([
-                    onlineAgents.map(a => `${a.id}-${a.personalStatus}`).sort(),
-                    offlineAgents.map(a => `${a.id}-${a.personalStatus}`).sort()
-                ]);
+                    this.tooltipListenersInitialized = true;
+                }
+
+                // Performance: Check if update needed BEFORE expensive operations
+                const agentListKey = JSON.stringify(agents.map(a => `${a.id}-${a.personalStatus}`).sort());
 
                 if (this.lastAgentListKey === agentListKey) {
                     return;
                 }
                 this.lastAgentListKey = agentListKey;
+
+                // Update agent count
+                totalAgentsCompact.textContent = agents.length;
+
+                // Filter agents (only if update is needed)
+                const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
+                const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
 
                 // Build tooltip using DOM nodes (XSS-safe)
                 tooltipContent.textContent = '';
@@ -135,6 +128,28 @@ describe('Agent Tooltip', () => {
                 if (onlineAgents.length === 0 && offlineAgents.length === 0) {
                     tooltipContent.textContent = 'No agents connected';
                 }
+            },
+
+            cleanupTooltipListeners: function() {
+                if (!this.tooltipListenersInitialized || !this.tooltipHandlers) {
+                    return;
+                }
+
+                const tooltipWrapper = document.getElementById('agents-tooltip-wrapper');
+                const tooltip = document.getElementById('agents-tooltip');
+                const totalAgentsCompact = document.getElementById('total-agents-compact');
+
+                if (tooltipWrapper && tooltip && totalAgentsCompact) {
+                    tooltipWrapper.removeEventListener('mouseenter', this.tooltipHandlers.wrapperEnter);
+                    tooltipWrapper.removeEventListener('mouseleave', this.tooltipHandlers.wrapperLeave);
+                    tooltip.removeEventListener('mouseenter', this.tooltipHandlers.tooltipEnter);
+                    tooltip.removeEventListener('mouseleave', this.tooltipHandlers.tooltipLeave);
+                    totalAgentsCompact.removeEventListener('focus', this.tooltipHandlers.compactFocus);
+                    totalAgentsCompact.removeEventListener('blur', this.tooltipHandlers.compactBlur);
+                }
+
+                this.tooltipHandlers = null;
+                this.tooltipListenersInitialized = false;
             }
         };
     });
@@ -156,16 +171,13 @@ describe('Agent Tooltip', () => {
         // First call - should initialize listeners
         dashboard.updateConnectedAgents(agents);
         expect(dashboard.tooltipListenersInitialized).toBe(true);
+        expect(dashboard.tooltipHandlers).not.toBeNull();
 
-        // Get initial listener count
-        const tooltipWrapper = document.getElementById('agents-tooltip-wrapper');
-        const initialListenerCount = tooltipWrapper._listeners ? tooltipWrapper._listeners.length : 0;
+        const firstHandlers = dashboard.tooltipHandlers;
 
-        // Second call - should NOT add new listeners
+        // Second call - should use same handlers
         dashboard.updateConnectedAgents(agents);
-        const secondListenerCount = tooltipWrapper._listeners ? tooltipWrapper._listeners.length : 0;
-
-        expect(secondListenerCount).toBe(initialListenerCount);
+        expect(dashboard.tooltipHandlers).toBe(firstHandlers);
     });
 
     // Test 2: Null Safety with Detailed Error
@@ -317,5 +329,40 @@ describe('Agent Tooltip', () => {
         expect(text).toContain('Alice');
         expect(text).toContain('Bob');
         expect(text).toContain('Charlie');
+    });
+
+    // Test 9: Event Listener Cleanup
+    test('should properly cleanup event listeners when cleanupTooltipListeners is called', () => {
+        const agents = [{ id: 1, username: 'Test', personalStatus: 'online' }];
+
+        // Initialize listeners
+        dashboard.updateConnectedAgents(agents);
+        expect(dashboard.tooltipListenersInitialized).toBe(true);
+        expect(dashboard.tooltipHandlers).not.toBeNull();
+
+        // Cleanup
+        dashboard.cleanupTooltipListeners();
+        expect(dashboard.tooltipListenersInitialized).toBe(false);
+        expect(dashboard.tooltipHandlers).toBeNull();
+    });
+
+    // Test 10: Tooltip Stays Visible When Moving Cursor from Wrapper to Tooltip
+    test('should keep tooltip visible when cursor moves from wrapper to tooltip element', () => {
+        const agents = [{ id: 1, username: 'Test', personalStatus: 'online' }];
+        dashboard.updateConnectedAgents(agents);
+
+        const tooltipWrapper = document.getElementById('agents-tooltip-wrapper');
+        const tooltip = document.getElementById('agents-tooltip');
+
+        // Hover over wrapper
+        tooltipWrapper.dispatchEvent(new window.MouseEvent('mouseenter', { bubbles: true }));
+        expect(tooltip.classList.contains('hidden')).toBe(false);
+
+        // Leave wrapper (moving to tooltip)
+        tooltipWrapper.dispatchEvent(new window.MouseEvent('mouseleave', { bubbles: true }));
+
+        // Enter tooltip
+        tooltip.dispatchEvent(new window.MouseEvent('mouseenter', { bubbles: true }));
+        expect(tooltip.classList.contains('hidden')).toBe(false);
     });
 });
