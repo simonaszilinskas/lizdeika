@@ -153,6 +153,9 @@ class AgentDashboard {
         
         // Track current polling for AI suggestions (to cancel if new message arrives)
         this.currentPollingId = null;
+
+        // Track if tooltip listeners are initialized (prevent memory leak)
+        this.tooltipListenersInitialized = false;
         
         // Initialize authentication manager
         this.authManager = new AgentAuthManager({ apiUrl: this.apiUrl });
@@ -618,65 +621,72 @@ class AgentDashboard {
         const tooltip = document.getElementById('agents-tooltip');
         const tooltipContent = document.getElementById('agents-tooltip-content');
 
-        if (totalAgentsCompact) {
-            totalAgentsCompact.textContent = agents.length;
+        // Null safety: verify all required elements exist
+        if (!totalAgentsCompact || !tooltipWrapper || !tooltip || !tooltipContent) {
+            console.warn('Agent tooltip elements not found in DOM');
+            return;
+        }
 
-            // Create tooltip content with agent names grouped by status (XSS-safe)
-            const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
-            const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
+        totalAgentsCompact.textContent = agents.length;
 
-            // Build tooltip using DOM nodes to prevent XSS
-            if (tooltipContent) {
-                // Clear existing content
-                tooltipContent.textContent = '';
+        // Create tooltip content with agent names grouped by status (XSS-safe)
+        const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
+        const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
 
-                if (onlineAgents.length > 0) {
-                    const onlineHeader = document.createElement('div');
-                    onlineHeader.className = 'font-semibold text-green-400 mb-1';
-                    onlineHeader.textContent = `Online (${onlineAgents.length}):`;
+        // Build tooltip using DOM nodes to prevent XSS
+        // Clear existing content
+        tooltipContent.textContent = '';
 
-                    const onlineList = document.createElement('div');
-                    onlineList.className = 'mb-2';
-                    onlineList.textContent = onlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+        if (onlineAgents.length > 0) {
+            const onlineHeader = document.createElement('div');
+            onlineHeader.className = 'font-semibold text-green-400 mb-1';
+            onlineHeader.textContent = `Online (${onlineAgents.length}):`;
 
-                    tooltipContent.appendChild(onlineHeader);
-                    tooltipContent.appendChild(onlineList);
-                }
+            const onlineList = document.createElement('div');
+            onlineList.className = 'mb-2';
+            onlineList.textContent = onlineAgents.map(a => getAgentDisplayName(a)).join(', ');
 
-                if (offlineAgents.length > 0) {
-                    const offlineHeader = document.createElement('div');
-                    offlineHeader.className = 'font-semibold text-gray-400 mb-1';
-                    offlineHeader.textContent = `Offline (${offlineAgents.length}):`;
+            tooltipContent.appendChild(onlineHeader);
+            tooltipContent.appendChild(onlineList);
+        }
 
-                    const offlineList = document.createElement('div');
-                    offlineList.textContent = offlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+        if (offlineAgents.length > 0) {
+            const offlineHeader = document.createElement('div');
+            offlineHeader.className = 'font-semibold text-gray-400 mb-1';
+            offlineHeader.textContent = `Offline (${offlineAgents.length}):`;
 
-                    tooltipContent.appendChild(offlineHeader);
-                    tooltipContent.appendChild(offlineList);
-                }
+            const offlineList = document.createElement('div');
+            offlineList.textContent = offlineAgents.map(a => getAgentDisplayName(a)).join(', ');
 
-                if (onlineAgents.length === 0 && offlineAgents.length === 0) {
-                    tooltipContent.textContent = 'No agents connected';
-                }
-            }
+            tooltipContent.appendChild(offlineHeader);
+            tooltipContent.appendChild(offlineList);
+        }
 
-            // Setup hover listeners for custom tooltip
-            if (tooltipWrapper && tooltip) {
-                // Remove existing listeners to prevent duplicates
-                const newWrapper = tooltipWrapper.cloneNode(true);
-                tooltipWrapper.parentNode.replaceChild(newWrapper, tooltipWrapper);
+        if (onlineAgents.length === 0 && offlineAgents.length === 0) {
+            tooltipContent.textContent = 'No agents connected';
+        }
 
-                const newTooltip = document.getElementById('agents-tooltip');
-                const newTooltipWrapper = document.getElementById('agents-tooltip-wrapper');
+        // Setup hover and keyboard listeners for custom tooltip (prevent memory leak with flag)
+        if (!this.tooltipListenersInitialized) {
+            // Mouse hover
+            tooltipWrapper.addEventListener('mouseenter', () => {
+                tooltip.classList.remove('hidden');
+            });
 
-                newTooltipWrapper.addEventListener('mouseenter', () => {
-                    newTooltip.classList.remove('hidden');
-                });
+            tooltipWrapper.addEventListener('mouseleave', () => {
+                tooltip.classList.add('hidden');
+            });
 
-                newTooltipWrapper.addEventListener('mouseleave', () => {
-                    newTooltip.classList.add('hidden');
-                });
-            }
+            // Keyboard support for accessibility
+            totalAgentsCompact.addEventListener('focus', () => {
+                tooltip.classList.remove('hidden');
+            });
+
+            totalAgentsCompact.addEventListener('blur', () => {
+                tooltip.classList.add('hidden');
+            });
+
+            this.tooltipListenersInitialized = true;
         }
         
         // Update old format (for compatibility if it exists elsewhere)
