@@ -614,6 +614,9 @@ class AgentDashboard {
         
         // Update compact format in header (simplified - just count)
         const totalAgentsCompact = document.getElementById('total-agents-compact');
+        const tooltipWrapper = document.getElementById('agents-tooltip-wrapper');
+        const tooltip = document.getElementById('agents-tooltip');
+        const tooltipContent = document.getElementById('agents-tooltip-content');
 
         if (totalAgentsCompact) {
             totalAgentsCompact.textContent = agents.length;
@@ -622,20 +625,41 @@ class AgentDashboard {
             const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
             const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
 
-            let tooltipContent = '';
+            let content = '';
             if (onlineAgents.length > 0) {
-                tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
+                content += `<div class="font-semibold text-green-400 mb-1">Online (${onlineAgents.length}):</div>`;
+                content += `<div class="mb-2">${onlineAgents.map(a => getAgentDisplayName(a)).join(', ')}</div>`;
             }
             if (offlineAgents.length > 0) {
-                if (tooltipContent) tooltipContent += '\n';
-                tooltipContent += `Offline (${offlineAgents.length}): ${offlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
+                content += `<div class="font-semibold text-gray-400 mb-1">Offline (${offlineAgents.length}):</div>`;
+                content += `<div>${offlineAgents.map(a => getAgentDisplayName(a)).join(', ')}</div>`;
             }
-            if (!tooltipContent) {
-                tooltipContent = 'No agents connected';
+            if (!content) {
+                content = 'No agents connected';
             }
 
-            // Add tooltip to the agent count element
-            totalAgentsCompact.title = tooltipContent;
+            // Update tooltip content
+            if (tooltipContent) {
+                tooltipContent.innerHTML = content;
+            }
+
+            // Setup hover listeners for custom tooltip
+            if (tooltipWrapper && tooltip) {
+                // Remove existing listeners to prevent duplicates
+                const newWrapper = tooltipWrapper.cloneNode(true);
+                tooltipWrapper.parentNode.replaceChild(newWrapper, tooltipWrapper);
+
+                const newTooltip = document.getElementById('agents-tooltip');
+                const newTooltipWrapper = document.getElementById('agents-tooltip-wrapper');
+
+                newTooltipWrapper.addEventListener('mouseenter', () => {
+                    newTooltip.classList.remove('hidden');
+                });
+
+                newTooltipWrapper.addEventListener('mouseleave', () => {
+                    newTooltip.classList.add('hidden');
+                });
+            }
         }
         
         // Update old format (for compatibility if it exists elsewhere)
