@@ -110,7 +110,7 @@ export class EventManager {
                 // Debounce search
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
-                    this.dashboard.stateManager.setSearchQuery(query);
+                    this.dashboard.stateManager.setSearchQuery(query.trim());
                 }, 300); // 300ms debounce
             });
         }

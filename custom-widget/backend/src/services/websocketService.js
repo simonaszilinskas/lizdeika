@@ -88,6 +88,7 @@ class WebSocketService {
     constructor(io) {
         this.io = io;
         this.logger = createLogger('websocketService');
+        this.broadcastInterval = null;
         this.setupSocketHandlers();
         this.setupPeriodicBroadcast();
     }
@@ -270,7 +271,7 @@ class WebSocketService {
      * Interval matches frontend polling (AgentStatusModule: 30s) for consistency.
      */
     setupPeriodicBroadcast() {
-        setInterval(async () => {
+        this.broadcastInterval = setInterval(async () => {
             try {
                 const connectedAgents = await agentService.getConnectedAgents();
                 this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
@@ -279,6 +280,16 @@ class WebSocketService {
                 console.error('Error in periodic agent status broadcast:', error);
             }
         }, 30000); // 30 seconds
+    }
+
+    /**
+     * Cleanup method to stop periodic broadcasts
+     */
+    destroy() {
+        if (this.broadcastInterval) {
+            clearInterval(this.broadcastInterval);
+            this.broadcastInterval = null;
+        }
     }
 
     /**

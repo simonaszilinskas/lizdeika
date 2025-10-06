@@ -943,7 +943,7 @@ export class BrandingConfigModule {
         }
 
         if (this.elements.privacyCheckboxTextInput) {
-            this.currentSettings.privacy_checkbox_text = this.elements.privacyCheckboxTextInput.value;
+            this.currentSettings.privacy_checkbox_text = this.elements.privacyCheckboxTextInput.value.trim();
         }
     }
 

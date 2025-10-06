@@ -128,6 +128,13 @@ class ConversationFilter {
     }
 
     /**
+     * Clear all search cache (used when conversations are updated)
+     */
+    clearSearchCache() {
+        this.searchCache.clear();
+    }
+
+    /**
      * Apply archive filter
      */
     applyArchiveFilter(conversations, archiveFilter) {
@@ -381,7 +388,10 @@ class ConversationLoader {
             // Fetch data
             const conversations = await this.apiClient.fetchConversations();
             this.allConversations = conversations;
-            
+
+            // Clear search cache when conversations are refreshed
+            this.filter.clearSearchCache();
+
             // Apply filters and sorting
             this.applyFiltersAndSort(filters);
             

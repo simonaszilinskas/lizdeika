@@ -23,6 +23,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { EventEmitter } = require('events');
 const { z } = require('zod');
+const { validateMarkdownText } = require('../utils/validation');
 const { createLogger } = require('../utils/logger');
 
 // Validation schemas for different setting types
@@ -93,7 +94,7 @@ const ENV_FALLBACKS = {
     widget_allowed_domains: process.env.WIDGET_ALLOWED_DOMAINS || '*',
     welcome_message: process.env.WELCOME_MESSAGE || 'Hello! How can I help you today?',
     user_message_color: process.env.USER_MESSAGE_COLOR || '#3b82f6',
-    privacy_checkbox_text: process.env.PRIVACY_CHECKBOX_TEXT || 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).',
+    privacy_checkbox_text: process.env.PRIVACY_CHECKBOX_TEXT || 'I agree to the Privacy Policy and Terms of Service.',
     system_prompt: process.env.SYSTEM_PROMPT || '',
     rag_k: parseInt(process.env.RAG_K) || 100,
     rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,
@@ -451,6 +452,11 @@ class SettingsService extends EventEmitter {
 
         try {
             schema.parse(value);
+
+            // Additional validation for privacy_checkbox_text to ensure URL safety
+            if (key === 'privacy_checkbox_text' && value) {
+                validateMarkdownText(value, 'privacy_checkbox_text');
+            }
         } catch (error) {
             throw new Error(`Invalid value for setting '${key}': ${error.message}`);
         }

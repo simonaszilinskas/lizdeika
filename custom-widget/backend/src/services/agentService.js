@@ -644,16 +644,15 @@ class AgentService {
      * Common query for active agents with status filtering - optimized
      *
      * @param {Array<string>} statusFilter - Status values to filter by (default: ['online', 'busy'])
-     * @param {number} minutesAgo - How many minutes back to consider "active" (default: 5 minutes)
+     * @param {number} minutesAgo - How many minutes back to consider "active" (configurable via env)
      *
-     * Changed from 120 minutes to 5 minutes to detect offline agents faster.
-     * 5 minutes provides reasonable grace period for:
+     * Configurable timeout via AGENT_ACTIVITY_TIMEOUT_MINUTES env variable (default: 5 minutes).
+     * Lower values detect offline agents faster, higher values are more forgiving of:
      * - Switching between browser tabs
      * - Brief network interruptions
      * - Page reloads
-     * While quickly detecting truly disconnected agents.
      */
-    async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = 5) {
+    async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = parseInt(process.env.AGENT_ACTIVITY_TIMEOUT_MINUTES) || 5) {
         const cutoffTime = new Date(Date.now() - (minutesAgo * 60000));
         
         return await prisma.users.findMany({

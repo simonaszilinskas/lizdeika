@@ -493,7 +493,8 @@ class ConversationService {
                                 in: ['user', 'agent']
                             }
                         },
-                        orderBy: { created_at: 'desc' }
+                        orderBy: { created_at: 'desc' },
+                        take: parseInt(process.env.CONVERSATION_MESSAGES_LIMIT) || 50
                     },
                     _count: {
                         select: {

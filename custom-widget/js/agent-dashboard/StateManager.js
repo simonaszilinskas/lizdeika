@@ -136,7 +136,9 @@ export class StateManager {
      * @param {string} query - Search query string
      */
     setSearchQuery(query) {
-        this.searchQuery = query;
+        const normalized = typeof query === 'string' ? query : '';
+        if (this.searchQuery === normalized) return;
+        this.searchQuery = normalized;
         this.applyFilter();
     }
 
@@ -430,6 +432,7 @@ export class StateManager {
     resetState() {
         this.currentFilter = FILTERS.DEFAULT_FILTER;
         this.archiveFilter = DEFAULTS.ARCHIVE_FILTER;
+        this.searchQuery = '';
         this.selectedConversations.clear();
         this.conversations.clear();
         this.allConversations = [];

@@ -126,6 +126,50 @@ function validateMessage(message) {
 }
 
 /**
+ * Validate text with Markdown links
+ * Ensures URLs in Markdown links are safe (http/https only)
+ */
+function validateMarkdownText(text, fieldName) {
+    if (typeof text !== 'string') {
+        throw new ValidationError(`${fieldName} must be a string`, fieldName);
+    }
+
+    // Extract and validate URLs from Markdown links [text](url)
+    const markdownLinkPattern = /\[(.*?)\]\((.*?)\)/g;
+    let match;
+
+    while ((match = markdownLinkPattern.exec(text)) !== null) {
+        const url = match[2];
+
+        // Validate URL format
+        try {
+            const parsedUrl = new URL(url);
+            const protocol = parsedUrl.protocol.toLowerCase();
+
+            // Only allow http and https protocols
+            if (protocol !== 'http:' && protocol !== 'https:') {
+                throw new ValidationError(
+                    `${fieldName} contains invalid URL protocol. Only http and https are allowed.`,
+                    fieldName
+                );
+            }
+        } catch (error) {
+            // If URL constructor fails, it's an invalid URL
+            if (error instanceof ValidationError) {
+                throw error;
+            }
+            throw new ValidationError(
+                `${fieldName} contains invalid URL: ${url}`,
+                fieldName
+            );
+        }
+    }
+
+    // Return trimmed text (frontend handles HTML escaping)
+    return text.trim();
+}
+
+/**
  * Validation middleware factory
  */
 function createValidationMiddleware(validationFn) {
@@ -135,9 +179,9 @@ function createValidationMiddleware(validationFn) {
             next();
         } catch (error) {
             if (error instanceof ValidationError) {
-                return res.status(400).json({ 
-                    error: error.message, 
-                    field: error.field 
+                return res.status(400).json({
+                    error: error.message,
+                    field: error.field
                 });
             }
             // Re-throw non-validation errors
@@ -155,5 +199,6 @@ module.exports = {
     validateBoolean,
     validateObject,
     validateMessage,
+    validateMarkdownText,
     createValidationMiddleware
 };

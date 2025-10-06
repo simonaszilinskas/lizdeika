@@ -726,6 +726,7 @@ class AgentDashboard {
 
         this.tooltipHandlers = null;
         this.tooltipListenersInitialized = false;
+        this.lastAgentListKey = null;
     }
 
 

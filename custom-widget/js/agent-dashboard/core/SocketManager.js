@@ -167,6 +167,12 @@ class SocketManager {
      * This ensures agents browsing settings aren't marked as actively handling conversations.
      */
     startHeartbeat() {
+        // Clear any existing interval before starting a new one (idempotent)
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
+
         // Send heartbeat every 15 seconds to keep connection active
         this.heartbeatInterval = setInterval(() => {
             if (this.socket && this.socket.connected) {

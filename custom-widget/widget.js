@@ -187,7 +187,7 @@
                                             "
                                         />
                                         <span id="vilnius-privacy-text" style="flex: 1;">
-                                            ${this.escapeHtml(this.privacyCheckboxText || 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).')}
+                                            ${this.escapeHtml(this.privacyCheckboxText || 'I agree to the Privacy Policy and Terms of Service.')}
                                         </span>
                                     </label>
                                 </div>
@@ -583,14 +583,14 @@
                 if (response.ok) {
                     const data = await response.json();
                     this.privacyCheckboxText = data.data.privacy_checkbox_text?.value ||
-                        'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
+                        'I agree to the Privacy Policy and Terms of Service.';
                 } else {
                     console.warn('Failed to load privacy settings, using default text');
-                    this.privacyCheckboxText = 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
+                    this.privacyCheckboxText = 'I agree to the Privacy Policy and Terms of Service.';
                 }
             } catch (error) {
                 console.error('Error loading privacy settings:', error);
-                this.privacyCheckboxText = 'I agree to the [Privacy Policy](https://example.com/privacy) and [Terms of Service](https://example.com/terms).';
+                this.privacyCheckboxText = 'I agree to the Privacy Policy and Terms of Service.';
             }
         },
 
@@ -934,6 +934,11 @@
         },
 
         renderFileMessage(fileMetadata, caption, fileUrl) {
+            // Validate fileUrl parameter
+            if (!fileUrl || typeof fileUrl !== 'string') {
+                return '<div style="color: red;">⚠️ Invalid file URL</div>';
+            }
+
             // Validate the RELATIVE URL path from metadata (not the absolute fileUrl)
             if (!fileMetadata.url || typeof fileMetadata.url !== 'string' || !fileMetadata.url.startsWith('/api/uploads/')) {
                 return '<div style="color: red;">⚠️ Invalid file attachment</div>';

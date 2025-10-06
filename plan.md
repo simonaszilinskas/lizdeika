@@ -2,7 +2,7 @@
 
 **Branch**: `fix/agent-status-timeout-and-source-tracking`
 
-**Issue**: https://github.com/simonaszilinskas/lizdeika/issues/28
+**Issue**: <https://github.com/simonaszilinskas/lizdeika/issues/28>
 
 ---
 
@@ -329,4 +329,4 @@ If issues arise:
 ---
 
 *Plan created: 2025-10-06*
-*Issue reference: https://github.com/simonaszilinskas/lizdeika/issues/28*
+*Issue reference: <https://github.com/simonaszilinskas/lizdeika/issues/28>*
