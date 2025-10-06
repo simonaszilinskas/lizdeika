@@ -286,10 +286,13 @@ class AgentDashboard {
         this.stateManager.restoreFilterStates();
         
         await this.loadConversations();
-        
+
+        // Load response templates
+        await this.loadTemplates();
+
         // Restore previously selected conversation after conversations are loaded
         await this.restorePreviousConversation();
-        
+
         // No need for polling anymore with WebSockets
     }
 
@@ -791,6 +794,95 @@ class AgentDashboard {
         } catch (error) {
             console.error('❌ Error in modern conversation loading:', error);
             // Fallback to show error state is handled by the modern loader
+        }
+    }
+
+    /**
+     * Load response templates
+     */
+    async loadTemplates() {
+        try {
+            const token = localStorage.getItem('agent_token');
+            if (!token) {
+                console.log('⚠️ No auth token for loading templates');
+                return;
+            }
+
+            const response = await fetch(`${this.apiUrl}/api/templates`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.success && data.templates) {
+                this.populateTemplateSelector(data.templates);
+                console.log(`✅ Loaded ${data.templates.length} response templates`);
+            }
+        } catch (error) {
+            console.error('Error loading templates:', error);
+        }
+    }
+
+    /**
+     * Populate template selector dropdown
+     */
+    populateTemplateSelector(templates) {
+        const selector = document.getElementById('template-selector');
+        if (!selector) return;
+
+        // Clear existing options except the first
+        selector.innerHTML = '<option value="">Use Template...</option>';
+
+        // Group templates by category
+        const grouped = {};
+        templates.forEach(template => {
+            const category = template.category || 'General';
+            if (!grouped[category]) grouped[category] = [];
+            grouped[category].push(template);
+        });
+
+        // Add options grouped by category
+        Object.keys(grouped).sort().forEach(category => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = category;
+
+            grouped[category].forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.content;
+                option.textContent = template.title;
+                optgroup.appendChild(option);
+            });
+
+            selector.appendChild(optgroup);
+        });
+
+        // Add change event listener
+        selector.addEventListener('change', (e) => {
+            if (e.target.value) {
+                this.insertTemplate(e.target.value);
+                e.target.selectedIndex = 0; // Reset selection
+            }
+        });
+    }
+
+    /**
+     * Insert template into message input
+     */
+    insertTemplate(content) {
+        const input = document.getElementById('message-input');
+        if (input) {
+            input.value = content;
+            input.focus();
+            // Manually resize textarea to fit content
+            if (this.chatManager && this.chatManager.resizeTextarea) {
+                this.chatManager.resizeTextarea();
+            }
+            this.showToast('Template inserted', 'success');
         }
     }
 

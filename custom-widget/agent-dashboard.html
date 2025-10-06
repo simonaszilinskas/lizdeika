@@ -547,9 +547,14 @@
                         <div id="agent-file-preview" class="hidden mt-2 p-2 bg-gray-100 rounded-lg text-sm"></div>
                     </div>
                     <div class="flex flex-col items-end gap-2">
-                        <button type="button" onclick="dashboard.getAIAssistance()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm flex items-center transition-colors">
-                            <span class="mr-1">✨</span> Regenerate
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <select id="template-selector" class="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="">Use Template...</option>
+                            </select>
+                            <button type="button" onclick="dashboard.getAIAssistance()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm flex items-center transition-colors">
+                                <span class="mr-1">✨</span> Regenerate
+                            </button>
+                        </div>
                         <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0 flex flex-col items-center">
                             <div class="flex items-center">
                                 <i class="fas fa-paper-plane mr-1"></i> Siųsti
