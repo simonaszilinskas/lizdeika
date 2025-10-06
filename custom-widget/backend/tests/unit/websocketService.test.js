@@ -2,6 +2,9 @@
  * Unit tests for WebSocket Service
  */
 
+// Mock timers before requiring the service
+jest.useFakeTimers();
+
 // Mock dependencies before requiring the service
 jest.mock('../../src/services/agentService');
 jest.mock('../../src/services/conversationService');

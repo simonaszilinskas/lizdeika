@@ -57,6 +57,7 @@
  * - Settings heartbeats (source='settings'): Keep socket alive only → doesn't claim active work
  * - This prevents agents browsing settings from being marked as handling conversations
  * - Agents marked offline after 5 minutes without dashboard heartbeat (changed from 120 min)
+ * - Periodic broadcast (30s) ensures dashboards reflect timeout changes in real-time
  *
  * Grace Period Handling:
  * - Agents are not immediately marked offline on disconnect
@@ -88,6 +89,7 @@ class WebSocketService {
         this.io = io;
         this.logger = createLogger('websocketService');
         this.setupSocketHandlers();
+        this.setupPeriodicBroadcast();
     }
 
     /**
@@ -228,7 +230,7 @@ class WebSocketService {
             socket.on('heartbeat', async (data) => {
                 if (socket.agentId) {
                     try {
-                        const source = data.source || 'unknown';
+                        const source = data?.source ?? 'unknown';
 
                         // Only update agent status if heartbeat is from dashboard
                         // Settings heartbeats just keep socket alive without claiming "actively working"
@@ -254,6 +256,29 @@ class WebSocketService {
                 }
             });
         });
+    }
+
+    /**
+     * Setup periodic broadcast of agent status
+     *
+     * Broadcasts connected-agents-update every 30 seconds to ensure dashboards
+     * reflect agent timeout changes (5-minute inactive threshold).
+     *
+     * Without this, agents who timeout are only removed from the list when
+     * another agent connects/disconnects, which could take hours in quiet periods.
+     *
+     * Interval matches frontend polling (AgentStatusModule: 30s) for consistency.
+     */
+    setupPeriodicBroadcast() {
+        setInterval(async () => {
+            try {
+                const connectedAgents = await agentService.getConnectedAgents();
+                this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
+                console.log(`📊 Periodic agent status broadcast: ${connectedAgents.length} agents online`);
+            } catch (error) {
+                console.error('Error in periodic agent status broadcast:', error);
+            }
+        }, 30000); // 30 seconds
     }
 
     /**
