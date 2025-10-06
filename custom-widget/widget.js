@@ -104,13 +104,13 @@
                         <div style="
                             background: ${this.config.theme.primaryColor};
                             color: white;
-                            padding: 20px;
+                            padding: 12px 16px;
                             display: flex;
                             justify-content: space-between;
                             align-items: center;
                         ">
                             <div>
-                                <h3 style="margin: 0; font-size: 18px;">Pagalbos asistentas</h3>
+                                <h3 style="margin: 0; font-size: 15px;">Pagalbos asistentas</h3>
                             </div>
                             <button id="vilnius-close-chat" style="
                                 background: none;
