@@ -621,26 +621,43 @@ class AgentDashboard {
         if (totalAgentsCompact) {
             totalAgentsCompact.textContent = agents.length;
 
-            // Create tooltip content with agent names grouped by status
+            // Create tooltip content with agent names grouped by status (XSS-safe)
             const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
             const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
 
-            let content = '';
-            if (onlineAgents.length > 0) {
-                content += `<div class="font-semibold text-green-400 mb-1">Online (${onlineAgents.length}):</div>`;
-                content += `<div class="mb-2">${onlineAgents.map(a => getAgentDisplayName(a)).join(', ')}</div>`;
-            }
-            if (offlineAgents.length > 0) {
-                content += `<div class="font-semibold text-gray-400 mb-1">Offline (${offlineAgents.length}):</div>`;
-                content += `<div>${offlineAgents.map(a => getAgentDisplayName(a)).join(', ')}</div>`;
-            }
-            if (!content) {
-                content = 'No agents connected';
-            }
-
-            // Update tooltip content
+            // Build tooltip using DOM nodes to prevent XSS
             if (tooltipContent) {
-                tooltipContent.innerHTML = content;
+                // Clear existing content
+                tooltipContent.textContent = '';
+
+                if (onlineAgents.length > 0) {
+                    const onlineHeader = document.createElement('div');
+                    onlineHeader.className = 'font-semibold text-green-400 mb-1';
+                    onlineHeader.textContent = `Online (${onlineAgents.length}):`;
+
+                    const onlineList = document.createElement('div');
+                    onlineList.className = 'mb-2';
+                    onlineList.textContent = onlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+
+                    tooltipContent.appendChild(onlineHeader);
+                    tooltipContent.appendChild(onlineList);
+                }
+
+                if (offlineAgents.length > 0) {
+                    const offlineHeader = document.createElement('div');
+                    offlineHeader.className = 'font-semibold text-gray-400 mb-1';
+                    offlineHeader.textContent = `Offline (${offlineAgents.length}):`;
+
+                    const offlineList = document.createElement('div');
+                    offlineList.textContent = offlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+
+                    tooltipContent.appendChild(offlineHeader);
+                    tooltipContent.appendChild(offlineList);
+                }
+
+                if (onlineAgents.length === 0 && offlineAgents.length === 0) {
+                    tooltipContent.textContent = 'No agents connected';
+                }
             }
 
             // Setup hover listeners for custom tooltip
