@@ -83,7 +83,7 @@ describe('Agent Tooltip', () => {
                 }
 
                 // Performance: Check if update needed BEFORE expensive operations
-                const agentListKey = JSON.stringify(agents.map(a => `${a.id}-${a.personalStatus}`).sort());
+                const agentListKey = agents.map(a => a.id + '-' + a.personalStatus).sort().join(',');
 
                 if (this.lastAgentListKey === agentListKey) {
                     return;

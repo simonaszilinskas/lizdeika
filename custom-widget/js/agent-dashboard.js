@@ -656,7 +656,7 @@ class AgentDashboard {
         }
 
         // Performance optimization: Check if update is needed BEFORE expensive operations
-        const agentListKey = JSON.stringify(agents.map(a => `${a.id}-${a.personalStatus}`).sort());
+        const agentListKey = agents.map(a => a.id + '-' + a.personalStatus).sort().join(',');
 
         if (this.lastAgentListKey === agentListKey) {
             return;
@@ -726,24 +726,6 @@ class AgentDashboard {
 
         this.tooltipHandlers = null;
         this.tooltipListenersInitialized = false;
-        
-        // Update old format (for compatibility if it exists elsewhere)
-        const container = document.getElementById('connected-agents');
-        const totalAgents = document.getElementById('total-agents');
-        
-        if (container && totalAgents) {
-            totalAgents.textContent = agents.length;
-            
-            container.innerHTML = agents.map(agent => `
-                <div class="flex items-center justify-between py-1 px-2 bg-white rounded text-xs">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full ${agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400'}"></div>
-                        <span class="text-gray-700">${getAgentDisplayName(agent)}</span>
-                    </div>
-                    <span class="text-gray-500 capitalize">${agent.personalStatus || 'online'}</span>
-                </div>
-            `).join('');
-        }
     }
 
 
@@ -1448,5 +1430,12 @@ window.openUserManagement = openUserManagement;
 
 // Initialize dashboard immediately when script loads (DOM is already ready at this point)
 console.log('🚀 Initializing Agent Dashboard...');
-new AgentDashboard();
+const dashboard = new AgentDashboard();
 console.log('✅ Dashboard initialized');
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (dashboard && dashboard.cleanupTooltipListeners) {
+        dashboard.cleanupTooltipListeners();
+    }
+});
