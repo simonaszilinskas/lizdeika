@@ -158,15 +158,22 @@ class SocketManager {
 
     /**
      * Start heartbeat to keep WebSocket connection alive
-     * Maintains exact same heartbeat logic as original
+     *
+     * Sends periodic heartbeats with source='dashboard' to indicate active work.
+     * Backend uses source to differentiate between:
+     * - Dashboard heartbeats: Update agent status (actively working)
+     * - Settings heartbeats: Keep socket alive only (not actively working)
+     *
+     * This ensures agents browsing settings aren't marked as actively handling conversations.
      */
     startHeartbeat() {
         // Send heartbeat every 15 seconds to keep connection active
         this.heartbeatInterval = setInterval(() => {
             if (this.socket && this.socket.connected) {
-                this.socket.emit(WEBSOCKET_EVENTS.HEARTBEAT, { 
+                this.socket.emit(WEBSOCKET_EVENTS.HEARTBEAT, {
                     timestamp: Date.now(),
-                    agentId: this.agentId 
+                    agentId: this.agentId,
+                    source: 'dashboard'  // Marks agent as actively working
                 });
                 console.log('💓 Agent dashboard heartbeat sent');
             }
