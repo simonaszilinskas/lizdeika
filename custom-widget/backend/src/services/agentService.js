@@ -23,10 +23,11 @@
  * 
  * Features:
  * - Automatic agent discovery and registration
- * - Grace period handling for temporary disconnections
+ * - Grace period handling for temporary disconnections (5 minutes, changed from 120 min)
  * - Load balancing for conversation assignment
  * - Real-time status updates via WebSocket integration
  * - System-wide operational mode management
+ * - Heartbeat-based activity tracking with configurable timeout
  * 
  * Dependencies:
  * - Prisma Client for PostgreSQL database operations
@@ -641,8 +642,18 @@ class AgentService {
 
     /**
      * Common query for active agents with status filtering - optimized
+     *
+     * @param {Array<string>} statusFilter - Status values to filter by (default: ['online', 'busy'])
+     * @param {number} minutesAgo - How many minutes back to consider "active" (default: 5 minutes)
+     *
+     * Changed from 120 minutes to 5 minutes to detect offline agents faster.
+     * 5 minutes provides reasonable grace period for:
+     * - Switching between browser tabs
+     * - Brief network interruptions
+     * - Page reloads
+     * While quickly detecting truly disconnected agents.
      */
-    async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = 120) {
+    async findActiveAgents(statusFilter = ['online', 'busy'], minutesAgo = 5) {
         const cutoffTime = new Date(Date.now() - (minutesAgo * 60000));
         
         return await prisma.users.findMany({
