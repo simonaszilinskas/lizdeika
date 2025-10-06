@@ -10,18 +10,19 @@ import { FILTERS, DEFAULTS } from './ui/constants.js';
 export class StateManager {
     constructor(dashboard) {
         this.dashboard = dashboard;
-        
+
         // Filter state
         this.currentFilter = FILTERS.DEFAULT_FILTER; // Current conversation filter (mine, unassigned, others, all)
         this.archiveFilter = DEFAULTS.ARCHIVE_FILTER; // Archive filter (active, archived)
-        
+        this.searchQuery = ''; // Current search query
+
         // Selection state
         this.selectedConversations = new Set(); // Track selected conversations for bulk operations
-        
+
         // Conversation state
         this.conversations = new Map(); // Map of loaded conversation data
         this.allConversations = []; // Store all conversations for filtering
-        
+
         // UI state
         this.currentChatId = null; // Currently selected conversation ID
         this.currentSuggestion = null; // Current AI suggestion being displayed
@@ -131,15 +132,41 @@ export class StateManager {
     }
 
     /**
+     * Set search query
+     * @param {string} query - Search query string
+     */
+    setSearchQuery(query) {
+        this.searchQuery = query;
+        this.applyFilter();
+    }
+
+    /**
+     * Get current search query
+     * @returns {string} Current search query
+     */
+    getSearchQuery() {
+        return this.searchQuery;
+    }
+
+    /**
+     * Clear search query
+     */
+    clearSearchQuery() {
+        this.searchQuery = '';
+        this.applyFilter();
+    }
+
+    /**
      * Apply current filter to conversations
      */
     applyFilter() {
-        console.log(`🔍 StateManager.applyFilter called - current filter: ${this.currentFilter}, total conversations: ${this.allConversations.length}`);
-        
+        console.log(`🔍 StateManager.applyFilter called - current filter: ${this.currentFilter}, search: "${this.searchQuery}", total conversations: ${this.allConversations.length}`);
+
         const filters = {
             archiveFilter: this.archiveFilter,
             assignmentFilter: this.currentFilter,
-            agentId: this.dashboard.agentId
+            agentId: this.dashboard.agentId,
+            searchQuery: this.searchQuery
         };
 
         // Use modern conversation loader for filtering

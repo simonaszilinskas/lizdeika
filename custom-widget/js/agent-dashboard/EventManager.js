@@ -16,6 +16,7 @@ export class EventManager {
     initializeAllEventListeners() {
         this.setupPersonalStatusListener();
         this.setupFilterButtonListeners();
+        this.setupSearchListener();
         this.setupMessageFormListener();
         this.setupMessageKeyboardShortcuts();
         this.setupAIAssistanceListener();
@@ -54,6 +55,75 @@ export class EventManager {
                 this.dashboard.setFilter(clickedFilter);
             });
         });
+    }
+
+    /**
+     * Setup conversation search listener with toggle functionality
+     */
+    setupSearchListener() {
+        const searchToggle = document.getElementById('search-toggle');
+        const searchContainer = document.getElementById('search-bar-container');
+        const searchInput = document.getElementById('conversation-search');
+        const clearSearchBtn = document.getElementById('clear-search');
+
+        // Toggle search bar visibility
+        if (searchToggle && searchContainer) {
+            searchToggle.addEventListener('click', () => {
+                const isHidden = searchContainer.classList.contains('hidden');
+
+                if (isHidden) {
+                    // Show search bar
+                    searchContainer.classList.remove('hidden');
+                    searchToggle.classList.add('text-indigo-600');
+                    searchToggle.classList.remove('text-gray-400');
+                    // Focus on input
+                    setTimeout(() => searchInput?.focus(), 100);
+                } else {
+                    // Hide search bar and clear search
+                    searchContainer.classList.add('hidden');
+                    searchToggle.classList.remove('text-indigo-600');
+                    searchToggle.classList.add('text-gray-400');
+                    if (searchInput) {
+                        searchInput.value = '';
+                        clearSearchBtn?.classList.add('hidden');
+                        this.dashboard.stateManager.clearSearchQuery();
+                    }
+                }
+            });
+        }
+
+        if (searchInput) {
+            // Debounce search to avoid filtering on every keystroke
+            let searchTimeout;
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value;
+
+                // Show/hide clear button
+                if (clearSearchBtn) {
+                    if (query) {
+                        clearSearchBtn.classList.remove('hidden');
+                    } else {
+                        clearSearchBtn.classList.add('hidden');
+                    }
+                }
+
+                // Debounce search
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    this.dashboard.stateManager.setSearchQuery(query);
+                }, 300); // 300ms debounce
+            });
+        }
+
+        if (clearSearchBtn) {
+            clearSearchBtn.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                    clearSearchBtn.classList.add('hidden');
+                    this.dashboard.stateManager.clearSearchQuery();
+                }
+            });
+        }
     }
 
     /**

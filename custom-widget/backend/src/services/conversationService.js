@@ -493,8 +493,7 @@ class ConversationService {
                                 in: ['user', 'agent']
                             }
                         },
-                        orderBy: { created_at: 'desc' },
-                        take: 1
+                        orderBy: { created_at: 'desc' }
                     },
                     _count: {
                         select: {
@@ -533,7 +532,13 @@ class ConversationService {
                     content: ticket.messages[0].content,
                     sender: this.mapSenderType(ticket.messages[0].senderType),
                     timestamp: ticket.messages[0].created_at
-                } : null
+                } : null,
+                messages: ticket.messages.map(msg => ({
+                    id: msg.id,
+                    content: msg.content,
+                    sender: this.mapSenderType(msg.senderType),
+                    timestamp: msg.created_at
+                }))
             }));
         } catch (error) {
             console.error('Failed to get conversations with stats:', error);
