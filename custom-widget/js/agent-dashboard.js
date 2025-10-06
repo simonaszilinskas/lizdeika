@@ -606,7 +606,7 @@ class AgentDashboard {
     updateConnectedAgents(agents) {
         this.connectedAgents.clear();
         agents.forEach(agent => this.connectedAgents.set(agent.id, agent));
-        
+
         // Refresh the agents dropdown if it exists and is visible
         const dropdown = document.getElementById('bulk-assign-agent');
         if (dropdown && dropdown.style.display !== 'none') {
@@ -614,16 +614,53 @@ class AgentDashboard {
             dropdown.innerHTML = '';
             this.bulkOperations.populateAgentsDropdown();
         }
-        
+
         // Update compact format in header (simplified - just count)
         const totalAgentsCompact = document.getElementById('total-agents-compact');
         const tooltipWrapper = document.getElementById('agents-tooltip-wrapper');
         const tooltip = document.getElementById('agents-tooltip');
         const tooltipContent = document.getElementById('agents-tooltip-content');
 
+        // Setup hover and keyboard listeners for custom tooltip (prevent memory leak)
+        if (!this.tooltipListenersInitialized && tooltipWrapper && tooltip && totalAgentsCompact) {
+            // Mouse hover with tooltip element included for smooth cursor movement
+            tooltipWrapper.addEventListener('mouseenter', () => {
+                tooltip.classList.remove('hidden');
+            });
+
+            tooltipWrapper.addEventListener('mouseleave', () => {
+                tooltip.classList.add('hidden');
+            });
+
+            tooltip.addEventListener('mouseenter', () => {
+                tooltip.classList.remove('hidden');
+            });
+
+            tooltip.addEventListener('mouseleave', () => {
+                tooltip.classList.add('hidden');
+            });
+
+            // Keyboard support for accessibility
+            totalAgentsCompact.addEventListener('focus', () => {
+                tooltip.classList.remove('hidden');
+            });
+
+            totalAgentsCompact.addEventListener('blur', () => {
+                tooltip.classList.add('hidden');
+            });
+
+            this.tooltipListenersInitialized = true;
+        }
+
         // Null safety: verify all required elements exist
-        if (!totalAgentsCompact || !tooltipWrapper || !tooltip || !tooltipContent) {
-            console.warn('Agent tooltip elements not found in DOM');
+        const missingElements = [];
+        if (!totalAgentsCompact) missingElements.push('total-agents-compact');
+        if (!tooltipWrapper) missingElements.push('agents-tooltip-wrapper');
+        if (!tooltip) missingElements.push('agents-tooltip');
+        if (!tooltipContent) missingElements.push('agents-tooltip-content');
+
+        if (missingElements.length > 0) {
+            console.warn(`Agent tooltip elements not found in DOM: ${missingElements.join(', ')}`);
             return;
         }
 
@@ -633,8 +670,18 @@ class AgentDashboard {
         const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
         const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
 
+        // Prevent redundant DOM updates if agent list hasn't changed
+        const agentListKey = JSON.stringify([
+            onlineAgents.map(a => `${a.id}-${a.personalStatus}`).sort(),
+            offlineAgents.map(a => `${a.id}-${a.personalStatus}`).sort()
+        ]);
+
+        if (this.lastAgentListKey === agentListKey) {
+            return;
+        }
+        this.lastAgentListKey = agentListKey;
+
         // Build tooltip using DOM nodes to prevent XSS
-        // Clear existing content
         tooltipContent.textContent = '';
 
         if (onlineAgents.length > 0) {
@@ -664,29 +711,6 @@ class AgentDashboard {
 
         if (onlineAgents.length === 0 && offlineAgents.length === 0) {
             tooltipContent.textContent = 'No agents connected';
-        }
-
-        // Setup hover and keyboard listeners for custom tooltip (prevent memory leak with flag)
-        if (!this.tooltipListenersInitialized) {
-            // Mouse hover
-            tooltipWrapper.addEventListener('mouseenter', () => {
-                tooltip.classList.remove('hidden');
-            });
-
-            tooltipWrapper.addEventListener('mouseleave', () => {
-                tooltip.classList.add('hidden');
-            });
-
-            // Keyboard support for accessibility
-            totalAgentsCompact.addEventListener('focus', () => {
-                tooltip.classList.remove('hidden');
-            });
-
-            totalAgentsCompact.addEventListener('blur', () => {
-                tooltip.classList.add('hidden');
-            });
-
-            this.tooltipListenersInitialized = true;
         }
         
         // Update old format (for compatibility if it exists elsewhere)
