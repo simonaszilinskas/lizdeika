@@ -12,7 +12,7 @@ jest.mock('canvas', () => ({
     })
   }),
   loadImage: () => Promise.resolve({})
-}));
+}), { virtual: true });
 
 // Extend Jest matchers
 expect.extend({

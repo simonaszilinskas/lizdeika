@@ -30,7 +30,7 @@
  */
 const express = require('express');
 const SystemController = require('../controllers/systemController');
-const { authenticateToken } = require('../middleware/authMiddleware');
+const { authenticateToken, requireAgentOrAdmin } = require('../middleware/authMiddleware');
 const SettingsService = require('../services/settingsService');
 
 function createSystemRoutes() {
@@ -128,6 +128,14 @@ function createSystemRoutes() {
                 message: error.message
             });
         }
+    });
+
+    // ===========================
+    // DASHBOARD STATISTICS
+    // ===========================
+
+    router.get('/stats/dashboard', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        systemController.getAgentDashboardStats(req, res);
     });
 
     // ===========================

@@ -53,6 +53,7 @@ jest.mock('@prisma/client', () => {
         update: jest.fn(),
         delete: jest.fn(),
         count: jest.fn(),
+        groupBy: jest.fn(),
       },
       ticket_actions: {
         findMany: jest.fn(),

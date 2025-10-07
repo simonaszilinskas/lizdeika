@@ -141,6 +141,7 @@ import { SidebarManager } from './agent-dashboard/SidebarManager.js';
 // Import notification and system mode managers
 import { NotificationService } from './agent-dashboard/notifications/NotificationService.js';
 import { SystemModeManager } from './agent-dashboard/core/SystemModeManager.js';
+import { StatsManager } from './agent-dashboard/StatsManager.js';
 
 class AgentDashboard {
     constructor(config = {}) {
@@ -239,6 +240,9 @@ class AgentDashboard {
         // Initialize sidebar manager
         this.sidebarManager = new SidebarManager(this);
 
+        // Initialize stats manager
+        this.statsManager = new StatsManager(this);
+
         // Make dashboard globally available immediately
         window.dashboard = this;
         
@@ -286,7 +290,11 @@ class AgentDashboard {
         this.stateManager.restoreFilterStates();
         
         await this.loadConversations();
-        
+
+        if (this.statsManager) {
+            await this.statsManager.init();
+        }
+
         // Restore previously selected conversation after conversations are loaded
         await this.restorePreviousConversation();
         
@@ -1267,6 +1275,10 @@ class AgentDashboard {
             // Refresh the conversation list to show the new conversation
             this.loadConversations();
         }
+
+        if (this.statsManager && typeof this.statsManager.requestRefresh === 'function') {
+            this.statsManager.requestRefresh('new-conversation');
+        }
     }
 
     /**
@@ -1288,6 +1300,10 @@ class AgentDashboard {
 
         // Move conversation to top of list for immediate visual feedback
         this.conversationRenderer.reorderConversationList(data.conversationId);
+
+        if (this.statsManager && typeof this.statsManager.requestRefresh === 'function') {
+            this.statsManager.requestRefresh('agent-message');
+        }
     }
 
     

@@ -49,6 +49,7 @@
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
 const aiService = require('../services/aiService');
+const dashboardStatsService = require('../services/dashboardStatsService');
 
 class SystemController {
     /**
@@ -631,6 +632,29 @@ class SystemController {
                 success: false,
                 error: 'Failed to get prompt statistics',
                 message: error.message
+            });
+        }
+    }
+
+    /**
+     * Get aggregated dashboard statistics for agents/admins
+     * GET /stats/dashboard
+     */
+    async getAgentDashboardStats(req, res) {
+        try {
+            const rangeDays = req.query.rangeDays ? parseInt(req.query.rangeDays, 10) : undefined;
+
+            const stats = await dashboardStatsService.getAgentDashboardStats({ rangeDays });
+
+            res.json({
+                success: true,
+                data: stats
+            });
+        } catch (error) {
+            console.error('Failed to get dashboard stats:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to load dashboard statistics'
             });
         }
     }

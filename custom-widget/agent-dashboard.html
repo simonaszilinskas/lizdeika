@@ -477,6 +477,116 @@
         <div id="main-chat-area" class="flex-1 flex flex-col">
             <!-- Chat Header - removed as not needed -->
 
+            <!-- Dashboard Statistics -->
+            <div id="dashboard-stats" class="bg-white border-b border-gray-200 px-4 py-5 shadow-sm">
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">Komandos statistika</h2>
+                            <p id="stats-range-label" class="text-xs text-gray-500">Analizuojamas laikotarpis: paskutinės 30 dienų</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="stats-last-updated" class="text-xs text-gray-500">Atnaujinama...</span>
+                            <button id="refresh-stats-button" class="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 px-3 py-1.5 border border-indigo-200 rounded-md transition">
+                                <i class="fas fa-rotate-right text-xs"></i>
+                                Atnaujinti
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="stats-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2"></div>
+
+                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="stats-summary-cards">
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-4" aria-live="polite">
+                            <p class="text-sm font-medium text-gray-500">Iš viso pokalbių</p>
+                            <p class="text-2xl font-semibold text-gray-900 mt-1" id="stats-total-conversations-value">--</p>
+                            <p class="text-xs text-gray-500 mt-2" id="stats-total-conversations-subtext">Atviri: -- · 7 d.: --</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-4" aria-live="polite">
+                            <p class="text-sm font-medium text-gray-500">AI pasiūlymai</p>
+                            <p class="text-2xl font-semibold text-gray-900 mt-1" id="stats-ai-suggestions-value">--</p>
+                            <p class="text-xs text-gray-500 mt-2" id="stats-ai-suggestions-subtext">24 val.: -- · 7 d.: --</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-4" aria-live="polite">
+                            <p class="text-sm font-medium text-gray-500">Agentų atsakymai</p>
+                            <p class="text-2xl font-semibold text-gray-900 mt-1" id="stats-agent-responses-value">--</p>
+                            <p class="text-xs text-gray-500 mt-2" id="stats-agent-responses-subtext">24 val.: -- · Vid. pokalbiui: --</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg border border-gray-200 p-4" aria-live="polite">
+                            <p class="text-sm font-medium text-gray-500">Aktyvūs agentai</p>
+                            <p class="text-2xl font-semibold text-gray-900 mt-1" id="stats-active-agents-value">--</p>
+                            <p class="text-xs text-gray-500 mt-2" id="stats-active-agents-subtext">Nauji pokalbiai (24 val.): --</p>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 lg:grid-cols-2">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Agentų aktyvumas</h3>
+                                <span class="text-xs text-gray-500" id="stats-agent-total-responses">Iš viso atsakymų: --</span>
+                            </div>
+                            <ul id="stats-agent-leaderboard" class="space-y-3 text-sm text-gray-700">
+                                <li class="text-gray-500">Duomenys kraunami...</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">AI pasiūlymų naudojimas</h3>
+                                <span class="text-xs text-gray-500" id="stats-suggestion-total">Įrašyta atsakymų: --</span>
+                            </div>
+                            <div id="stats-suggestion-usage" class="space-y-3 text-sm text-gray-700">
+                                <p class="text-gray-500">Duomenys kraunami...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 lg:grid-cols-2">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Šablonų naudojimas</h3>
+                                <span class="text-xs text-gray-500" id="stats-template-usage-rate">--% atsakymų</span>
+                            </div>
+                            <div id="stats-template-usage" class="space-y-3 text-sm text-gray-700">
+                                <p class="text-gray-500">Šablonai dar nenaudoti.</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Pagrindinė veikla</h3>
+                            </div>
+                            <dl id="stats-activity-summary" class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm text-gray-700">
+                                <div>
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">Nauji pokalbiai (24 val.)</dt>
+                                    <dd class="font-semibold text-gray-900" data-activity="conversations-24h">--</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">Nauji pokalbiai (7 d.)</dt>
+                                    <dd class="font-semibold text-gray-900" data-activity="conversations-7d">--</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">Žinutės (24 val.)</dt>
+                                    <dd class="font-semibold text-gray-900" data-activity="messages-24h">--</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">Klientų žinutės (24 val.)</dt>
+                                    <dd class="font-semibold text-gray-900" data-activity="customer-messages-24h">--</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">Agentų atsakymai (24 val.)</dt>
+                                    <dd class="font-semibold text-gray-900" data-activity="agent-responses-24h">--</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">AI pasiūlymai (24 val.)</dt>
+                                    <dd class="font-semibold text-gray-900" data-activity="suggestions-24h">--</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Messages Area -->
             <div class="flex-1 overflow-y-auto bg-gray-50" id="messages-area">
                 <div id="no-chat-selected" class="h-full flex items-center justify-center text-gray-500">

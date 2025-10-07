@@ -473,7 +473,7 @@ export class APIManager {
     async getPendingSuggestion(conversationId) {
         try {
             const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/pending-suggestion`);
-            
+
             if (response.ok) {
                 return await response.json();
             }
@@ -481,6 +481,33 @@ export class APIManager {
         } catch (error) {
             console.error('Failed to get pending suggestion:', error);
             return null;
+        }
+    }
+
+    /**
+     * Fetch aggregated dashboard statistics for agents/admins
+     * @param {number} [rangeDays] - Optional number of days to include in analysis
+     * @returns {Promise<Object>} Dashboard statistics payload
+     */
+    async fetchDashboardStats(rangeDays) {
+        try {
+            const url = new URL(`${this.apiUrl}/api/stats/dashboard`);
+            if (Number.isFinite(rangeDays) && rangeDays > 0) {
+                url.searchParams.set('rangeDays', rangeDays);
+            }
+
+            const response = await fetch(url.toString(), {
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load dashboard stats: ${response.status} ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Failed to fetch dashboard stats:', error);
+            throw error;
         }
     }
 
