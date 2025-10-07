@@ -153,6 +153,9 @@ class AgentDashboard {
         
         // Track current polling for AI suggestions (to cancel if new message arrives)
         this.currentPollingId = null;
+
+        // Track if tooltip listeners are initialized (prevent memory leak)
+        this.tooltipListenersInitialized = false;
         
         // Initialize authentication manager
         this.authManager = new AgentAuthManager({ apiUrl: this.apiUrl });
@@ -603,7 +606,7 @@ class AgentDashboard {
     updateConnectedAgents(agents) {
         this.connectedAgents.clear();
         agents.forEach(agent => this.connectedAgents.set(agent.id, agent));
-        
+
         // Refresh the agents dropdown if it exists and is visible
         const dropdown = document.getElementById('bulk-assign-agent');
         if (dropdown && dropdown.style.display !== 'none') {
@@ -611,50 +614,119 @@ class AgentDashboard {
             dropdown.innerHTML = '';
             this.bulkOperations.populateAgentsDropdown();
         }
-        
-        // Update compact format in header (simplified - just count)
+
+        // Get element references
+        const totalAgentsCompact = document.getElementById('total-agents-compact');
+        const tooltipWrapper = document.getElementById('agents-tooltip-wrapper');
+        const tooltip = document.getElementById('agents-tooltip');
+        const tooltipContent = document.getElementById('agents-tooltip-content');
+
+        // Null safety: verify all required elements exist BEFORE any operations
+        const missingElements = [];
+        if (!totalAgentsCompact) missingElements.push('total-agents-compact');
+        if (!tooltipWrapper) missingElements.push('agents-tooltip-wrapper');
+        if (!tooltip) missingElements.push('agents-tooltip');
+        if (!tooltipContent) missingElements.push('agents-tooltip-content');
+
+        if (missingElements.length > 0) {
+            console.warn(`Agent tooltip elements not found in DOM: ${missingElements.join(', ')}`);
+            return;
+        }
+
+        // Setup hover and keyboard listeners for custom tooltip (prevent memory leak)
+        if (!this.tooltipListenersInitialized) {
+            // Store handler references for cleanup
+            this.tooltipHandlers = {
+                wrapperEnter: () => tooltip.classList.remove('hidden'),
+                wrapperLeave: () => tooltip.classList.add('hidden'),
+                tooltipEnter: () => tooltip.classList.remove('hidden'),
+                tooltipLeave: () => tooltip.classList.add('hidden'),
+                compactFocus: () => tooltip.classList.remove('hidden'),
+                compactBlur: () => tooltip.classList.add('hidden')
+            };
+
+            tooltipWrapper.addEventListener('mouseenter', this.tooltipHandlers.wrapperEnter);
+            tooltipWrapper.addEventListener('mouseleave', this.tooltipHandlers.wrapperLeave);
+            tooltip.addEventListener('mouseenter', this.tooltipHandlers.tooltipEnter);
+            tooltip.addEventListener('mouseleave', this.tooltipHandlers.tooltipLeave);
+            totalAgentsCompact.addEventListener('focus', this.tooltipHandlers.compactFocus);
+            totalAgentsCompact.addEventListener('blur', this.tooltipHandlers.compactBlur);
+
+            this.tooltipListenersInitialized = true;
+        }
+
+        // Performance optimization: Check if update is needed BEFORE expensive operations
+        const agentListKey = agents.map(a => a.id + '-' + a.personalStatus).sort().join(',');
+
+        if (this.lastAgentListKey === agentListKey) {
+            return;
+        }
+        this.lastAgentListKey = agentListKey;
+
+        // Update agent count
+        totalAgentsCompact.textContent = agents.length;
+
+        // Filter agents by status (only if update is needed)
+        const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
+        const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
+
+        // Build tooltip using DOM nodes to prevent XSS
+        tooltipContent.textContent = '';
+
+        if (onlineAgents.length > 0) {
+            const onlineHeader = document.createElement('div');
+            onlineHeader.className = 'font-semibold text-green-400 mb-1';
+            onlineHeader.textContent = `Online (${onlineAgents.length}):`;
+
+            const onlineList = document.createElement('div');
+            onlineList.className = 'mb-2';
+            onlineList.textContent = onlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+
+            tooltipContent.appendChild(onlineHeader);
+            tooltipContent.appendChild(onlineList);
+        }
+
+        if (offlineAgents.length > 0) {
+            const offlineHeader = document.createElement('div');
+            offlineHeader.className = 'font-semibold text-gray-400 mb-1';
+            offlineHeader.textContent = `Offline (${offlineAgents.length}):`;
+
+            const offlineList = document.createElement('div');
+            offlineList.textContent = offlineAgents.map(a => getAgentDisplayName(a)).join(', ');
+
+            tooltipContent.appendChild(offlineHeader);
+            tooltipContent.appendChild(offlineList);
+        }
+
+        if (onlineAgents.length === 0 && offlineAgents.length === 0) {
+            tooltipContent.textContent = 'No agents connected';
+        }
+    }
+
+    /**
+     * Cleanup tooltip event listeners
+     */
+    cleanupTooltipListeners() {
+        if (!this.tooltipListenersInitialized || !this.tooltipHandlers) {
+            return;
+        }
+
+        const tooltipWrapper = document.getElementById('agents-tooltip-wrapper');
+        const tooltip = document.getElementById('agents-tooltip');
         const totalAgentsCompact = document.getElementById('total-agents-compact');
 
-        if (totalAgentsCompact) {
-            totalAgentsCompact.textContent = agents.length;
-
-            // Create tooltip content with agent names grouped by status
-            const onlineAgents = agents.filter(agent => agent.personalStatus === 'online');
-            const offlineAgents = agents.filter(agent => agent.personalStatus === 'offline');
-
-            let tooltipContent = '';
-            if (onlineAgents.length > 0) {
-                tooltipContent += `Online (${onlineAgents.length}): ${onlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
-            }
-            if (offlineAgents.length > 0) {
-                if (tooltipContent) tooltipContent += '\n';
-                tooltipContent += `Offline (${offlineAgents.length}): ${offlineAgents.map(a => getAgentDisplayName(a)).join(', ')}`;
-            }
-            if (!tooltipContent) {
-                tooltipContent = 'No agents connected';
-            }
-
-            // Add tooltip to the agent count element
-            totalAgentsCompact.title = tooltipContent;
+        if (tooltipWrapper && tooltip && totalAgentsCompact) {
+            tooltipWrapper.removeEventListener('mouseenter', this.tooltipHandlers.wrapperEnter);
+            tooltipWrapper.removeEventListener('mouseleave', this.tooltipHandlers.wrapperLeave);
+            tooltip.removeEventListener('mouseenter', this.tooltipHandlers.tooltipEnter);
+            tooltip.removeEventListener('mouseleave', this.tooltipHandlers.tooltipLeave);
+            totalAgentsCompact.removeEventListener('focus', this.tooltipHandlers.compactFocus);
+            totalAgentsCompact.removeEventListener('blur', this.tooltipHandlers.compactBlur);
         }
-        
-        // Update old format (for compatibility if it exists elsewhere)
-        const container = document.getElementById('connected-agents');
-        const totalAgents = document.getElementById('total-agents');
-        
-        if (container && totalAgents) {
-            totalAgents.textContent = agents.length;
-            
-            container.innerHTML = agents.map(agent => `
-                <div class="flex items-center justify-between py-1 px-2 bg-white rounded text-xs">
-                    <div class="flex items-center gap-2">
-                        <div class="w-2 h-2 rounded-full ${agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400'}"></div>
-                        <span class="text-gray-700">${getAgentDisplayName(agent)}</span>
-                    </div>
-                    <span class="text-gray-500 capitalize">${agent.personalStatus || 'online'}</span>
-                </div>
-            `).join('');
-        }
+
+        this.tooltipHandlers = null;
+        this.tooltipListenersInitialized = false;
+        this.lastAgentListKey = null;
     }
 
 
@@ -1359,5 +1431,12 @@ window.openUserManagement = openUserManagement;
 
 // Initialize dashboard immediately when script loads (DOM is already ready at this point)
 console.log('🚀 Initializing Agent Dashboard...');
-new AgentDashboard();
+const dashboard = new AgentDashboard();
 console.log('✅ Dashboard initialized');
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (dashboard && dashboard.cleanupTooltipListeners) {
+        dashboard.cleanupTooltipListeners();
+    }
+});

@@ -36,7 +36,7 @@
  * - 'join-room': Generic room joining (for settings page)
  * - 'agent-typing': Agent typing indicator
  * - 'customer-typing': Customer typing indicator
- * - 'heartbeat': Keep-alive signal from agents
+ * - 'heartbeat': Keep-alive signal from agents (includes 'source' field: 'dashboard' or 'settings')
  * - 'request-current-state': Request current system state (agents, mode)
  * - 'disconnect': Client disconnection (handled by Socket.IO)
  *
@@ -52,9 +52,16 @@
  * - 'heartbeat-ack': Heartbeat acknowledgment
  * - 'current-state': Response to state request
  *
+ * Heartbeat Source Tracking (Issue #28 fix):
+ * - Dashboard heartbeats (source='dashboard'): Update agent status → marks as actively working
+ * - Settings heartbeats (source='settings'): Keep socket alive only → doesn't claim active work
+ * - This prevents agents browsing settings from being marked as handling conversations
+ * - Agents marked offline after 5 minutes without dashboard heartbeat (changed from 120 min)
+ * - Periodic broadcast (30s) ensures dashboards reflect timeout changes in real-time
+ *
  * Grace Period Handling:
  * - Agents are not immediately marked offline on disconnect
- * - Heartbeat timeout determines actual offline status
+ * - Heartbeat timeout (5 minutes) determines actual offline status
  * - Allows seamless reconnection when switching browser tabs
  *
  * Ticket Redistribution:
@@ -81,7 +88,9 @@ class WebSocketService {
     constructor(io) {
         this.io = io;
         this.logger = createLogger('websocketService');
+        this.broadcastInterval = null;
         this.setupSocketHandlers();
+        this.setupPeriodicBroadcast();
     }
 
     /**
@@ -215,16 +224,32 @@ class WebSocketService {
             });
             
             // Handle heartbeat to keep agent status updated
+            // Heartbeat source determines whether agent is actively working:
+            // - 'dashboard': Agent is actively handling conversations → update agent_status
+            // - 'settings': Agent is browsing settings → keep socket alive only
+            // - undefined/unknown: Backward compatibility → update agent_status (safe default)
             socket.on('heartbeat', async (data) => {
                 if (socket.agentId) {
                     try {
-                        // Update agent status timestamp to keep them "online"
-                        await agentService.updateAgentActivity(socket.agentId);
-                        
-                        // Send heartbeat acknowledgment
-                        socket.emit('heartbeat-ack', { 
+                        const source = data?.source ?? 'unknown';
+
+                        // Only update agent status if heartbeat is from dashboard
+                        // Settings heartbeats just keep socket alive without claiming "actively working"
+                        // This prevents agents from being marked as online when they're only in settings
+                        if (source === 'dashboard') {
+                            await agentService.updateAgentActivity(socket.agentId);
+                            console.log(`💓 Dashboard heartbeat from ${socket.agentId} - updating status`);
+                        } else if (source === 'settings') {
+                            console.log(`💓 Settings heartbeat from ${socket.agentId} - socket keepalive only`);
+                        } else {
+                            // Backward compatibility: unknown source defaults to updating status
+                            await agentService.updateAgentActivity(socket.agentId);
+                        }
+
+                        // Always send heartbeat acknowledgment
+                        socket.emit('heartbeat-ack', {
                             timestamp: new Date(),
-                            agentId: socket.agentId 
+                            agentId: socket.agentId
                         });
                     } catch (error) {
                         console.error('Error handling heartbeat for agent', socket.agentId, ':', error);
@@ -232,6 +257,39 @@ class WebSocketService {
                 }
             });
         });
+    }
+
+    /**
+     * Setup periodic broadcast of agent status
+     *
+     * Broadcasts connected-agents-update every 30 seconds to ensure dashboards
+     * reflect agent timeout changes (5-minute inactive threshold).
+     *
+     * Without this, agents who timeout are only removed from the list when
+     * another agent connects/disconnects, which could take hours in quiet periods.
+     *
+     * Interval matches frontend polling (AgentStatusModule: 30s) for consistency.
+     */
+    setupPeriodicBroadcast() {
+        this.broadcastInterval = setInterval(async () => {
+            try {
+                const connectedAgents = await agentService.getConnectedAgents();
+                this.io.to('agents').emit('connected-agents-update', { agents: connectedAgents });
+                console.log(`📊 Periodic agent status broadcast: ${connectedAgents.length} agents online`);
+            } catch (error) {
+                console.error('Error in periodic agent status broadcast:', error);
+            }
+        }, 30000); // 30 seconds
+    }
+
+    /**
+     * Cleanup method to stop periodic broadcasts
+     */
+    destroy() {
+        if (this.broadcastInterval) {
+            clearInterval(this.broadcastInterval);
+            this.broadcastInterval = null;
+        }
     }
 
     /**

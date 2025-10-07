@@ -249,9 +249,9 @@ class AgentController {
                 timestamp: new Date()
             });
             console.log('🔥 DEBUG: agent-sent-message event emitted to', socketsInRoom, 'sockets successfully');
-            
-            console.log(`Agent ${agentId} sent message to conversation ${conversationId}: ${message.substring(0, 50)}...`);
-            
+
+            console.log(`Agent ${agentId} sent message to conversation ${conversationId}: ${messageText.substring(0, 50)}...`);
+
             res.json({ success: true, message: agentMessage });
             
         } catch (error) {

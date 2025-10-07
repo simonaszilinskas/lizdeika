@@ -23,6 +23,7 @@
 const { PrismaClient } = require('@prisma/client');
 const { EventEmitter } = require('events');
 const { z } = require('zod');
+const { validateMarkdownText } = require('../utils/validation');
 const { createLogger } = require('../utils/logger');
 
 // Validation schemas for different setting types
@@ -32,7 +33,8 @@ const SETTING_SCHEMAS = {
         widget_primary_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color'),
         widget_allowed_domains: z.string().min(1),
         welcome_message: z.string().max(500).optional(),
-        user_message_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color').optional()
+        user_message_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Must be a valid hex color').optional(),
+        privacy_checkbox_text: z.string().min(1).max(500)
     },
     ai: {
         system_prompt: z.string().min(10).optional().or(z.literal('')),
@@ -92,6 +94,7 @@ const ENV_FALLBACKS = {
     widget_allowed_domains: process.env.WIDGET_ALLOWED_DOMAINS || '*',
     welcome_message: process.env.WELCOME_MESSAGE || 'Hello! How can I help you today?',
     user_message_color: process.env.USER_MESSAGE_COLOR || '#3b82f6',
+    privacy_checkbox_text: process.env.PRIVACY_CHECKBOX_TEXT || 'I agree to the Privacy Policy and Terms of Service.',
     system_prompt: process.env.SYSTEM_PROMPT || '',
     rag_k: parseInt(process.env.RAG_K) || 100,
     rag_similarity_threshold: parseFloat(process.env.RAG_SIMILARITY_THRESHOLD) || 0.7,
@@ -449,6 +452,11 @@ class SettingsService extends EventEmitter {
 
         try {
             schema.parse(value);
+
+            // Additional validation for privacy_checkbox_text to ensure URL safety
+            if (key === 'privacy_checkbox_text' && value) {
+                validateMarkdownText(value, 'privacy_checkbox_text');
+            }
         } catch (error) {
             throw new Error(`Invalid value for setting '${key}': ${error.message}`);
         }
@@ -503,7 +511,7 @@ class SettingsService extends EventEmitter {
     isPublicSetting(key, category) {
         // Most branding settings should be public for frontend access
         if (category === 'branding') {
-            return ['widget_name', 'widget_primary_color', 'welcome_message', 'user_message_color'].includes(key);
+            return ['widget_name', 'widget_primary_color', 'welcome_message', 'user_message_color', 'privacy_checkbox_text'].includes(key);
         }
         
         // AI settings should be accessible to admins for context engineering

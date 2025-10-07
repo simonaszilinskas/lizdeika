@@ -215,6 +215,82 @@ describe('ConversationFilter', () => {
         });
     });
 
+    describe('Search Filtering', () => {
+        test('should filter by conversation number', () => {
+            const testConversations = [
+                { id: '1', userNumber: 123, categoryData: null, lastMessage: null },
+                { id: '2', userNumber: 456, categoryData: null, lastMessage: null },
+                { id: '3', userNumber: 789, categoryData: null, lastMessage: null }
+            ];
+
+            const result = filter.applySearchFilter(testConversations, '45');
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe('2');
+        });
+
+        test('should filter by category name', () => {
+            const testConversations = [
+                { id: '1', userNumber: 1, categoryData: { name: 'Technical Support' }, lastMessage: null },
+                { id: '2', userNumber: 2, categoryData: { name: 'Billing' }, lastMessage: null },
+                { id: '3', userNumber: 3, categoryData: { name: 'General Inquiry' }, lastMessage: null }
+            ];
+
+            const result = filter.applySearchFilter(testConversations, 'billing');
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe('2');
+        });
+
+        test('should filter by last message content', () => {
+            const testConversations = [
+                { id: '1', userNumber: 1, categoryData: null, lastMessage: { content: 'Hello world' } },
+                { id: '2', userNumber: 2, categoryData: null, lastMessage: { content: 'Testing message' } },
+                { id: '3', userNumber: 3, categoryData: null, lastMessage: { content: 'Another test' } }
+            ];
+
+            const result = filter.applySearchFilter(testConversations, 'test');
+            expect(result).toHaveLength(2);
+            expect(result.map(c => c.id)).toEqual(['2', '3']);
+        });
+
+        test('should filter by all messages content', () => {
+            const testConversations = [
+                { id: '1', userNumber: 1, categoryData: null, lastMessage: null, messages: [
+                    { content: 'First message' },
+                    { content: 'Second message' }
+                ]},
+                { id: '2', userNumber: 2, categoryData: null, lastMessage: null, messages: [
+                    { content: 'Hello' },
+                    { content: 'Important issue here' }
+                ]},
+                { id: '3', userNumber: 3, categoryData: null, lastMessage: null, messages: [] }
+            ];
+
+            const result = filter.applySearchFilter(testConversations, 'important');
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe('2');
+        });
+
+        test('should return all conversations for empty search query', () => {
+            const testConversations = [
+                { id: '1', userNumber: 1, categoryData: null, lastMessage: null },
+                { id: '2', userNumber: 2, categoryData: null, lastMessage: null }
+            ];
+
+            const result = filter.applySearchFilter(testConversations, '');
+            expect(result).toHaveLength(2);
+        });
+
+        test('should be case insensitive', () => {
+            const testConversations = [
+                { id: '1', userNumber: 1, categoryData: { name: 'Technical Support' }, lastMessage: null }
+            ];
+
+            const result = filter.applySearchFilter(testConversations, 'TECHNICAL');
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe('1');
+        });
+    });
+
     describe('Combined Filtering', () => {
         test('should apply both archive and assignment filters', () => {
             const filters = {
@@ -222,7 +298,7 @@ describe('ConversationFilter', () => {
                 assignmentFilter: 'mine',
                 agentId: 'agent1'
             };
-            
+
             const result = filter.filterConversations(conversations, filters);
             expect(result).toHaveLength(1);
             expect(result[0].id).toBe('1');
@@ -234,10 +310,29 @@ describe('ConversationFilter', () => {
                 assignmentFilter: 'mine',
                 agentId: 'agent1'
             };
-            
+
             const result = filter.filterConversations(conversations, filters);
             expect(result).toHaveLength(2);
             expect(result.every(conv => conv.archived)).toBe(true);
+        });
+
+        test('should apply search filter with other filters', () => {
+            const testConversations = [
+                { id: '1', assignedAgent: 'agent1', archived: false, userNumber: 123, lastMessage: { content: 'hello' } },
+                { id: '2', assignedAgent: 'agent1', archived: false, userNumber: 456, lastMessage: { content: 'world' } },
+                { id: '3', assignedAgent: 'agent2', archived: false, userNumber: 789, lastMessage: { content: 'hello' } }
+            ];
+
+            const filters = {
+                archiveFilter: 'active',
+                assignmentFilter: 'mine',
+                agentId: 'agent1',
+                searchQuery: 'hello'
+            };
+
+            const result = filter.filterConversations(testConversations, filters);
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe('1');
         });
     });
 });

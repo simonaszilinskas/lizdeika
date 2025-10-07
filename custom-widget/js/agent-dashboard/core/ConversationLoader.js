@@ -88,6 +88,50 @@ class ConversationApiClient {
 class ConversationFilter {
     constructor(config = {}) {
         this.logger = config.logger || console;
+        this.maxMessagesToSearch = config.maxMessagesToSearch || 50;
+        this.searchCache = new Map();
+        this.cacheTTL = config.searchCacheTTL || 5000; // 5 seconds
+    }
+
+    /**
+     * Clear expired cache entries
+     */
+    clearExpiredCache() {
+        const now = Date.now();
+        for (const [key, value] of this.searchCache.entries()) {
+            if (now - value.timestamp > this.cacheTTL) {
+                this.searchCache.delete(key);
+            }
+        }
+    }
+
+    /**
+     * Get cached search result
+     */
+    getCachedResult(cacheKey) {
+        this.clearExpiredCache();
+        const cached = this.searchCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+            return cached.result;
+        }
+        return null;
+    }
+
+    /**
+     * Cache search result
+     */
+    setCachedResult(cacheKey, result) {
+        this.searchCache.set(cacheKey, {
+            result,
+            timestamp: Date.now()
+        });
+    }
+
+    /**
+     * Clear all search cache (used when conversations are updated)
+     */
+    clearSearchCache() {
+        this.searchCache.clear();
     }
 
     /**
@@ -124,17 +168,91 @@ class ConversationFilter {
     }
 
     /**
+     * Apply search filter with performance optimizations
+     *
+     * Performance features:
+     * - Caches search results for 5 seconds to avoid repeated scans
+     * - Limits message search to most recent N messages (configurable, default 50)
+     * - Early exits for empty message arrays
+     *
+     * TODO: For large-scale deployments (>1000 conversations or >100 messages/conversation),
+     * consider moving search to backend with database full-text indexing (PostgreSQL tsvector)
+     */
+    applySearchFilter(conversations, searchQuery) {
+        if (!searchQuery || searchQuery.trim() === '') {
+            this.searchCache.clear(); // Clear cache when search is cleared
+            return conversations;
+        }
+
+        const query = searchQuery.toLowerCase().trim();
+
+        // Check cache first
+        const cacheKey = `${query}:${conversations.map(c => c.id).join(',')}`;
+        const cachedResult = this.getCachedResult(cacheKey);
+        if (cachedResult) {
+            this.logger.log('🎯 Using cached search result');
+            return cachedResult;
+        }
+
+        const result = conversations.filter(conv => {
+            // Search in conversation number
+            const userNumber = String(conv.userNumber || '').toLowerCase();
+            if (userNumber.includes(query)) {
+                return true;
+            }
+
+            // Search in category name
+            if (conv.categoryData && conv.categoryData.name) {
+                const categoryName = conv.categoryData.name.toLowerCase();
+                if (categoryName.includes(query)) {
+                    return true;
+                }
+            }
+
+            // Search in last message content
+            if (conv.lastMessage && conv.lastMessage.content) {
+                const messageContent = conv.lastMessage.content.toLowerCase();
+                if (messageContent.includes(query)) {
+                    return true;
+                }
+            }
+
+            // Search in recent messages (limited to maxMessagesToSearch for performance)
+            if (conv.messages && Array.isArray(conv.messages) && conv.messages.length > 0) {
+                // Limit search to most recent N messages
+                const messagesToSearch = conv.messages.slice(0, this.maxMessagesToSearch);
+                const hasMatchingMessage = messagesToSearch.some(msg =>
+                    msg.content && msg.content.toLowerCase().includes(query)
+                );
+                if (hasMatchingMessage) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        // Cache the result
+        this.setCachedResult(cacheKey, result);
+
+        return result;
+    }
+
+    /**
      * Apply all filters
      */
     filterConversations(conversations, filters) {
-        const { archiveFilter, assignmentFilter, agentId } = filters;
-        
+        const { archiveFilter, assignmentFilter, agentId, searchQuery } = filters;
+
         let filtered = this.applyArchiveFilter(conversations, archiveFilter);
-        
+
         // Don't apply assignment filters to archived conversations
         if (archiveFilter !== 'archived') {
             filtered = this.applyAssignmentFilter(filtered, assignmentFilter, agentId);
         }
+
+        // Apply search filter
+        filtered = this.applySearchFilter(filtered, searchQuery);
 
         this.logger.log(`🔍 Filtered ${conversations.length} → ${filtered.length} conversations`);
         return filtered;
@@ -270,7 +388,10 @@ class ConversationLoader {
             // Fetch data
             const conversations = await this.apiClient.fetchConversations();
             this.allConversations = conversations;
-            
+
+            // Clear search cache when conversations are refreshed
+            this.filter.clearSearchCache();
+
             // Apply filters and sorting
             this.applyFiltersAndSort(filters);
             
