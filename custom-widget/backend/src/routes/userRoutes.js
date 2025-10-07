@@ -5,16 +5,16 @@
 
 const express = require('express');
 const userController = require('../controllers/userController');
-const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
+const { authenticateToken, requireAdmin, authenticate2FASetupToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticateToken);
+// Self-service 2FA routes (accepts both setup tokens and regular tokens)
+router.post('/:id/totp/initiate', authenticate2FASetupToken, userController.initiateTOTP);
+router.post('/:id/totp/verify', authenticate2FASetupToken, userController.verifyTOTP);
 
-// Self-service 2FA routes (any authenticated user for their own account)
-router.post('/:id/totp/initiate', userController.initiateTOTP);
-router.post('/:id/totp/verify', userController.verifyTOTP);
+// All other routes require full authentication
+router.use(authenticateToken);
 
 // Admin-only routes
 router.use(requireAdmin);

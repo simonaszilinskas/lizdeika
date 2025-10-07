@@ -782,6 +782,14 @@ class UserController {
             });
         }
 
+        // Check authorization: user must be owner or admin
+        if (req.user.id !== user.id && req.user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                error: 'Forbidden: You can only regenerate your own backup codes'
+            });
+        }
+
         if (!user.totp_enabled) {
             return res.status(400).json({
                 success: false,

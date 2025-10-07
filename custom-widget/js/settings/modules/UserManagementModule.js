@@ -177,10 +177,11 @@ export class UserManagementModule {
         // Specific close button handlers for 2FA modals
         const totpCloseBtn = document.getElementById('close-totp-modal');
         const totpCancelBtn = document.getElementById('cancel-totp-setup');
+        const totpVerifyBtn = document.getElementById('verify-totp-button');
         const backupCloseBtn = document.getElementById('close-backup-codes-modal');
         const backupDoneBtn = document.getElementById('close-backup-codes');
 
-        [totpCloseBtn, totpCancelBtn].forEach(btn => {
+        [totpCloseBtn, totpCancelBtn, totpVerifyBtn].forEach(btn => {
             if (btn) {
                 const handler = () => this.hideModal(this.elements.totpSetupModal);
                 btn.addEventListener('click', handler);
@@ -195,6 +196,26 @@ export class UserManagementModule {
                 this.eventListeners.push({ element: btn, event: 'click', handler });
             }
         });
+
+        // Password modal close buttons
+        const passwordCloseBtn = document.getElementById('close-password-modal');
+        const passwordModalCloseBtn = document.getElementById('password-modal-close');
+
+        [passwordCloseBtn, passwordModalCloseBtn].forEach(btn => {
+            if (btn) {
+                const handler = () => this.hideModal(this.elements.newPasswordModal);
+                btn.addEventListener('click', handler);
+                this.eventListeners.push({ element: btn, event: 'click', handler });
+            }
+        });
+
+        // Copy password button
+        const copyPasswordBtn = document.getElementById('copy-password');
+        if (copyPasswordBtn) {
+            const handler = () => this.copyPasswordToClipboard();
+            copyPasswordBtn.addEventListener('click', handler);
+            this.eventListeners.push({ element: copyPasswordBtn, event: 'click', handler });
+        }
     }
 
     /**
@@ -418,14 +439,14 @@ export class UserManagementModule {
             
             if (response.ok) {
                 const result = await response.json();
-                
+
                 Toast.success('Password regenerated successfully', '');
-                
+
                 // Show new password modal
-                if (result.data && result.data.password) {
-                    this.showNewPasswordModal(result.data.password);
+                if (result.data && result.data.newPassword) {
+                    this.showNewPasswordModal(result.data.newPassword);
                 }
-                
+
                 console.log('✅ UserManagementModule: Password regenerated successfully');
                 
             } else {
@@ -594,11 +615,32 @@ export class UserManagementModule {
     showNewPasswordModal(password) {
         const passwordElement = document.getElementById('generated-password');
         if (passwordElement) {
-            passwordElement.value = password;
+            passwordElement.textContent = password;
         }
-        
+
         this.showModal(this.elements.newPasswordModal);
         console.log('📱 UserManagementModule: New password modal opened');
+    }
+
+    /**
+     * Copy password to clipboard
+     */
+    async copyPasswordToClipboard() {
+        const passwordElement = document.getElementById('generated-password');
+        if (!passwordElement) {
+            return;
+        }
+
+        const password = passwordElement.textContent;
+
+        try {
+            await navigator.clipboard.writeText(password);
+            Toast.success('Password copied to clipboard', '');
+            console.log('✅ UserManagementModule: Password copied to clipboard');
+        } catch (error) {
+            console.error('❌ UserManagementModule: Failed to copy password:', error);
+            Toast.error('Failed to copy password', '');
+        }
     }
 
     /**

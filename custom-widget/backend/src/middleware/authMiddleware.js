@@ -300,6 +300,87 @@ const requireOnlineAgent = (req, res, next) => {
   next();
 };
 
+/**
+ * Authenticate 2FA setup token (allows users without full auth to complete mandatory 2FA setup)
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+const authenticate2FASetupToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = tokenUtils.extractTokenFromHeader(authHeader);
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Setup token required',
+        code: 'TOKEN_MISSING',
+      });
+    }
+
+    // Try to verify as setup token first
+    let decoded;
+    try {
+      decoded = tokenUtils.verify2FASetupToken(token);
+    } catch (setupError) {
+      // If setup token fails, try regular access token (for already-auth'd users)
+      try {
+        decoded = tokenUtils.verifyAccessToken(token);
+      } catch (accessError) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid or expired token',
+          code: 'TOKEN_INVALID',
+        });
+      }
+    }
+
+    // Get user from database
+    const db = databaseClient.getClient();
+    const user = await db.users.findUnique({
+      where: { id: decoded.sub },
+      select: {
+        id: true,
+        email: true,
+        first_name: true,
+        last_name: true,
+        role: true,
+        is_active: true,
+        totp_enabled: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not found',
+        code: 'USER_NOT_FOUND',
+      });
+    }
+
+    if (!user.is_active) {
+      return res.status(401).json({
+        success: false,
+        error: 'Account deactivated',
+        code: 'ACCOUNT_DEACTIVATED',
+      });
+    }
+
+    // Attach user to request
+    req.user = user;
+    next();
+
+  } catch (error) {
+    console.error('2FA setup authentication error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Authentication failed',
+      code: 'AUTH_ERROR',
+    });
+  }
+};
+
 module.exports = {
   authenticateToken,
   optionalAuth,
@@ -311,4 +392,5 @@ module.exports = {
   requireOwnershipOrAdmin,
   requireOnlineAgent,
   authRateLimit,
+  authenticate2FASetupToken,
 };

@@ -76,9 +76,12 @@ const databaseClient = require('../utils/database');
 const tokenUtils = require('../utils/tokenUtils');
 const passwordUtils = require('../utils/passwordUtils');
 const totpUtils = require('../utils/totpUtils');
-const settingsService = require('./settingsService');
+const SettingsService = require('./settingsService');
 const { v4: uuidv4 } = require('uuid');
 const { createLogger } = require('../utils/logger');
+
+// Create singleton instance of SettingsService
+const settingsService = new SettingsService();
 
 class AuthService {
   constructor() {
@@ -213,6 +216,8 @@ class AuthService {
 
     const { email, password, totpCode, backupCode } = credentials;
 
+    console.log('🔍 Login attempt for email:', email);
+
     // Find user by email
     const user = await this.db.users.findUnique({
       where: { email },
@@ -220,6 +225,12 @@ class AuthService {
         agent_status: true,
       },
     });
+
+    console.log('🔍 User found:', user ? 'YES' : 'NO');
+    if (user) {
+      console.log('🔍 User ID:', user.id);
+      console.log('🔍 User has password hash:', user.password_hash ? 'YES' : 'NO');
+    }
 
     if (!user) {
       throw new Error('Invalid email or password');
@@ -241,8 +252,13 @@ class AuthService {
 
     // If policy requires 2FA for all users and user doesn't have it enabled, force setup
     if (require2FAForAll === true && !user.totp_enabled) {
+      // Generate a short-lived setup token so user can complete 2FA enrollment
+      const setupToken = tokenUtils.generate2FASetupToken(user.id, user.email, user.role);
+
       return {
         requires2FASetup: true,
+        setupToken,
+        tokenType: 'Bearer',
         userId: user.id,
         email: user.email,
         message: 'Your organization requires two-factor authentication. Please set up 2FA to continue.',

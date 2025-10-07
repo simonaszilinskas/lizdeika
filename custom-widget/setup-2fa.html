@@ -191,25 +191,55 @@
         let userId = null;
         let userEmail = null;
         let backupCodes = [];
+        let authToken = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Check if user is logged in
-            const token = localStorage.getItem('agent_token');
+            // Check for setup token (mandatory 2FA) or regular token (optional setup)
+            const setupToken = sessionStorage.getItem('setup_token');
+            const agentToken = localStorage.getItem('agent_token');
+            authToken = setupToken || agentToken;
+
+            // Check for user data from either source
+            const pendingSetupData = sessionStorage.getItem('pending_2fa_setup');
             const userData = localStorage.getItem('user_data');
 
-            if (!token || !userData) {
+            // Check if mandatory setup from query parameter
+            const params = new URLSearchParams(window.location.search);
+            const mandatory = params.get('mandatory') === 'true';
+
+            if (!authToken) {
                 window.location.href = 'login.html';
                 return;
             }
 
-            const user = JSON.parse(userData);
-            userId = user.id;
-            userEmail = user.email;
+            // Get user info from either source
+            if (pendingSetupData) {
+                // Mandatory setup from login
+                const pending = JSON.parse(pendingSetupData);
+                userId = pending.userId;
+                userEmail = pending.email;
+            } else if (userData) {
+                // Optional setup for already-authenticated user
+                const user = JSON.parse(userData);
+                userId = user.id;
+                userEmail = user.email;
 
-            // Check if user already has 2FA enabled
-            if (user.totp_enabled) {
-                window.location.href = 'agent-dashboard.html';
+                // Check if user already has 2FA enabled
+                if (user.totp_enabled) {
+                    window.location.href = 'agent-dashboard.html';
+                    return;
+                }
+            } else {
+                window.location.href = 'login.html';
                 return;
+            }
+
+            // Hide skip option if mandatory
+            if (mandatory) {
+                const skipOption = document.getElementById('skipOption');
+                if (skipOption) {
+                    skipOption.classList.add('hidden');
+                }
             }
 
             // Initialize 2FA setup
@@ -227,7 +257,7 @@
                 const response = await fetch(`${apiUrl}/api/users/${userId}/totp/initiate`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     }
                 });
@@ -275,7 +305,7 @@
                 const response = await fetch(`${apiUrl}/api/users/${userId}/totp/verify`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                        'Authorization': `Bearer ${authToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ code })
@@ -284,10 +314,13 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Update user data in localStorage
-                    const userData = JSON.parse(localStorage.getItem('user_data'));
-                    userData.totp_enabled = true;
-                    localStorage.setItem('user_data', JSON.stringify(userData));
+                    // Update user data in localStorage if it exists
+                    const userData = localStorage.getItem('user_data');
+                    if (userData) {
+                        const user = JSON.parse(userData);
+                        user.totp_enabled = true;
+                        localStorage.setItem('user_data', JSON.stringify(user));
+                    }
 
                     // Show backup codes (use stored codes from initiate response)
                     showBackupCodes(backupCodes);
@@ -342,7 +375,18 @@
         }
 
         function finishSetup() {
-            window.location.href = 'agent-dashboard.html';
+            // Clean up setup token and session data
+            sessionStorage.removeItem('setup_token');
+            sessionStorage.removeItem('pending_2fa_setup');
+
+            // If this was mandatory setup, redirect to login to get full tokens
+            if (!localStorage.getItem('agent_token')) {
+                alert('2FA setup complete! Please log in again with your password and 2FA code.');
+                window.location.href = 'login.html';
+            } else {
+                // Optional setup for already-authenticated user
+                window.location.href = 'agent-dashboard.html';
+            }
         }
 
         function remindLater() {

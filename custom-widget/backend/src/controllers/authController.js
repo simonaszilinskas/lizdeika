@@ -88,6 +88,8 @@ class AuthController {
           success: true,
           requires2FASetup: true,
           message: result.message,
+          setupToken: result.setupToken,
+          tokenType: result.tokenType,
           data: {
             userId: result.userId,
             email: result.email,
@@ -109,7 +111,7 @@ class AuthController {
 
         return res.status(200).json({
           success: true,
-          requiresTwoFactor: true,
+          requiresTotp: true,
           message: 'Two-factor authentication required',
           data: {
             email: result.email,

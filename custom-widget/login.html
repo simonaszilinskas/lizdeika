@@ -173,7 +173,8 @@
                 if (response.ok) {
                     // Check if 2FA setup is mandatory (organization policy)
                     if (data.requires2FASetup) {
-                        // Store user info temporarily for 2FA setup
+                        // Store setup token and user info for 2FA setup
+                        sessionStorage.setItem('setup_token', data.setupToken);
                         sessionStorage.setItem('pending_2fa_setup', JSON.stringify({
                             userId: data.data.userId,
                             email: data.data.email
@@ -190,7 +191,7 @@
                     }
 
                     // Check if 2FA is required
-                    if (data.requiresTwoFactor) {
+                    if (data.requiresTotp) {
                         pendingCredentials = { email, password };
                         show2FAForm(true);
                         return;
