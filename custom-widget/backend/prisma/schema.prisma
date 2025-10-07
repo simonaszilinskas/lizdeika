@@ -43,21 +43,6 @@ model refresh_tokens {
   users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
-model response_templates {
-  id                                         String   @id
-  title                                      String
-  content                                    String
-  created_by                                 String
-  updated_by                                 String?
-  is_active                                  Boolean  @default(true)
-  created_at                                 DateTime @default(now())
-  updated_at                                 DateTime
-  users_response_templates_created_byTousers users    @relation("response_templates_created_byTousers", fields: [created_by], references: [id])
-  users_response_templates_updated_byTousers users?   @relation("response_templates_updated_byTousers", fields: [updated_by], references: [id])
-
-  @@index([created_by])
-  @@index([is_active])
-}
 
 model system_logs {
   id         String   @id
