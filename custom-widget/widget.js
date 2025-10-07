@@ -51,6 +51,7 @@
         },
         privacyAccepted: false,
         privacyCheckboxText: '',
+        initialMessagesLoaded: false,
 
         init: function(options) {
             Object.assign(this.config, options);
@@ -64,6 +65,7 @@
         },
 
         createWidget: function() {
+            const srOnlyStyle = 'position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;';
             const widgetHTML = `
                 <div id="vilnius-chat-container" style="
                     position: fixed;
@@ -72,7 +74,7 @@
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 ">
                     <!-- Chat Bubble -->
-                    <button id="vilnius-chat-bubble" style="
+                    <button id="vilnius-chat-bubble" type="button" aria-label="Atidaryti pokalbių langą" aria-haspopup="dialog" aria-controls="vilnius-chat-window" aria-expanded="false" style="
                         width: 60px;
                         height: 60px;
                         border-radius: 50%;
@@ -85,6 +87,7 @@
                         justify-content: center;
                         transition: transform 0.3s ease;
                     ">
+                        <span class="vilnius-sr-only" style="${srOnlyStyle}">Atidaryti pokalbių langą</span>
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="white">
                             <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L1 23l6.71-1.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.41 0-2.73-.36-3.88-.99l-.28-.15-2.9.85.85-2.9-.15-.28C4.36 14.73 4 13.41 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
                             <path d="M7 9h10v2H7zm0 3h7v2H7z"/>
@@ -104,7 +107,7 @@
                         box-shadow: 0 10px 40px rgba(0,0,0,0.15);
                         overflow: hidden;
                         flex-direction: column;
-                    ">
+                    " role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="vilnius-chat-title" tabindex="-1">
                         <!-- Privacy Gate Overlay (shown initially) -->
                         <div id="vilnius-privacy-gate" style="
                             display: flex;
@@ -118,7 +121,7 @@
                             justify-content: center;
                             padding: 40px 32px;
                             background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-                        ">
+                        " aria-hidden="false">
                             <div style="
                                 text-align: center;
                                 max-width: 320px;
@@ -193,7 +196,7 @@
                                 </div>
 
                                 <!-- Start Chat Button -->
-                                <button id="vilnius-start-chat-btn" disabled style="
+                                <button id="vilnius-start-chat-btn" type="button" disabled aria-disabled="true" aria-describedby="vilnius-privacy-text" style="
                                     width: 100%;
                                     padding: 14px 24px;
                                     background: ${this.config.theme.primaryColor};
@@ -221,7 +224,7 @@
                             right: 0;
                             bottom: 0;
                             flex-direction: column;
-                        ">
+                        " aria-hidden="true">
                             <!-- Header -->
                             <div style="
                                 background: ${this.config.theme.primaryColor};
@@ -232,9 +235,9 @@
                                 align-items: center;
                             ">
                                 <div>
-                                    <h3 style="margin: 0; font-size: 15px;">Pagalbos asistentas</h3>
+                                    <h3 id="vilnius-chat-title" style="margin: 0; font-size: 15px;">Pagalbos asistentas</h3>
                                 </div>
-                                <button id="vilnius-close-chat" style="
+                                <button id="vilnius-close-chat" type="button" aria-label="Uždaryti pokalbių langą" style="
                                     background: none;
                                     border: none;
                                     color: white;
@@ -248,7 +251,7 @@
                             </div>
 
                             <!-- Messages Container -->
-                            <div id="vilnius-messages" style="
+                            <div id="vilnius-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Pokalbio pranešimai" tabindex="0" style="
                                 flex: 1;
                                 overflow-y: auto;
                                 padding: 20px;
@@ -261,8 +264,8 @@
                                     font-size: 14px;
                                     font-style: italic;
                                     color: #6b7280;
-                                ">Agentas rašo...</div>
-                                <div class="vilnius-message vilnius-ai" style="
+                                " role="status" aria-live="polite">Agentas rašo...</div>
+                                <div class="vilnius-message vilnius-ai" role="article" aria-label="Pagalbos asistento pranešimas" style="
                                     margin-bottom: 16px;
                                     display: flex;
                                     align-items: flex-start;
@@ -298,7 +301,7 @@
                                     style="display: none;"
                                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
                                 />
-                                <button type="button" id="vilnius-attach-button" style="
+                                <button type="button" id="vilnius-attach-button" aria-label="Pridėti failą" style="
                                     background: none;
                                     border: none;
                                     color: #6b7280;
@@ -317,6 +320,7 @@
                                     id="vilnius-chat-input"
                                     type="text"
                                     placeholder="Rašykite savo pranešimą..."
+                                    aria-label="Rašykite savo pranešimą"
                                     style="
                                         flex: 1;
                                         padding: 12px 16px;
@@ -327,7 +331,7 @@
                                         transition: border-color 0.3s;
                                     "
                                 />
-                                <button id="vilnius-send-button" type="submit" style="
+                                <button id="vilnius-send-button" type="submit" aria-label="Siųsti pranešimą" style="
                                     background: ${this.config.theme.primaryColor};
                                     color: white;
                                     border: none;
@@ -345,7 +349,7 @@
                                     </svg>
                                 </button>
                             </form>
-                            <div id="vilnius-file-preview" style="
+                            <div id="vilnius-file-preview" role="status" aria-live="polite" style="
                                 margin-top: 8px;
                                 display: none;
                                 padding: 8px;
@@ -356,6 +360,7 @@
                             </div>
                         </div>
                     </div>
+                    <div id="vilnius-live-region" role="status" aria-live="polite" aria-atomic="false" style="${srOnlyStyle}"></div>
                 </div>
             `;
 
@@ -368,7 +373,6 @@
             const closeBtn = document.getElementById('vilnius-close-chat');
             const form = document.getElementById('vilnius-chat-form');
             const input = document.getElementById('vilnius-chat-input');
-            const sendButton = document.getElementById('vilnius-send-button');
             const attachButton = document.getElementById('vilnius-attach-button');
             const fileInput = document.getElementById('vilnius-file-input');
             const filePreview = document.getElementById('vilnius-file-preview');
@@ -376,12 +380,23 @@
             const startChatBtn = document.getElementById('vilnius-start-chat-btn');
             const privacyGate = document.getElementById('vilnius-privacy-gate');
             const chatInterface = document.getElementById('vilnius-chat-interface');
+            const liveRegion = document.getElementById('vilnius-live-region');
+
+            if (!bubble || !chatWindow || !closeBtn || !form || !input || !attachButton || !fileInput || !filePreview) {
+                return;
+            }
+
+            const updateStartChatAccessibility = () => {
+                if (!startChatBtn) return;
+                startChatBtn.setAttribute('aria-disabled', this.privacyAccepted ? 'false' : 'true');
+            };
 
             // Privacy checkbox handler - enables Start Chat button
             if (privacyCheckbox && startChatBtn) {
                 privacyCheckbox.addEventListener('change', () => {
                     this.privacyAccepted = privacyCheckbox.checked;
                     startChatBtn.disabled = !this.privacyAccepted;
+                    updateStartChatAccessibility();
 
                     if (this.privacyAccepted) {
                         startChatBtn.style.opacity = '1';
@@ -393,6 +408,8 @@
                         startChatBtn.style.transform = 'scale(1)';
                     }
                 });
+
+                updateStartChatAccessibility();
             }
 
             // Start Chat button - shows chat interface
@@ -400,21 +417,57 @@
                 startChatBtn.addEventListener('click', () => {
                     if (this.privacyAccepted) {
                         privacyGate.style.display = 'none';
+                        privacyGate.setAttribute('aria-hidden', 'true');
                         chatInterface.style.display = 'flex';
-                        if (input) input.focus();
+                        chatInterface.setAttribute('aria-hidden', 'false');
+                        if (input) {
+                            input.focus();
+                        }
                     }
                 });
             }
 
             bubble.addEventListener('click', () => {
-                chatWindow.style.display = chatWindow.style.display === 'none' ? 'flex' : 'none';
-                if (chatWindow.style.display === 'flex') {
-                    input.focus();
+                if (chatWindow.getAttribute('aria-hidden') === 'true') {
+                    this.openChatWindow();
+                } else {
+                    this.closeChatWindow();
                 }
             });
 
             closeBtn.addEventListener('click', () => {
-                chatWindow.style.display = 'none';
+                this.closeChatWindow();
+            });
+
+            chatWindow.addEventListener('keydown', (event) => {
+                if (chatWindow.getAttribute('aria-hidden') === 'true') {
+                    return;
+                }
+
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    this.closeChatWindow();
+                    return;
+                }
+
+                if (event.key === 'Tab') {
+                    const focusableElements = this.getFocusableElements(chatWindow);
+                    if (focusableElements.length === 0) return;
+
+                    const firstElement = focusableElements[0];
+                    const lastElement = focusableElements[focusableElements.length - 1];
+                    const activeElement = document.activeElement;
+
+                    if (event.shiftKey) {
+                        if (activeElement === firstElement) {
+                            event.preventDefault();
+                            lastElement.focus();
+                        }
+                    } else if (activeElement === lastElement) {
+                        event.preventDefault();
+                        firstElement.focus();
+                    }
+                }
             });
 
             // File attachment handling
@@ -430,7 +483,7 @@
                     filePreview.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span>📎 ${file.name}</span>
-                            <button type="button" id="vilnius-remove-file" style="
+                            <button type="button" id="vilnius-remove-file" aria-label="Pašalinti priedą" style="
                                 background: none;
                                 border: none;
                                 color: #ef4444;
@@ -444,7 +497,16 @@
                         this.selectedFile = null;
                         fileInput.value = '';
                         filePreview.style.display = 'none';
+                        if (liveRegion) {
+                            liveRegion.textContent = '';
+                            liveRegion.textContent = 'Priedas pašalintas.';
+                        }
                     });
+
+                    if (liveRegion) {
+                        liveRegion.textContent = '';
+                        liveRegion.textContent = `Prisegtas failas ${file.name}`;
+                    }
                 }
             });
 
@@ -457,6 +519,10 @@
                     this.selectedFile = null;
                     fileInput.value = '';
                     filePreview.style.display = 'none';
+                    if (liveRegion) {
+                        liveRegion.textContent = '';
+                        liveRegion.textContent = 'Failas išsiųstas.';
+                    }
                 } else if (message) {
                     await this.sendMessage(message);
                 }
@@ -492,6 +558,145 @@
             input.addEventListener('blur', () => {
                 input.style.borderColor = '#e5e7eb';
             });
+        },
+
+        openChatWindow() {
+            const chatWindow = document.getElementById('vilnius-chat-window');
+            const bubble = document.getElementById('vilnius-chat-bubble');
+            const privacyGate = document.getElementById('vilnius-privacy-gate');
+            const privacyCheckbox = document.getElementById('vilnius-privacy-checkbox');
+            const startChatBtn = document.getElementById('vilnius-start-chat-btn');
+            const chatInterface = document.getElementById('vilnius-chat-interface');
+            const input = document.getElementById('vilnius-chat-input');
+
+            if (!chatWindow || !bubble) return;
+
+            chatWindow.style.display = 'flex';
+            chatWindow.setAttribute('aria-hidden', 'false');
+            bubble.setAttribute('aria-expanded', 'true');
+            if (privacyGate) {
+                privacyGate.setAttribute('aria-hidden', privacyGate.style.display === 'none' ? 'true' : 'false');
+            }
+            if (chatInterface) {
+                chatInterface.setAttribute('aria-hidden', chatInterface.style.display === 'none' ? 'true' : 'false');
+            }
+
+            if (privacyGate && privacyGate.style.display !== 'none') {
+                const focusTarget = privacyCheckbox || startChatBtn || chatWindow;
+                if (focusTarget && typeof focusTarget.focus === 'function') {
+                    focusTarget.focus();
+                }
+            } else if (chatInterface && chatInterface.style.display !== 'none' && input) {
+                input.focus();
+            } else {
+                chatWindow.focus();
+            }
+        },
+
+        closeChatWindow() {
+            const chatWindow = document.getElementById('vilnius-chat-window');
+            const bubble = document.getElementById('vilnius-chat-bubble');
+
+            if (!chatWindow || !bubble) return;
+
+            chatWindow.style.display = 'none';
+            chatWindow.setAttribute('aria-hidden', 'true');
+            bubble.setAttribute('aria-expanded', 'false');
+            bubble.focus();
+        },
+
+        getFocusableElements(container) {
+            if (!container) return [];
+            const focusableSelectors = [
+                'a[href]',
+                'area[href]',
+                'button:not([disabled])',
+                'input:not([disabled])',
+                'select:not([disabled])',
+                'textarea:not([disabled])',
+                '[tabindex]:not([tabindex="-1"])'
+            ];
+
+            return Array.from(container.querySelectorAll(focusableSelectors.join(',')))
+                .filter(el => {
+                    if (el.getAttribute('aria-hidden') === 'true') {
+                        return false;
+                    }
+
+                    const style = window.getComputedStyle(el);
+                    return style.display !== 'none' && style.visibility !== 'hidden';
+                });
+        },
+
+        getAccessibleSenderInfo(sender) {
+            switch (sender) {
+                case 'visitor':
+                case 'user':
+                    return {
+                        ariaLabel: 'Jūsų pranešimas',
+                        announcement: 'Jūs'
+                    };
+                case 'agent':
+                    return {
+                        ariaLabel: 'Agento pranešimas',
+                        announcement: 'Agentas'
+                    };
+                default:
+                    return {
+                        ariaLabel: 'Pagalbos asistento pranešimas',
+                        announcement: 'Pagalbos asistentas'
+                    };
+            }
+        },
+
+        announceNewMessage(message) {
+            const liveRegion = document.getElementById('vilnius-live-region');
+            if (!liveRegion) return;
+            if (!message || typeof message !== 'object') return;
+
+            const senderInfo = this.getAccessibleSenderInfo(message.sender);
+            let announcementText = '';
+
+            if (message.metadata && message.metadata.file) {
+                const filename = message.metadata.file.filename || message.metadata.file.originalname || 'failas';
+                announcementText = `pridėtas failas ${filename}`;
+            } else if (message.content) {
+                announcementText = this.stripMarkdown(message.content);
+            } else if (message.text) {
+                announcementText = this.stripMarkdown(message.text);
+            }
+
+            if (!announcementText) {
+                announcementText = 'naujas pranešimas';
+            }
+
+            liveRegion.textContent = '';
+            liveRegion.textContent = `${senderInfo.announcement}: ${announcementText}`;
+        },
+
+        stripMarkdown(text) {
+            if (text === null || text === undefined) {
+                return '';
+            }
+
+            let content = text;
+            if (typeof content === 'object' && content.response) {
+                content = content.response;
+            }
+
+            if (typeof content !== 'string') {
+                content = String(content);
+            }
+
+            return content
+                .replace(/!\[[^\]]*\]\([^\)]*\)/g, '') // Remove images
+                .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Links to text
+                .replace(/^>\s?/gm, '') // Blockquotes
+                .replace(/^#{1,6}\s*/gm, '') // Headings
+                .replace(/^\s*[-+*]\s+/gm, '') // List markers
+                .replace(/[*_`~]/g, '') // Emphasis markers
+                .replace(/\s+/g, ' ')
+                .trim();
         },
 
         initializeWebSocket: function() {
@@ -699,30 +904,42 @@
                 });
             }
             
+            const shouldAnnounce = this.initialMessagesLoaded;
+
             // Only add new messages that haven't been displayed yet
             visibleMessages.forEach(msg => {
                 // Check both ID and content to prevent duplicates
-                const isDuplicate = existingMessageIds.has(msg.id) || 
+                const isDuplicate = existingMessageIds.has(msg.id) ||
                     existingMessages.some(el => {
                         const elContent = el.textContent?.trim();
-                        const elSender = el.classList.contains('vilnius-user') ? 'visitor' : 
+                        const elSender = el.classList.contains('vilnius-user') ? 'visitor' :
                                         el.classList.contains('vilnius-ai') ? 'ai' : 'agent';
                         // Check if same content and sender (and not system messages)
                         return elContent === msg.content && elSender === msg.sender && msg.content.length > 0;
                     });
-                    
+
                 if (!isDuplicate) {
                     const messageEl = this.createMessageElement(msg);
                     messagesContainer.appendChild(messageEl);
                     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    if (shouldAnnounce) {
+                        this.announceNewMessage(msg);
+                    }
                 }
             });
+
+            if (!this.initialMessagesLoaded) {
+                this.initialMessagesLoaded = true;
+            }
         },
-        
+
         createMessageElement(msg) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `vilnius-message vilnius-${msg.sender === 'visitor' ? 'user' : 'ai'}`;
             messageDiv.setAttribute('data-message-id', msg.id);
+            const senderInfo = this.getAccessibleSenderInfo(msg.sender);
+            messageDiv.setAttribute('role', 'article');
+            messageDiv.setAttribute('aria-label', senderInfo.ariaLabel);
             messageDiv.style.cssText = `
                 margin-bottom: 16px;
                 display: flex;
@@ -1033,7 +1250,10 @@
             const messagesContainer = document.getElementById('vilnius-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = `vilnius-message vilnius-${sender}`;
-            
+            const senderInfo = this.getAccessibleSenderInfo(sender);
+            messageDiv.setAttribute('role', 'article');
+            messageDiv.setAttribute('aria-label', senderInfo.ariaLabel);
+
             // Add message ID if provided
             if (messageId) {
                 messageDiv.setAttribute('data-message-id', messageId);
@@ -1072,6 +1292,12 @@
 
             messagesContainer.appendChild(messageDiv);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            this.announceNewMessage({
+                sender,
+                content: text,
+                metadata: messageMetadata
+            });
         },
 
         showTypingIndicator() {
@@ -1081,7 +1307,10 @@
             typingDiv.id = id;
             typingDiv.className = 'vilnius-message vilnius-ai';
             typingDiv.style.cssText = 'margin-bottom: 16px; display: flex; align-items: flex-start;';
-            
+            typingDiv.setAttribute('role', 'status');
+            typingDiv.setAttribute('aria-live', 'polite');
+            typingDiv.setAttribute('aria-label', 'Agentas rašo');
+
             typingDiv.innerHTML = `
                 <div style="
                     background: white;
