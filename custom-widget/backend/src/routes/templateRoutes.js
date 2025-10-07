@@ -84,6 +84,20 @@ router.post('/', authenticateToken, requireAgent, requireAdmin, async (req, res)
             });
         }
 
+        if (title.length > 200) {
+            return res.status(400).json({
+                success: false,
+                error: 'Title must not exceed 200 characters'
+            });
+        }
+
+        if (content.length > 10000) {
+            return res.status(400).json({
+                success: false,
+                error: 'Content must not exceed 10,000 characters'
+            });
+        }
+
         const template = await databaseClient.getClient().response_templates.create({
             data: {
                 id: uuidv4(),
@@ -119,6 +133,20 @@ router.put('/:id', authenticateToken, requireAgent, requireAdmin, async (req, re
     try {
         const { id } = req.params;
         const { title, content, is_active } = req.body;
+
+        if (title !== undefined && title.length > 200) {
+            return res.status(400).json({
+                success: false,
+                error: 'Title must not exceed 200 characters'
+            });
+        }
+
+        if (content !== undefined && content.length > 10000) {
+            return res.status(400).json({
+                success: false,
+                error: 'Content must not exceed 10,000 characters'
+            });
+        }
 
         const updateData = {
             updated_by: req.user.id
