@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { authenticateAgent, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAgent, requireAdmin } = require('../middleware/authMiddleware');
 const { v4: uuidv4 } = require('uuid');
 
 // Get all active templates (agents and admins)
-router.get('/', authenticateAgent, async (req, res) => {
+router.get('/', authenticateToken, requireAgent, async (req, res) => {
     try {
         const templates = await prisma.response_templates.findMany({
             where: { is_active: true },
@@ -37,7 +37,7 @@ router.get('/', authenticateAgent, async (req, res) => {
 });
 
 // Get all templates including inactive (admin only)
-router.get('/all', authenticateAgent, requireAdmin, async (req, res) => {
+router.get('/all', authenticateToken, requireAgent, requireAdmin, async (req, res) => {
     try {
         const templates = await prisma.response_templates.findMany({
             include: {
@@ -76,7 +76,7 @@ router.get('/all', authenticateAgent, requireAdmin, async (req, res) => {
 });
 
 // Create new template (admin only)
-router.post('/', authenticateAgent, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, requireAgent, requireAdmin, async (req, res) => {
     try {
         const { title, content, category } = req.body;
 
@@ -119,7 +119,7 @@ router.post('/', authenticateAgent, requireAdmin, async (req, res) => {
 });
 
 // Update template (admin only)
-router.put('/:id', authenticateAgent, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, requireAgent, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
         const { title, content, category, is_active } = req.body;
@@ -167,7 +167,7 @@ router.put('/:id', authenticateAgent, requireAdmin, async (req, res) => {
 });
 
 // Delete template (admin only) - soft delete by setting is_active to false
-router.delete('/:id', authenticateAgent, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAgent, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
 
