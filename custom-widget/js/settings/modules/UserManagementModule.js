@@ -74,17 +74,19 @@ export class UserManagementModule {
             usersTableBody: document.getElementById('users-table-body'),
             totalUsersSpan: document.getElementById('total-users'),
             addUserButton: document.getElementById('add-user-btn'),
-            
+
             // Modal elements
             addUserModal: document.getElementById('add-user-modal'),
             editUserModal: document.getElementById('edit-user-modal'),
             newPasswordModal: document.getElementById('new-password-modal'),
-            
+            totpSetupModal: document.getElementById('totp-setup-modal'),
+            backupCodesModal: document.getElementById('backup-codes-modal'),
+
             // Form elements
             addUserForm: document.getElementById('add-user-form'),
             editUserForm: document.getElementById('edit-user-form')
         };
-        
+
         console.log('🎯 UserManagementModule: DOM elements initialized');
     }
 
@@ -138,9 +140,11 @@ export class UserManagementModule {
         const modals = [
             this.elements.addUserModal,
             this.elements.editUserModal,
-            this.elements.newPasswordModal
+            this.elements.newPasswordModal,
+            this.elements.totpSetupModal,
+            this.elements.backupCodesModal
         ];
-        
+
         modals.forEach(modal => {
             if (modal) {
                 // Close on backdrop click
@@ -155,7 +159,7 @@ export class UserManagementModule {
                     event: 'click',
                     handler: backdropHandler
                 });
-                
+
                 // Close on X button click
                 const closeButton = modal.querySelector('.modal-close');
                 if (closeButton) {
@@ -169,6 +173,49 @@ export class UserManagementModule {
                 }
             }
         });
+
+        // Specific close button handlers for 2FA modals
+        const totpCloseBtn = document.getElementById('close-totp-modal');
+        const totpCancelBtn = document.getElementById('cancel-totp-setup');
+        const totpVerifyBtn = document.getElementById('verify-totp-button');
+        const backupCloseBtn = document.getElementById('close-backup-codes-modal');
+        const backupDoneBtn = document.getElementById('close-backup-codes');
+
+        [totpCloseBtn, totpCancelBtn, totpVerifyBtn].forEach(btn => {
+            if (btn) {
+                const handler = () => this.hideModal(this.elements.totpSetupModal);
+                btn.addEventListener('click', handler);
+                this.eventListeners.push({ element: btn, event: 'click', handler });
+            }
+        });
+
+        [backupCloseBtn, backupDoneBtn].forEach(btn => {
+            if (btn) {
+                const handler = () => this.hideModal(this.elements.backupCodesModal);
+                btn.addEventListener('click', handler);
+                this.eventListeners.push({ element: btn, event: 'click', handler });
+            }
+        });
+
+        // Password modal close buttons
+        const passwordCloseBtn = document.getElementById('close-password-modal');
+        const passwordModalCloseBtn = document.getElementById('password-modal-close');
+
+        [passwordCloseBtn, passwordModalCloseBtn].forEach(btn => {
+            if (btn) {
+                const handler = () => this.hideModal(this.elements.newPasswordModal);
+                btn.addEventListener('click', handler);
+                this.eventListeners.push({ element: btn, event: 'click', handler });
+            }
+        });
+
+        // Copy password button
+        const copyPasswordBtn = document.getElementById('copy-password');
+        if (copyPasswordBtn) {
+            const handler = () => this.copyPasswordToClipboard();
+            copyPasswordBtn.addEventListener('click', handler);
+            this.eventListeners.push({ element: copyPasswordBtn, event: 'click', handler });
+        }
     }
 
     /**
@@ -392,14 +439,14 @@ export class UserManagementModule {
             
             if (response.ok) {
                 const result = await response.json();
-                
+
                 Toast.success('Password regenerated successfully', '');
-                
+
                 // Show new password modal
-                if (result.data && result.data.password) {
-                    this.showNewPasswordModal(result.data.password);
+                if (result.data && result.data.newPassword) {
+                    this.showNewPasswordModal(result.data.newPassword);
                 }
-                
+
                 console.log('✅ UserManagementModule: Password regenerated successfully');
                 
             } else {
@@ -434,7 +481,7 @@ export class UserManagementModule {
         if (!users || users.length === 0) {
             this.elements.usersTableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                    <td colspan="4" class="px-6 py-4 text-center text-gray-500">
                         No users found
                     </td>
                 </tr>
@@ -451,13 +498,13 @@ export class UserManagementModule {
      * Render individual user row
      */
     renderUserRow(user) {
-        const statusBadge = user.isActive 
+        const statusBadge = user.isActive
             ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>'
             : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inactive</span>';
-        
+
         const roleColor = user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800';
         const roleBadge = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleColor}">${this.capitalizeRole(user.role)}</span>`;
-        
+
         return `
             <tr>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -471,9 +518,6 @@ export class UserManagementModule {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                     ${statusBadge}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${user.lastLogin ? this.formatDate(user.lastLogin) : 'Never'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button onclick="settingsManager.userManagementModule.editUser('${user.id}')" class="text-indigo-600 hover:text-indigo-900" title="Edit User">
@@ -571,11 +615,32 @@ export class UserManagementModule {
     showNewPasswordModal(password) {
         const passwordElement = document.getElementById('generated-password');
         if (passwordElement) {
-            passwordElement.value = password;
+            passwordElement.textContent = password;
         }
-        
+
         this.showModal(this.elements.newPasswordModal);
         console.log('📱 UserManagementModule: New password modal opened');
+    }
+
+    /**
+     * Copy password to clipboard
+     */
+    async copyPasswordToClipboard() {
+        const passwordElement = document.getElementById('generated-password');
+        if (!passwordElement) {
+            return;
+        }
+
+        const password = passwordElement.textContent;
+
+        try {
+            await navigator.clipboard.writeText(password);
+            Toast.success('Password copied to clipboard', '');
+            console.log('✅ UserManagementModule: Password copied to clipboard');
+        } catch (error) {
+            console.error('❌ UserManagementModule: Failed to copy password:', error);
+            Toast.error('Failed to copy password', '');
+        }
     }
 
     /**

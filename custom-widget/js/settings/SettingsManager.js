@@ -17,6 +17,7 @@ import { ContextEngineeringModule } from './modules/ContextEngineeringModule.js'
 import { KnowledgeManagementModule } from './modules/KnowledgeManagementModule.js';
 import { CategoryManagementModule } from './modules/CategoryManagementModule.js';
 import { TemplateManagementModule } from './modules/TemplateManagementModule.js';
+import SecurityPolicyModule from './modules/SecurityPolicyModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
@@ -39,6 +40,7 @@ export class SettingsManager {
         this.knowledgeManagementModule = new KnowledgeManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         this.categoryManagementModule = new CategoryManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         this.templateManagementModule = new TemplateManagementModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.securityPolicyModule = new SecurityPolicyModule(this.apiManager, this.stateManager);
 
         // DOM elements - will be initialized in initializeElements
         this.elements = {};
@@ -93,6 +95,7 @@ export class SettingsManager {
             await this.knowledgeManagementModule.initialize();
             await this.categoryManagementModule.initialize();
             await this.templateManagementModule.initialize();
+            await this.securityPolicyModule.initialize();
             console.log('✅ SettingsManager: Feature modules initialized');
             
             // Load initial data

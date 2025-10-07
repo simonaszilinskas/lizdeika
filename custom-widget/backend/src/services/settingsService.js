@@ -43,6 +43,9 @@ const SETTING_SCHEMAS = {
         rag_max_tokens: z.number().int().min(500).max(4000).optional(),
         use_langfuse_prompts: z.boolean().optional()
     },
+    security: {
+        REQUIRE_2FA_FOR_ALL_USERS: z.boolean()
+    },
     logging: {
         log_level: z.enum(['debug', 'info', 'warn', 'error']),
         log_to_file: z.boolean(),

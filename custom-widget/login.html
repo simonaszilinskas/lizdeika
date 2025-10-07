@@ -21,20 +21,47 @@
         <form id="loginForm" class="space-y-6">
             <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                <input type="email" id="email" required 
+                <input type="email" id="email" required
                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
             </div>
-            
+
             <div>
                 <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                <input type="password" id="password" required 
+                <input type="password" id="password" required
                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors">
             </div>
-            
-            <button type="submit" id="loginButton" 
+
+            <button type="submit" id="loginButton"
                     class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-4 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium">
                 <span id="loginButtonText">Sign In</span>
                 <i id="loginSpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+            </button>
+        </form>
+
+        <!-- 2FA Challenge Form (initially hidden) -->
+        <form id="twoFactorForm" class="space-y-6 hidden">
+            <div class="text-center mb-4">
+                <div class="w-16 h-16 bg-green-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+                    <i class="fas fa-shield-alt text-green-600 text-xl"></i>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-800">Two-Factor Authentication</h2>
+                <p class="text-sm text-gray-600 mt-2">Enter the 6-digit code from your authenticator app</p>
+            </div>
+
+            <div>
+                <label for="totpCode" class="block text-sm font-medium text-gray-700 mb-2">Verification Code</label>
+                <input type="text" id="totpCode" maxlength="6" placeholder="000000" required
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors text-center text-2xl font-mono tracking-widest">
+            </div>
+
+            <button type="submit" id="verifyButton"
+                    class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-4 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium">
+                <span id="verifyButtonText">Verify</span>
+                <i id="verifySpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+            </button>
+
+            <button type="button" id="backToLogin" class="w-full text-gray-600 hover:text-gray-800 text-sm">
+                <i class="fas fa-arrow-left mr-2"></i>Back to Login
             </button>
         </form>
 
@@ -54,6 +81,7 @@
 
     <script>
         const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+        let pendingCredentials = null;
 
         // Check if already logged in
         document.addEventListener('DOMContentLoaded', () => {
@@ -79,12 +107,41 @@
         // Handle login form submission
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            
+
             await login(email, password);
         });
+
+        // Handle 2FA form submission
+        document.getElementById('twoFactorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const code = document.getElementById('totpCode').value;
+            await verify2FA(code);
+        });
+
+        // Handle back to login button
+        document.getElementById('backToLogin').addEventListener('click', () => {
+            show2FAForm(false);
+            pendingCredentials = null;
+            document.getElementById('totpCode').value = '';
+        });
+
+        function show2FAForm(show) {
+            const loginForm = document.getElementById('loginForm');
+            const twoFactorForm = document.getElementById('twoFactorForm');
+
+            if (show) {
+                loginForm.classList.add('hidden');
+                twoFactorForm.classList.remove('hidden');
+                document.getElementById('totpCode').focus();
+            } else {
+                loginForm.classList.remove('hidden');
+                twoFactorForm.classList.add('hidden');
+            }
+        }
 
         async function login(email, password) {
             const loginButton = document.getElementById('loginButton');
@@ -92,16 +149,16 @@
             const loginSpinner = document.getElementById('loginSpinner');
             const errorMessage = document.getElementById('errorMessage');
             const successMessage = document.getElementById('successMessage');
-            
+
             // Reset messages
             errorMessage.classList.add('hidden');
             successMessage.classList.add('hidden');
-            
+
             // Show loading state
             loginButton.disabled = true;
             loginButtonText.textContent = 'Signing in...';
             loginSpinner.classList.remove('hidden');
-            
+
             try {
                 const response = await fetch(`${apiUrl}/api/auth/login`, {
                     method: 'POST',
@@ -110,26 +167,62 @@
                     },
                     body: JSON.stringify({ email, password })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok) {
+                    // Check if 2FA setup is mandatory (organization policy)
+                    if (data.requires2FASetup) {
+                        // Store setup token and user info for 2FA setup
+                        sessionStorage.setItem('setup_token', data.setupToken);
+                        sessionStorage.setItem('pending_2fa_setup', JSON.stringify({
+                            userId: data.data.userId,
+                            email: data.data.email
+                        }));
+
+                        // Show message and redirect to 2FA setup
+                        document.getElementById('errorText').textContent = data.message;
+                        errorMessage.classList.remove('hidden');
+
+                        setTimeout(() => {
+                            window.location.href = 'setup-2fa.html?mandatory=true';
+                        }, 2000);
+                        return;
+                    }
+
+                    // Check if 2FA is required
+                    if (data.requiresTotp) {
+                        pendingCredentials = { email, password };
+                        show2FAForm(true);
+                        return;
+                    }
+
                     // Store tokens
                     localStorage.setItem('agent_token', data.data.tokens.accessToken);
                     localStorage.setItem('refresh_token', data.data.tokens.refreshToken);
                     localStorage.setItem('user_data', JSON.stringify(data.data.user));
-                    
+
                     // Show success
                     successMessage.classList.remove('hidden');
-                    
+
+                    // Check if user needs to set up 2FA
+                    const user = data.data.user;
+                    const isAdmin = user.role === 'admin' || user.role === 'agent';
+                    const has2FA = user.totp_enabled;
+
                     // Redirect after short delay
                     setTimeout(() => {
-                        window.location.href = 'agent-dashboard.html';
+                        if (isAdmin && !has2FA) {
+                            // Redirect to 2FA setup for admin/agent users without 2FA
+                            window.location.href = 'setup-2fa.html';
+                        } else {
+                            window.location.href = 'agent-dashboard.html';
+                        }
                     }, 1000);
                 } else {
                     throw new Error(data.error || 'Login failed');
                 }
-                
+
             } catch (error) {
                 console.error('Login error:', error);
                 document.getElementById('errorText').textContent = error.message;
@@ -139,6 +232,74 @@
                 loginButton.disabled = false;
                 loginButtonText.textContent = 'Sign In';
                 loginSpinner.classList.add('hidden');
+            }
+        }
+
+        async function verify2FA(code) {
+            const verifyButton = document.getElementById('verifyButton');
+            const verifyButtonText = document.getElementById('verifyButtonText');
+            const verifySpinner = document.getElementById('verifySpinner');
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+
+            if (!pendingCredentials) {
+                document.getElementById('errorText').textContent = 'Session expired. Please login again.';
+                errorMessage.classList.remove('hidden');
+                show2FAForm(false);
+                return;
+            }
+
+            // Reset messages
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+
+            // Show loading state
+            verifyButton.disabled = true;
+            verifyButtonText.textContent = 'Verifying...';
+            verifySpinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: pendingCredentials.email,
+                        password: pendingCredentials.password,
+                        totpCode: code
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.data && data.data.tokens) {
+                    // Store tokens
+                    localStorage.setItem('agent_token', data.data.tokens.accessToken);
+                    localStorage.setItem('refresh_token', data.data.tokens.refreshToken);
+                    localStorage.setItem('user_data', JSON.stringify(data.data.user));
+
+                    // Show success
+                    successMessage.classList.remove('hidden');
+
+                    // User already has 2FA enabled, go to dashboard
+                    setTimeout(() => {
+                        window.location.href = 'agent-dashboard.html';
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Verification failed');
+                }
+
+            } catch (error) {
+                console.error('2FA verification error:', error);
+                document.getElementById('errorText').textContent = error.message;
+                errorMessage.classList.remove('hidden');
+                document.getElementById('totpCode').value = '';
+            } finally {
+                // Reset loading state
+                verifyButton.disabled = false;
+                verifyButtonText.textContent = 'Verify';
+                verifySpinner.classList.add('hidden');
             }
         }
 
