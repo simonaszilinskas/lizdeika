@@ -829,14 +829,25 @@ class AgentDashboard {
     }
 
     /**
-     * Populate template selector dropdown
+     * Populate template dropdown
      */
     populateTemplateSelector(templates) {
-        const selector = document.getElementById('template-selector');
-        if (!selector) return;
+        this.templates = templates; // Store for filtering
+        this.renderTemplateDropdown(templates);
+        this.initializeTemplateDropdown();
+    }
 
-        // Clear existing options except the first
-        selector.innerHTML = '<option value="">Use Template...</option>';
+    /**
+     * Render template dropdown HTML
+     */
+    renderTemplateDropdown(templates) {
+        const templateList = document.getElementById('template-list');
+        if (!templateList) return;
+
+        if (!templates || templates.length === 0) {
+            templateList.innerHTML = '<div class="px-4 py-8 text-center text-gray-500 text-sm">No templates available</div>';
+            return;
+        }
 
         // Group templates by category
         const grouped = {};
@@ -846,28 +857,73 @@ class AgentDashboard {
             grouped[category].push(template);
         });
 
-        // Add options grouped by category
+        // Build HTML
+        let html = '';
         Object.keys(grouped).sort().forEach(category => {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = category;
-
+            html += `<div class="template-category">${category}</div>`;
             grouped[category].forEach(template => {
-                const option = document.createElement('option');
-                option.value = template.content;
-                option.textContent = template.title;
-                optgroup.appendChild(option);
+                const preview = template.content.substring(0, 60) + (template.content.length > 60 ? '...' : '');
+                html += `
+                    <div class="template-item" data-content="${this.escapeHtml(template.content)}">
+                        <div class="template-item-title">${this.escapeHtml(template.title)}</div>
+                        <div class="template-item-preview">${this.escapeHtml(preview)}</div>
+                    </div>
+                `;
             });
-
-            selector.appendChild(optgroup);
         });
 
-        // Add change event listener
-        selector.addEventListener('change', (e) => {
-            if (e.target.value) {
-                this.insertTemplate(e.target.value);
-                e.target.selectedIndex = 0; // Reset selection
+        templateList.innerHTML = html;
+
+        // Add click handlers to template items
+        templateList.querySelectorAll('.template-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const content = e.currentTarget.getAttribute('data-content');
+                this.insertTemplate(content);
+                this.closeTemplateDropdown();
+            });
+        });
+    }
+
+    /**
+     * Initialize template dropdown interactions
+     */
+    initializeTemplateDropdown() {
+        const button = document.getElementById('template-button');
+        const dropdown = document.getElementById('template-dropdown');
+
+        if (!button || !dropdown) return;
+
+        // Toggle dropdown on button click
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('show');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target) && e.target !== button) {
+                this.closeTemplateDropdown();
             }
         });
+    }
+
+    /**
+     * Close template dropdown
+     */
+    closeTemplateDropdown() {
+        const dropdown = document.getElementById('template-dropdown');
+        if (dropdown) {
+            dropdown.classList.remove('show');
+        }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**
