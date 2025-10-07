@@ -177,6 +177,24 @@ router.delete('/:id', authenticateToken, requireAgent, requireAdmin, async (req,
             data: {
                 is_active: false,
                 updated_by: req.user.id
+            },
+            include: {
+                creator: {
+                    select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        email: true
+                    }
+                },
+                updater: {
+                    select: {
+                        id: true,
+                        first_name: true,
+                        last_name: true,
+                        email: true
+                    }
+                }
             }
         });
 
