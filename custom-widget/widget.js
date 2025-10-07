@@ -52,6 +52,7 @@
         privacyAccepted: false,
         privacyCheckboxText: '',
         initialMessagesLoaded: false,
+        focusableElementsCache: null,
 
         init: function(options) {
             Object.assign(this.config, options);
@@ -382,7 +383,7 @@
             const chatInterface = document.getElementById('vilnius-chat-interface');
             const liveRegion = document.getElementById('vilnius-live-region');
 
-            if (!bubble || !chatWindow || !closeBtn || !form || !input || !attachButton || !fileInput || !filePreview) {
+            if (!bubble || !chatWindow || !closeBtn || !form || !input || !attachButton || !fileInput || !filePreview || !startChatBtn || !privacyGate || !chatInterface || !liveRegion) {
                 return;
             }
 
@@ -451,12 +452,18 @@
                 }
 
                 if (event.key === 'Tab') {
-                    const focusableElements = this.getFocusableElements(chatWindow);
+                    const focusableElements = this.focusableElementsCache || this.getFocusableElements(chatWindow);
                     if (focusableElements.length === 0) return;
 
                     const firstElement = focusableElements[0];
                     const lastElement = focusableElements[focusableElements.length - 1];
                     const activeElement = document.activeElement;
+
+                    if (!chatWindow.contains(activeElement)) {
+                        event.preventDefault();
+                        firstElement.focus();
+                        return;
+                    }
 
                     if (event.shiftKey) {
                         if (activeElement === firstElement) {
@@ -497,16 +504,10 @@
                         this.selectedFile = null;
                         fileInput.value = '';
                         filePreview.style.display = 'none';
-                        if (liveRegion) {
-                            liveRegion.textContent = '';
-                            liveRegion.textContent = 'Priedas pašalintas.';
-                        }
+                        liveRegion.textContent = 'Priedas pašalintas.';
                     });
 
-                    if (liveRegion) {
-                        liveRegion.textContent = '';
-                        liveRegion.textContent = `Prisegtas failas ${file.name}`;
-                    }
+                    liveRegion.textContent = `Prisegtas failas ${file.name}`;
                 }
             });
 
@@ -519,10 +520,7 @@
                     this.selectedFile = null;
                     fileInput.value = '';
                     filePreview.style.display = 'none';
-                    if (liveRegion) {
-                        liveRegion.textContent = '';
-                        liveRegion.textContent = 'Failas išsiųstas.';
-                    }
+                    liveRegion.textContent = 'Failas išsiųstas.';
                 } else if (message) {
                     await this.sendMessage(message);
                 }
@@ -581,6 +579,8 @@
                 chatInterface.setAttribute('aria-hidden', chatInterface.style.display === 'none' ? 'true' : 'false');
             }
 
+            this.focusableElementsCache = this.getFocusableElements(chatWindow);
+
             if (privacyGate && privacyGate.style.display !== 'none') {
                 const focusTarget = privacyCheckbox || startChatBtn || chatWindow;
                 if (focusTarget && typeof focusTarget.focus === 'function') {
@@ -602,6 +602,7 @@
             chatWindow.style.display = 'none';
             chatWindow.setAttribute('aria-hidden', 'true');
             bubble.setAttribute('aria-expanded', 'false');
+            this.focusableElementsCache = null;
             bubble.focus();
         },
 
