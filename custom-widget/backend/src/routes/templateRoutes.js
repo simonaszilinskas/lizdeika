@@ -154,6 +154,12 @@ router.put('/:id', authenticateToken, requireAgent, requireAdmin, async (req, re
         res.json({ success: true, template });
     } catch (error) {
         console.error('Error updating template:', error);
+        if (error && error.code === 'P2025') {
+            return res.status(404).json({
+                success: false,
+                error: 'Template not found'
+            });
+        }
         res.status(500).json({
             success: false,
             error: 'Failed to update template'
@@ -177,6 +183,12 @@ router.delete('/:id', authenticateToken, requireAgent, requireAdmin, async (req,
         res.json({ success: true, template });
     } catch (error) {
         console.error('Error deleting template:', error);
+        if (error && error.code === 'P2025') {
+            return res.status(404).json({
+                success: false,
+                error: 'Template not found'
+            });
+        }
         res.status(500).json({
             success: false,
             error: 'Failed to delete template'
