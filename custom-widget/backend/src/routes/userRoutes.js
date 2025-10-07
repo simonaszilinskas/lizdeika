@@ -5,12 +5,18 @@
 
 const express = require('express');
 const userController = require('../controllers/userController');
-const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
+const { authenticateToken, requireAdmin, authenticate2FASetupToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// All routes require authentication and admin role
+// Self-service 2FA routes (accepts both setup tokens and regular tokens)
+router.post('/:id/totp/initiate', authenticate2FASetupToken, userController.initiateTOTP);
+router.post('/:id/totp/verify', authenticate2FASetupToken, userController.verifyTOTP);
+
+// All other routes require full authentication
 router.use(authenticateToken);
+
+// Admin-only routes
 router.use(requireAdmin);
 
 /**
@@ -78,5 +84,12 @@ router.post('/:id/reactivate', userController.reactivateUser);
  * @access Admin only
  */
 router.delete('/:id', userController.deleteUser);
+
+/**
+ * @route POST /api/users/:id/totp/backup-codes
+ * @desc Regenerate backup codes for a user
+ * @access Admin only
+ */
+router.post('/:id/totp/backup-codes', userController.regenerateBackupCodes);
 
 module.exports = router;

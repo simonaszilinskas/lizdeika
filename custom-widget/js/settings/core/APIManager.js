@@ -655,4 +655,113 @@ export class APIManager {
             localStorage.removeItem('agent_token');
         }
     }
+
+    // =========================
+    // TWO-FACTOR AUTHENTICATION API
+    // =========================
+
+    /**
+     * Initiate 2FA setup for a user
+     */
+    async initiateTOTP(userId) {
+        try {
+            console.log('🔐 APIManager: Initiating TOTP for user:', userId);
+            const response = await this.post(`/api/users/${userId}/totp/initiate`);
+
+            if (response.success) {
+                console.log('✅ APIManager: TOTP initiated successfully');
+                return response.data;
+            } else {
+                throw new Error(response.error || 'Failed to initiate 2FA');
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, 'Failed to initiate 2FA');
+            throw error;
+        }
+    }
+
+    /**
+     * Verify and enable 2FA for a user
+     */
+    async verifyTOTP(userId, code) {
+        try {
+            console.log('🔐 APIManager: Verifying TOTP for user:', userId);
+            const response = await this.post(`/api/users/${userId}/totp/verify`, { code });
+
+            if (response.success) {
+                console.log('✅ APIManager: TOTP verified and enabled');
+                Toast.success('Two-factor authentication enabled successfully', '');
+                return response.data;
+            } else {
+                throw new Error(response.error || 'Failed to verify 2FA code');
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, 'Failed to verify 2FA code');
+            Toast.error(error.message || 'Invalid verification code', '');
+            throw error;
+        }
+    }
+
+    /**
+     * Regenerate backup codes for a user
+     */
+    async regenerateBackupCodes(userId) {
+        try {
+            console.log('🔐 APIManager: Regenerating backup codes for user:', userId);
+            const response = await this.post(`/api/users/${userId}/totp/backup-codes`);
+
+            if (response.success) {
+                console.log('✅ APIManager: Backup codes regenerated');
+                Toast.success('Backup codes regenerated successfully', '');
+                return response.data.backupCodes;
+            } else {
+                throw new Error(response.error || 'Failed to regenerate backup codes');
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, 'Failed to regenerate backup codes');
+            Toast.error(error.message || 'Failed to regenerate backup codes', '');
+            throw error;
+        }
+    }
+
+    /**
+     * Get a system setting
+     */
+    async getSetting(key, category = 'security') {
+        try {
+            console.log(`⚙️ APIManager: Getting setting ${key} from category ${category}`);
+            const response = await this.get(`/api/settings/${category}/${key}`);
+
+            if (response.success) {
+                const value = response.data.value;
+                console.log(`✅ APIManager: Setting ${key} =`, value);
+                return value;
+            } else {
+                throw new Error(response.error || 'Failed to get setting');
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, `Failed to get setting ${key}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Update a system setting
+     */
+    async updateSetting(key, value, category = 'security') {
+        try {
+            console.log(`⚙️ APIManager: Updating setting ${key} in category ${category} to:`, value);
+            const response = await this.put(`/api/settings/${category}/${key}`, { value });
+
+            if (response.success) {
+                console.log(`✅ APIManager: Setting ${key} updated successfully`);
+                return response.data;
+            } else {
+                throw new Error(response.error || 'Failed to update setting');
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, `Failed to update setting ${key}`);
+            throw error;
+        }
+    }
 }

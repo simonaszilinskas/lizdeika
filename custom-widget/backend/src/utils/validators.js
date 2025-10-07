@@ -65,6 +65,8 @@ const authSchemas = {
   login: z.object({
     email: emailSchema,
     password: z.string().min(1, 'Password is required'),
+    totpCode: z.string().length(6, 'TOTP code must be 6 digits').optional(),
+    backupCode: z.string().length(8, 'Backup code must be 8 characters').optional(),
   }),
 
   // Token refresh

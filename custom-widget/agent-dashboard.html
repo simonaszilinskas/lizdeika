@@ -146,7 +146,71 @@
         .message-animation {
             animation: slideIn 0.3s ease-out;
         }
-        
+
+        /* Template dropdown styles */
+        #template-dropdown {
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        #template-dropdown.show {
+            display: block !important;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .template-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .template-item:hover {
+            background-color: #F3F4F6;
+            border-left-color: #6366F1;
+        }
+
+        .template-item-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #111827;
+            margin-bottom: 2px;
+        }
+
+        .template-item-preview {
+            font-size: 0.75rem;
+            color: #6B7280;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #template-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #template-dropdown::-webkit-scrollbar-track {
+            background: #F3F4F6;
+        }
+
+        #template-dropdown::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 3px;
+        }
+
+        #template-dropdown::-webkit-scrollbar-thumb:hover {
+            background: #9CA3AF;
+        }
+
         @keyframes slideIn {
             from {
                 opacity: 0;
@@ -293,6 +357,27 @@
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden" data-api-url="http://localhost:3002">
+    <!-- 2FA Reminder Banner (shown if dismissed) -->
+    <div id="2fa-reminder-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-3">
+        <div class="flex items-center justify-between max-w-7xl mx-auto">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-shield-alt text-yellow-600 text-xl"></i>
+                <div>
+                    <p class="text-sm font-semibold text-yellow-900">Secure your account with Two-Factor Authentication</p>
+                    <p class="text-xs text-yellow-700">Add an extra layer of security to protect your account and customer data.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="window.location.href='setup-2fa.html'" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-lg transition-colors font-medium">
+                    <i class="fas fa-shield-alt mr-2"></i>Set Up Now
+                </button>
+                <button onclick="dismiss2FAReminder()" class="text-yellow-700 hover:text-yellow-900 text-sm">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Container -->
     <div class="flex relative" id="mainContainer" style="height: 100vh;">
         <!-- Sidebar - Chat Queue -->
@@ -534,9 +619,21 @@
                             accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
                         />
                         <div class="flex items-start gap-2">
-                            <button type="button" id="agent-attach-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Prisegti failą">
-                                <i class="fas fa-paperclip text-xl"></i>
-                            </button>
+                            <div class="flex flex-col gap-1">
+                                <button type="button" id="agent-attach-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Prisegti failą">
+                                    <i class="fas fa-paperclip text-xl"></i>
+                                </button>
+                                <div class="relative">
+                                    <button type="button" id="template-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Naudoti šabloną">
+                                        <i class="fas fa-file-lines text-xl"></i>
+                                    </button>
+                                    <div id="template-dropdown" class="hidden absolute left-0 bottom-full mb-2 bg-white border border-gray-300 rounded-lg shadow-lg w-80 max-h-96 overflow-y-auto z-50">
+                                        <div id="template-list" class="py-1">
+                                            <div class="px-4 py-8 text-center text-gray-500 text-sm">Loading templates...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <textarea
                                 id="message-input"
                                 placeholder="Rašykite savo pranešimą..."
@@ -651,6 +748,41 @@
                 window.location.href = 'login.html';
             }
         });
+
+        // Check if 2FA reminder should be shown
+        function check2FAReminder() {
+            const userData = localStorage.getItem('user_data');
+            if (!userData) return;
+
+            const user = JSON.parse(userData);
+            const isAdminOrAgent = user.role === 'admin' || user.role === 'agent';
+            const has2FA = user.totp_enabled;
+
+            // Show reminder if admin/agent without 2FA
+            if (isAdminOrAgent && !has2FA) {
+                const reminderDismissed = localStorage.getItem('2fa_reminder_dismissed');
+                const now = Date.now();
+
+                // Show if never dismissed, or dismissed more than 7 days ago
+                if (!reminderDismissed || (now - parseInt(reminderDismissed)) > 7 * 24 * 60 * 60 * 1000) {
+                    const banner = document.getElementById('2fa-reminder-banner');
+                    if (banner) {
+                        banner.classList.remove('hidden');
+                    }
+                }
+            }
+        }
+
+        function dismiss2FAReminder() {
+            localStorage.setItem('2fa_reminder_dismissed', Date.now());
+            const banner = document.getElementById('2fa-reminder-banner');
+            if (banner) {
+                banner.classList.add('hidden');
+            }
+        }
+
+        // Check on page load
+        document.addEventListener('DOMContentLoaded', check2FAReminder);
 
     </script>
 </body>

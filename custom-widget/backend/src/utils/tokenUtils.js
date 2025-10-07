@@ -255,6 +255,45 @@ class TokenUtils {
     const expiration = this.getTokenExpiration(token);
     return expiration ? expiration < new Date() : true;
   }
+
+  /**
+   * Generate 2FA setup token (short-lived, limited scope)
+   * @param {string} userId - User ID
+   * @param {string} email - User email
+   * @param {string} role - User role
+   * @returns {string} 2FA setup token
+   */
+  generate2FASetupToken(userId, email, role) {
+    const payload = {
+      sub: userId,
+      email,
+      role,
+      type: '2fa_setup',
+      iat: Math.floor(Date.now() / 1000),
+    };
+
+    return jwt.sign(payload, this.accessSecret, {
+      expiresIn: '15m', // Short-lived: 15 minutes to complete setup
+      issuer: 'vilnius-assistant',
+      audience: '2fa-setup',
+    });
+  }
+
+  /**
+   * Verify 2FA setup token
+   * @param {string} token - Setup token
+   * @returns {Object} Decoded payload
+   */
+  verify2FASetupToken(token) {
+    try {
+      return jwt.verify(token, this.accessSecret, {
+        issuer: 'vilnius-assistant',
+        audience: '2fa-setup',
+      });
+    } catch (error) {
+      throw new Error('Invalid or expired 2FA setup token');
+    }
+  }
 }
 
 module.exports = new TokenUtils();

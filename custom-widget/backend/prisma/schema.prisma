@@ -43,6 +43,22 @@ model refresh_tokens {
   users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
+model response_templates {
+  id                                         String   @id
+  title                                      String
+  content                                    String
+  created_by                                 String
+  updated_by                                 String?
+  is_active                                  Boolean  @default(true)
+  created_at                                 DateTime @default(now())
+  updated_at                                 DateTime
+  users_response_templates_created_byTousers users    @relation("response_templates_created_byTousers", fields: [created_by], references: [id])
+  users_response_templates_updated_byTousers users?   @relation("response_templates_updated_byTousers", fields: [updated_by], references: [id])
+
+  @@index([created_by])
+  @@index([is_active])
+}
+
 model system_logs {
   id         String   @id
   action     String
@@ -189,6 +205,12 @@ model users {
   created_at                               DateTime            @default(now())
   updated_at                               DateTime
   user_number                              Int?                @unique
+  totp_enabled                             Boolean             @default(false)
+  totp_secret                              String?
+  totp_confirmed_at                        DateTime?
+  totp_failed_attempts                     Int                 @default(0)
+  totp_lock_until                          DateTime?
+  backup_codes                             Json?
   agent_status                             agent_status?
   messages                                 messages[]
   refresh_tokens                           refresh_tokens[]
@@ -198,10 +220,30 @@ model users {
   user_activities                          user_activities[]
   created_categories                       ticket_categories[] @relation("CategoryCreator")
   updated_categories                       ticket_categories[] @relation("CategoryUpdater")
+  created_templates                        response_templates[] @relation("TemplateCreator")
+  updated_templates                        response_templates[] @relation("TemplateUpdater")
 
   @@index([is_active])
   @@index([last_login])
   @@index([role])
+  @@index([totp_enabled])
+}
+
+model response_templates {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  created_by  String
+  updated_by  String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  creator users  @relation("TemplateCreator", fields: [created_by], references: [id], onDelete: Restrict)
+  updater users? @relation("TemplateUpdater", fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@index([is_active])
+  @@index([created_by])
 }
 
 enum ActionType {

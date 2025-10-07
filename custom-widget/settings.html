@@ -22,6 +22,27 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
+    <!-- 2FA Reminder Banner -->
+    <div id="2fa-reminder-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-3">
+        <div class="flex items-center justify-between max-w-6xl mx-auto">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-shield-alt text-yellow-600 text-xl"></i>
+                <div>
+                    <p class="text-sm font-semibold text-yellow-900">Secure your account with Two-Factor Authentication</p>
+                    <p class="text-xs text-yellow-700">Add an extra layer of security to protect your account and customer data.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="window.location.href='setup-2fa.html'" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-lg transition-colors font-medium">
+                    <i class="fas fa-shield-alt mr-2"></i>Set Up Now
+                </button>
+                <button onclick="dismiss2FAReminder()" class="text-yellow-700 hover:text-yellow-900 text-sm">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- Header -->
         <div class="mb-8">
@@ -57,6 +78,9 @@
                 <!-- Widget Configuration merged with Branding tab -->
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="categories">
                     <i class="fas fa-tags mr-2"></i>Category Management
+                </button>
+                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="templates">
+                    <i class="fas fa-file-alt mr-2"></i>Response Templates
                 </button>
                 <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="users">
                     <i class="fas fa-users mr-2"></i>User Management
@@ -128,11 +152,11 @@
                     <i class="fas fa-users text-indigo-600"></i>
                     Connected Agents
                 </h2>
-                
+
                 <div id="agents-list" class="space-y-3">
                     <!-- Agents will be loaded here -->
                 </div>
-                
+
                 <div class="mt-4 pt-4 border-t border-gray-200">
                     <div class="flex justify-between text-sm text-gray-600">
                         <span>Total Connected: <span id="total-connected">0</span></span>
@@ -1189,6 +1213,42 @@ KLAUSIMAS: {question}"
 
         <!-- User Management Tab -->
         <div id="users-tab" class="tab-content hidden">
+            <!-- Security Policy Section (Admin Only) -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6 admin-only">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-shield-alt text-indigo-600"></i>
+                    Security Policy
+                </h2>
+
+                <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-exclamation-triangle text-amber-600 mt-0.5"></i>
+                        <div class="text-sm text-amber-800">
+                            <p class="font-medium mb-1">Organization-Wide Security Setting</p>
+                            <p>When enabled, all users will be required to set up two-factor authentication on their next login. This policy applies to all user accounts.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                        <div class="flex-1">
+                            <h3 class="font-medium text-gray-900">Require 2FA for All Users</h3>
+                            <p class="text-sm text-gray-600 mt-1">Enforce two-factor authentication for all user accounts</p>
+                            <p class="text-xs text-gray-500 mt-2" id="users-without-2fa-count">Loading user statistics...</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer ml-4">
+                            <input type="checkbox" id="require-2fa-toggle" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-sm text-gray-500">
+                    <p><strong>Note:</strong> Users without 2FA will be redirected to set it up on their next login attempt.</p>
+                </div>
+            </div>
+
             <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
@@ -1205,7 +1265,7 @@ KLAUSIMAS: {question}"
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Users Table -->
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -1215,7 +1275,6 @@ KLAUSIMAS: {question}"
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -1223,6 +1282,44 @@ KLAUSIMAS: {question}"
                             <!-- Users will be loaded here -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Response Templates Tab -->
+        <div id="templates-tab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                        <i class="fas fa-file-alt text-indigo-600"></i>
+                        Response Templates
+                    </h2>
+                    <button id="create-template-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        Create Template
+                    </button>
+                </div>
+
+                <p class="text-gray-600 mb-6">Manage response templates to help agents provide quick and consistent answers. Only administrators can create and manage templates.</p>
+
+                <!-- Template Filters -->
+                <div class="flex flex-wrap gap-4 mb-6">
+                    <div class="flex items-center gap-2">
+                        <label for="template-search" class="text-sm font-medium text-gray-700">Search:</label>
+                        <input type="text" id="template-search" placeholder="Search templates..." class="border border-gray-300 rounded-md px-3 py-1 text-sm w-48">
+                    </div>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" id="include-inactive-templates" class="rounded">
+                        Show inactive templates
+                    </label>
+                </div>
+
+                <!-- Templates List -->
+                <div id="templates-list" class="space-y-3">
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-file-alt text-3xl mb-2"></i>
+                        <p>Loading templates...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1476,23 +1573,23 @@ KLAUSIMAS: {question}"
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-            
+
             <form id="add-user-form">
                 <div class="mb-4">
                     <label for="add-first-name" class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                     <input type="text" id="add-first-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-                
+
                 <div class="mb-4">
                     <label for="add-last-name" class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                     <input type="text" id="add-last-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-                
+
                 <div class="mb-4">
                     <label for="add-email" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <input type="email" id="add-email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500" required>
                 </div>
-                
+
                 <div class="mb-4">
                     <label for="add-role" class="block text-sm font-medium text-gray-700 mb-2">Role</label>
                     <select id="add-role" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
@@ -1500,7 +1597,7 @@ KLAUSIMAS: {question}"
                         <option value="admin">Admin</option>
                     </select>
                 </div>
-                
+
                 <div class="flex gap-3">
                     <button type="button" id="cancel-add-user" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition-colors">
                         Cancel
@@ -1510,6 +1607,87 @@ KLAUSIMAS: {question}"
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- TOTP Setup Modal -->
+    <div id="totp-setup-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 modal hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-lg w-full">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Enable Two-Factor Authentication</h3>
+                <button id="close-totp-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-4">Setting up 2FA for: <strong id="totp-setup-username"></strong></p>
+
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Step 1: Scan QR Code</h4>
+                    <p class="text-xs text-gray-600 mb-3">Scan this QR code with Google Authenticator, Authy, or any TOTP authenticator app:</p>
+                    <div class="flex justify-center mb-3">
+                        <img id="totp-qr-code" class="border border-gray-300 rounded" alt="QR Code" />
+                    </div>
+                    <p class="text-xs text-gray-600 mb-1">Or enter this secret manually:</p>
+                    <code id="totp-secret-text" class="block text-center p-2 bg-white rounded border border-gray-200 text-sm font-mono"></code>
+                </div>
+
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Step 2: Verify Code</h4>
+                    <p class="text-xs text-gray-600 mb-3">Enter the 6-digit code from your authenticator app:</p>
+                    <input type="text" id="totp-verify-code" maxlength="6" placeholder="000000"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500 text-center text-lg font-mono tracking-widest">
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button" id="cancel-totp-setup" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg transition-colors">
+                    Cancel
+                </button>
+                <button type="button" id="verify-totp-button" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-shield-alt mr-2"></i>Verify & Enable
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Codes Modal -->
+    <div id="backup-codes-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 modal hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-lg w-full">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-key text-yellow-600 mr-2"></i>Backup Recovery Codes
+                </h3>
+                <button id="close-backup-codes-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                    <p class="text-sm text-yellow-800 font-semibold mb-2">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>Save These Codes Safely!
+                    </p>
+                    <p class="text-xs text-yellow-700">
+                        Store these backup codes in a secure location. Each code can be used once if you lose access to your authenticator app.
+                    </p>
+                </div>
+
+                <p class="text-sm text-gray-600 mb-3">Backup codes for: <strong id="backup-codes-username"></strong></p>
+
+                <div id="backup-codes-list" class="space-y-2 mb-4 max-h-64 overflow-y-auto">
+                </div>
+
+                <button onclick="navigator.clipboard.writeText(Array.from(document.getElementById('backup-codes-list').children).map(c => c.textContent).join('\\n')); alert('Codes copied to clipboard!')"
+                        class="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg transition-colors text-sm">
+                    <i class="fas fa-copy mr-2"></i>Copy All Codes
+                </button>
+            </div>
+
+            <button type="button" id="close-backup-codes" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors">
+                Done
+            </button>
         </div>
     </div>
 
@@ -1831,5 +2009,86 @@ KLAUSIMAS: {question}"
         </div>
     </div>
 
+    <!-- Template Modal -->
+    <div id="template-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 modal hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 m-4 max-w-2xl w-full">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="template-modal-title" class="text-lg font-semibold text-gray-900">Create Template</h3>
+                <button id="close-template-modal" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="template-form">
+                <div class="mb-4">
+                    <label for="template-title" class="block text-sm font-medium text-gray-700 mb-2">
+                        Template Title *
+                    </label>
+                    <input type="text" id="template-title" name="title" required maxlength="200"
+                           placeholder="Enter template title"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <p class="text-xs text-gray-500 mt-1">Maximum 200 characters</p>
+                </div>
+
+                <div class="mb-4">
+                    <label for="template-content" class="block text-sm font-medium text-gray-700 mb-2">
+                        Template Content *
+                    </label>
+                    <textarea id="template-content" name="content" rows="6" required maxlength="10000"
+                              placeholder="Enter template content"
+                              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">Maximum 10,000 characters</p>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                    <button type="button" id="cancel-template"
+                            class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="save-template"
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <span id="save-template-text">Create Template</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Check if 2FA reminder should be shown
+        function check2FAReminder() {
+            const userData = localStorage.getItem('user_data');
+            if (!userData) return;
+
+            const user = JSON.parse(userData);
+            const isAdminOrAgent = user.role === 'admin' || user.role === 'agent';
+            const has2FA = user.totp_enabled;
+
+            // Show reminder if admin/agent without 2FA
+            if (isAdminOrAgent && !has2FA) {
+                const reminderDismissed = localStorage.getItem('2fa_reminder_dismissed');
+                const now = Date.now();
+
+                // Show if never dismissed, or dismissed more than 7 days ago
+                if (!reminderDismissed || (now - parseInt(reminderDismissed)) > 7 * 24 * 60 * 60 * 1000) {
+                    const banner = document.getElementById('2fa-reminder-banner');
+                    if (banner) {
+                        banner.classList.remove('hidden');
+                    }
+                }
+            }
+        }
+
+        function dismiss2FAReminder() {
+            localStorage.setItem('2fa_reminder_dismissed', Date.now());
+            const banner = document.getElementById('2fa-reminder-banner');
+            if (banner) {
+                banner.classList.add('hidden');
+            }
+        }
+
+        // Check on page load
+        document.addEventListener('DOMContentLoaded', check2FAReminder);
+    </script>
 </body>
 </html>

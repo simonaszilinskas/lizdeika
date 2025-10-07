@@ -16,6 +16,8 @@ import { BrandingConfigModule } from './modules/BrandingConfigModule.js';
 import { ContextEngineeringModule } from './modules/ContextEngineeringModule.js';
 import { KnowledgeManagementModule } from './modules/KnowledgeManagementModule.js';
 import { CategoryManagementModule } from './modules/CategoryManagementModule.js';
+import { TemplateManagementModule } from './modules/TemplateManagementModule.js';
+import SecurityPolicyModule from './modules/SecurityPolicyModule.js';
 import { Toast } from '../agent-dashboard/utils/Toast.js';
 import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
@@ -37,7 +39,9 @@ export class SettingsManager {
         this.contextEngineeringModule = new ContextEngineeringModule(this.apiManager, this.stateManager, this.connectionManager);
         this.knowledgeManagementModule = new KnowledgeManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         this.categoryManagementModule = new CategoryManagementModule(this.apiManager, this.stateManager, this.connectionManager);
-        
+        this.templateManagementModule = new TemplateManagementModule(this.apiManager, this.stateManager, this.connectionManager);
+        this.securityPolicyModule = new SecurityPolicyModule(this.apiManager, this.stateManager);
+
         // DOM elements - will be initialized in initializeElements
         this.elements = {};
         
@@ -90,6 +94,8 @@ export class SettingsManager {
             await this.contextEngineeringModule.initialize();
             await this.knowledgeManagementModule.initialize();
             await this.categoryManagementModule.initialize();
+            await this.templateManagementModule.initialize();
+            await this.securityPolicyModule.initialize();
             console.log('✅ SettingsManager: Feature modules initialized');
             
             // Load initial data
@@ -302,6 +308,13 @@ export class SettingsManager {
             await this.knowledgeManagementModule.loadKnowledgeSettings();
         } else if (tabName === 'knowledge') {
             console.log('❌ SettingsManager: Cannot switch to knowledge tab, user not admin:', this.currentUser?.role || 'no user');
+        } else if (tabName === 'templates' && this.currentUser && this.currentUser.role === 'admin') {
+            console.log('📝 SettingsManager: Switching to templates tab, loading templates');
+
+            // Template management is handled by TemplateManagementModule
+            await this.templateManagementModule.loadTemplates();
+        } else if (tabName === 'templates') {
+            console.log('❌ SettingsManager: Cannot switch to templates tab, user not admin:', this.currentUser?.role || 'no user');
         }
     }
 
