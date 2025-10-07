@@ -198,10 +198,29 @@ model users {
   user_activities                          user_activities[]
   created_categories                       ticket_categories[] @relation("CategoryCreator")
   updated_categories                       ticket_categories[] @relation("CategoryUpdater")
+  created_templates                        response_templates[] @relation("TemplateCreator")
+  updated_templates                        response_templates[] @relation("TemplateUpdater")
 
   @@index([is_active])
   @@index([last_login])
   @@index([role])
+}
+
+model response_templates {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  created_by  String
+  updated_by  String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  creator users  @relation("TemplateCreator", fields: [created_by], references: [id], onDelete: Restrict)
+  updater users? @relation("TemplateUpdater", fields: [updated_by], references: [id], onDelete: SetNull)
+
+  @@index([is_active])
+  @@index([created_by])
 }
 
 enum ActionType {
