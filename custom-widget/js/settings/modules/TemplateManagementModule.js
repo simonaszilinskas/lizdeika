@@ -24,7 +24,6 @@ export class TemplateManagementModule {
             templateOrder: [],
             filters: {
                 search: '',
-                category: 'all',
                 includeInactive: false
             },
             editingTemplate: null,
@@ -37,7 +36,6 @@ export class TemplateManagementModule {
             templatesList: null,
             createTemplateBtn: null,
             searchInput: null,
-            categoryFilter: null,
             includeInactiveCheckbox: null,
 
             // Modal elements
@@ -46,7 +44,6 @@ export class TemplateManagementModule {
             modalTitle: null,
             titleInput: null,
             contentInput: null,
-            categoryInput: null,
             saveButton: null,
             saveButtonText: null,
             closeTemplateModal: null,
@@ -106,7 +103,6 @@ export class TemplateManagementModule {
         this.elements.templatesList = document.getElementById('templates-list');
         this.elements.createTemplateBtn = document.getElementById('create-template-btn');
         this.elements.searchInput = document.getElementById('template-search');
-        this.elements.categoryFilter = document.getElementById('template-category-filter');
         this.elements.includeInactiveCheckbox = document.getElementById('include-inactive-templates');
 
         // Modal elements
@@ -115,7 +111,6 @@ export class TemplateManagementModule {
         this.elements.modalTitle = document.getElementById('template-modal-title');
         this.elements.titleInput = document.getElementById('template-title');
         this.elements.contentInput = document.getElementById('template-content');
-        this.elements.categoryInput = document.getElementById('template-category');
         this.elements.saveButton = document.getElementById('save-template');
         this.elements.saveButtonText = document.getElementById('save-template-text');
         this.elements.closeTemplateModal = document.getElementById('close-template-modal');
@@ -160,16 +155,6 @@ export class TemplateManagementModule {
             event: 'input',
             handler: searchHandler
         });
-
-        if (this.elements.categoryFilter) {
-            const categoryHandler = (e) => this.handleFilterChange('category', e.target.value);
-            this.elements.categoryFilter.addEventListener('change', categoryHandler);
-            this.eventListeners.push({
-                element: this.elements.categoryFilter,
-                event: 'change',
-                handler: categoryHandler
-            });
-        }
 
         const inactiveHandler = (e) => this.handleFilterChange('includeInactive', e.target.checked);
         this.elements.includeInactiveCheckbox.addEventListener('change', inactiveHandler);
@@ -297,15 +282,7 @@ export class TemplateManagementModule {
             const searchTerm = this.state.filters.search.toLowerCase().trim();
             filtered = filtered.filter(template =>
                 template.title.toLowerCase().includes(searchTerm) ||
-                template.content.toLowerCase().includes(searchTerm) ||
-                (template.category && template.category.toLowerCase().includes(searchTerm))
-            );
-        }
-
-        // Apply category filter
-        if (this.state.filters.category && this.state.filters.category !== 'all') {
-            filtered = filtered.filter(template =>
-                template.category === this.state.filters.category
+                template.content.toLowerCase().includes(searchTerm)
             );
         }
 
@@ -381,10 +358,6 @@ export class TemplateManagementModule {
         const canEdit = this.canEditTemplate(template);
         const canDelete = this.canDeleteTemplate(template);
 
-        const categoryBadge = template.category
-            ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800"><i class="fas fa-folder mr-1"></i>${template.category}</span>`
-            : '';
-
         return `
             <div class="template-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${isInactive ? 'opacity-60' : ''}" data-template-id="${template.id}">
                 <div class="flex items-start justify-between">
@@ -395,7 +368,6 @@ export class TemplateManagementModule {
                         </h3>
                         <p class="text-sm text-gray-600 mb-3 line-clamp-2">${this.truncateContent(template.content, 150)}</p>
                         <div class="flex items-center gap-4 text-xs text-gray-500">
-                            ${categoryBadge}
                             <span><i class="fas fa-user mr-1"></i>${template.creator?.first_name} ${template.creator?.last_name}</span>
                             <span><i class="fas fa-clock mr-1"></i>${this.formatDate(template.created_at)}</span>
                             ${template.updated_at && template.updated_at !== template.created_at ? `<span><i class="fas fa-edit mr-1"></i>Updated ${this.formatDate(template.updated_at)}</span>` : ''}
@@ -467,7 +439,6 @@ export class TemplateManagementModule {
         // Populate form
         this.elements.titleInput.value = template.title;
         this.elements.contentInput.value = template.content;
-        this.elements.categoryInput.value = template.category || '';
 
         this.elements.templateModal.classList.remove('hidden');
         this.elements.titleInput.focus();
@@ -491,8 +462,7 @@ export class TemplateManagementModule {
         const formData = new FormData(this.elements.templateForm);
         const templateData = {
             title: formData.get('title').trim(),
-            content: formData.get('content').trim(),
-            category: formData.get('category').trim() || null
+            content: formData.get('content').trim()
         };
 
         // Validate required fields
@@ -589,21 +559,8 @@ export class TemplateManagementModule {
         const activeTemplates = templates.filter(t => t.is_active).length;
         const inactiveTemplates = totalTemplates - activeTemplates;
 
-        // Get category breakdown
-        const categoryMap = new Map();
-        templates.forEach(template => {
-            if (template.is_active) {
-                const category = template.category || 'Uncategorized';
-                categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
-            }
-        });
-
-        const topCategories = Array.from(categoryMap.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5);
-
         const html = `
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div class="text-center">
                     <div class="text-2xl font-bold text-gray-900">${totalTemplates}</div>
                     <div class="text-sm text-gray-600">Total Templates</div>
@@ -615,20 +572,6 @@ export class TemplateManagementModule {
                 <div class="text-center">
                     <div class="text-2xl font-bold text-gray-600">${inactiveTemplates}</div>
                     <div class="text-sm text-gray-600">Inactive</div>
-                </div>
-            </div>
-
-            <div class="grid md:grid-cols-1 gap-6">
-                <div>
-                    <h4 class="font-medium text-gray-900 mb-3">Templates by Category</h4>
-                    <div class="space-y-2">
-                        ${topCategories.length > 0 ? topCategories.map(([category, count]) => `
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-600 truncate">${category}</span>
-                                <span class="font-medium">${count}</span>
-                            </div>
-                        `).join('') : '<p class="text-gray-500 text-sm">No data available</p>'}
-                    </div>
                 </div>
             </div>
         `;
@@ -773,7 +716,6 @@ export class TemplateManagementModule {
             templateOrder: [],
             filters: {
                 search: '',
-                category: 'all',
                 includeInactive: false
             },
             editingTemplate: null,

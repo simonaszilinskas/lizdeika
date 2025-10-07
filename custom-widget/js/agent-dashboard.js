@@ -849,27 +849,19 @@ class AgentDashboard {
             return;
         }
 
-        // Group templates by category
-        const grouped = {};
-        templates.forEach(template => {
-            const category = template.category || 'General';
-            if (!grouped[category]) grouped[category] = [];
-            grouped[category].push(template);
-        });
+        // Sort templates alphabetically by title
+        const sortedTemplates = [...templates].sort((a, b) => a.title.localeCompare(b.title));
 
         // Build HTML
         let html = '';
-        Object.keys(grouped).sort().forEach(category => {
-            html += `<div class="template-category">${category}</div>`;
-            grouped[category].forEach(template => {
-                const preview = template.content.substring(0, 60) + (template.content.length > 60 ? '...' : '');
-                html += `
-                    <div class="template-item" data-content="${this.escapeHtml(template.content)}">
-                        <div class="template-item-title">${this.escapeHtml(template.title)}</div>
-                        <div class="template-item-preview">${this.escapeHtml(preview)}</div>
-                    </div>
-                `;
-            });
+        sortedTemplates.forEach(template => {
+            const preview = template.content.substring(0, 60) + (template.content.length > 60 ? '...' : '');
+            html += `
+                <div class="template-item" data-content="${this.escapeHtml(template.content)}">
+                    <div class="template-item-title">${this.escapeHtml(template.title)}</div>
+                    <div class="template-item-preview">${this.escapeHtml(preview)}</div>
+                </div>
+            `;
         });
 
         templateList.innerHTML = html;

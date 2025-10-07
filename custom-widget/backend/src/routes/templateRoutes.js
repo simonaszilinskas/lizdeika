@@ -20,10 +20,9 @@ router.get('/', authenticateToken, requireAgent, async (req, res) => {
                     }
                 }
             },
-            orderBy: [
-                { category: 'asc' },
-                { title: 'asc' }
-            ]
+            orderBy: {
+                title: 'asc'
+            }
         });
 
         res.json({ success: true, templates });
@@ -60,7 +59,6 @@ router.get('/all', authenticateToken, requireAgent, requireAdmin, async (req, re
             },
             orderBy: [
                 { is_active: 'desc' },
-                { category: 'asc' },
                 { title: 'asc' }
             ]
         });
@@ -78,7 +76,7 @@ router.get('/all', authenticateToken, requireAgent, requireAdmin, async (req, re
 // Create new template (admin only)
 router.post('/', authenticateToken, requireAgent, requireAdmin, async (req, res) => {
     try {
-        const { title, content, category } = req.body;
+        const { title, content } = req.body;
 
         if (!title || !content) {
             return res.status(400).json({
@@ -92,7 +90,6 @@ router.post('/', authenticateToken, requireAgent, requireAdmin, async (req, res)
                 id: uuidv4(),
                 title,
                 content,
-                category: category || null,
                 created_by: req.user.id,
                 is_active: true
             },
@@ -122,7 +119,7 @@ router.post('/', authenticateToken, requireAgent, requireAdmin, async (req, res)
 router.put('/:id', authenticateToken, requireAgent, requireAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, content, category, is_active } = req.body;
+        const { title, content, is_active } = req.body;
 
         const updateData = {
             updated_by: req.user.id
@@ -130,7 +127,6 @@ router.put('/:id', authenticateToken, requireAgent, requireAdmin, async (req, re
 
         if (title !== undefined) updateData.title = title;
         if (content !== undefined) updateData.content = content;
-        if (category !== undefined) updateData.category = category || null;
         if (is_active !== undefined) updateData.is_active = is_active;
 
         const template = await prisma.response_templates.update({

@@ -210,7 +210,6 @@ model response_templates {
   id          String   @id @default(cuid())
   title       String
   content     String
-  category    String?
   created_by  String
   updated_by  String?
   is_active   Boolean  @default(true)
@@ -221,7 +220,6 @@ model response_templates {
   updater users? @relation("TemplateUpdater", fields: [updated_by], references: [id])
 
   @@index([is_active])
-  @@index([category])
   @@index([created_by])
 }
 
