@@ -1,14 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const databaseClient = require('../utils/database');
 const { authenticateToken, requireAgent, requireAdmin } = require('../middleware/authMiddleware');
 const { v4: uuidv4 } = require('uuid');
 
 // Get all active templates (agents and admins)
 router.get('/', authenticateToken, requireAgent, async (req, res) => {
     try {
-        const templates = await prisma.response_templates.findMany({
+        const templates = await databaseClient.getClient().response_templates.findMany({
             where: { is_active: true },
             include: {
                 creator: {
@@ -38,7 +37,7 @@ router.get('/', authenticateToken, requireAgent, async (req, res) => {
 // Get all templates including inactive (admin only)
 router.get('/all', authenticateToken, requireAgent, requireAdmin, async (req, res) => {
     try {
-        const templates = await prisma.response_templates.findMany({
+        const templates = await databaseClient.getClient().response_templates.findMany({
             include: {
                 creator: {
                     select: {
@@ -85,7 +84,7 @@ router.post('/', authenticateToken, requireAgent, requireAdmin, async (req, res)
             });
         }
 
-        const template = await prisma.response_templates.create({
+        const template = await databaseClient.getClient().response_templates.create({
             data: {
                 id: uuidv4(),
                 title,
@@ -129,7 +128,7 @@ router.put('/:id', authenticateToken, requireAgent, requireAdmin, async (req, re
         if (content !== undefined) updateData.content = content;
         if (is_active !== undefined) updateData.is_active = is_active;
 
-        const template = await prisma.response_templates.update({
+        const template = await databaseClient.getClient().response_templates.update({
             where: { id },
             data: updateData,
             include: {
@@ -167,7 +166,7 @@ router.delete('/:id', authenticateToken, requireAgent, requireAdmin, async (req,
     try {
         const { id } = req.params;
 
-        const template = await prisma.response_templates.update({
+        const template = await databaseClient.getClient().response_templates.update({
             where: { id },
             data: {
                 is_active: false,

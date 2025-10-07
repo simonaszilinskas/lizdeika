@@ -60,6 +60,15 @@ export class TemplateManagementModule {
     }
 
     /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
+    }
+
+    /**
      * Initialize the template management module
      */
     async initialize() {
@@ -324,25 +333,30 @@ export class TemplateManagementModule {
         const isInactive = !template.is_active;
         const canEdit = this.canEditTemplate(template);
         const canDelete = this.canDeleteTemplate(template);
+        const safeId = this.escapeHtml(template.id || '');
+        const safeTitle = this.escapeHtml(template.title || '');
+        const safeContent = this.escapeHtml(this.truncateContent(template.content || '', 150));
+        const safeFirstName = this.escapeHtml((template.creator && template.creator.first_name) || '');
+        const safeLastName = this.escapeHtml((template.creator && template.creator.last_name) || '');
 
         return `
-            <div class="template-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${isInactive ? 'opacity-60' : ''}" data-template-id="${template.id}">
+            <div class="template-card bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${isInactive ? 'opacity-60' : ''}" data-template-id="${safeId}">
                 <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
                         <h3 class="font-medium text-gray-900 flex items-center gap-2 mb-2">
-                            ${template.title}
+                            ${safeTitle}
                             ${isInactive ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"><i class="fas fa-archive mr-1"></i>Inactive</span>' : ''}
                         </h3>
-                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">${this.truncateContent(template.content, 150)}</p>
+                        <p class="text-sm text-gray-600 mb-3 line-clamp-2">${safeContent}</p>
                         <div class="flex items-center gap-4 text-xs text-gray-500">
-                            <span><i class="fas fa-user mr-1"></i>${template.creator?.first_name} ${template.creator?.last_name}</span>
+                            <span><i class="fas fa-user mr-1"></i>${safeFirstName} ${safeLastName}</span>
                             <span><i class="fas fa-clock mr-1"></i>${this.formatDate(template.created_at)}</span>
                             ${template.updated_at && template.updated_at !== template.created_at ? `<span><i class="fas fa-edit mr-1"></i>Updated ${this.formatDate(template.updated_at)}</span>` : ''}
                         </div>
                     </div>
                     <div class="flex items-center gap-1 ml-4">
-                        ${canEdit ? `<button class="edit-template-btn text-gray-400 hover:text-indigo-600 p-2" data-template-id="${template.id}" title="Edit Template"><i class="fas fa-edit"></i></button>` : ''}
-                        ${canDelete ? `<button class="delete-template-btn text-gray-400 hover:text-red-600 p-2" data-template-id="${template.id}" title="Archive Template"><i class="fas fa-archive"></i></button>` : ''}
+                        ${canEdit ? `<button class="edit-template-btn text-gray-400 hover:text-indigo-600 p-2" data-template-id="${safeId}" title="Edit Template"><i class="fas fa-edit"></i></button>` : ''}
+                        ${canDelete ? `<button class="delete-template-btn text-gray-400 hover:text-red-600 p-2" data-template-id="${safeId}" title="Archive Template"><i class="fas fa-archive"></i></button>` : ''}
                     </div>
                 </div>
             </div>
