@@ -187,7 +187,7 @@
                                             "
                                         />
                                         <span id="vilnius-privacy-text" style="flex: 1;">
-                                            ${this.escapeHtml(this.privacyCheckboxText || 'I agree to the Privacy Policy and Terms of Service.')}
+                                            <!-- Privacy text will be loaded from settings -->
                                         </span>
                                     </label>
                                 </div>
@@ -597,8 +597,44 @@
         updatePrivacyText() {
             const privacyTextElement = document.getElementById('vilnius-privacy-text');
             if (privacyTextElement && this.privacyCheckboxText) {
-                privacyTextElement.innerHTML = this.markdownToHtml(this.privacyCheckboxText);
+                // Use DOM-based rendering instead of innerHTML to prevent XSS
+                this.renderMarkdownToDom(privacyTextElement, this.privacyCheckboxText);
             }
+        },
+
+        /**
+         * Render Markdown text to DOM safely (XSS prevention)
+         */
+        renderMarkdownToDom(element, text) {
+            // Clear existing content
+            element.textContent = '';
+
+            // Extract Markdown links [text](url)
+            const parts = text.split(/(\[.*?\]\(.*?\))/g);
+
+            parts.forEach(part => {
+                // Check if this part is a Markdown link
+                const linkMatch = part.match(/\[(.*?)\]\((.*?)\)/);
+
+                if (linkMatch) {
+                    // Create link element
+                    const linkText = linkMatch[1];
+                    const linkUrl = linkMatch[2];
+
+                    const link = document.createElement('a');
+                    link.textContent = linkText;
+                    link.href = this.sanitizeUrl(linkUrl);
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer nofollow';
+                    link.style.color = '#4F46E5';
+                    link.style.textDecoration = 'underline';
+
+                    element.appendChild(link);
+                } else if (part) {
+                    // Regular text - create text node
+                    element.appendChild(document.createTextNode(part));
+                }
+            });
         },
 
         loadConversation: function() {

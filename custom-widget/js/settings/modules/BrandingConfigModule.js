@@ -1021,6 +1021,12 @@ export class BrandingConfigModule {
             errors.push({ field: 'privacy_checkbox_text', message: 'Privacy checkbox text is required' });
         } else if (privacy_checkbox_text.length > 500) {
             errors.push({ field: 'privacy_checkbox_text', message: 'Privacy checkbox text must be 500 characters or less' });
+        } else {
+            // Validate URLs in Markdown links [text](url)
+            const urlValidationError = this.validateMarkdownUrls(privacy_checkbox_text);
+            if (urlValidationError) {
+                errors.push({ field: 'privacy_checkbox_text', message: urlValidationError });
+            }
         }
 
         // Allowed domains validation
@@ -1073,6 +1079,12 @@ export class BrandingConfigModule {
                     errors.push('Privacy checkbox text is required');
                 } else if (value.length > 500) {
                     errors.push('Privacy checkbox text must be 500 characters or less');
+                } else {
+                    // Validate URLs in Markdown links
+                    const urlError = this.validateMarkdownUrls(value);
+                    if (urlError) {
+                        errors.push(urlError);
+                    }
                 }
                 break;
 
@@ -1102,8 +1114,37 @@ export class BrandingConfigModule {
         const wildcardPattern = /^\*\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
         // Allow regular domains like example.com
         const domainPattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-        
+
         return wildcardPattern.test(domain) || domainPattern.test(domain);
+    }
+
+    /**
+     * Validate URLs in Markdown text (align with backend validation)
+     */
+    validateMarkdownUrls(text) {
+        // Extract URLs from Markdown links [text](url)
+        const markdownLinkPattern = /\[(.*?)\]\((.*?)\)/g;
+        let match;
+
+        while ((match = markdownLinkPattern.exec(text)) !== null) {
+            const url = match[2];
+
+            try {
+                // Validate URL format
+                const parsedUrl = new URL(url);
+                const protocol = parsedUrl.protocol.toLowerCase();
+
+                // Only allow http and https protocols (matches backend validation)
+                if (protocol !== 'http:' && protocol !== 'https:') {
+                    return `Invalid URL protocol in link. Only http and https are allowed. Found: ${url}`;
+                }
+            } catch (error) {
+                // Invalid URL format
+                return `Invalid URL format in link: ${url}`;
+            }
+        }
+
+        return null; // No errors
     }
 
     /**
