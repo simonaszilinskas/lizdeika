@@ -388,7 +388,6 @@
             }
 
             const updateStartChatAccessibility = () => {
-                if (!startChatBtn) return;
                 startChatBtn.setAttribute('aria-disabled', this.privacyAccepted ? 'false' : 'true');
             };
 
@@ -671,7 +670,6 @@
                 announcementText = 'naujas pranešimas';
             }
 
-            liveRegion.textContent = '';
             liveRegion.textContent = `${senderInfo.announcement}: ${announcementText}`;
         },
 

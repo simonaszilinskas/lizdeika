@@ -243,17 +243,18 @@ describe('Widget Accessibility', () => {
             expect(liveRegion.textContent).toBe('Jūs: pridėtas failas test.pdf');
         });
 
-        test('announceNewMessage does not announce during initial load', async () => {
+        test('renderMessages does not announce during initial load', async () => {
             await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
             VilniusChat.initialMessagesLoaded = false;
 
             const liveRegion = document.getElementById('vilnius-live-region');
-            const message = {
+            const messages = [{
+                id: 'test-1',
                 sender: 'agent',
                 content: 'Test message'
-            };
+            }];
 
-            VilniusChat.announceNewMessage(message);
+            VilniusChat.renderMessages(messages);
             expect(liveRegion.textContent).toBe('');
         });
     });
