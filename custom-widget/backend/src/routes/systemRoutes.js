@@ -597,6 +597,76 @@ function createSystemRoutes() {
         }
     });
 
+    // ===========================
+    // GENERIC SETTINGS ROUTES
+    // ===========================
+
+    // Get a single setting by category and key
+    router.get('/api/settings/:category/:key', authenticateToken, async (req, res) => {
+        try {
+            const { category, key } = req.params;
+
+            const value = await settingsService.getSetting(key, category);
+
+            res.json({
+                success: true,
+                data: {
+                    key,
+                    value,
+                    category
+                }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: 'Failed to fetch setting',
+                message: error.message
+            });
+        }
+    });
+
+    // Update a single setting by category and key (admin only)
+    router.put('/api/settings/:category/:key', authenticateToken, async (req, res) => {
+        try {
+            if (req.user.role !== 'admin') {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Admin access required'
+                });
+            }
+
+            const { category, key } = req.params;
+            const { value } = req.body;
+
+            if (value === undefined) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Value is required'
+                });
+            }
+
+            const updatedSetting = await settingsService.updateSetting(
+                key,
+                value,
+                req.user.id,
+                category
+            );
+
+            res.json({
+                success: true,
+                data: updatedSetting,
+                message: `Setting ${key} updated successfully`
+            });
+
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                error: 'Failed to update setting',
+                message: error.message
+            });
+        }
+    });
+
     // Test AI chat suggestion with metadata (for verification tests)
     router.post('/chat/suggestion', authenticateToken, async (req, res) => {
         try {

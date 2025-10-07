@@ -460,7 +460,7 @@ export class UserManagementModule {
         if (!users || users.length === 0) {
             this.elements.usersTableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                    <td colspan="4" class="px-6 py-4 text-center text-gray-500">
                         No users found
                     </td>
                 </tr>
@@ -484,10 +484,6 @@ export class UserManagementModule {
         const roleColor = user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800';
         const roleBadge = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleColor}">${this.capitalizeRole(user.role)}</span>`;
 
-        const twoFABadge = user.totpEnabled
-            ? '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"><i class="fas fa-shield-alt mr-1"></i>Enabled</span>'
-            : '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Off</span>';
-
         return `
             <tr>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -502,18 +498,9 @@ export class UserManagementModule {
                 <td class="px-6 py-4 whitespace-nowrap">
                     ${statusBadge}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${twoFABadge}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${user.lastLogin ? this.formatDate(user.lastLogin) : 'Never'}
-                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button onclick="settingsManager.userManagementModule.editUser('${user.id}')" class="text-indigo-600 hover:text-indigo-900" title="Edit User">
                         <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="settingsManager.userManagementModule.manage2FA('${user.id}', '${user.firstName} ${user.lastName}', ${user.totpEnabled || false})" class="${user.totpEnabled ? 'text-green-600 hover:text-green-900' : 'text-gray-600 hover:text-gray-900'}" title="${user.totpEnabled ? 'Manage' : 'Enable'} 2FA">
-                        <i class="fas fa-shield-alt"></i>
                     </button>
                     <button onclick="settingsManager.userManagementModule.regeneratePassword('${user.id}')" class="text-yellow-600 hover:text-yellow-900" title="Regenerate Password">
                         <i class="fas fa-key"></i>
@@ -731,145 +718,6 @@ export class UserManagementModule {
         }
         
         return true;
-    }
-
-    // =========================
-    // TWO-FACTOR AUTHENTICATION
-    // =========================
-
-    /**
-     * Manage 2FA for user
-     */
-    async manage2FA(userId, userName, totpEnabled) {
-        const user = this.stateManager.getUsers().find(u => u.id === userId);
-        if (!user) return;
-
-        if (totpEnabled) {
-            // Show options to disable or regenerate backup codes
-            if (confirm(`2FA is enabled for ${userName}.\n\nChoose OK to disable 2FA, or Cancel to regenerate backup codes.`)) {
-                await this.disable2FA(userId, userName);
-            } else {
-                await this.regenerateBackupCodes(userId, userName);
-            }
-        } else {
-            // Enable 2FA
-            await this.enable2FA(userId, userName);
-        }
-    }
-
-    /**
-     * Enable 2FA for user
-     */
-    async enable2FA(userId, userName) {
-        try {
-            console.log('🔐 UserManagementModule: Initiating 2FA for user:', userId);
-
-            // Initiate TOTP setup
-            const data = await this.apiManager.initiateTOTP(userId);
-
-            // Show QR code modal
-            this.show2FASetupModal(userId, userName, data);
-
-        } catch (error) {
-            ErrorHandler.logError(error, 'Failed to enable 2FA');
-            Toast.error('Failed to enable 2FA', '');
-        }
-    }
-
-    /**
-     * Disable 2FA for user
-     */
-    async disable2FA(userId, userName) {
-        if (!confirm(`Are you sure you want to disable 2FA for ${userName}?`)) {
-            return;
-        }
-
-        try {
-            await this.apiManager.disableTOTP(userId);
-            Toast.success('2FA disabled successfully', '');
-            await this.loadUsers();
-        } catch (error) {
-            ErrorHandler.logError(error, 'Failed to disable 2FA');
-        }
-    }
-
-    /**
-     * Regenerate backup codes
-     */
-    async regenerateBackupCodes(userId, userName) {
-        try {
-            const backupCodes = await this.apiManager.regenerateBackupCodes(userId);
-            this.showBackupCodesModal(userName, backupCodes);
-        } catch (error) {
-            ErrorHandler.logError(error, 'Failed to regenerate backup codes');
-        }
-    }
-
-    /**
-     * Show 2FA setup modal with QR code
-     */
-    show2FASetupModal(userId, userName, data) {
-        const modal = document.getElementById('totp-setup-modal');
-        if (!modal) return;
-
-        document.getElementById('totp-setup-username').textContent = userName;
-        document.getElementById('totp-qr-code').src = data.qrCode;
-        document.getElementById('totp-secret-text').textContent = data.secret;
-        document.getElementById('totp-verify-code').value = '';
-
-        // Store userId for verification
-        modal.dataset.userId = userId;
-
-        modal.classList.remove('hidden');
-    }
-
-    /**
-     * Verify 2FA code and enable
-     */
-    async verify2FA() {
-        const modal = document.getElementById('totp-setup-modal');
-        const userId = modal.dataset.userId;
-        const code = document.getElementById('totp-verify-code').value.trim();
-
-        if (!code || code.length !== 6) {
-            Toast.error('Please enter a valid 6-digit code', '');
-            return;
-        }
-
-        try {
-            const result = await this.apiManager.verifyTOTP(userId, code);
-
-            if (result) {
-                // Show backup codes
-                const backupCodes = result.backupCodes || [];
-                modal.classList.add('hidden');
-
-                if (backupCodes.length > 0) {
-                    const user = this.stateManager.getUsers().find(u => u.id === userId);
-                    this.showBackupCodesModal(user ? user.firstName + ' ' + user.lastName : 'User', backupCodes);
-                }
-
-                await this.loadUsers();
-            }
-        } catch (error) {
-            ErrorHandler.logError(error, 'Verification failed');
-        }
-    }
-
-    /**
-     * Show backup codes modal
-     */
-    showBackupCodesModal(userName, backupCodes) {
-        const modal = document.getElementById('backup-codes-modal');
-        if (!modal) return;
-
-        document.getElementById('backup-codes-username').textContent = userName;
-        const codesList = document.getElementById('backup-codes-list');
-        codesList.innerHTML = backupCodes.map(code =>
-            `<code class="block p-2 bg-gray-50 rounded border border-gray-200">${code}</code>`
-        ).join('');
-
-        modal.classList.remove('hidden');
     }
 
     // =========================

@@ -759,60 +759,6 @@ class UserController {
     });
 
     /**
-     * Disable 2FA for a user (admin only)
-     * POST /api/users/:id/totp/disable
-     */
-    disableTOTP = asyncHandler(async (req, res) => {
-        const { id } = req.params;
-        const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
-
-        const user = await prisma.users.findUnique({
-            where: { id },
-            select: {
-                id: true,
-                email: true,
-                totp_enabled: true
-            }
-        });
-
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
-        }
-
-        // Disable 2FA and clear all related data
-        await prisma.users.update({
-            where: { id },
-            data: {
-                totp_enabled: false,
-                totp_secret: null,
-                totp_confirmed_at: null,
-                totp_failed_attempts: 0,
-                totp_lock_until: null,
-                backup_codes: null,
-                updated_at: new Date()
-            }
-        });
-
-        // Log 2FA disabled
-        await activityService.logSecurity(
-            req.user.id,
-            '2fa_disabled',
-            true,
-            ipAddress,
-            userAgent,
-            { target_user_id: id, target_email: user.email }
-        );
-
-        res.json({
-            success: true,
-            message: '2FA disabled successfully'
-        });
-    });
-
-    /**
      * Regenerate backup codes for a user (admin only)
      * POST /api/users/:id/totp/backup-codes
      */

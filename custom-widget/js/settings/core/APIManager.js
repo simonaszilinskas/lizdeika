@@ -703,28 +703,6 @@ export class APIManager {
     }
 
     /**
-     * Disable 2FA for a user
-     */
-    async disableTOTP(userId) {
-        try {
-            console.log('🔐 APIManager: Disabling TOTP for user:', userId);
-            const response = await this.post(`/api/users/${userId}/totp/disable`);
-
-            if (response.success) {
-                console.log('✅ APIManager: TOTP disabled successfully');
-                Toast.success('Two-factor authentication disabled', '');
-                return true;
-            } else {
-                throw new Error(response.error || 'Failed to disable 2FA');
-            }
-        } catch (error) {
-            ErrorHandler.logError(error, 'Failed to disable 2FA');
-            Toast.error(error.message || 'Failed to disable 2FA', '');
-            throw error;
-        }
-    }
-
-    /**
      * Regenerate backup codes for a user
      */
     async regenerateBackupCodes(userId) {
@@ -742,6 +720,47 @@ export class APIManager {
         } catch (error) {
             ErrorHandler.logError(error, 'Failed to regenerate backup codes');
             Toast.error(error.message || 'Failed to regenerate backup codes', '');
+            throw error;
+        }
+    }
+
+    /**
+     * Get a system setting
+     */
+    async getSetting(key, category = 'security') {
+        try {
+            console.log(`⚙️ APIManager: Getting setting ${key} from category ${category}`);
+            const response = await this.get(`/api/settings/${category}/${key}`);
+
+            if (response.success) {
+                const value = response.data.value;
+                console.log(`✅ APIManager: Setting ${key} =`, value);
+                return value;
+            } else {
+                throw new Error(response.error || 'Failed to get setting');
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, `Failed to get setting ${key}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Update a system setting
+     */
+    async updateSetting(key, value, category = 'security') {
+        try {
+            console.log(`⚙️ APIManager: Updating setting ${key} in category ${category} to:`, value);
+            const response = await this.put(`/api/settings/${category}/${key}`, { value });
+
+            if (response.success) {
+                console.log(`✅ APIManager: Setting ${key} updated successfully`);
+                return response.data;
+            } else {
+                throw new Error(response.error || 'Failed to update setting');
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, `Failed to update setting ${key}`);
             throw error;
         }
     }

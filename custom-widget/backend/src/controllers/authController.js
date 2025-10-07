@@ -73,6 +73,28 @@ class AuthController {
     try {
       const result = await authService.loginUser(req.body);
 
+      // Check if 2FA setup is required (mandatory policy)
+      if (result.requires2FASetup) {
+        await activityService.logSecurity(
+          result.userId,
+          '2fa_setup_required',
+          true,
+          ipAddress,
+          userAgent,
+          { email: result.email, reason: 'organization_policy' }
+        );
+
+        return res.status(200).json({
+          success: true,
+          requires2FASetup: true,
+          message: result.message,
+          data: {
+            userId: result.userId,
+            email: result.email,
+          },
+        });
+      }
+
       // Check if 2FA challenge is required
       if (result.requiresTotp) {
         // Log 2FA challenge requested

@@ -76,6 +76,7 @@ const databaseClient = require('../utils/database');
 const tokenUtils = require('../utils/tokenUtils');
 const passwordUtils = require('../utils/passwordUtils');
 const totpUtils = require('../utils/totpUtils');
+const settingsService = require('./settingsService');
 const { v4: uuidv4 } = require('uuid');
 const { createLogger } = require('../utils/logger');
 
@@ -235,7 +236,20 @@ class AuthService {
       throw new Error('Invalid email or password');
     }
 
-    // Check if 2FA is enabled
+    // Check system-wide 2FA policy
+    const require2FAForAll = await settingsService.getSetting('REQUIRE_2FA_FOR_ALL_USERS', 'security');
+
+    // If policy requires 2FA for all users and user doesn't have it enabled, force setup
+    if (require2FAForAll === true && !user.totp_enabled) {
+      return {
+        requires2FASetup: true,
+        userId: user.id,
+        email: user.email,
+        message: 'Your organization requires two-factor authentication. Please set up 2FA to continue.',
+      };
+    }
+
+    // Check if 2FA is enabled for this user
     if (user.totp_enabled) {
       // If no TOTP code or backup code provided, return challenge
       if (!totpCode && !backupCode) {

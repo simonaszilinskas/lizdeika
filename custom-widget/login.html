@@ -171,6 +171,24 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    // Check if 2FA setup is mandatory (organization policy)
+                    if (data.requires2FASetup) {
+                        // Store user info temporarily for 2FA setup
+                        sessionStorage.setItem('pending_2fa_setup', JSON.stringify({
+                            userId: data.data.userId,
+                            email: data.data.email
+                        }));
+
+                        // Show message and redirect to 2FA setup
+                        document.getElementById('errorText').textContent = data.message;
+                        errorMessage.classList.remove('hidden');
+
+                        setTimeout(() => {
+                            window.location.href = 'setup-2fa.html?mandatory=true';
+                        }, 2000);
+                        return;
+                    }
+
                     // Check if 2FA is required
                     if (data.requiresTwoFactor) {
                         pendingCredentials = { email, password };

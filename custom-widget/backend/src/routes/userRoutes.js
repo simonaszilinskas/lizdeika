@@ -86,13 +86,6 @@ router.post('/:id/reactivate', userController.reactivateUser);
 router.delete('/:id', userController.deleteUser);
 
 /**
- * @route POST /api/users/:id/totp/disable
- * @desc Disable 2FA for a user
- * @access Admin only
- */
-router.post('/:id/totp/disable', userController.disableTOTP);
-
-/**
  * @route POST /api/users/:id/totp/backup-codes
  * @desc Regenerate backup codes for a user
  * @access Admin only
