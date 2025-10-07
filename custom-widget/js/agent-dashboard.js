@@ -150,13 +150,16 @@ class AgentDashboard {
                       window.location.protocol + '//' + window.location.hostname + ':3002';
         
         this.apiUrl = apiUrl;
-        
+
         // Track current polling for AI suggestions (to cancel if new message arrives)
         this.currentPollingId = null;
 
         // Track if tooltip listeners are initialized (prevent memory leak)
         this.tooltipListenersInitialized = false;
-        
+
+        // Track template dropdown initialization to prevent duplicate listeners
+        this.templateDropdownInitialized = false;
+
         // Initialize authentication manager
         this.authManager = new AgentAuthManager({ apiUrl: this.apiUrl });
         this.agentId = this.authManager.getAgentId();
@@ -880,6 +883,8 @@ class AgentDashboard {
      * Initialize template dropdown interactions
      */
     initializeTemplateDropdown() {
+        if (this.templateDropdownInitialized) return;
+
         const button = document.getElementById('template-button');
         const dropdown = document.getElementById('template-dropdown');
 
@@ -897,6 +902,8 @@ class AgentDashboard {
                 this.closeTemplateDropdown();
             }
         });
+
+        this.templateDropdownInitialized = true;
     }
 
     /**

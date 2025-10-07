@@ -216,8 +216,8 @@ model response_templates {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  creator users  @relation("TemplateCreator", fields: [created_by], references: [id])
-  updater users? @relation("TemplateUpdater", fields: [updated_by], references: [id])
+  creator users  @relation("TemplateCreator", fields: [created_by], references: [id], onDelete: Restrict)
+  updater users? @relation("TemplateUpdater", fields: [updated_by], references: [id], onDelete: SetNull)
 
   @@index([is_active])
   @@index([created_by])
