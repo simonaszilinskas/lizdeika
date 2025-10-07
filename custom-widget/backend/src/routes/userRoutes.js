@@ -9,8 +9,14 @@ const { authenticateToken, requireAdmin } = require('../middleware/authMiddlewar
 
 const router = express.Router();
 
-// All routes require authentication and admin role
+// All routes require authentication
 router.use(authenticateToken);
+
+// Self-service 2FA routes (any authenticated user for their own account)
+router.post('/:id/totp/initiate', userController.initiateTOTP);
+router.post('/:id/totp/verify', userController.verifyTOTP);
+
+// Admin-only routes
 router.use(requireAdmin);
 
 /**
@@ -78,20 +84,6 @@ router.post('/:id/reactivate', userController.reactivateUser);
  * @access Admin only
  */
 router.delete('/:id', userController.deleteUser);
-
-/**
- * @route POST /api/users/:id/totp/initiate
- * @desc Initiate 2FA setup for a user
- * @access Admin only
- */
-router.post('/:id/totp/initiate', userController.initiateTOTP);
-
-/**
- * @route POST /api/users/:id/totp/verify
- * @desc Verify and enable 2FA for a user
- * @access Admin only
- */
-router.post('/:id/totp/verify', userController.verifyTOTP);
 
 /**
  * @route POST /api/users/:id/totp/disable

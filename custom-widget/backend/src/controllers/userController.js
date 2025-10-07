@@ -577,7 +577,18 @@ class UserController {
      */
     initiateTOTP = asyncHandler(async (req, res) => {
         const { id } = req.params;
-        const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+        const { ipAddress, userAgent} = activityService.constructor.getRequestMetadata(req);
+
+        // Allow users to manage their own 2FA or admins to manage any user's 2FA
+        const isOwnAccount = req.user.id === id;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isOwnAccount && !isAdmin) {
+            return res.status(403).json({
+                success: false,
+                error: 'You can only manage 2FA for your own account'
+            });
+        }
 
         const user = await prisma.users.findUnique({
             where: { id },
@@ -660,6 +671,17 @@ class UserController {
         const { id } = req.params;
         const { code } = req.body;
         const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
+
+        // Allow users to manage their own 2FA or admins to manage any user's 2FA
+        const isOwnAccount = req.user.id === id;
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isOwnAccount && !isAdmin) {
+            return res.status(403).json({
+                success: false,
+                error: 'You can only manage 2FA for your own account'
+            });
+        }
 
         if (!code) {
             return res.status(400).json({

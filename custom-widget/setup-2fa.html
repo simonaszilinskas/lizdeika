@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup Two-Factor Authentication</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .step-indicator {
+            transition: all 0.3s ease;
+        }
+        .step-active {
+            transform: scale(1.1);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.4s ease;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-2xl fade-in">
+        <!-- Progress Indicator -->
+        <div class="flex items-center justify-center mb-8">
+            <div class="flex items-center gap-4">
+                <div id="step-indicator-1" class="step-indicator step-active flex items-center justify-center w-10 h-10 rounded-full bg-green-600 text-white font-bold">
+                    1
+                </div>
+                <div class="w-16 h-1 bg-gray-300" id="progress-line"></div>
+                <div id="step-indicator-2" class="step-indicator flex items-center justify-center w-10 h-10 rounded-full bg-gray-300 text-gray-600 font-bold">
+                    2
+                </div>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <div class="w-20 h-20 bg-gradient-to-br from-green-600 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <i class="fas fa-shield-alt text-white text-3xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800">Secure Your Account</h1>
+            <p class="text-gray-600 mt-2" id="step-subtitle">Scan the QR code to get started</p>
+        </div>
+
+        <!-- Quick Explainer -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-info-circle text-blue-600 text-lg mt-0.5"></i>
+                <div class="text-sm text-blue-900">
+                    <p class="font-semibold mb-1">Quick setup - takes 2 minutes!</p>
+                    <p class="text-blue-800">Two-factor authentication adds an extra layer of security. Even if someone knows your password, they can't access your account without your phone.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup Steps (initially visible) -->
+        <div id="setupSteps" class="space-y-6 transition-opacity duration-300">
+            <!-- Combined Step View -->
+            <div class="bg-gradient-to-br from-gray-50 to-white p-8 rounded-xl border border-gray-200">
+                <!-- QR Code Section -->
+                <div class="text-center mb-6">
+                    <p class="text-sm text-gray-600 mb-4">
+                        Open your authenticator app and scan this QR code:
+                    </p>
+                    <div class="flex justify-center mb-4">
+                        <div id="qrCodeContainer" class="border-4 border-green-500 rounded-xl p-4 bg-white shadow-lg">
+                            <div class="w-56 h-56 flex items-center justify-center text-gray-400">
+                                <i class="fas fa-spinner fa-spin text-4xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Manual Entry -->
+                    <details class="mt-4">
+                        <summary class="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">
+                            Can't scan? Enter manually
+                        </summary>
+                        <div class="mt-3 p-4 bg-gray-100 rounded-lg">
+                            <code id="secretText" class="block text-sm font-mono break-all text-gray-800">Loading...</code>
+                            <button onclick="copySecret()" class="mt-2 text-xs text-green-600 hover:text-green-700">
+                                <i class="fas fa-copy mr-1"></i>Copy Secret
+                            </button>
+                        </div>
+                    </details>
+
+                    <!-- App Suggestions -->
+                    <div class="mt-4 text-xs text-gray-500">
+                        <p class="mb-2">Recommended apps:</p>
+                        <div class="flex justify-center gap-3">
+                            <span class="px-2 py-1 bg-white rounded border">Google Authenticator</span>
+                            <span class="px-2 py-1 bg-white rounded border">Authy</span>
+                            <span class="px-2 py-1 bg-white rounded border">Microsoft Authenticator</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="relative my-8">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-4 bg-white text-gray-500">Then</span>
+                    </div>
+                </div>
+
+                <!-- Verify Section -->
+                <div class="text-center">
+                    <p class="text-sm text-gray-600 mb-4 font-medium">
+                        Enter the 6-digit code from your app:
+                    </p>
+                    <form id="verifyForm" class="space-y-4">
+                        <input type="text" id="verifyCode" maxlength="6" placeholder="000000" required
+                               inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" autofocus
+                               class="w-full max-w-xs mx-auto px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center text-3xl font-mono tracking-widest transition-all"
+                               oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value.length === 6) { setTimeout(() => verify2FA(), 500); }">
+                        <button type="submit" id="verifyButton"
+                                class="w-full max-w-xs bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl">
+                            <span id="verifyButtonText">
+                                <i class="fas fa-check-circle mr-2"></i>Enable 2FA
+                            </span>
+                            <i id="verifySpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Backup Codes Section (initially hidden) -->
+        <div id="backupCodesSection" class="hidden fade-in">
+            <div class="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-500 rounded-xl p-8">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-green-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+                        <i class="fas fa-check text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-2">
+                        2FA Enabled Successfully!
+                    </h3>
+                    <p class="text-gray-600">
+                        Here are your backup recovery codes
+                    </p>
+                </div>
+
+                <div class="bg-white rounded-lg p-6 mb-6 border border-gray-200">
+                    <div class="flex items-start gap-3 mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <i class="fas fa-exclamation-triangle text-yellow-600 text-xl mt-1"></i>
+                        <div class="text-sm">
+                            <p class="font-semibold text-yellow-900 mb-1">Save these codes now!</p>
+                            <p class="text-yellow-800">Each code works once. Store them safely in case you lose your phone.</p>
+                        </div>
+                    </div>
+
+                    <div id="backupCodesList" class="grid grid-cols-2 gap-2">
+                        <!-- Backup codes will be inserted here -->
+                    </div>
+                </div>
+
+                <button onclick="finishSetup()" id="continueButton"
+                        class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl">
+                    <i class="fas fa-arrow-right mr-2"></i>Continue to Dashboard
+                </button>
+            </div>
+        </div>
+
+        <!-- Skip Option -->
+        <div id="skipOption" class="mt-6 text-center">
+            <button onclick="remindLater()" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                <i class="fas fa-clock mr-1"></i>I'll do this later
+            </button>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden">
+            <i class="fas fa-exclamation-circle mr-2"></i>
+            <span id="errorText"></span>
+        </div>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm hidden">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span id="successText"></span>
+        </div>
+    </div>
+
+    <script>
+        const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+        let userId = null;
+        let userEmail = null;
+        let backupCodes = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check if user is logged in
+            const token = localStorage.getItem('agent_token');
+            const userData = localStorage.getItem('user_data');
+
+            if (!token || !userData) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const user = JSON.parse(userData);
+            userId = user.id;
+            userEmail = user.email;
+
+            // Check if user already has 2FA enabled
+            if (user.totp_enabled) {
+                window.location.href = 'agent-dashboard.html';
+                return;
+            }
+
+            // Initialize 2FA setup
+            await initiate2FA();
+        });
+
+        // Handle verify form
+        document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await verify2FA();
+        });
+
+        async function initiate2FA() {
+            try {
+                const response = await fetch(`${apiUrl}/api/users/${userId}/totp/initiate`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Display QR code
+                    document.getElementById('qrCodeContainer').innerHTML =
+                        `<img src="${data.data.qrCode}" alt="QR Code" class="w-48 h-48" />`;
+
+                    // Display secret
+                    document.getElementById('secretText').textContent = data.data.secret;
+
+                    // Store backup codes for later use
+                    backupCodes = data.data.backupCodes || [];
+
+                    console.log('✅ 2FA setup initiated');
+                } else {
+                    throw new Error(data.error || 'Failed to initiate 2FA setup');
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                showError('Failed to initialize 2FA setup. Please try again or contact support.');
+            }
+        }
+
+        async function verify2FA() {
+            const code = document.getElementById('verifyCode').value.trim();
+            const verifyButton = document.getElementById('verifyButton');
+            const verifyButtonText = document.getElementById('verifyButtonText');
+            const verifySpinner = document.getElementById('verifySpinner');
+
+            if (!code || code.length !== 6) {
+                showError('Please enter a valid 6-digit code');
+                return;
+            }
+
+            // Show loading
+            verifyButton.disabled = true;
+            verifyButtonText.textContent = 'Verifying...';
+            verifySpinner.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${apiUrl}/api/users/${userId}/totp/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('agent_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Update user data in localStorage
+                    const userData = JSON.parse(localStorage.getItem('user_data'));
+                    userData.totp_enabled = true;
+                    localStorage.setItem('user_data', JSON.stringify(userData));
+
+                    // Show backup codes (use stored codes from initiate response)
+                    showBackupCodes(backupCodes);
+                } else {
+                    throw new Error(data.error || 'Verification failed');
+                }
+            } catch (error) {
+                console.error('Verification error:', error);
+                showError(error.message || 'Invalid code. Please try again.');
+                document.getElementById('verifyCode').value = '';
+            } finally {
+                verifyButton.disabled = false;
+                verifyButtonText.textContent = 'Verify & Enable 2FA';
+                verifySpinner.classList.add('hidden');
+            }
+        }
+
+        function copySecret() {
+            const secret = document.getElementById('secretText').textContent;
+            navigator.clipboard.writeText(secret).then(() => {
+                showSuccess('Secret copied to clipboard!');
+            }).catch(() => {
+                showError('Failed to copy. Please copy manually.');
+            });
+        }
+
+        function showBackupCodes(codes) {
+            // Update progress indicator
+            document.getElementById('step-indicator-1').classList.remove('step-active');
+            document.getElementById('step-indicator-1').classList.add('bg-green-600', 'text-white');
+            document.getElementById('progress-line').classList.add('bg-green-600');
+            document.getElementById('step-indicator-2').classList.add('bg-green-600', 'text-white', 'step-active');
+            document.getElementById('step-indicator-2').classList.remove('bg-gray-300', 'text-gray-600');
+
+            // Hide setup, show backup codes
+            document.getElementById('setupSteps').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('setupSteps').classList.add('hidden');
+                document.getElementById('skipOption').classList.add('hidden');
+                document.getElementById('backupCodesSection').classList.remove('hidden');
+                document.getElementById('step-subtitle').textContent = 'Save your backup codes';
+            }, 300);
+
+            const codesList = document.getElementById('backupCodesList');
+            codesList.innerHTML = codes.map((code, index) =>
+                `<div class="p-3 bg-gray-50 rounded-lg border border-gray-200 text-center">
+                    <code class="text-sm font-mono font-semibold text-gray-800">${code}</code>
+                </div>`
+            ).join('');
+
+            showSuccess('Two-factor authentication enabled successfully!');
+        }
+
+        function finishSetup() {
+            window.location.href = 'agent-dashboard.html';
+        }
+
+        function remindLater() {
+            if (confirm('Warning: Your account will be less secure without 2FA.\n\nYou can set up 2FA later from Settings.\n\nContinue without 2FA?')) {
+                // Store reminder flag
+                localStorage.setItem('2fa_reminder_dismissed', Date.now());
+                window.location.href = 'agent-dashboard.html';
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = message;
+            errorDiv.classList.remove('hidden');
+
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            const successText = document.getElementById('successText');
+            successText.textContent = message;
+            successDiv.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

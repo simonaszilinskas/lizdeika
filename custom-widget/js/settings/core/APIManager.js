@@ -691,7 +691,7 @@ export class APIManager {
             if (response.success) {
                 console.log('✅ APIManager: TOTP verified and enabled');
                 Toast.success('Two-factor authentication enabled successfully', '');
-                return true;
+                return response.data;
             } else {
                 throw new Error(response.error || 'Failed to verify 2FA code');
             }

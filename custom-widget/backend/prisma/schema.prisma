@@ -43,6 +43,22 @@ model refresh_tokens {
   users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
+model response_templates {
+  id                                         String   @id
+  title                                      String
+  content                                    String
+  created_by                                 String
+  updated_by                                 String?
+  is_active                                  Boolean  @default(true)
+  created_at                                 DateTime @default(now())
+  updated_at                                 DateTime
+  users_response_templates_created_byTousers users    @relation("response_templates_created_byTousers", fields: [created_by], references: [id])
+  users_response_templates_updated_byTousers users?   @relation("response_templates_updated_byTousers", fields: [updated_by], references: [id])
+
+  @@index([created_by])
+  @@index([is_active])
+}
+
 model system_logs {
   id         String   @id
   action     String
@@ -195,15 +211,17 @@ model users {
   totp_failed_attempts                     Int                 @default(0)
   totp_lock_until                          DateTime?
   backup_codes                             Json?
-  agent_status                             agent_status?
-  messages                                 messages[]
-  refresh_tokens                           refresh_tokens[]
-  ticket_actions                           ticket_actions[]
-  tickets_tickets_assigned_agent_idTousers tickets[]           @relation("tickets_assigned_agent_idTousers")
-  tickets_tickets_user_idTousers           tickets[]           @relation("tickets_user_idTousers")
-  user_activities                          user_activities[]
-  created_categories                       ticket_categories[] @relation("CategoryCreator")
-  updated_categories                       ticket_categories[] @relation("CategoryUpdater")
+  agent_status                                            agent_status?
+  messages                                                messages[]
+  refresh_tokens                                          refresh_tokens[]
+  response_templates_response_templates_created_byTousers response_templates[] @relation("response_templates_created_byTousers")
+  response_templates_response_templates_updated_byTousers response_templates[] @relation("response_templates_updated_byTousers")
+  ticket_actions                                          ticket_actions[]
+  tickets_tickets_assigned_agent_idTousers                tickets[]            @relation("tickets_assigned_agent_idTousers")
+  tickets_tickets_user_idTousers                          tickets[]            @relation("tickets_user_idTousers")
+  user_activities                                         user_activities[]
+  created_categories                                      ticket_categories[]  @relation("CategoryCreator")
+  updated_categories                                      ticket_categories[]  @relation("CategoryUpdater")
 
   @@index([is_active])
   @@index([last_login])
