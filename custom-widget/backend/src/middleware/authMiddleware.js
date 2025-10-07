@@ -367,6 +367,18 @@ const authenticate2FASetupToken = async (req, res, next) => {
       });
     }
 
+    // Authorization check: ensure user can only modify their own 2FA setup
+    // Extract target user ID from request path (e.g., /api/users/:id/totp/initiate)
+    const targetUserId = req.params.id;
+
+    if (targetUserId && targetUserId !== decoded.sub && user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        code: 'FORBIDDEN',
+      });
+    }
+
     // Attach user to request
     req.user = user;
     next();
