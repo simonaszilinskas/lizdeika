@@ -47,10 +47,7 @@ export class TemplateManagementModule {
             saveButton: null,
             saveButtonText: null,
             closeTemplateModal: null,
-            cancelTemplate: null,
-
-            // Statistics
-            templateStatsContent: null
+            cancelTemplate: null
         };
 
         // Event listeners array for cleanup
@@ -82,11 +79,6 @@ export class TemplateManagementModule {
             // Setup UI permissions
             this.setupPermissions();
 
-            // Load statistics if admin
-            if (this.isAdmin()) {
-                await this.loadStatistics();
-            }
-
             console.log('✅ TemplateManagementModule: Initialization complete');
 
         } catch (error) {
@@ -115,9 +107,6 @@ export class TemplateManagementModule {
         this.elements.saveButtonText = document.getElementById('save-template-text');
         this.elements.closeTemplateModal = document.getElementById('close-template-modal');
         this.elements.cancelTemplate = document.getElementById('cancel-template');
-
-        // Statistics
-        this.elements.templateStatsContent = document.getElementById('template-stats-content');
 
         // Validate all required elements exist
         const requiredElements = [
@@ -232,28 +221,6 @@ export class TemplateManagementModule {
             this.showError('Failed to load templates. Please try again.');
         } finally {
             this.state.isLoading = false;
-        }
-    }
-
-    /**
-     * Load template statistics (admin only)
-     */
-    async loadStatistics() {
-        if (!this.isAdmin() || !this.elements.templateStatsContent) return;
-
-        try {
-            const response = await this.apiManager.get('/api/templates/all');
-
-            if (response.success) {
-                const templates = response.templates || [];
-                this.renderStatistics(templates);
-            } else {
-                console.warn('Failed to load template statistics:', response.error);
-                this.elements.templateStatsContent.innerHTML = '<p class="text-gray-500">Failed to load statistics</p>';
-            }
-        } catch (error) {
-            ErrorHandler.logError(error, 'Failed to load template statistics');
-            this.elements.templateStatsContent.innerHTML = '<p class="text-gray-500">Failed to load statistics</p>';
         }
     }
 
@@ -496,11 +463,6 @@ export class TemplateManagementModule {
                 );
                 this.closeModal();
                 await this.loadTemplates();
-
-                // Reload statistics if admin
-                if (this.isAdmin()) {
-                    await this.loadStatistics();
-                }
             } else {
                 throw new Error(response.error || 'Failed to save template');
             }
@@ -535,11 +497,6 @@ export class TemplateManagementModule {
             if (response.success) {
                 Toast.show('Template archived successfully!', 'success');
                 await this.loadTemplates();
-
-                // Reload statistics if admin
-                if (this.isAdmin()) {
-                    await this.loadStatistics();
-                }
             } else {
                 throw new Error(response.error || 'Failed to archive template');
             }
@@ -547,36 +504,6 @@ export class TemplateManagementModule {
             ErrorHandler.logError(error, 'Failed to archive template');
             this.showError(error.message || 'Failed to archive template. Please try again.');
         }
-    }
-
-    /**
-     * Render statistics (admin only)
-     */
-    renderStatistics(templates) {
-        if (!this.elements.templateStatsContent || !templates) return;
-
-        const totalTemplates = templates.length;
-        const activeTemplates = templates.filter(t => t.is_active).length;
-        const inactiveTemplates = totalTemplates - activeTemplates;
-
-        const html = `
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-gray-900">${totalTemplates}</div>
-                    <div class="text-sm text-gray-600">Total Templates</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-green-600">${activeTemplates}</div>
-                    <div class="text-sm text-gray-600">Active</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-2xl font-bold text-gray-600">${inactiveTemplates}</div>
-                    <div class="text-sm text-gray-600">Inactive</div>
-                </div>
-            </div>
-        `;
-
-        this.elements.templateStatsContent.innerHTML = html;
     }
 
     /**
