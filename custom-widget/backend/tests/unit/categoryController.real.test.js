@@ -5,10 +5,10 @@
  * Uses mocked Prisma client but tests real controller logic
  */
 
-// Mock Prisma client before requiring anything
-jest.mock('@prisma/client');
+// Mock database client before requiring anything
+jest.mock('../../src/utils/database');
 
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../../src/utils/database');
 
 describe('CategoryController Real Implementation Tests', () => {
     let mockPrisma;
@@ -33,8 +33,8 @@ describe('CategoryController Real Implementation Tests', () => {
             }
         };
 
-        // Mock PrismaClient constructor
-        PrismaClient.mockImplementation(() => mockPrisma);
+        // Mock databaseClient.getClient() to return mockPrisma
+        databaseClient.getClient.mockReturnValue(mockPrisma);
 
         // Now require the controller after mocking
         categoryController = require('../../src/controllers/categoryController');
