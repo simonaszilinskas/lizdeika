@@ -50,6 +50,7 @@ const mockPrismaInstance = {
     findFirst: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
+    createMany: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
     deleteMany: jest.fn(),

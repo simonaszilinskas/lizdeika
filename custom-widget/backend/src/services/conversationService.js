@@ -599,10 +599,11 @@ class ConversationService {
      * Clear all data (for testing only)
      */
     async clearAllData() {
+        if (!prisma) prisma = databaseClient.getClient();
         if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
             throw new Error('clearAllData can only be used in test/development environment');
         }
-        
+
         try {
             // Delete in proper order due to foreign key constraints
             await prisma.messages.deleteMany();
