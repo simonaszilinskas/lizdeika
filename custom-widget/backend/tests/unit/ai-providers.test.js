@@ -182,8 +182,8 @@ describe('AI Providers', () => {
                         method: 'POST',
                         headers: expect.objectContaining({
                             'Authorization': 'Bearer test-key',
-                            'HTTP-Referer': 'http://test.com',
-                            'X-Title': 'Test Site'
+                            'Content-Type': 'application/json',
+                            'HTTP-Referer': 'http://test.com'
                         })
                     })
                 );
