@@ -13,6 +13,7 @@ const mockPrismaInstance = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
     upsert: jest.fn(),
     count: jest.fn(),
   },
@@ -42,6 +43,7 @@ const mockPrismaInstance = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
     count: jest.fn(),
   },
   messages: {
@@ -50,12 +52,14 @@ const mockPrismaInstance = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
     count: jest.fn(),
   },
   ticket_actions: {
     findMany: jest.fn(),
     create: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
   },
   agent_status: {
     findFirst: jest.fn(),
@@ -64,6 +68,7 @@ const mockPrismaInstance = {
     create: jest.fn(),
     update: jest.fn(),
     upsert: jest.fn(),
+    deleteMany: jest.fn(),
   },
   system_logs: {
     create: jest.fn(),
@@ -76,6 +81,7 @@ const mockPrismaInstance = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
     count: jest.fn(),
   },
   categories: {
@@ -85,6 +91,7 @@ const mockPrismaInstance = {
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    deleteMany: jest.fn(),
     count: jest.fn(),
   },
   $disconnect: jest.fn(),
