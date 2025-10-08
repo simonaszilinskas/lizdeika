@@ -150,13 +150,16 @@ class AgentDashboard {
                       window.location.protocol + '//' + window.location.hostname + ':3002';
         
         this.apiUrl = apiUrl;
-        
+
         // Track current polling for AI suggestions (to cancel if new message arrives)
         this.currentPollingId = null;
 
         // Track if tooltip listeners are initialized (prevent memory leak)
         this.tooltipListenersInitialized = false;
-        
+
+        // Track template dropdown initialization to prevent duplicate listeners
+        this.templateDropdownInitialized = false;
+
         // Initialize authentication manager
         this.authManager = new AgentAuthManager({ apiUrl: this.apiUrl });
         this.agentId = this.authManager.getAgentId();
@@ -286,10 +289,13 @@ class AgentDashboard {
         this.stateManager.restoreFilterStates();
         
         await this.loadConversations();
-        
+
+        // Load response templates
+        await this.loadTemplates();
+
         // Restore previously selected conversation after conversations are loaded
         await this.restorePreviousConversation();
-        
+
         // No need for polling anymore with WebSockets
     }
 
@@ -791,6 +797,147 @@ class AgentDashboard {
         } catch (error) {
             console.error('❌ Error in modern conversation loading:', error);
             // Fallback to show error state is handled by the modern loader
+        }
+    }
+
+    /**
+     * Load response templates
+     */
+    async loadTemplates() {
+        try {
+            const token = localStorage.getItem('agent_token');
+            if (!token) {
+                console.log('⚠️ No auth token for loading templates');
+                return;
+            }
+
+            const response = await fetch(`${this.apiUrl}/api/templates`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.success && data.templates) {
+                this.populateTemplateSelector(data.templates);
+                console.log(`✅ Loaded ${data.templates.length} response templates`);
+            }
+        } catch (error) {
+            console.error('Error loading templates:', error);
+        }
+    }
+
+    /**
+     * Populate template dropdown
+     */
+    populateTemplateSelector(templates) {
+        this.templates = templates; // Store for filtering
+        this.renderTemplateDropdown(templates);
+        this.initializeTemplateDropdown();
+    }
+
+    /**
+     * Render template dropdown HTML
+     */
+    renderTemplateDropdown(templates) {
+        const templateList = document.getElementById('template-list');
+        if (!templateList) return;
+
+        if (!templates || templates.length === 0) {
+            templateList.innerHTML = '<div class="px-4 py-8 text-center text-gray-500 text-sm">No templates available</div>';
+            return;
+        }
+
+        // Sort templates alphabetically by title
+        const sortedTemplates = [...templates].sort((a, b) => a.title.localeCompare(b.title));
+
+        // Build HTML
+        let html = '';
+        sortedTemplates.forEach(template => {
+            const preview = template.content.substring(0, 60) + (template.content.length > 60 ? '...' : '');
+            html += `
+                <div class="template-item" data-content="${this.escapeHtml(template.content)}">
+                    <div class="template-item-title">${this.escapeHtml(template.title)}</div>
+                    <div class="template-item-preview">${this.escapeHtml(preview)}</div>
+                </div>
+            `;
+        });
+
+        templateList.innerHTML = html;
+
+        // Add click handlers to template items
+        templateList.querySelectorAll('.template-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const content = e.currentTarget.getAttribute('data-content');
+                this.insertTemplate(content);
+                this.closeTemplateDropdown();
+            });
+        });
+    }
+
+    /**
+     * Initialize template dropdown interactions
+     */
+    initializeTemplateDropdown() {
+        if (this.templateDropdownInitialized) return;
+
+        const button = document.getElementById('template-button');
+        const dropdown = document.getElementById('template-dropdown');
+
+        if (!button || !dropdown) return;
+
+        // Toggle dropdown on button click
+        button.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dropdown.classList.toggle('show');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!dropdown.contains(e.target) && e.target !== button) {
+                this.closeTemplateDropdown();
+            }
+        });
+
+        this.templateDropdownInitialized = true;
+    }
+
+    /**
+     * Close template dropdown
+     */
+    closeTemplateDropdown() {
+        const dropdown = document.getElementById('template-dropdown');
+        if (dropdown) {
+            dropdown.classList.remove('show');
+        }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Insert template into message input
+     */
+    insertTemplate(content) {
+        const input = document.getElementById('message-input');
+        if (input) {
+            input.value = content;
+            input.focus();
+            // Manually resize textarea to fit content
+            if (this.chatManager && this.chatManager.resizeTextarea) {
+                this.chatManager.resizeTextarea();
+            }
+            this.showToast('Template inserted', 'success');
         }
     }
 
