@@ -38,11 +38,11 @@
  * @version 3.0.0 - PostgreSQL Implementation
  */
 
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
 const { handleServiceError, createError } = require('../utils/errors');
 
-const prisma = new PrismaClient();
+let prisma;
 
 class AgentService {
     /**
@@ -101,6 +101,7 @@ class AgentService {
      * @throws {Error} If agent user creation fails or database update fails
      */
     async updateAgentPersonalStatus(agentId, personalStatus, includeActiveChats = false) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             // Get or create user for this agent
             const user = await this.getOrCreateAgentUser(agentId);
@@ -153,6 +154,7 @@ class AgentService {
      * Legacy method for backward compatibility
      */
     async updateAgentStatus(agentId, status, includeActiveChats = false) {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.updateAgentPersonalStatus(agentId, status, includeActiveChats);
     }
 
@@ -160,6 +162,7 @@ class AgentService {
      * Get agent by ID from database
      */
     async getAgent(agentId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const user = await this.findAgentUser(agentId, true);
             
@@ -176,6 +179,7 @@ class AgentService {
      * Get all agents from database
      */
     async getAllAgents() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const users = await prisma.users.findMany({
                 where: {
@@ -198,6 +202,7 @@ class AgentService {
      * Get available agents (connected and online)
      */
     async getAvailableAgents() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const users = await this.findActiveAgents(['online']);
             
@@ -212,6 +217,7 @@ class AgentService {
      * Get active agents (legacy - for backward compatibility)
      */
     async getActiveAgents() {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.getAvailableAgents();
     }
 
@@ -219,6 +225,7 @@ class AgentService {
      * Get online agents (HITL and Autopilot modes)
      */
     async getOnlineAgents() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const users = await this.findActiveAgents(['online', 'busy']);
             
@@ -233,6 +240,7 @@ class AgentService {
      * Set agent as online with socket info (simplified: connection = online)
      */
     async setAgentOnline(agentId, socketId = null, includeActiveChats = false) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const user = await this.getOrCreateAgentUser(agentId);
             
@@ -277,6 +285,7 @@ class AgentService {
      * Update agent activity timestamp (for heartbeat)
      */
     async updateAgentActivity(agentId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const user = await this.getOrCreateAgentUser(agentId);
             
@@ -305,6 +314,7 @@ class AgentService {
      * Set agent as offline (cleanup) with grace period for reconnections
      */
     async setAgentOffline(agentId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const user = await this.getOrCreateAgentUser(agentId);
             
@@ -349,6 +359,7 @@ class AgentService {
      * Get best available agent for new conversation (simplified)
      */
     async getBestAvailableAgent() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const availableAgents = await this.getAvailableAgents();
             
@@ -368,6 +379,7 @@ class AgentService {
      * Get global system mode from database
      */
     async getSystemMode() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const setting = await prisma.system_settings.findFirst({
                 where: { setting_key: 'system_mode' }
@@ -382,6 +394,7 @@ class AgentService {
      * Set global system mode in database
      */
     async setSystemMode(mode) {
+        if (!prisma) prisma = databaseClient.getClient();
         if (!['hitl', 'autopilot', 'off'].includes(mode)) {
             throw createError.validation(`Invalid system mode: ${mode}. Must be 'hitl', 'autopilot', or 'off'`);
         }
@@ -412,6 +425,7 @@ class AgentService {
      * Get connected agents (for display)
      */
     async getConnectedAgents() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const users = await this.findActiveAgents(['online', 'busy']);
             
@@ -426,6 +440,7 @@ class AgentService {
      * @deprecated AFK functionality has been removed
      */
     async handleAgentAFK(agentId, conversationService) {
+        if (!prisma) prisma = databaseClient.getClient();
         // No-op: AFK functionality removed
         return [];
     }
@@ -434,6 +449,7 @@ class AgentService {
      * Handle agent coming back online - simplified (no automatic reclaiming)
      */
     async handleAgentBackOnline(agentId, conversationService) {
+        if (!prisma) prisma = databaseClient.getClient();
         // Simplified: just return empty array, no automatic reclaiming
         return [];
     }
@@ -442,6 +458,7 @@ class AgentService {
      * Redistribute orphaned tickets - simplified (disabled)
      */
     async redistributeOrphanedTickets(conversationService, maxTicketsPerAgent = 3) {
+        if (!prisma) prisma = databaseClient.getClient();
         // Simplified: disabled automatic redistribution
         return [];
     }
@@ -451,6 +468,7 @@ class AgentService {
      * Update agent's last seen timestamp
      */
     async updateLastSeen(agentId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const user = await this.getOrCreateAgentUser(agentId);
             
@@ -481,6 +499,7 @@ class AgentService {
      * Get agent count
      */
     async getAgentCount() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             return await prisma.users.count({
                 where: {
@@ -497,6 +516,7 @@ class AgentService {
      * Clear all agent data (for testing)
      */
     async clearAllData() {
+        if (!prisma) prisma = databaseClient.getClient();
         if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
             throw new Error('clearAllData can only be used in test/development environment');
         }

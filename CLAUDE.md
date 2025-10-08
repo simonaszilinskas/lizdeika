@@ -139,14 +139,14 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Follow single responsibility principle for modules
 - Maintain event-driven communication via StateManager
 
-**Testing**: Comprehensive testing infrastructure with **190 passing tests** across 9 test suites:
-- `tests/unit/` - 12 unit test files covering all major modules
+**Testing**: Comprehensive testing infrastructure with **213 passing tests** across 10 test suites:
+- `tests/unit/` - Unit test files covering all major modules
 - `tests/integration/` - Integration tests for module interactions
 - `tests/baseline/` - Error handling baseline tests
 - `tests/mocks/` - Mock services for isolated testing
 - `tests/utilities/` - ES6 module testing utilities
 
-**Current Status**: 190/190 tests passing. All tests use Jest with JSDOM environment for frontend module testing.
+**Current Status**: 213/213 tests passing (127 backend + 86 frontend). All tests use Jest with JSDOM environment for frontend module testing.
 
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)

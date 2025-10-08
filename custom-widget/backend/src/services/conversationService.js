@@ -37,16 +37,17 @@
  * - Optimized pagination for large datasets
  */
 
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
 
-const prisma = new PrismaClient();
+let prisma;
 
 class ConversationService {
     /**
      * Create a new conversation (ticket)
      */
     async createConversation(conversationId, conversation) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             // Generate a user-friendly ticket number and user number for tracking
             const ticketNumber = await this.generateTicketNumber();
@@ -94,6 +95,7 @@ class ConversationService {
      * Check if conversation exists
      */
     async conversationExists(conversationId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const ticket = await prisma.tickets.findUnique({
                 where: { id: conversationId }
@@ -109,6 +111,7 @@ class ConversationService {
      * Get conversation by ID
      */
     async getConversation(conversationId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const ticket = await prisma.tickets.findUnique({
                 where: { id: conversationId },
@@ -166,6 +169,7 @@ class ConversationService {
      * Update conversation
      */
     async updateConversation(conversationId, updates) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const updateData = { updated_at: new Date() };
             
@@ -212,6 +216,7 @@ class ConversationService {
      * Get messages for a conversation
      */
     async getMessages(conversationId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const messages = await prisma.messages.findMany({
                 where: { ticket_id: conversationId },
@@ -241,6 +246,7 @@ class ConversationService {
      * Set messages for a conversation (for testing/migration)
      */
     async setMessages(conversationId, messageList) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             // Delete existing messages and recreate (for testing)
             await prisma.messages.deleteMany({
@@ -274,6 +280,7 @@ class ConversationService {
      * Add message to conversation
      */
     async addMessage(conversationId, message) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             // Ensure conversation exists
             await this.ensureConversationExists(conversationId, message);
@@ -326,6 +333,7 @@ class ConversationService {
      * Replace the last message in a conversation
      */
     async replaceLastMessage(conversationId, newMessage) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             // Get the last message
             const lastMessage = await prisma.messages.findFirst({
@@ -371,6 +379,7 @@ class ConversationService {
      * Get existing offline notification message for a conversation
      */
     async getExistingOfflineMessage(conversationId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const offlineMessage = await prisma.messages.findFirst({
                 where: {
@@ -404,6 +413,7 @@ class ConversationService {
      * Remove pending messages from conversation
      */
     async removePendingMessages(conversationId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const deleted = await prisma.messages.deleteMany({
                 where: {
@@ -589,10 +599,11 @@ class ConversationService {
      * Clear all data (for testing only)
      */
     async clearAllData() {
+        if (!prisma) prisma = databaseClient.getClient();
         if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
             throw new Error('clearAllData can only be used in test/development environment');
         }
-        
+
         try {
             // Delete in proper order due to foreign key constraints
             await prisma.messages.deleteMany();
@@ -742,6 +753,7 @@ class ConversationService {
      * Assign conversation to agent
      */
     async assignConversation(conversationId, agentId) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             // Get or create the agent user to get the proper database user ID
             const agentService = require('./agentService');
@@ -830,6 +842,7 @@ class ConversationService {
      * Get all conversations (alias for compatibility)
      */
     async getAllConversations() {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.getAllConversationsWithStats();
     }
 

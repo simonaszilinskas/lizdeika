@@ -13,7 +13,7 @@ describe('Widget Accessibility', () => {
     let document;
     let VilniusChat;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', {
             url: 'http://localhost',
             pretendToBeVisual: true,
@@ -29,6 +29,14 @@ describe('Widget Accessibility', () => {
             removeItem: jest.fn(),
             clear: jest.fn()
         };
+        global.fetch = jest.fn(() => Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+                privacyEnabled: false,
+                privacyCheckboxText: '',
+                privacyPolicyUrl: ''
+            })
+        }));
         global.io = jest.fn(() => ({
             on: jest.fn(),
             emit: jest.fn(),
@@ -42,6 +50,11 @@ describe('Widget Accessibility', () => {
         const widgetScript = new window.Function(widgetCode);
         widgetScript.call(window);
         VilniusChat = window.VilniusChat;
+
+        // Initialize widget and wait for DOM elements to be created
+        VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        // Wait for async initialization (loadPrivacySettings + createWidget)
+        await new Promise(resolve => setTimeout(resolve, 100));
     });
 
     afterEach(() => {
@@ -50,9 +63,7 @@ describe('Widget Accessibility', () => {
     });
 
     describe('ARIA Attributes', () => {
-        test('chat bubble has proper ARIA attributes', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
-
+        test('chat bubble has proper ARIA attributes', () => {
             const bubble = document.getElementById('vilnius-chat-bubble');
             expect(bubble).toBeTruthy();
             expect(bubble.getAttribute('aria-label')).toBe('Atidaryti pokalbių langą');
@@ -61,9 +72,7 @@ describe('Widget Accessibility', () => {
             expect(bubble.getAttribute('aria-controls')).toBe('vilnius-chat-window');
         });
 
-        test('chat window has dialog role and proper ARIA attributes', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
-
+        test('chat window has dialog role and proper ARIA attributes', () => {
             const chatWindow = document.getElementById('vilnius-chat-window');
             expect(chatWindow).toBeTruthy();
             expect(chatWindow.getAttribute('role')).toBe('dialog');
@@ -72,8 +81,7 @@ describe('Widget Accessibility', () => {
             expect(chatWindow.getAttribute('aria-labelledby')).toBe('vilnius-chat-title');
         });
 
-        test('messages container has log role and live region attributes', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('messages container has log role and live region attributes', () => {
 
             const messagesContainer = document.getElementById('vilnius-messages');
             expect(messagesContainer).toBeTruthy();
@@ -82,8 +90,7 @@ describe('Widget Accessibility', () => {
             expect(messagesContainer.getAttribute('aria-relevant')).toBe('additions text');
         });
 
-        test('live region exists with proper attributes', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('live region exists with proper attributes', () => {
 
             const liveRegion = document.getElementById('vilnius-live-region');
             expect(liveRegion).toBeTruthy();
@@ -92,8 +99,7 @@ describe('Widget Accessibility', () => {
             expect(liveRegion.getAttribute('aria-atomic')).toBe('false');
         });
 
-        test('start chat button has aria-disabled attribute', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('start chat button has aria-disabled attribute', () => {
 
             const startChatBtn = document.getElementById('vilnius-start-chat-btn');
             expect(startChatBtn).toBeTruthy();
@@ -103,8 +109,7 @@ describe('Widget Accessibility', () => {
     });
 
     describe('Keyboard Navigation', () => {
-        test('escape key closes chat window', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('escape key closes chat window', () => {
 
             VilniusChat.openChatWindow();
             const chatWindow = document.getElementById('vilnius-chat-window');
@@ -116,8 +121,7 @@ describe('Widget Accessibility', () => {
             expect(chatWindow.getAttribute('aria-hidden')).toBe('true');
         });
 
-        test('focus trap handles Tab key at boundaries', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('focus trap handles Tab key at boundaries', () => {
 
             const privacyCheckbox = document.getElementById('vilnius-privacy-checkbox');
             privacyCheckbox.checked = true;
@@ -134,8 +138,7 @@ describe('Widget Accessibility', () => {
             expect(focusableElements.length).toBeGreaterThan(0);
         });
 
-        test('focus is returned to bubble when closing', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('focus is returned to bubble when closing', () => {
 
             const bubble = document.getElementById('vilnius-chat-bubble');
             VilniusChat.openChatWindow();
@@ -146,8 +149,7 @@ describe('Widget Accessibility', () => {
     });
 
     describe('Focus Management', () => {
-        test('openChatWindow updates aria-expanded on bubble', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('openChatWindow updates aria-expanded on bubble', () => {
 
             const bubble = document.getElementById('vilnius-chat-bubble');
             expect(bubble.getAttribute('aria-expanded')).toBe('false');
@@ -156,8 +158,7 @@ describe('Widget Accessibility', () => {
             expect(bubble.getAttribute('aria-expanded')).toBe('true');
         });
 
-        test('closeChatWindow clears focusable elements cache', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('closeChatWindow clears focusable elements cache', () => {
 
             VilniusChat.openChatWindow();
             expect(VilniusChat.focusableElementsCache).not.toBeNull();
@@ -166,8 +167,7 @@ describe('Widget Accessibility', () => {
             expect(VilniusChat.focusableElementsCache).toBeNull();
         });
 
-        test('getFocusableElements returns only visible elements', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('getFocusableElements returns only visible elements', () => {
 
             const chatWindow = document.getElementById('vilnius-chat-window');
             const focusable = VilniusChat.getFocusableElements(chatWindow);
@@ -211,8 +211,7 @@ describe('Widget Accessibility', () => {
             expect(info.announcement).toBe('Pagalbos asistentas');
         });
 
-        test('announceNewMessage updates live region', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('announceNewMessage updates live region', () => {
             VilniusChat.initialMessagesLoaded = true;
 
             const liveRegion = document.getElementById('vilnius-live-region');
@@ -225,8 +224,7 @@ describe('Widget Accessibility', () => {
             expect(liveRegion.textContent).toBe('Agentas: Test message');
         });
 
-        test('announceNewMessage handles file attachments', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('announceNewMessage handles file attachments', () => {
             VilniusChat.initialMessagesLoaded = true;
 
             const liveRegion = document.getElementById('vilnius-live-region');
@@ -243,8 +241,7 @@ describe('Widget Accessibility', () => {
             expect(liveRegion.textContent).toBe('Jūs: pridėtas failas test.pdf');
         });
 
-        test('renderMessages does not announce during initial load', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('renderMessages does not announce during initial load', () => {
             VilniusChat.initialMessagesLoaded = false;
 
             const liveRegion = document.getElementById('vilnius-live-region');
@@ -260,15 +257,13 @@ describe('Widget Accessibility', () => {
     });
 
     describe('File Attachment Accessibility', () => {
-        test('attach button has aria-label', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('attach button has aria-label', () => {
 
             const attachButton = document.getElementById('vilnius-attach-button');
             expect(attachButton.getAttribute('aria-label')).toBe('Pridėti failą');
         });
 
-        test('file preview has role status', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('file preview has role status', () => {
 
             const filePreview = document.getElementById('vilnius-file-preview');
             expect(filePreview.getAttribute('role')).toBe('status');
@@ -277,8 +272,7 @@ describe('Widget Accessibility', () => {
     });
 
     describe('Message Accessibility', () => {
-        test('messages have article role and aria-label', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('messages have article role and aria-label', () => {
             VilniusChat.initialMessagesLoaded = true;
 
             VilniusChat.addMessage('Test message', 'user', 'test-id');
@@ -288,8 +282,7 @@ describe('Widget Accessibility', () => {
             expect(message.getAttribute('aria-label')).toBe('Jūsų pranešimas');
         });
 
-        test('typing indicator has proper ARIA attributes', async () => {
-            await VilniusChat.init({ apiUrl: 'http://localhost:3002' });
+        test('typing indicator has proper ARIA attributes', () => {
 
             const typingId = VilniusChat.showTypingIndicator();
             const typingIndicator = document.getElementById(typingId);
