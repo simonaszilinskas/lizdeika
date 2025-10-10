@@ -648,8 +648,11 @@ class StatisticsService {
 
         messages.forEach(msg => {
             const date = new Date(msg.created_at);
-            hourCounts[date.getHours()]++;
-            dayCounts[date.getDay()]++;
+            const hour = date.getUTCHours();
+            const day = date.getUTCDay();
+
+            if (hour >= 0 && hour < 24) hourCounts[hour]++;
+            if (day >= 0 && day < 7) dayCounts[day]++;
         });
 
         return {

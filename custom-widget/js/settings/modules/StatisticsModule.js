@@ -22,6 +22,20 @@ export default class StatisticsModule {
     }
 
     /**
+     * Build date parameters for API requests
+     * Normalizes end date to end-of-day to include the full selected date
+     */
+    buildDateParams(start, end) {
+        const endOfDay = new Date(end);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        return new URLSearchParams({
+            startDate: start.toISOString(),
+            endDate: endOfDay.toISOString()
+        });
+    }
+
+    /**
      * Initialize the statistics module
      */
     async initialize() {
@@ -148,11 +162,7 @@ export default class StatisticsModule {
         this.showLoading();
 
         try {
-            const params = new URLSearchParams({
-                startDate: this.dateRange.start.toISOString(),
-                endDate: this.dateRange.end.toISOString()
-            });
-
+            const params = this.buildDateParams(this.dateRange.start, this.dateRange.end);
             const response = await this.apiManager.get(`/api/statistics/dashboard?${params}`);
 
             if (response.success) {
@@ -174,11 +184,7 @@ export default class StatisticsModule {
         this.showLoading();
 
         try {
-            const params = new URLSearchParams({
-                startDate: this.dateRange.start.toISOString(),
-                endDate: this.dateRange.end.toISOString()
-            });
-
+            const params = this.buildDateParams(this.dateRange.start, this.dateRange.end);
             const response = await this.apiManager.get(`/api/statistics/conversations?${params}`);
 
             if (response.success) {
@@ -200,11 +206,7 @@ export default class StatisticsModule {
         this.showLoading();
 
         try {
-            const params = new URLSearchParams({
-                startDate: this.dateRange.start.toISOString(),
-                endDate: this.dateRange.end.toISOString()
-            });
-
+            const params = this.buildDateParams(this.dateRange.start, this.dateRange.end);
             const response = await this.apiManager.get(`/api/statistics/agents?${params}`);
 
             if (response.success) {
@@ -226,11 +228,7 @@ export default class StatisticsModule {
         this.showLoading();
 
         try {
-            const params = new URLSearchParams({
-                startDate: this.dateRange.start.toISOString(),
-                endDate: this.dateRange.end.toISOString()
-            });
-
+            const params = this.buildDateParams(this.dateRange.start, this.dateRange.end);
             const response = await this.apiManager.get(`/api/statistics/ai-suggestions?${params}`);
 
             if (response.success) {
@@ -252,11 +250,7 @@ export default class StatisticsModule {
         this.showLoading();
 
         try {
-            const params = new URLSearchParams({
-                startDate: this.dateRange.start.toISOString(),
-                endDate: this.dateRange.end.toISOString()
-            });
-
+            const params = this.buildDateParams(this.dateRange.start, this.dateRange.end);
             const response = await this.apiManager.get(`/api/statistics/templates?${params}`);
 
             if (response.success) {
@@ -321,7 +315,7 @@ export default class StatisticsModule {
                     <div class="stat-body">
                         <div class="stat-main-value">${data.agents?.activeAgents || 0}</div>
                         <div class="stat-subtext">
-                            <i class="fas fa-trophy"></i> Top: <strong>${data.agents?.topAgent?.agentId || 'N/A'}</strong> (${data.agents?.topAgent?.messageCount || 0})
+                            <i class="fas fa-trophy"></i> Top: <strong>${data.agents?.topAgent?.name || data.agents?.topAgent?.agentId || 'N/A'}</strong> (${data.agents?.topAgent?.messageCount || 0})
                         </div>
                     </div>
                 </div>
@@ -350,9 +344,9 @@ export default class StatisticsModule {
                         <h4>Templates</h4>
                     </div>
                     <div class="stat-body">
-                        <div class="stat-main-value">${data.templates?.totalUsed || 0}</div>
+                        <div class="stat-main-value">${data.templates?.templatedMessages || 0}</div>
                         <div class="stat-subtext">
-                            <i class="fas fa-percentage"></i> ${data.templates?.usagePercentage?.toFixed(1) || 0}% of all messages
+                            <i class="fas fa-percentage"></i> ${data.templates?.templateUsagePercentage != null ? data.templates.templateUsagePercentage.toFixed(1) : 0}% of all messages
                         </div>
                     </div>
                 </div>
@@ -419,13 +413,14 @@ export default class StatisticsModule {
         const container = document.getElementById('stats-data');
         if (!container) return;
 
-        const agentCounts = data.agentMessageCounts || [];
+        const agentCounts = data.agents || [];
         const agentRows = agentCounts.map((agent, index) => `
             <tr>
                 <td>${index + 1}</td>
-                <td>${agent.agentName || agent.agentId}</td>
+                <td>${agent.name || agent.agentId}</td>
                 <td>${agent.messageCount || 0}</td>
-                <td>${agent.conversationCount || 0}</td>
+                <td>${agent.suggestionUsage || 0}</td>
+                <td>${agent.templateUsage || 0}</td>
             </tr>
         `).join('');
 
@@ -438,11 +433,12 @@ export default class StatisticsModule {
                             <th>Rank</th>
                             <th>Agent</th>
                             <th>Messages</th>
-                            <th>Conversations</th>
+                            <th>Suggestions</th>
+                            <th>Templates</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${agentRows || '<tr><td colspan="4">No data</td></tr>'}
+                        ${agentRows || '<tr><td colspan="5">No data</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -505,13 +501,14 @@ export default class StatisticsModule {
         const container = document.getElementById('stats-data');
         if (!container) return;
 
-        const hasData = (data.totalUsed || 0) > 0;
-        const popularTemplates = data.popularTemplates || [];
-        const templateRows = popularTemplates.map((template, index) => `
+        const overview = data.overview || {};
+        const hasData = (overview.totalUsed || 0) > 0;
+        const topTemplates = data.topTemplates || [];
+        const templateRows = topTemplates.map((template, index) => `
             <tr>
                 <td>${index + 1}</td>
-                <td>${template.templateName || 'Unnamed'}</td>
-                <td>${template.usageCount || 0}</td>
+                <td>${template.name || 'Unnamed'}</td>
+                <td>${template.count || 0}</td>
             </tr>
         `).join('');
 
@@ -521,8 +518,8 @@ export default class StatisticsModule {
             <div class="templates-stats">
                 <div class="stat-section">
                     <h4>Template Usage Overview</h4>
-                    <p>Total Used: <strong>${data.totalUsed || 0}</strong></p>
-                    <p>Usage Rate: <strong>${data.usagePercentage?.toFixed(1) || 0}%</strong> of all messages</p>
+                    <p>Total Used: <strong>${overview.totalUsed || 0}</strong></p>
+                    <p>Usage Rate: <strong>${overview.usagePercentage != null ? overview.usagePercentage.toFixed(1) : 0}%</strong> of all messages</p>
                     ${emptyMessage}
                 </div>
 

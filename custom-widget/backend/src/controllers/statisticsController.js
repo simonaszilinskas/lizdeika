@@ -369,6 +369,10 @@ class StatisticsController {
             endDate = new Date();
         }
 
+        // Normalize to UTC day boundaries
+        startDate.setUTCHours(0, 0, 0, 0);
+        endDate.setUTCHours(23, 59, 59, 999);
+
         // Validate date range
         if (startDate > endDate) {
             throw new Error('startDate must be before endDate');
