@@ -456,12 +456,17 @@ export default class StatisticsModule {
         const container = document.getElementById('stats-data');
         if (!container) return;
 
+        const hasData = (data.totalSuggestions || 0) > 0;
+        const emptyMessage = !hasData ? '<p class="text-gray-500 italic">No AI suggestion data yet. Statistics will be tracked as agents send new messages.</p>' : '';
+
         container.innerHTML = `
             <div class="ai-usage-stats">
                 <div class="stat-section">
                     <h4>AI Suggestions (HITL Mode Only)</h4>
                     <p>Total Suggestions: <strong>${data.totalSuggestions || 0}</strong></p>
+                    ${emptyMessage}
 
+                    ${hasData ? `
                     <div class="usage-breakdown">
                         <div class="usage-item">
                             <span class="usage-label">Sent As-Is</span>
@@ -487,6 +492,7 @@ export default class StatisticsModule {
                             <span class="usage-value">${data.fromScratch || 0} (${data.fromScratchPercentage?.toFixed(1) || 0}%)</span>
                         </div>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -499,6 +505,7 @@ export default class StatisticsModule {
         const container = document.getElementById('stats-data');
         if (!container) return;
 
+        const hasData = (data.totalUsed || 0) > 0;
         const popularTemplates = data.popularTemplates || [];
         const templateRows = popularTemplates.map((template, index) => `
             <tr>
@@ -508,14 +515,18 @@ export default class StatisticsModule {
             </tr>
         `).join('');
 
+        const emptyMessage = !hasData ? '<p class="text-gray-500 italic">No template usage data yet. Statistics will be tracked as agents send new messages.</p>' : '';
+
         container.innerHTML = `
             <div class="templates-stats">
                 <div class="stat-section">
                     <h4>Template Usage Overview</h4>
                     <p>Total Used: <strong>${data.totalUsed || 0}</strong></p>
                     <p>Usage Rate: <strong>${data.usagePercentage?.toFixed(1) || 0}%</strong> of all messages</p>
+                    ${emptyMessage}
                 </div>
 
+                ${hasData ? `
                 <div class="stat-section">
                     <h4>Most Popular Templates</h4>
                     <table class="stats-table">
@@ -531,6 +542,7 @@ export default class StatisticsModule {
                         </tbody>
                     </table>
                 </div>
+                ` : ''}
             </div>
         `;
     }

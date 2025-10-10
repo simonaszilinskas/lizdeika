@@ -243,7 +243,22 @@ class StatisticsService {
             agents.map(a => [a.id, a])
         );
 
-        return agentMessages
+        // Get total agent messages including unattributed
+        const totalAgentMessages = await prisma.messages.count({
+            where: {
+                created_at: {
+                    gte: startDate,
+                    lte: endDate
+                },
+                senderType: 'agent'
+            }
+        });
+
+        // Count unattributed messages
+        const attributedCount = agentMessages.reduce((sum, am) => sum + am._count.id, 0);
+        const unattributedCount = totalAgentMessages - attributedCount;
+
+        const result = agentMessages
             .map(am => {
                 const agent = agentMap[am.sender_id];
                 return {
@@ -251,10 +266,22 @@ class StatisticsService {
                     name: agent ? `${agent.first_name} ${agent.last_name}` : 'Unknown',
                     email: agent?.email,
                     messageCount: am._count.id,
-                    percentage: totalMessages > 0 ? (am._count.id / totalMessages) * 100 : 0
+                    percentage: totalAgentMessages > 0 ? (am._count.id / totalAgentMessages) * 100 : 0
                 };
-            })
-            .sort((a, b) => b.messageCount - a.messageCount); // Sort by message count descending
+            });
+
+        // Add unattributed messages if they exist
+        if (unattributedCount > 0) {
+            result.push({
+                agentId: null,
+                name: 'Unattributed (Legacy)',
+                email: null,
+                messageCount: unattributedCount,
+                percentage: totalAgentMessages > 0 ? (unattributedCount / totalAgentMessages) * 100 : 0
+            });
+        }
+
+        return result.sort((a, b) => b.messageCount - a.messageCount);
     }
 
     /**
