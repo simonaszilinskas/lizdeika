@@ -536,9 +536,11 @@ class AgentService {
      * Get agent statistics
      */
     async getAgentStats() {
+        if (!prisma) prisma = databaseClient.getClient();
+
         try {
             const cutoffTime = new Date(Date.now() - 60000); // Active in last minute
-            
+
             const [total, onlineCount, busyCount] = await Promise.all([
                 prisma.users.count({ where: { role: { in: ['agent', 'admin'] } } }),
                 prisma.agent_status.count({ 
