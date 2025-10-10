@@ -37,6 +37,7 @@
 const { v4: uuidv4 } = require('uuid');
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
+const statisticsService = require('../services/statisticsService');
 const { asyncHandler } = require('../utils/errors');
 const { validateFileMetadata } = require('../utils/fileValidation');
 
@@ -211,7 +212,33 @@ class AgentController {
             
             // Add agent message atomically
             await conversationService.addMessage(conversationId, agentMessage);
-            
+
+            // Record message statistics for analytics
+            try {
+                const systemMode = await statisticsService.getCurrentSystemMode();
+
+                // Map suggestionAction to enum values
+                let mappedSuggestionAction = null;
+                if (suggestionAction === 'as-is') mappedSuggestionAction = 'sent_as_is';
+                else if (suggestionAction === 'edited') mappedSuggestionAction = 'edited';
+                else if (suggestionAction === 'from-scratch') mappedSuggestionAction = 'from_scratch';
+
+                await statisticsService.recordMessageStatistics({
+                    messageId: agentMessage.id,
+                    agentId,
+                    ticketId: conversationId,
+                    aiSuggestionUsed: usedSuggestion || false,
+                    suggestionAction: mappedSuggestionAction,
+                    suggestionEditRatio: null,
+                    originalSuggestion: usedSuggestion ? (typeof message === 'string' ? message : JSON.stringify(message)) : null,
+                    templateUsed: false,
+                    templateId: null,
+                    systemMode
+                });
+            } catch (error) {
+                console.error('Failed to record message statistics:', error);
+            }
+
             // Score agent action in Langfuse for observability (excludes autopilot mode)
             if (suggestionAction && (suggestionAction === 'as-is' || suggestionAction === 'edited' || suggestionAction === 'from-scratch')) {
                 try {

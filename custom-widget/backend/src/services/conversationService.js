@@ -484,6 +484,7 @@ class ConversationService {
      * Get all conversations with statistics
      */
     async getAllConversationsWithStats() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const tickets = await prisma.tickets.findMany({
                 orderBy: { created_at: 'desc' },
@@ -561,6 +562,7 @@ class ConversationService {
      * Get conversation count
      */
     async getConversationCount() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             return await prisma.tickets.count();
         } catch (error) {
@@ -573,6 +575,7 @@ class ConversationService {
      * Get total message count
      */
     async getTotalMessageCount() {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             return await prisma.messages.count({
                 where: {

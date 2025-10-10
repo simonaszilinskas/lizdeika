@@ -61,6 +61,7 @@ const logsRoutes = require('./routes/logsRoutes');
 const createDocsRoutes = require('./routes/docsRoutes');
 const { router: uploadRoutes } = require('./routes/uploadRoutes');
 const templateRoutes = require('./routes/templateRoutes');
+const statisticsRoutes = require('./routes/statisticsRoutes');
 
 // Import services
 const WebSocketService = require('./services/websocketService');
@@ -136,6 +137,7 @@ function createApp() {
     app.use('/api/activities', activityRoutes); // Activity logging routes
     app.use('/api/logs', logsRoutes); // Centralized logging routes (admin only)
     app.use('/api/templates', templateRoutes); // Response template routes (admin create/edit, agents read)
+    app.use('/api/statistics', statisticsRoutes); // Statistics and analytics routes (agent/admin)
     app.use('/api', uploadRoutes); // File upload routes
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));

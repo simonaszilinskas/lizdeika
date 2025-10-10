@@ -102,10 +102,11 @@ The agent dashboard uses a modular architecture with focused modules:
 - `SocketManager.js` - WebSocket communication (in `core/` directory)
 
 ### Database Schema (Prisma)
-Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `knowledge_documents`
+Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `knowledge_documents`, `message_statistics`
 - JWT authentication with refresh tokens
 - Role-based access (admin/agent/customer)
 - Automatic conversation assignment to agents
+- Message-level statistics tracking for analytics
 - 6-month data retention with cleanup jobs
 
 ### Authentication Flow
@@ -119,13 +120,14 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 ### Completed Features (Production Ready)
 - ✅ Settings system with modular ES6 architecture
 - ✅ Agent dashboard with focused module architecture
-- ✅ Comprehensive testing framework (9 unit test files)
+- ✅ Comprehensive testing framework (11 backend + 9 frontend unit tests)
 - ✅ Docker development and production setup
 - ✅ AI dual-provider system with automatic failover
 - ✅ Document RAG with vector search capabilities
 - ✅ Real-time WebSocket communication
 - ✅ Role-based authentication and user management
 - ✅ Ticket categorization system (admin-only management, real-time updates)
+- ✅ **Statistics backend API (Issue #27)** - Conversation metrics, agent performance, AI suggestion usage, template analytics
 
 ### Important Implementation Details
 
@@ -139,14 +141,24 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Follow single responsibility principle for modules
 - Maintain event-driven communication via StateManager
 
-**Testing**: Comprehensive testing infrastructure with **213 passing tests** across 10 test suites:
+**Testing**: Comprehensive testing infrastructure with **220 passing tests** across 11 test suites:
 - `tests/unit/` - Unit test files covering all major modules
 - `tests/integration/` - Integration tests for module interactions
 - `tests/baseline/` - Error handling baseline tests
 - `tests/mocks/` - Mock services for isolated testing
 - `tests/utilities/` - ES6 module testing utilities
 
-**Current Status**: 213/213 tests passing (127 backend + 86 frontend). All tests use Jest with JSDOM environment for frontend module testing.
+**Current Status**: 220/221 tests passing (134 backend + 86 frontend, 1 unrelated auth test failure). All tests use Jest with JSDOM environment for frontend module testing.
+
+**Statistics API**: Backend complete with 6 REST endpoints for analytics:
+- `/api/statistics/dashboard` - Combined overview of key metrics
+- `/api/statistics/conversations` - Detailed conversation statistics
+- `/api/statistics/agents` - Agent performance and rankings
+- `/api/statistics/ai-suggestions` - AI suggestion usage (HITL-only)
+- `/api/statistics/templates` - Template usage analytics
+- `/api/statistics/trends` - Time-series data for charts
+
+See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
 
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)
