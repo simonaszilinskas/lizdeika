@@ -19,6 +19,292 @@
         .admin-user .admin-only {
             display: block;
         }
+
+        /* Statistics Styles */
+        .statistics-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        .statistics-header {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .statistics-header h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #111827;
+            margin: 0;
+        }
+        .statistics-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .date-range-picker {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .date-range-picker label {
+            font-weight: 500;
+            color: #374151;
+        }
+        .date-range-picker input[type="date"] {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        .date-range-picker input[type="date"]:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .view-selector {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .view-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .view-btn:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+            color: #374151;
+        }
+        .view-btn.active {
+            background: #4f46e5;
+            color: white;
+            border-color: #4f46e5;
+            box-shadow: 0 1px 2px 0 rgba(79, 70, 229, 0.2);
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .stat-card {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1.75rem;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        }
+        .stat-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        .stat-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .stat-header h4 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #6b7280;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .stat-icon-wrapper {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+        }
+        .stat-icon-blue {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .stat-icon-purple {
+            background: #e9d5ff;
+            color: #7c3aed;
+        }
+        .stat-icon-green {
+            background: #d1fae5;
+            color: #059669;
+        }
+        .stat-icon-indigo {
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+        .stat-icon-orange {
+            background: #fed7aa;
+            color: #c2410c;
+        }
+        .stat-body {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .stat-main-value {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1;
+        }
+        .stat-breakdown {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .stat-badge {
+            padding: 0.25rem 0.625rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .stat-badge-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .stat-badge-warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .stat-badge-gray {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+        .stat-subtext {
+            font-size: 0.875rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        .stat-subtext i {
+            color: #9ca3af;
+        }
+        .stat-subtext strong {
+            color: #374151;
+        }
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .stats-table thead {
+            background: #f9fafb;
+        }
+        .stats-table th,
+        .stats-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .stats-table th {
+            font-weight: 600;
+            color: #374151;
+        }
+        .stat-section {
+            margin-bottom: 2rem;
+        }
+        .stat-section h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #111827;
+        }
+        .usage-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .usage-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .usage-label {
+            min-width: 120px;
+            font-weight: 500;
+        }
+        .usage-bar {
+            flex: 1;
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+        .usage-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4f46e5, #6366f1);
+            transition: width 0.3s ease;
+        }
+        .usage-value {
+            min-width: 100px;
+            text-align: right;
+            font-weight: 600;
+        }
+        .loading-state,
+        .error-state {
+            text-align: center;
+            padding: 3rem;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .error-message {
+            color: #ef4444;
+            margin-bottom: 1rem;
+        }
+        .btn-primary {
+            background: #4f46e5;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover {
+            background: #4338ca;
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -59,31 +345,33 @@
 
         <!-- Settings Navigation Tabs -->
         <div class="bg-white rounded-lg shadow-md mb-6">
-            <div class="flex border-b border-gray-200">
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors active" data-tab="system">
-                    <i class="fas fa-cogs mr-2"></i>System Settings
+            <div class="flex flex-wrap border-b border-gray-200">
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors active" data-tab="system">
+                    <i class="fas fa-cogs mr-1"></i>System
                 </button>
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="agent">
-                    <i class="fas fa-user-cog mr-2"></i>Agent Preferences
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="agent">
+                    <i class="fas fa-user-cog mr-1"></i>Agent
                 </button>
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="branding">
-                    <i class="fas fa-palette mr-2"></i>Widget & Branding
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="branding">
+                    <i class="fas fa-palette mr-1"></i>Branding
                 </button>
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="context-engineering">
-                    <i class="fas fa-brain mr-2"></i>Context Engineering
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="context-engineering">
+                    <i class="fas fa-brain mr-1"></i>Context
                 </button>
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="knowledge" id="knowledge-tab">
-                    <i class="fas fa-book mr-2"></i>Knowledge Management
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="knowledge" id="knowledge-tab">
+                    <i class="fas fa-book mr-1"></i>Knowledge
                 </button>
-                <!-- Widget Configuration merged with Branding tab -->
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="categories">
-                    <i class="fas fa-tags mr-2"></i>Category Management
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="categories">
+                    <i class="fas fa-tags mr-1"></i>Categories
                 </button>
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="templates">
-                    <i class="fas fa-file-alt mr-2"></i>Response Templates
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="templates">
+                    <i class="fas fa-file-alt mr-1"></i>Templates
                 </button>
-                <button class="tab-button px-6 py-4 font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="users">
-                    <i class="fas fa-users mr-2"></i>User Management
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="users">
+                    <i class="fas fa-users mr-1"></i>Users
+                </button>
+                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="statistics">
+                    <i class="fas fa-chart-bar mr-1"></i>Statistics
                 </button>
             </div>
         </div>
@@ -1479,6 +1767,11 @@ KLAUSIMAS: {question}"
                 </div>
             </div>
         </div>
+
+        <!-- Statistics Tab -->
+        <div id="statistics-tab" class="tab-content hidden">
+            <div id="statistics-section"></div>
+        </div>
     </div>
 
     <!-- Edit User Modal -->
@@ -2090,5 +2383,6 @@ KLAUSIMAS: {question}"
         // Check on page load
         document.addEventListener('DOMContentLoaded', check2FAReminder);
     </script>
+
 </body>
 </html>
