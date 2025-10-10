@@ -368,13 +368,21 @@ export default class StatisticsModule {
         if (!container) return;
 
         const byCategory = data.byCategory || [];
-        const categoryRows = byCategory.map(cat => `
-            <tr>
-                <td>${cat.categoryName || 'Uncategorized'}</td>
-                <td>${cat.count || 0}</td>
-                <td>${cat.percentage?.toFixed(1) || 0}%</td>
-            </tr>
-        `).join('');
+        const total = data.total || 0;
+
+        const categoryRows = byCategory.map(cat => {
+            const categoryName = cat.category?.name || 'Uncategorized';
+            const count = cat.count || 0;
+            const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+
+            return `
+                <tr>
+                    <td>${categoryName}</td>
+                    <td>${count}</td>
+                    <td>${percentage}%</td>
+                </tr>
+            `;
+        }).join('');
 
         container.innerHTML = `
             <div class="conversations-stats">
