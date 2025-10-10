@@ -726,20 +726,23 @@
                     console.log('✅ Direct Socket.io WebSocket connection (simplified)');
                     
                     console.log('📜 Loading dashboard JavaScript...');
-                    
+
                     // Load main dashboard with ES6 modules
+                    // Use build version for cache-busting (set at build time or deployment)
+                    const BUILD_VERSION = '1.0.0';
                     const script = document.createElement('script');
                     script.type = 'module';
-                    script.src = 'js/agent-dashboard.js?v=' + Date.now();
+                    script.src = 'js/agent-dashboard.js?v=' + BUILD_VERSION;
                     script.onload = () => console.log('✅ Dashboard JavaScript loaded successfully');
                     script.onerror = () => console.error('❌ Failed to load dashboard JavaScript');
                     document.body.appendChild(script);
                 } catch (error) {
                     console.error('❌ Failed to load dashboard:', error);
                     // Fallback: try to load dashboard anyway
+                    const BUILD_VERSION = '1.0.0';
                     const script = document.createElement('script');
                     script.type = 'module';
-                    script.src = 'js/agent-dashboard.js?v=' + Date.now();
+                    script.src = 'js/agent-dashboard.js?v=' + BUILD_VERSION;
                     document.body.appendChild(script);
                 }
                 

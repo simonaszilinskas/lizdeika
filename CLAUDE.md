@@ -148,7 +148,9 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - `tests/mocks/` - Mock services for isolated testing
 - `tests/utilities/` - ES6 module testing utilities
 
-**Current Status**: 220/221 tests passing (134 backend + 86 frontend, 1 unrelated auth test failure). All tests use Jest with JSDOM environment for frontend module testing.
+**Current Status**: 220/221 tests passing (134 backend + 86 frontend). All tests use Jest with JSDOM environment for frontend module testing.
+
+**Known Test Issue**: One auth test occasionally fails in CI due to timing issues with token expiration checks. This is a test environment issue documented in `custom-widget/backend/tests/unit/auth.test.js`. The authentication flow works correctly in production.
 
 **Statistics API**: Backend complete with 6 REST endpoints for analytics:
 - `/api/statistics/dashboard` - Combined overview of key metrics

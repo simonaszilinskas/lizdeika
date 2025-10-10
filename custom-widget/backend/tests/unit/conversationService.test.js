@@ -183,4 +183,46 @@ describe('ConversationService', () => {
             expect(cleared).toBe(true);
         });
     });
+
+    describe('Agent ID Mapping (Regression Tests for UUID Migration)', () => {
+        it('should return user UUID directly from mapUserIdToAgentId', () => {
+            const userUUID = uuidv4();
+            const user = {
+                id: userUUID,
+                email: 'agent@test.com',
+                role: 'agent'
+            };
+
+            const agentId = conversationService.mapUserIdToAgentId(user);
+
+            expect(agentId).toBe(userUUID);
+            expect(agentId).not.toBe('agent@test.com');
+        });
+
+        it('should return null when user is null', () => {
+            const agentId = conversationService.mapUserIdToAgentId(null);
+            expect(agentId).toBeNull();
+        });
+
+        it('should return null when user has no id', () => {
+            const user = {
+                email: 'agent@test.com',
+                role: 'agent'
+            };
+
+            const agentId = conversationService.mapUserIdToAgentId(user);
+            expect(agentId).toBeNull();
+        });
+
+        it('should maintain consistency between different agent roles', () => {
+            const adminUUID = uuidv4();
+            const agentUUID = uuidv4();
+
+            const admin = { id: adminUUID, email: 'admin@test.com', role: 'admin' };
+            const agent = { id: agentUUID, email: 'agent@test.com', role: 'agent' };
+
+            expect(conversationService.mapUserIdToAgentId(admin)).toBe(adminUUID);
+            expect(conversationService.mapUserIdToAgentId(agent)).toBe(agentUUID);
+        });
+    });
 });

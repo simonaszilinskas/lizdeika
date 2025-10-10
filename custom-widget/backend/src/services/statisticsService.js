@@ -147,7 +147,7 @@ class StatisticsService {
                 dateKey = date.toISOString().split('T')[0];
             } else if (granularity === 'week') {
                 const weekStart = new Date(date);
-                weekStart.setDate(date.getDate() - date.getDay());
+                weekStart.setUTCDate(date.getUTCDate() - date.getUTCDay());
                 dateKey = weekStart.toISOString().split('T')[0];
             } else if (granularity === 'month') {
                 dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
