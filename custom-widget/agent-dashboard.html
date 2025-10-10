@@ -730,7 +730,7 @@
                     // Load main dashboard with ES6 modules
                     const script = document.createElement('script');
                     script.type = 'module';
-                    script.src = 'js/agent-dashboard.js';
+                    script.src = 'js/agent-dashboard.js?v=' + Date.now();
                     script.onload = () => console.log('✅ Dashboard JavaScript loaded successfully');
                     script.onerror = () => console.error('❌ Failed to load dashboard JavaScript');
                     document.body.appendChild(script);
@@ -739,7 +739,7 @@
                     // Fallback: try to load dashboard anyway
                     const script = document.createElement('script');
                     script.type = 'module';
-                    script.src = 'js/agent-dashboard.js';
+                    script.src = 'js/agent-dashboard.js?v=' + Date.now();
                     document.body.appendChild(script);
                 }
                 

@@ -751,12 +751,10 @@ class AgentService {
 
     /**
      * Get agent ID from user object
+     * Returns the user's UUID directly
      */
     getUserAgentId(user) {
-        // Use full email as agent ID for consistency
-        if (user.email.includes('@vilnius.lt')) {
-            return user.email; // Return full email instead of truncated
-        }
+        // Return user ID directly - frontend expects UUID-based agent IDs
         return user.id;
     }
 

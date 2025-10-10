@@ -852,22 +852,14 @@ class ConversationService {
     // HELPER METHODS
 
     /**
-     * Map database user object to agent ID for backward compatibility
+     * Map database user object to agent ID
+     * Returns the user's UUID directly
      */
     mapUserIdToAgentId(user) {
         if (!user) return null;
-        
-        // Use full email as agent ID for consistency
-        if (user.email && user.email.includes('@vilnius.lt')) {
-            return user.email; // Return full email instead of truncated
-        }
-        
-        // Fallback: if it's an agent/admin user, use their user ID as agent ID
-        if (user.role === 'agent' || user.role === 'admin') {
-            return user.id;
-        }
-        
-        return null;
+
+        // Return user ID directly - frontend expects UUID-based agent IDs
+        return user.id || null;
     }
 
     /**
