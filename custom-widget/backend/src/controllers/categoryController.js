@@ -29,11 +29,11 @@
  * - WebSocket for real-time updates
  */
 
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../utils/database');
 const { asyncHandler } = require('../utils/errors');
 const { v4: uuidv4 } = require('uuid');
 
-const prisma = new PrismaClient();
+let prisma;
 
 // Import WebSocket service for real-time updates
 let websocketService = null;
@@ -55,6 +55,8 @@ class CategoryController {
      * @access Agent/Admin
      */
     getCategories = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
+
         const {
             include_archived = 'false',
             page = '1',
@@ -143,6 +145,8 @@ class CategoryController {
      * @body { name, description?, color? }
      */
     createCategory = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
+
         const { name, description, color = '#6B7280' } = req.body;
         const { user } = req;
 
@@ -256,6 +260,8 @@ class CategoryController {
      * @body { name?, description?, color? }
      */
     updateCategory = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
+
         const { id } = req.params;
         const { name, description, color } = req.body;
         const { user } = req;
@@ -404,6 +410,8 @@ class CategoryController {
      * @access Admin only
      */
     archiveCategory = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
+
         const { id } = req.params;
         const { user } = req;
 
@@ -467,6 +475,8 @@ class CategoryController {
      * @access Admin only
      */
     getCategoryStats = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
+
         const { user } = req;
 
         if (user.role !== 'admin') {

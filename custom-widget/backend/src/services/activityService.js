@@ -25,10 +25,10 @@
  * - security: Security-related activities
  */
 
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
 
-const prisma = new PrismaClient();
+let prisma;
 
 class ActivityService {
     
@@ -57,6 +57,7 @@ class ActivityService {
         details = null,
         success = true
     }) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const activity = await prisma.user_activities.create({
                 data: {
@@ -98,6 +99,7 @@ class ActivityService {
      * Log authentication activities
      */
     async logAuth(userId, action, success = true, ipAddress = null, userAgent = null, details = null) {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.logActivity({
             userId,
             actionType: 'auth',
@@ -113,6 +115,7 @@ class ActivityService {
      * Log user management activities
      */
     async logUserManagement(adminUserId, action, targetUserId = null, success = true, ipAddress = null, details = null) {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.logActivity({
             userId: adminUserId,
             actionType: 'user_management',
@@ -129,6 +132,7 @@ class ActivityService {
      * Log conversation activities
      */
     async logConversation(userId, action, conversationId = null, success = true, details = null) {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.logActivity({
             userId,
             actionType: 'conversation',
@@ -144,6 +148,7 @@ class ActivityService {
      * Log system activities
      */
     async logSystem(userId, action, success = true, ipAddress = null, details = null) {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.logActivity({
             userId,
             actionType: 'system',
@@ -158,6 +163,7 @@ class ActivityService {
      * Log profile activities
      */
     async logProfile(userId, action, success = true, ipAddress = null, details = null) {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.logActivity({
             userId,
             actionType: 'profile',
@@ -172,6 +178,7 @@ class ActivityService {
      * Log security activities
      */
     async logSecurity(userId, action, success = true, ipAddress = null, userAgent = null, details = null) {
+        if (!prisma) prisma = databaseClient.getClient();
         return this.logActivity({
             userId,
             actionType: 'security',
@@ -196,6 +203,7 @@ class ActivityService {
      * @returns {Promise<Object>} Paginated activities with metadata
      */
     async getUserActivities(filters = {}) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const {
                 userId = null,
@@ -266,6 +274,7 @@ class ActivityService {
      * @returns {Promise<Array>} Recent activities
      */
     async getRecentUserActivities(userId, limit = 20) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const activities = await prisma.user_activities.findMany({
                 where: { user_id: userId },
@@ -296,6 +305,7 @@ class ActivityService {
      * @returns {Promise<Object>} Activity statistics
      */
     async getActivityStats(filters = {}) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const {
                 userId = null,
@@ -359,6 +369,7 @@ class ActivityService {
      * @returns {Promise<number>} Number of deleted records
      */
     async cleanupOldActivities(daysToKeep = 90) {
+        if (!prisma) prisma = databaseClient.getClient();
         try {
             const cutoffDate = new Date(Date.now() - (daysToKeep * 24 * 60 * 60 * 1000));
             

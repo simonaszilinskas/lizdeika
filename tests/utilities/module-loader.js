@@ -95,10 +95,11 @@ class ModuleLoader {
             setInterval: setInterval,
             clearTimeout: clearTimeout,
             clearInterval: clearInterval,
-            document: global.document,
-            window: global.window,
-            fetch: global.fetch,
-            navigator: global.navigator,
+            get document() { return global.document; },
+            get window() { return global.window; },
+            get fetch() { return global.fetch; },
+            get navigator() { return global.navigator; },
+            get localStorage() { return global.localStorage; },
             ...mockDependencies
         };
         

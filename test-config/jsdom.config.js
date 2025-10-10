@@ -15,6 +15,23 @@ class JSDOMEnvironment {
             this.teardown();
         }
 
+        // Add performance polyfill BEFORE creating JSDOM
+        // JSDOM constructor internally uses performance API
+        if (typeof global.performance === 'undefined') {
+            global.performance = {
+                now: () => Date.now(),
+                timing: {
+                    navigationStart: Date.now()
+                },
+                mark: () => {},
+                measure: () => {},
+                clearMarks: () => {},
+                clearMeasures: () => {},
+                getEntriesByName: () => [],
+                getEntriesByType: () => []
+            };
+        }
+
         this.dom = new JSDOM('<!doctype html><html><body></body></html>', {
             url: this.options.url,
             pretendToBeVisual: this.options.pretendToBeVisual,

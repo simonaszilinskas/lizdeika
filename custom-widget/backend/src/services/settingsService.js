@@ -20,7 +20,7 @@
  * - WebSocket broadcast for real-time setting updates
  */
 
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../utils/database');
 const { EventEmitter } = require('events');
 const { z } = require('zod');
 const { validateMarkdownText } = require('../utils/validation');
@@ -142,14 +142,21 @@ const ENV_FALLBACKS = {
 class SettingsService extends EventEmitter {
     constructor() {
         super();
-        this.prisma = new PrismaClient();
+        this.prisma = null;
         this.logger = createLogger('settingsService');
         this.settingsCache = new Map();
         this.cacheExpiry = new Map();
         this.cacheTTL = 5 * 60 * 1000; // 5 minutes
-        
+
         // Initialize settings on startup
         this.initialize();
+    }
+
+    getPrisma() {
+        if (!this.prisma) {
+            this.prisma = databaseClient.getClient();
+        }
+        return this.prisma;
     }
 
     /**
@@ -185,7 +192,7 @@ class SettingsService extends EventEmitter {
             }
 
             // Load from database
-            const setting = await this.prisma.system_settings.findFirst({
+            const setting = await this.getPrisma().system_settings.findFirst({
                 where: {
                     setting_key: key,
                     ...(category && { category })
@@ -224,7 +231,7 @@ class SettingsService extends EventEmitter {
                 where.is_public = true;
             }
 
-            const settings = await this.prisma.system_settings.findMany({ where });
+            const settings = await this.getPrisma().system_settings.findMany({ where });
             
             const result = {};
             for (const setting of settings) {
@@ -266,7 +273,7 @@ class SettingsService extends EventEmitter {
             const settingType = this.getSettingType(value);
 
             // Update in database
-            const updatedSetting = await this.prisma.system_settings.upsert({
+            const updatedSetting = await this.getPrisma().system_settings.upsert({
                 where: { setting_key: key },
                 update: {
                     setting_value: stringValue,
@@ -326,7 +333,7 @@ class SettingsService extends EventEmitter {
             const results = [];
             
             // Use transaction for consistency
-            await this.prisma.$transaction(async (tx) => {
+            await this.getPrisma().$transaction(async (tx) => {
                 for (const [key, value] of Object.entries(settings)) {
                     // Validate each setting
                     await this.validateSetting(key, value, category);
@@ -398,7 +405,7 @@ class SettingsService extends EventEmitter {
             this.logger.info(`Resetting settings for category: ${category}`, { adminUserId });
 
             // Delete settings in category (will fall back to env vars)
-            const deleted = await this.prisma.system_settings.deleteMany({
+            const deleted = await this.getPrisma().system_settings.deleteMany({
                 where: { category }
             });
 
@@ -573,7 +580,7 @@ class SettingsService extends EventEmitter {
      */
     async refreshCache() {
         try {
-            const settings = await this.prisma.system_settings.findMany();
+            const settings = await this.getPrisma().system_settings.findMany();
 
             // Clear existing cache first
             this.settingsCache.clear();
@@ -715,7 +722,7 @@ class SettingsService extends EventEmitter {
      */
     async destroy() {
         this.logger.info('Destroying Settings Service');
-        await this.prisma.$disconnect();
+        await this.getPrisma().$disconnect();
         this.removeAllListeners();
     }
 }
