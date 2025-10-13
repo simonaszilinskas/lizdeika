@@ -20,13 +20,16 @@ const { Document } = require("@langchain/core/documents");
 const { CallbackHandler } = require("langfuse-langchain");
 const ChromaRetriever = require('./ChromaRetriever');
 const QueryRephraseChain = require('./QueryRephraseChain');
-const { 
-    createRAGChatPrompt, 
+const {
+    createRAGChatPrompt,
     createSimpleRAGPrompt,
     formatChatHistory,
     formatContextAsMarkdown,
     getSystemPromptManaged
 } = require('./VilniusPrompts');
+const { createLogger } = require('../../utils/logger');
+
+const logger = createLogger('VilniusRAGChain');
 
 class VilniusRAGChain extends BaseChain {
     constructor(options = {}) {
@@ -90,9 +93,10 @@ class VilniusRAGChain extends BaseChain {
         });
 
         if (this.verbose) {
-            console.log('✅ Langfuse observability initialized');
-            console.log(`   - Base URL: ${process.env.LANGFUSE_BASE_URL}`);
-            console.log(`   - Debug mode: ${process.env.LANGFUSE_DEBUG === 'true'}`);
+            logger.info('Langfuse observability initialized', {
+                baseUrl: process.env.LANGFUSE_BASE_URL,
+                debugMode: process.env.LANGFUSE_DEBUG === 'true'
+            });
         }
     }
 
@@ -149,11 +153,11 @@ class VilniusRAGChain extends BaseChain {
 
         try {
             if (this.verbose) {
-                console.log('🚀 VilniusRAGChain: Starting RAG process');
-                console.log(`   Question: "${question}"`);
-                console.log(`   History length: ${chat_history.length}`);
-                console.log(`   Main Model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
-                console.log(`   Rephrasing Model: ${this.rephraseChain.rephrasingModel}`);
+                logger.info('🚀 VilniusRAGChain: Starting RAG process');
+                logger.info(`   Question: "${question}"`);
+                logger.info(`   History length: ${chat_history.length}`);
+                logger.info(`   Main Model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
+                logger.info(`   Rephrasing Model: ${this.rephraseChain.rephrasingModel}`);
             }
 
             // Step 2: Query rephrasing (if enabled and needed)
@@ -162,8 +166,8 @@ class VilniusRAGChain extends BaseChain {
 
             if (this.enableRephrasing) {
                 if (this.verbose) {
-                    console.log('🔄 VilniusRAGChain: Starting query rephrasing');
-                    console.log(`   Using model: ${this.rephraseChain.rephrasingModel}`);
+                    logger.info('🔄 VilniusRAGChain: Starting query rephrasing');
+                    logger.info(`   Using model: ${this.rephraseChain.rephrasingModel}`);
                 }
 
                 const rephraseResult = await this.rephraseChain._call({
@@ -181,8 +185,8 @@ class VilniusRAGChain extends BaseChain {
                 }
 
                 if (this.verbose) {
-                    console.log(`   Rephrased query: "${searchQuery}"`);
-                    console.log(`   Was improved: ${rephraseResult.was_rephrased ? 'YES' : 'NO'}`);
+                    logger.info(`   Rephrased query: "${searchQuery}"`);
+                    logger.info(`   Was improved: ${rephraseResult.was_rephrased ? 'YES' : 'NO'}`);
                 }
             } else {
                 rephraseDebugInfo = {
@@ -198,7 +202,7 @@ class VilniusRAGChain extends BaseChain {
 
             // Step 3: Document retrieval
             if (this.verbose) {
-                console.log('🔍 VilniusRAGChain: Retrieving relevant documents');
+                logger.info('🔍 VilniusRAGChain: Retrieving relevant documents');
             }
 
             const relevantDocs = await this.retriever._getRelevantDocuments(searchQuery, runManager);
@@ -216,9 +220,9 @@ class VilniusRAGChain extends BaseChain {
             };
 
             if (this.verbose) {
-                console.log(`   Retrieved ${relevantDocs.length} documents`);
+                logger.info(`   Retrieved ${relevantDocs.length} documents`);
                 relevantDocs.forEach((doc, i) => {
-                    console.log(`      ${i + 1}. ${doc.metadata.source} (score: ${doc.metadata.similarity_score?.toFixed(3)})`);
+                    logger.info(`      ${i + 1}. ${doc.metadata.source} (score: ${doc.metadata.similarity_score?.toFixed(3)})`);
                 });
             }
 
@@ -232,31 +236,31 @@ class VilniusRAGChain extends BaseChain {
 
             // Step 5: Generate response
             if (this.verbose) {
-                console.log('🤖 VilniusRAGChain: Generating response');
-                console.log(`   Using main model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
+                logger.info('🤖 VilniusRAGChain: Generating response');
+                logger.info(`   Using main model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
             }
 
             // Get managed prompt for enhanced system instructions
             const managedPrompt = await this.getManagedPrompt();
 
-            console.log(`\n📝 Prompt Construction Phase:`);
-            console.log(`  • Prompt Source: ${managedPrompt?.managed ? (managedPrompt.managed.fromLangfuse ? 'Langfuse (managed)' : 'Environment Override') : 'Hardcoded Fallback'}`);
+            logger.info(`\n📝 Prompt Construction Phase:`);
+            logger.info(`  • Prompt Source: ${managedPrompt?.managed ? (managedPrompt.managed.fromLangfuse ? 'Langfuse (managed)' : 'Environment Override') : 'Hardcoded Fallback'}`);
             if (managedPrompt?.managed?.version) {
-                console.log(`  • Prompt Version: v${managedPrompt.managed.version}`);
+                logger.info(`  • Prompt Version: v${managedPrompt.managed.version}`);
             }
-            console.log(`  • Has Chat History: ${chat_history && chat_history.length > 0 ? 'Yes' : 'No'}`);
-            console.log(`  • Context Length: ${context.length} characters`);
-            console.log(`  • Context Preview: "${context.substring(0, 150)}..."`);
+            logger.info(`  • Has Chat History: ${chat_history && chat_history.length > 0 ? 'Yes' : 'No'}`);
+            logger.info(`  • Context Length: ${context.length} characters`);
+            logger.info(`  • Context Preview: "${context.substring(0, 150)}..."`);
 
             const hasHistory = chat_history && chat_history.length > 0;
             let response;
             let finalMessages;
 
             if (hasHistory) {
-                console.log(`  • Using: Chat Prompt Template (with history)`);
+                logger.info(`  • Using: Chat Prompt Template (with history)`);
                 // Use chat prompt with history
                 const formattedHistory = formatChatHistory(chat_history);
-                console.log(`  • Formatted History Length: ${formattedHistory.length} chars`);
+                logger.info(`  • Formatted History Length: ${formattedHistory.length} chars`);
 
                 const messages = await this.ragChatPrompt.formatMessages({
                     formatted_history: formattedHistory,
@@ -272,13 +276,13 @@ class VilniusRAGChain extends BaseChain {
                         context: context
                     });
                     messages[0].content = systemContent;
-                    console.log(`  • Applied Managed System Prompt (${systemContent.length} chars)`);
+                    logger.info(`  • Applied Managed System Prompt (${systemContent.length} chars)`);
                 }
 
                 finalMessages = messages;
                 response = await this._invokeWithTimeout(messages, runManager, managedPrompt);
             } else {
-                console.log(`  • Using: Simple Prompt Template (no history)`);
+                logger.info(`  • Using: Simple Prompt Template (no history)`);
                 // Use simple prompt without history
                 const messages = await this.simpleRAGPrompt.formatMessages({
                     question: question,
@@ -292,7 +296,7 @@ class VilniusRAGChain extends BaseChain {
                         context: context
                     });
                     messages[0].content = systemContent;
-                    console.log(`  • Applied Managed System Prompt (${systemContent.length} chars)`);
+                    logger.info(`  • Applied Managed System Prompt (${systemContent.length} chars)`);
                 }
 
                 finalMessages = messages;
@@ -300,21 +304,21 @@ class VilniusRAGChain extends BaseChain {
             }
 
             // Log the complete final prompt details
-            console.log(`\n🎯 Final Prompt Details:`);
-            console.log(`  • Total Messages: ${finalMessages.length}`);
+            logger.info(`\n🎯 Final Prompt Details:`);
+            logger.info(`  • Total Messages: ${finalMessages.length}`);
             finalMessages.forEach((msg, index) => {
                 const role = msg._getType ? msg._getType() : (msg.role || 'unknown');
                 const contentLength = msg.content ? msg.content.length : 0;
                 const preview = msg.content ? msg.content.substring(0, 100) : '';
-                console.log(`  • Message ${index + 1} (${role}): ${contentLength} chars`);
-                console.log(`    Preview: "${preview}..."`);
+                logger.info(`  • Message ${index + 1} (${role}): ${contentLength} chars`);
+                logger.info(`    Preview: "${preview}..."`);
             });
 
             const totalPromptLength = finalMessages.reduce((total, msg) => total + (msg.content?.length || 0), 0);
-            console.log(`  • Total Prompt Length: ${totalPromptLength} characters`);
-            console.log(`  • LLM Model: ${this.mainModelName}`);
-            console.log(`  • Temperature: ${this.llm.temperature}`);
-            console.log(`  • Sending to LLM...`)
+            logger.info(`  • Total Prompt Length: ${totalPromptLength} characters`);
+            logger.info(`  • LLM Model: ${this.mainModelName}`);
+            logger.info(`  • Temperature: ${this.llm.temperature}`);
+            logger.info(`  • Sending to LLM...`)
 
             const answer = response.content || response.text || 'Atsiprašau, negaliu atsakyti į šį klausimą.';
 
@@ -370,16 +374,16 @@ class VilniusRAGChain extends BaseChain {
             };
 
             if (this.verbose) {
-                console.log('✅ VilniusRAGChain: RAG process completed successfully');
-                console.log(`   Answer length: ${answer.length} characters`);
-                console.log(`   Sources: ${sources.length}`);
-                console.log(`   Contexts used: ${relevantDocs.length}`);
+                logger.info('✅ VilniusRAGChain: RAG process completed successfully');
+                logger.info(`   Answer length: ${answer.length} characters`);
+                logger.info(`   Sources: ${sources.length}`);
+                logger.info(`   Contexts used: ${relevantDocs.length}`);
             }
 
             return result;
 
         } catch (error) {
-            console.error('🔴 VilniusRAGChain Error:', error);
+            logger.error('🔴 VilniusRAGChain Error:', error);
 
             // Always populate debug info even on error
             debugInfo.error = {
@@ -454,14 +458,14 @@ class VilniusRAGChain extends BaseChain {
             try {
                 this.managedPrompt = await getSystemPromptManaged();
                 if (this.verbose && this.managedPrompt.managed.fromLangfuse) {
-                    console.log(`📝 Using Langfuse managed system prompt (v${this.managedPrompt.managed.version})`);
+                    logger.info(`📝 Using Langfuse managed system prompt (v${this.managedPrompt.managed.version})`);
                 } else if (this.verbose && this.managedPrompt.managed.source === '.env override') {
-                    console.log(`📝 Using .env system prompt override`);
+                    logger.info(`📝 Using .env system prompt override`);
                 } else if (this.verbose) {
-                    console.log(`📝 Using hardcoded system prompt fallback`);
+                    logger.info(`📝 Using hardcoded system prompt fallback`);
                 }
             } catch (error) {
-                console.warn('Failed to get managed prompt, using hardcoded fallback:', error.message);
+                logger.warn('Failed to get managed prompt, using hardcoded fallback:', error.message);
                 this.managedPrompt = null;
             }
         }
@@ -612,7 +616,7 @@ class VilniusRAGChain extends BaseChain {
                     this.llm = newLLM;
                     this.mainModelName = mainModel;
                 } catch (testError) {
-                    console.error('❌ New LLM configuration failed test:', testError.message);
+                    logger.error('❌ New LLM configuration failed test:', testError.message);
                     // Restore previous LLM
                     this.llm = previousConfig.llm;
                     this.mainModelName = previousConfig.model;
@@ -624,9 +628,9 @@ class VilniusRAGChain extends BaseChain {
                     throw new Error(`Invalid LLM configuration: ${testError.message}`);
                 }
 
-                console.log('🔧 VilniusRAGChain: Updated main LLM configuration');
-                console.log(`   Model: ${mainModel}`);
-                console.log(`   API Key: ${process.env.OPENROUTER_API_KEY ? 'Set' : 'Not set'}`);
+                logger.info('🔧 VilniusRAGChain: Updated main LLM configuration');
+                logger.info(`   Model: ${mainModel}`);
+                logger.info(`   API Key: ${process.env.OPENROUTER_API_KEY ? 'Set' : 'Not set'}`);
             }
 
             // Update rephrasing chain if needed
@@ -641,7 +645,7 @@ class VilniusRAGChain extends BaseChain {
 
             return { success: true, recreated: needsRecreation };
         } catch (error) {
-            console.error('❌ Error updating provider configuration:', error);
+            logger.error('❌ Error updating provider configuration:', error);
 
             // Restore environment variables on failure
             process.env.OPENROUTER_API_KEY = previousConfig.env.OPENROUTER_API_KEY;

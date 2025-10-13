@@ -63,6 +63,9 @@ const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
 const activityService = require('../services/activityService');
+const { createLogger } = require('../utils/logger');
+
+const logger = createLogger('conversationController');
 
 class ConversationController {
     constructor(io) {
@@ -80,7 +83,7 @@ class ConversationController {
 
         if (hasOfflineMessage) {
             const existingOfflineMessage = await conversationService.getExistingOfflineMessage(conversationId);
-            console.log(`Retrieved existing offline message for conversation ${conversationId}`);
+            logger.info(`Retrieved existing offline message for conversation ${conversationId}`);
             return existingOfflineMessage;
         } else {
             const offlineMessage = {
@@ -96,7 +99,7 @@ class ConversationController {
             };
 
             await conversationService.replaceLastMessage(conversationId, offlineMessage);
-            console.log(`Sent offline message to conversation ${conversationId}`);
+            logger.info(`Sent offline message to conversation ${conversationId}`);
             return offlineMessage;
         }
     }
@@ -132,7 +135,7 @@ class ConversationController {
         };
 
         await conversationService.addMessage(conversationId, aiMessage);
-        console.log(`Sent autopilot AI response for conversation ${conversationId}`);
+        logger.info(`Sent autopilot AI response for conversation ${conversationId}`);
         return aiMessage;
     }
 
@@ -153,12 +156,12 @@ class ConversationController {
                 if (availableAgent) {
                     await conversationService.assignConversation(conversationId, availableAgent.id);
                     assignedAgent = availableAgent.id;
-                    console.log(`🎯 Auto-assigned existing conversation ${conversationId} to agent ${availableAgent.id}`);
+                    logger.info(`🎯 Auto-assigned existing conversation ${conversationId} to agent ${availableAgent.id}`);
                 } else {
-                    console.log(`⚠️ No online agents available for conversation ${conversationId}, marking as unseen`);
+                    logger.info(`⚠️ No online agents available for conversation ${conversationId}, marking as unseen`);
                 }
             } catch (error) {
-                console.error('Failed to auto-assign existing conversation:', error);
+                logger.error('Failed to auto-assign existing conversation:', error);
             }
         }
 
@@ -186,7 +189,7 @@ class ConversationController {
         };
 
         await conversationService.addMessage(conversationId, aiMessage);
-        console.log(`Generated AI suggestion for conversation ${conversationId} (HITL mode)`);
+        logger.info(`Generated AI suggestion for conversation ${conversationId} (HITL mode)`);
         return aiMessage;
     }
 
@@ -262,19 +265,19 @@ class ConversationController {
                         const availableAgent = await agentService.getBestAvailableAgent();
                         if (availableAgent) {
                             await conversationService.assignConversation(conversationId, availableAgent.id);
-                            console.log(`🎯 Auto-assigned new conversation ${conversationId} to agent ${availableAgent.id}`);
+                            logger.info(`🎯 Auto-assigned new conversation ${conversationId} to agent ${availableAgent.id}`);
                             conversation.assignedAgent = availableAgent.id;
                         } else {
-                            console.log(`⚠️ No agents available for new conversation ${conversationId}`);
+                            logger.info(`⚠️ No agents available for new conversation ${conversationId}`);
                         }
                     } catch (error) {
-                        console.error('Failed to auto-assign new conversation:', error);
+                        logger.error('Failed to auto-assign new conversation:', error);
                         // Continue without assignment - conversation will be unassigned
                     }
                 }
 
                 // Emit new conversation event to agents
-                console.log('🆕 New conversation created, notifying agents:', conversationId);
+                logger.info('🆕 New conversation created, notifying agents:', conversationId);
                 this.io.to('agents').emit('new-conversation', {
                     conversationId,
                     conversation,
@@ -303,15 +306,15 @@ class ConversationController {
             // This prevents confusion when customers send multiple messages quickly in HITL mode
             if (currentMode === 'hitl') {
                 await conversationService.removePendingMessages(conversationId);
-                console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId} (HITL mode)`);
+                logger.info(`🧹 Cleared old pending suggestions for conversation ${conversationId} (HITL mode)`);
             }
             
-            console.log(`Processing message in mode: ${currentMode}`);
+            logger.info(`Processing message in mode: ${currentMode}`);
             
             // IMMEDIATE: Emit new message to agents via WebSocket (before AI processing)
-            console.log('🔥 DEBUG: Current mode:', currentMode, 'checking if === hitl');
+            logger.info('🔥 DEBUG: Current mode:', currentMode, 'checking if === hitl');
             if (currentMode === 'hitl') {
-                console.log('🔥 DEBUG: Entering HITL WebSocket emission block');
+                logger.info('🔥 DEBUG: Entering HITL WebSocket emission block');
                 // Get current conversation details for proper assignment info
                 const conversation = await conversationService.getConversation(conversationId);
                 
@@ -320,10 +323,10 @@ class ConversationController {
                 const unseenByAgent = !!conversation?.assignedAgent;
                 
                 // SIMPLIFIED: Standard WebSocket event structure
-                console.log('🔥 DEBUG: About to emit new-message WebSocket event to agents room');
+                logger.info('🔥 DEBUG: About to emit new-message WebSocket event to agents room');
                 const agentsRoom = this.io.sockets.adapter.rooms.get('agents');
                 const socketsInRoom = agentsRoom ? agentsRoom.size : 0;
-                console.log('🔥 DEBUG: Agents room has', socketsInRoom, 'connected sockets');
+                logger.info('🔥 DEBUG: Agents room has', socketsInRoom, 'connected sockets');
 
                 this.io.to('agents').emit('new-message', {
                     type: 'new-message',
@@ -341,7 +344,7 @@ class ConversationController {
                         unseenByAgent: unseenByAgent
                     }
                 });
-                console.log(`📨 New message emitted to agents for conversation ${conversationId}, assigned to: ${conversation?.assignedAgent || 'unassigned'}, unseenByAgent: ${unseenByAgent}`);
+                logger.info(`📨 New message emitted to agents for conversation ${conversationId}, assigned to: ${conversation?.assignedAgent || 'unassigned'}, unseenByAgent: ${unseenByAgent}`);
             }
             
             // Count customer messages for context (including current message)
@@ -361,7 +364,7 @@ class ConversationController {
             
             // Note: Customer message already emitted immediately above
             // Now we could optionally emit AI suggestion completion event here
-            console.log(`🔥 DEBUG: AI processing completed for conversation ${conversationId}`);
+            logger.info(`🔥 DEBUG: AI processing completed for conversation ${conversationId}`);
             
             res.json({
                 userMessage,
@@ -387,7 +390,7 @@ class ConversationController {
                 messages: conversationMessages
             });
         } catch (error) {
-            console.error('Error getting messages:', error);
+            logger.error('Error getting messages:', error);
             res.status(500).json({ error: 'Failed to get messages' });
         }
     }
@@ -404,7 +407,7 @@ class ConversationController {
                 total: allConversations.length
             });
         } catch (error) {
-            console.error('Error getting all conversations:', error);
+            logger.error('Error getting all conversations:', error);
             res.status(500).json({ error: 'Failed to get conversations' });
         }
     }
@@ -476,14 +479,14 @@ class ConversationController {
 
             // Generate AI suggestion using the same service as in sendMessage
             const aiSuggestion = await aiService.generateAISuggestion(conversationId, conversationContext, true);
-            console.log('🔍 DEBUG: aiSuggestion received:', JSON.stringify(aiSuggestion, null, 2));
+            logger.info('🔍 DEBUG: aiSuggestion received:', JSON.stringify(aiSuggestion, null, 2));
 
             try {
                 const { suggestionText, confidence } = this._processAIServiceResponse(aiSuggestion);
 
                 // Clear any existing pending suggestions for this conversation
                 await conversationService.clearPendingSuggestions(conversationId);
-                console.log(`🧹 Cleared old pending suggestions for conversation ${conversationId} (manual generation)`);
+                logger.info(`🧹 Cleared old pending suggestions for conversation ${conversationId} (manual generation)`);
 
                 // Create new pending message with AI suggestion
                 const messageId = uuidv4();
@@ -508,7 +511,7 @@ class ConversationController {
                 };
 
                 await conversationService.addMessage(conversationId, agentMessage);
-                console.log(`Generated manual AI suggestion for conversation ${conversationId}`);
+                logger.info(`Generated manual AI suggestion for conversation ${conversationId}`);
 
                 // Return the suggestion immediately with comprehensive debug information
                 res.json({
@@ -534,7 +537,7 @@ class ConversationController {
                 });
 
             } catch (error) {
-                console.error('❌ AI suggestion processing failed:', error.message);
+                logger.error('❌ AI suggestion processing failed:', error.message);
                 return res.status(500).json({ error: error.message });
             }
 
@@ -601,7 +604,7 @@ class ConversationController {
             
             res.json({ success: true, conversation });
         } catch (error) {
-            console.error('Error unassigning conversation:', error);
+            logger.error('Error unassigning conversation:', error);
             res.status(500).json({ error: 'Failed to unassign conversation' });
         }
     }
@@ -626,7 +629,7 @@ class ConversationController {
                 res.status(403).json({ error: 'Not authorized' });
             }
         } catch (error) {
-            console.error('Error ending conversation:', error);
+            logger.error('Error ending conversation:', error);
             res.status(500).json({ error: 'Failed to end conversation' });
         }
     }
@@ -639,7 +642,7 @@ class ConversationController {
             const { conversationId } = req.params;
             const { agentId } = req.body;
 
-            console.log(`📖 Marking messages as seen for conversation ${conversationId} by agent ${agentId}`);
+            logger.info(`📖 Marking messages as seen for conversation ${conversationId} by agent ${agentId}`);
 
             // Update the conversation's last seen timestamp for this agent
             await conversationService.markConversationAsSeenByAgent(conversationId, agentId);
@@ -659,7 +662,7 @@ class ConversationController {
             });
 
         } catch (error) {
-            console.error('Error marking messages as seen:', error);
+            logger.error('Error marking messages as seen:', error);
             res.status(500).json({ error: 'Failed to mark messages as seen' });
         }
     }
@@ -764,7 +767,7 @@ class ConversationController {
                 data: { archivedCount: result.count }
             });
         } catch (error) {
-            console.error('Bulk archive error:', error);
+            logger.error('Bulk archive error:', error);
             res.status(500).json({
                 error: 'Failed to archive conversations'
             });
@@ -810,7 +813,7 @@ class ConversationController {
                 data: { assignedCount: result.count }
             });
         } catch (error) {
-            console.error('Bulk assign error:', error);
+            logger.error('Bulk assign error:', error);
             res.status(500).json({
                 error: 'Failed to assign conversations'
             });
@@ -850,7 +853,7 @@ class ConversationController {
                 data: { unarchivedCount: result.count }
             });
         } catch (error) {
-            console.error('Bulk unarchive error:', error);
+            logger.error('Bulk unarchive error:', error);
             res.status(500).json({
                 error: 'Failed to unarchive conversations'
             });
@@ -947,7 +950,7 @@ class ConversationController {
             });
 
         } catch (error) {
-            console.error('Error assigning category:', error);
+            logger.error('Error assigning category:', error);
             res.status(500).json({ error: 'Failed to assign category' });
         }
     }
@@ -1034,7 +1037,7 @@ class ConversationController {
                     }
 
                 } catch (error) {
-                    console.error(`Error processing ticket ${ticketId}:`, error);
+                    logger.error(`Error processing ticket ${ticketId}:`, error);
                     result.failed.push({
                         ticket_id: ticketId,
                         error: error.message || 'Unknown error'
@@ -1068,7 +1071,7 @@ class ConversationController {
             res.json(result);
 
         } catch (error) {
-            console.error('Bulk category assignment error:', error);
+            logger.error('Bulk category assignment error:', error);
             res.status(500).json({ error: 'Failed to assign categories' });
         }
     }
@@ -1081,7 +1084,7 @@ class ConversationController {
     async triggerAutoCategorization(req, res) {
         try {
             const { conversationId } = req.params;
-            console.log(`🎯 Manual AI categorization trigger for conversation ${conversationId}`);
+            logger.info(`🎯 Manual AI categorization trigger for conversation ${conversationId}`);
 
             // Import AI categorization service
             const aiCategorizationService = require('../services/aiCategorizationService');
@@ -1108,7 +1111,7 @@ class ConversationController {
             }
 
         } catch (error) {
-            console.error('Manual categorization error:', error);
+            logger.error('Manual categorization error:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to trigger categorization',
@@ -1124,7 +1127,7 @@ class ConversationController {
      */
     async getCategorizationStats(req, res) {
         try {
-            console.log('📊 Fetching categorization statistics');
+            logger.info('📊 Fetching categorization statistics');
 
             // Import AI categorization service
             const aiCategorizationService = require('../services/aiCategorizationService');
@@ -1138,7 +1141,7 @@ class ConversationController {
             });
 
         } catch (error) {
-            console.error('Failed to get categorization stats:', error);
+            logger.error('Failed to get categorization stats:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to retrieve categorization statistics',
@@ -1154,7 +1157,7 @@ class ConversationController {
      */
     async triggerCategorizationJob(req, res) {
         try {
-            console.log('🔧 Manual trigger of categorization background job');
+            logger.info('🔧 Manual trigger of categorization background job');
 
             // Import categorization job
             const categorizationJob = require('../jobs/categorizationJob');
@@ -1169,7 +1172,7 @@ class ConversationController {
             });
 
         } catch (error) {
-            console.error('Failed to trigger categorization job:', error);
+            logger.error('Failed to trigger categorization job:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to trigger categorization job',
@@ -1226,7 +1229,7 @@ class ConversationController {
             });
 
         } catch (error) {
-            console.error('Failed to toggle category override:', error);
+            logger.error('Failed to toggle category override:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to update category override setting',

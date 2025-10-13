@@ -37,6 +37,9 @@
 
 const cron = require('node-cron');
 const aiCategorizationService = require('../services/aiCategorizationService');
+const { createLogger } = require('../utils/logger');
+
+const logger = createLogger('categorizationJob');
 
 class CategorizationJob {
     constructor() {
@@ -53,9 +56,10 @@ class CategorizationJob {
             isEnabled: process.env.ENABLE_AUTO_CATEGORIZATION !== 'false'
         };
 
-        console.log('📋 Categorization Job initialized');
-        console.log(`   Schedule: ${this.schedule}`);
-        console.log(`   Status: ${this.stats.isEnabled ? 'ENABLED' : 'DISABLED'}`);
+        logger.info('Categorization Job initialized', {
+            schedule: this.schedule,
+            status: this.stats.isEnabled ? 'ENABLED' : 'DISABLED'
+        });
     }
 
     /**
@@ -64,7 +68,7 @@ class CategorizationJob {
      */
     async execute() {
         if (this.isRunning) {
-            console.log('⏭️  Categorization job already running, skipping this cycle');
+            logger.info('Categorization job already running, skipping this cycle');
             return { processed: 0, successful: 0, failed: 0, skipped: true };
         }
 
@@ -77,11 +81,10 @@ class CategorizationJob {
         this.stats.totalRuns++;
         this.stats.lastRun = new Date();
 
-        console.log('');
-        console.log('═══════════════════════════════════════════════════════════════');
-        console.log(`🤖 Auto-Categorization Job #${this.stats.totalRuns} Started`);
-        console.log(`   Timestamp: ${this.stats.lastRun.toISOString()}`);
-        console.log('═══════════════════════════════════════════════════════════════');
+        logger.info('Auto-Categorization Job Started', {
+            jobNumber: this.stats.totalRuns,
+            timestamp: this.stats.lastRun.toISOString()
+        });
 
         try {
             // Use the AI categorization service to batch process tickets
@@ -94,54 +97,40 @@ class CategorizationJob {
             this.stats.lastRunDuration = Date.now() - startTime;
 
             // Log summary
-            console.log('');
-            console.log('───────────────────────────────────────────────────────────────');
-            console.log('📊 Job Summary:');
-            console.log(`   Processed: ${result.processed} tickets`);
-            console.log(`   Successful: ${result.successful} tickets`);
-            console.log(`   Failed: ${result.failed} tickets`);
-            console.log(`   Duration: ${this.stats.lastRunDuration}ms`);
-            console.log('───────────────────────────────────────────────────────────────');
+            logger.info('Job Summary', {
+                processed: result.processed,
+                successful: result.successful,
+                failed: result.failed,
+                duration: this.stats.lastRunDuration
+            });
 
             // Log detailed results if any tickets were processed
             if (result.results && result.results.length > 0) {
-                console.log('');
-                console.log('📝 Detailed Results:');
-                result.results.forEach((ticketResult, idx) => {
-                    const status = ticketResult.success ? '✅' : '❌';
-                    const category = ticketResult.categoryName || 'N/A';
-                    const confidence = ticketResult.confidence
-                        ? `${(ticketResult.confidence * 100).toFixed(0)}%`
-                        : 'N/A';
+                const detailedResults = result.results.map((ticketResult, idx) => ({
+                    index: idx + 1,
+                    success: ticketResult.success,
+                    ticketNumber: ticketResult.ticketNumber,
+                    category: ticketResult.categoryName || 'N/A',
+                    confidence: ticketResult.confidence ? `${(ticketResult.confidence * 100).toFixed(0)}%` : 'N/A',
+                    reasoning: ticketResult.reasoning ? ticketResult.reasoning.substring(0, 80) : null,
+                    failureReason: !ticketResult.success ? ticketResult.message : null
+                }));
 
-                    console.log(`   ${idx + 1}. ${status} Ticket ${ticketResult.ticketNumber}`);
-                    console.log(`      Category: ${category} (confidence: ${confidence})`);
-                    if (ticketResult.reasoning) {
-                        console.log(`      Reasoning: ${ticketResult.reasoning.substring(0, 80)}...`);
-                    }
-                    if (!ticketResult.success && ticketResult.message) {
-                        console.log(`      Reason: ${ticketResult.message}`);
-                    }
-                });
+                logger.info('Detailed categorization results', { results: detailedResults });
             }
 
-            console.log('');
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log(`✅ Auto-Categorization Job #${this.stats.totalRuns} Completed`);
-            console.log('═══════════════════════════════════════════════════════════════');
-            console.log('');
+            logger.info('Auto-Categorization Job Completed', { jobNumber: this.stats.totalRuns });
 
             return result;
 
         } catch (error) {
             this.stats.lastRunDuration = Date.now() - startTime;
-            console.error('');
-            console.error('═══════════════════════════════════════════════════════════════');
-            console.error(`❌ Auto-Categorization Job #${this.stats.totalRuns} Failed`);
-            console.error(`   Error: ${error.message}`);
-            console.error(`   Duration: ${this.stats.lastRunDuration}ms`);
-            console.error('═══════════════════════════════════════════════════════════════');
-            console.error('');
+            logger.error('Auto-Categorization Job Failed', {
+                jobNumber: this.stats.totalRuns,
+                error: error.message,
+                stack: error.stack,
+                duration: this.stats.lastRunDuration
+            });
 
             throw error;
 
@@ -155,18 +144,20 @@ class CategorizationJob {
      */
     start() {
         if (this.task) {
-            console.log('⚠️  Categorization job already started');
+            logger.warn('Categorization job already started');
             return;
         }
 
         if (!this.stats.isEnabled) {
-            console.log('ℹ️  Categorization job disabled via environment variable');
+            logger.info('Categorization job disabled via environment variable');
             return;
         }
 
         try {
-            console.log('🚀 Starting automatic categorization job...');
-            console.log(`   Schedule: ${this.schedule} (every 5 minutes)`);
+            logger.info('Starting automatic categorization job', {
+                schedule: this.schedule,
+                description: 'every 5 minutes'
+            });
 
             // Validate cron schedule first
             if (!cron.validate(this.schedule)) {
@@ -177,13 +168,13 @@ class CategorizationJob {
                 try {
                     await this.execute();
                 } catch (error) {
-                    console.error('Categorization job execution error:', error);
+                    logger.error('Categorization job execution error', { error: error.message, stack: error.stack });
                 }
             });
 
-            console.log('✅ Categorization job started successfully');
+            logger.info('Categorization job started successfully');
         } catch (error) {
-            console.error('❌ Failed to start categorization job:', error.message);
+            logger.error('Failed to start categorization job', { error: error.message, stack: error.stack });
             throw error;
         }
     }
@@ -193,14 +184,14 @@ class CategorizationJob {
      */
     stop() {
         if (!this.task) {
-            console.log('⚠️  Categorization job not running');
+            logger.warn('Categorization job not running');
             return;
         }
 
-        console.log('🛑 Stopping categorization job...');
+        logger.info('Stopping categorization job');
         this.task.stop();
         this.task = null;
-        console.log('✅ Categorization job stopped');
+        logger.info('Categorization job stopped');
     }
 
     /**
@@ -221,7 +212,7 @@ class CategorizationJob {
      */
     enable() {
         this.stats.isEnabled = true;
-        console.log('✅ Categorization job enabled');
+        logger.info('Categorization job enabled');
 
         if (!this.task) {
             this.start();
@@ -233,7 +224,7 @@ class CategorizationJob {
      */
     disable() {
         this.stats.isEnabled = false;
-        console.log('⏸️  Categorization job disabled');
+        logger.info('Categorization job disabled');
 
         if (this.task) {
             this.stop();
@@ -245,7 +236,7 @@ class CategorizationJob {
      * @returns {Promise<Object>} Execution results
      */
     async trigger() {
-        console.log('🔧 Manual trigger of categorization job');
+        logger.info('Manual trigger of categorization job');
         return await this.execute();
     }
 
@@ -259,7 +250,7 @@ class CategorizationJob {
         this.stats.totalFailed = 0;
         this.stats.lastRun = null;
         this.stats.lastRunDuration = 0;
-        console.log('🔄 Job statistics reset');
+        logger.info('Job statistics reset');
     }
 }
 

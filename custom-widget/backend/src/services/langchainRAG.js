@@ -21,6 +21,9 @@ const VilniusRAGChain = require('./chains/VilniusRAGChain');
 const ChromaRetriever = require('./chains/ChromaRetriever');
 const QueryRephraseChain = require('./chains/QueryRephraseChain');
 const { Langfuse } = require("langfuse");
+const { createLogger } = require('../utils/logger');
+
+const logger = createLogger('langchainRAG');
 
 class LangChainRAG {
     constructor() {
@@ -46,7 +49,7 @@ class LangChainRAG {
                 debug: process.env.LANGFUSE_DEBUG === 'true'
             });
         } else {
-            console.log('ℹ️ Langfuse scoring disabled - missing credentials');
+            logger.info('Langfuse scoring disabled - missing credentials');
         }
 
     }
@@ -65,7 +68,7 @@ class LangChainRAG {
                 try {
                     providerConfig = await this.settingsService.getAIProviderConfig();
                 } catch (error) {
-                    console.warn('Could not load AI provider config for initialization:', error.message);
+                    logger.warn('Could not load AI provider config for initialization', { error: error.message });
                 }
             }
 
@@ -93,15 +96,16 @@ class LangChainRAG {
 
             this.initialized = true;
 
-            console.log('✅ LangChain RAG Service initialized with proper chains');
-            console.log(`   - Retrieval K: ${this.ragChain.retriever.k}`);
-            console.log(`   - Query rephrasing: ${this.ragChain.enableRephrasing ? 'ENABLED' : 'DISABLED'}`);
-            console.log(`   - Source attribution: ${this.ragChain.showSources ? 'ENABLED' : 'DISABLED'}`);
-            console.log(`   - Rephrasing model: ${process.env.REPHRASING_MODEL}`);
-            console.log(`   - Event listeners: ${this.settingsService ? 'ENABLED' : 'DISABLED'}`);
+            logger.info('LangChain RAG Service initialized with proper chains', {
+                retrievalK: this.ragChain.retriever.k,
+                queryRephrasing: this.ragChain.enableRephrasing ? 'ENABLED' : 'DISABLED',
+                sourceAttribution: this.ragChain.showSources ? 'ENABLED' : 'DISABLED',
+                rephrasingModel: process.env.REPHRASING_MODEL,
+                eventListeners: this.settingsService ? 'ENABLED' : 'DISABLED'
+            });
 
         } catch (error) {
-            console.error('❌ Failed to initialize LangChain RAG Service:', error.message);
+            logger.error('Failed to initialize LangChain RAG Service', { error: error.message, stack: error.stack });
         }
     }
 
@@ -112,7 +116,7 @@ class LangChainRAG {
         try {
             const SettingsService = require('./settingsService');
             this.settingsService = new SettingsService();
-            console.log('🎯 LangChain RAG: Settings service initialized for dynamic configuration');
+            logger.info('Settings service initialized for dynamic configuration');
 
             // Load AI provider config and set all necessary environment variables
             const config = await this.settingsService.getAIProviderConfig();
@@ -120,17 +124,17 @@ class LangChainRAG {
             // Set all OpenRouter/AI environment variables needed by the chains
             if (config.REPHRASING_MODEL) {
                 process.env.REPHRASING_MODEL = config.REPHRASING_MODEL;
-                console.log('🔧 LangChain RAG: Rephrasing model set to:', config.REPHRASING_MODEL);
+                logger.info('Rephrasing model set', { model: config.REPHRASING_MODEL });
             }
 
             if (config.OPENROUTER_API_KEY) {
                 process.env.OPENROUTER_API_KEY = config.OPENROUTER_API_KEY;
-                console.log('🔧 LangChain RAG: OpenRouter API key loaded from database');
+                logger.info('OpenRouter API key loaded from database');
             }
 
             if (config.OPENROUTER_MODEL) {
                 process.env.OPENROUTER_MODEL = config.OPENROUTER_MODEL;
-                console.log('🔧 LangChain RAG: OpenRouter model set to:', config.OPENROUTER_MODEL);
+                logger.info('OpenRouter model set', { model: config.OPENROUTER_MODEL });
             }
 
             if (config.SITE_URL) {
@@ -141,7 +145,7 @@ class LangChainRAG {
                 process.env.SITE_NAME = config.SITE_NAME;
             }
         } catch (error) {
-            console.warn('⚠️ LangChain RAG: Could not initialize settings service, using env defaults:', error.message);
+            logger.warn('Could not initialize settings service, using env defaults', { error: error.message });
         }
     }
 
@@ -150,7 +154,7 @@ class LangChainRAG {
      */
     setupEventListeners() {
         if (!this.settingsService) {
-            console.warn('⚠️ LangChainRAG: No settings service available, skipping event listeners');
+            logger.warn('No settings service available, skipping event listeners');
             return;
         }
 
@@ -160,11 +164,11 @@ class LangChainRAG {
 
             // Only react to AI provider configuration changes
             if (category === 'ai_providers') {
-                console.log(`🔄 LangChainRAG: AI provider setting changed: ${key} = ${value}`);
+                logger.info('AI provider setting changed', { key, value });
 
                 // Guard: ensure ragChain is initialized before updating
                 if (!this.ragChain || !this.initialized) {
-                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    logger.warn('RAG chain not ready, skipping configuration update');
                     return;
                 }
 
@@ -172,7 +176,7 @@ class LangChainRAG {
                 try {
                     await this.reloadConfiguration();
                 } catch (error) {
-                    console.error('❌ LangChainRAG: Failed to reload configuration after setting change:', error);
+                    logger.error('Failed to reload configuration after setting change', { error: error.message, stack: error.stack });
                 }
             }
         });
@@ -183,11 +187,11 @@ class LangChainRAG {
 
             // Only react to AI provider configuration changes
             if (category === 'ai_providers') {
-                console.log(`🔄 LangChainRAG: AI provider settings changed (bulk update):`, Object.keys(settings));
+                logger.info('AI provider settings changed (bulk update)', { settingKeys: Object.keys(settings) });
 
                 // Guard: ensure ragChain is initialized before updating
                 if (!this.ragChain || !this.initialized) {
-                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    logger.warn('RAG chain not ready, skipping configuration update');
                     return;
                 }
 
@@ -195,7 +199,7 @@ class LangChainRAG {
                 try {
                     await this.reloadConfiguration();
                 } catch (error) {
-                    console.error('❌ LangChainRAG: Failed to reload configuration after bulk setting change:', error);
+                    logger.error('Failed to reload configuration after bulk setting change', { error: error.message, stack: error.stack });
                 }
             }
         });
@@ -205,23 +209,23 @@ class LangChainRAG {
             const { category } = event;
 
             if (category === 'ai_providers') {
-                console.log('🔄 LangChainRAG: AI provider settings reset to defaults');
+                logger.info('AI provider settings reset to defaults');
 
                 // Guard: ensure ragChain is initialized before updating
                 if (!this.ragChain || !this.initialized) {
-                    console.warn('⚠️ RAG chain not ready, skipping configuration update');
+                    logger.warn('RAG chain not ready, skipping configuration update');
                     return;
                 }
 
                 try {
                     await this.reloadConfiguration();
                 } catch (error) {
-                    console.error('❌ LangChainRAG: Failed to reload configuration after settings reset:', error);
+                    logger.error('Failed to reload configuration after settings reset', { error: error.message, stack: error.stack });
                 }
             }
         });
 
-        console.log('✅ LangChainRAG: Event listeners set up for dynamic configuration updates');
+        logger.info('Event listeners set up for dynamic configuration updates');
     }
 
     /**
@@ -245,7 +249,7 @@ class LangChainRAG {
                 system_prompt: await this.settingsService.getSetting('system_prompt', 'ai') || ''
             };
         } catch (error) {
-            console.warn('⚠️ LangChain RAG: Error getting settings from service, using defaults:', error.message);
+            logger.warn('Error getting settings from service, using defaults', { error: error.message });
             return {
                 rag_k: 100,
                 rag_similarity_threshold: 0.7,
@@ -281,7 +285,7 @@ class LangChainRAG {
                 this.ragChain.retriever.k = currentSettings.rag_k;
             }
             
-            console.log(`🔧 LangChain RAG: Using dynamic settings - K:${currentSettings.rag_k}`);
+            logger.debug('Using dynamic settings', { k: currentSettings.rag_k });
             
             // Validate inputs
             if (!query || typeof query !== 'string') {
@@ -289,35 +293,36 @@ class LangChainRAG {
             }
 
             if (!Array.isArray(chatHistory)) {
-                console.warn('Chat history is not an array, converting to empty array');
+                logger.warn('Chat history is not an array, converting to empty array');
                 chatHistory = [];
             }
 
             // Set debug flag on the chain
             this.ragChain.includeDebug = includeDebug;
 
-            console.log(`\n🧠 LangChain RAG Pipeline Starting:`);
-            console.log(`  • Original Query: "${query}"`);
-            console.log(`  • Chat History: ${chatHistory.length} exchanges`);
-            if (chatHistory.length > 0) {
-                console.log(`  • Recent History Preview:`);
-                for (let i = Math.max(0, chatHistory.length - 2); i < chatHistory.length; i++) {
-                    const [userMsg, assistantMsg] = chatHistory[i];
-                    console.log(`    - User: "${userMsg.substring(0, 60)}..."`);
-                    console.log(`    - Assistant: "${assistantMsg.substring(0, 60)}..."`);
-                }
+            logger.info('LangChain RAG Pipeline Starting', {
+                query: query.substring(0, 100),
+                chatHistoryLength: chatHistory.length
+            });
+
+            if (chatHistory.length > 0 && this.verbose) {
+                const recentHistory = chatHistory.slice(Math.max(0, chatHistory.length - 2)).map(([userMsg, assistantMsg]) => ({
+                    user: userMsg.substring(0, 60),
+                    assistant: assistantMsg.substring(0, 60)
+                }));
+                logger.debug('Recent chat history preview', { recentHistory });
             }
             // Generate session ID for tracing grouping (use conversationId if available)
             const sessionId = this.generateSessionId(query, chatHistory, conversationId);
 
-            console.log(`  • RAG Configuration:`);
-            console.log(`    - K (Documents to retrieve): ${currentSettings.rag_k}`);
-            console.log(`    - Provider: LangChain + ChromaDB + Mistral`);
-            console.log(`    - Debug Mode: ${includeDebug}`);
-            console.log(`    - Session ID: ${sessionId.substring(0, 8)}...`);
-            console.log(`    - Conversation ID: ${conversationId || 'N/A'}`);
-            console.log(`  • Next Step: Query Rephrasing → Document Retrieval → Response Generation`)
-            
+            logger.debug('RAG Configuration', {
+                k: currentSettings.rag_k,
+                provider: 'LangChain + ChromaDB + Mistral',
+                debugMode: includeDebug,
+                sessionId: sessionId.substring(0, 8),
+                conversationId: conversationId || 'N/A'
+            });
+
             // Update chain configuration with session context
             this.ragChain.langfuseHandler.sessionId = sessionId;
             this.ragChain.rephraseChain.langfuseHandler.sessionId = sessionId;
@@ -338,43 +343,41 @@ class LangChainRAG {
                 result.debugInfo.langchainPatterns = true;
             }
 
-            console.log(`\n🎯 LangChain RAG Pipeline Complete (${processingTime}ms):`);
-            console.log(`  • Final Answer: "${result.answer?.substring(0, 100)}..."`);
-            console.log(`  • Answer Length: ${result.answer?.length || 0} characters`);
-            console.log(`  • Documents Retrieved: ${result.contextsUsed || 0} chunks`);
-            console.log(`  • Sources Used: ${result.sources?.length || 0} unique files`);
+            logger.info('LangChain RAG Pipeline Complete', {
+                processingTime,
+                answerLength: result.answer?.length || 0,
+                documentsRetrieved: result.contextsUsed || 0,
+                sourcesUsed: result.sources?.length || 0,
+                sourceUrls: result.sourceUrls?.length || 0,
+                sessionId: sessionId.substring(0, 8),
+                debugInfoAvailable: includeDebug && result.debugInfo ? true : false
+            });
+
             if (result.sources && result.sources.length > 0) {
-                console.log(`  • Source Files:`);
-                result.sources.forEach((source, index) => {
-                    console.log(`    ${index + 1}. ${source}`);
-                });
+                logger.debug('Source files used', { sources: result.sources });
             }
-            if (result.sourceUrls && result.sourceUrls.length > 0) {
-                console.log(`  • Source URLs: ${result.sourceUrls.length} references`);
-            }
-            console.log(`  • Total Processing Time: ${processingTime}ms`);
-            console.log(`  • Session ID: ${sessionId.substring(0, 8)}...`);
-            console.log(`  • Debug Info Available: ${includeDebug && result.debugInfo ? 'Yes' : 'No'}`);
 
             if (includeDebug && result.debugInfo) {
-                console.log(`\n📊 Detailed Debug Information:`);
                 if (result.debugInfo.step2_queryRephrasing) {
-                    console.log(`  • Query Rephrasing:`);
-                    console.log(`    - Original: "${query}"`);
-                    console.log(`    - Rephrased: "${result.debugInfo.step2_queryRephrasing.rephrasedQuery || 'Same as original'}"`);
-                    console.log(`    - Improved: ${result.debugInfo.step2_queryRephrasing.improvement || false}`);
+                    logger.debug('Query rephrasing details', {
+                        original: query,
+                        rephrased: result.debugInfo.step2_queryRephrasing.rephrasedQuery || 'Same as original',
+                        improved: result.debugInfo.step2_queryRephrasing.improvement || false
+                    });
                 }
                 if (result.debugInfo.step3_documentRetrieval) {
-                    console.log(`  • Document Retrieval:`);
-                    console.log(`    - Query Used: "${result.debugInfo.step3_documentRetrieval.searchQuery}"`);
-                    console.log(`    - Documents Requested: ${result.debugInfo.step3_documentRetrieval.requestedDocuments}`);
-                    console.log(`    - Documents Retrieved: ${result.debugInfo.step3_documentRetrieval.retrievedDocuments}`);
+                    logger.debug('Document retrieval details', {
+                        searchQuery: result.debugInfo.step3_documentRetrieval.searchQuery,
+                        requested: result.debugInfo.step3_documentRetrieval.requestedDocuments,
+                        retrieved: result.debugInfo.step3_documentRetrieval.retrievedDocuments
+                    });
                 }
                 if (result.debugInfo.step5_responseGeneration) {
-                    console.log(`  • Response Generation:`);
-                    console.log(`    - Model: ${result.debugInfo.step5_responseGeneration.model || 'N/A'}`);
-                    console.log(`    - Temperature: ${result.debugInfo.step5_responseGeneration.temperature || 'N/A'}`);
-                    console.log(`    - Prompt Length: ${result.debugInfo.step5_responseGeneration.totalPromptLength || 'N/A'} chars`);
+                    logger.debug('Response generation details', {
+                        model: result.debugInfo.step5_responseGeneration.model || 'N/A',
+                        temperature: result.debugInfo.step5_responseGeneration.temperature || 'N/A',
+                        promptLength: result.debugInfo.step5_responseGeneration.totalPromptLength || 'N/A'
+                    });
                 }
             }
 
@@ -391,8 +394,11 @@ class LangChainRAG {
             const endTime = Date.now();
             const processingTime = endTime - startTime;
 
-            console.error('🔴 LangChainRAG Error:', error);
-            console.error('🔴 Stack trace:', error.stack);
+            logger.error('LangChainRAG Error', {
+                error: error.message,
+                stack: error.stack,
+                processingTime
+            });
 
             // Create comprehensive error debug info
             const errorDebugInfo = {
@@ -459,24 +465,20 @@ class LangChainRAG {
      */
     async updateProviderConfig(providerConfig) {
         try {
-            console.log('🔧 LangChainRAG: Updating provider configuration');
-            console.log('   Config keys:', Object.keys(providerConfig));
+            logger.info('Updating provider configuration', { configKeys: Object.keys(providerConfig) });
 
             // Update the RAG chain configuration
             const result = await this.ragChain.updateProviderConfig(providerConfig);
 
             if (result.success) {
-                console.log('✅ LangChainRAG: Provider configuration updated successfully');
-                if (result.recreated) {
-                    console.log('   - LLM instances recreated with new configuration');
-                }
+                logger.info('Provider configuration updated successfully', { recreated: result.recreated || false });
             } else {
-                console.error('❌ LangChainRAG: Failed to update provider configuration:', result.error);
+                logger.error('Failed to update provider configuration', { error: result.error });
             }
 
             return result;
         } catch (error) {
-            console.error('❌ LangChainRAG: Error updating provider configuration:', error);
+            logger.error('Error updating provider configuration', { error: error.message, stack: error.stack });
             return { success: false, error: error.message };
         }
     }
@@ -487,7 +489,7 @@ class LangChainRAG {
      */
     async reloadConfiguration() {
         try {
-            console.log('🔄 LangChainRAG: Reloading configuration from database');
+            logger.info('Reloading configuration from database');
 
             // Load fresh configuration from database
             await this.loadConfiguration();
@@ -498,10 +500,10 @@ class LangChainRAG {
                 await this.updateProviderConfig(config);
             }
 
-            console.log('✅ LangChainRAG: Configuration reloaded successfully');
+            logger.info('Configuration reloaded successfully');
             return { success: true };
         } catch (error) {
-            console.error('❌ LangChainRAG: Error reloading configuration:', error);
+            logger.error('Error reloading configuration', { error: error.message, stack: error.stack });
             return { success: false, error: error.message };
         }
     }
@@ -540,7 +542,7 @@ class LangChainRAG {
             try {
                 await this.initializationPromise;
             } catch (error) {
-                console.warn('⚠️ LangChain RAG initialization promise rejected:', error.message);
+                logger.warn('LangChain RAG initialization promise rejected', { error: error.message });
             }
         }
 
@@ -632,29 +634,27 @@ class LangChainRAG {
             const ready = await this.waitForInitialization(5000);
             const verboseLogging = (this.ragChain && this.ragChain.verbose) || this.verbose;
 
-            if (!ready) {
-                if (verboseLogging) {
-                    console.warn('⚠️ LangChainRAG not ready during scoring request - proceeding with degraded logging');
-                }
+            if (!ready && verboseLogging) {
+                logger.warn('LangChainRAG not ready during scoring request - proceeding with degraded logging');
             }
 
             // Don't score actions in autopilot mode - agents aren't involved
             const systemMode = await this.getSystemMode();
             if (systemMode === 'autopilot') {
                 if (verboseLogging) {
-                    console.log('🚫 Skipping agent action scoring - autopilot mode active');
+                    logger.debug('Skipping agent action scoring - autopilot mode active');
                 }
                 return;
             }
 
             if (!conversationId || !suggestionAction) {
-                console.warn('⚠️ Missing conversationId or suggestionAction for scoring');
+                logger.warn('Missing conversationId or suggestionAction for scoring');
                 return;
             }
 
             if (!this.langfuse) {
                 if (verboseLogging) {
-                    console.warn('⚠️ Langfuse client unavailable - skipping agent action scoring');
+                    logger.warn('Langfuse client unavailable - skipping agent action scoring');
                 }
                 return;
             }
@@ -672,10 +672,12 @@ class LangChainRAG {
             const scoreValue = this.getScoreValue(suggestionAction);
 
             if (verboseLogging) {
-                console.log('📊 Scoring agent action:');
-                console.log(`   Session: ${sessionId}`);
-                console.log(`   Action: ${suggestionAction} → "${scoreName}"`);
-                console.log(`   Score: ${scoreValue}`);
+                logger.debug('Scoring agent action', {
+                    sessionId,
+                    action: suggestionAction,
+                    scoreName,
+                    scoreValue
+                });
             }
 
             // Use the separate Langfuse client to send the categorical score
@@ -695,10 +697,10 @@ class LangChainRAG {
                 }
             });
 
-            console.log(`✅ Agent action scored: ${scoreName} (${scoreValue}) for conversation ${conversationId}`);
+            logger.info('Agent action scored', { scoreName, scoreValue, conversationId });
 
         } catch (error) {
-            console.error('❌ Error scoring agent action:', error);
+            logger.error('Error scoring agent action', { error: error.message, stack: error.stack });
             // Don't throw - scoring failures shouldn't break core functionality
         }
     }
@@ -711,7 +713,7 @@ class LangChainRAG {
             const agentService = require('./agentService');
             return await agentService.getSystemMode();
         } catch (error) {
-            console.warn('Could not get system mode for scoring:', error.message);
+            logger.warn('Could not get system mode for scoring', { error: error.message });
             return 'hitl'; // Default to HITL mode
         }
     }
@@ -741,9 +743,9 @@ class LangChainRAG {
             await this.ragChain.langfuseHandler.shutdownAsync();
             await this.ragChain.rephraseChain.langfuseHandler.shutdownAsync();
             await this.langfuse.shutdownAsync();
-            console.log('✅ Langfuse handlers and client shutdown completed');
+            logger.info('Langfuse handlers and client shutdown completed');
         } catch (error) {
-            console.error('❌ Error during Langfuse shutdown:', error);
+            logger.error('Error during Langfuse shutdown', { error: error.message, stack: error.stack });
         }
     }
 }
