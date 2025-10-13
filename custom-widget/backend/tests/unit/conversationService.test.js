@@ -68,7 +68,23 @@ describe('ConversationService', () => {
             return Promise.resolve(tickets);
         });
 
-        mockPrisma.tickets.count.mockImplementation(() => Promise.resolve(createdTickets.size));
+        mockPrisma.tickets.count.mockImplementation(({ where }) => {
+            if (!where) return Promise.resolve(createdTickets.size);
+
+            let count = 0;
+            for (const ticket of createdTickets.values()) {
+                let matches = true;
+
+                if (where.id && ticket.id !== where.id) matches = false;
+                if (where.status && ticket.status !== where.status) matches = false;
+                if (where.assigned_agent_id && ticket.assigned_agent_id !== where.assigned_agent_id) matches = false;
+                if (where.user_id && ticket.user_id !== where.user_id) matches = false;
+
+                if (matches) count++;
+            }
+
+            return Promise.resolve(count);
+        });
 
         mockPrisma.messages.create.mockImplementation(({ data }) => Promise.resolve({
             ...data,
