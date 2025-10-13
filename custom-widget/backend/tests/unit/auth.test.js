@@ -23,7 +23,12 @@
  */
 
 // Mock dependencies BEFORE requiring modules
-jest.mock('../../src/utils/database');
+jest.mock('../../src/utils/database', () => ({
+  connect: jest.fn(),
+  getClient: jest.fn(),
+  disconnect: jest.fn(),
+  healthCheck: jest.fn(),
+}));
 jest.mock('../../src/utils/tokenUtils');
 jest.mock('../../src/utils/passwordUtils');
 jest.mock('../../src/utils/totpUtils');
@@ -50,6 +55,7 @@ describe('Authentication Service', () => {
     mockDb = {
       users: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
@@ -58,17 +64,32 @@ describe('Authentication Service', () => {
         findUnique: jest.fn(),
         delete: jest.fn(),
         deleteMany: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
       },
       agent_status: {
+        create: jest.fn(),
         upsert: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+      },
+      agentStatus: {
+        create: jest.fn(),
+        upsert: jest.fn(),
+        update: jest.fn(),
       },
       system_logs: {
         create: jest.fn(),
       },
     };
 
-    databaseClient.getClient.mockReturnValue(mockDb);
+    // Setup database mocks
     databaseClient.connect.mockResolvedValue(undefined);
+    databaseClient.getClient.mockImplementation(() => mockDb);
+
+    // Set authService.db directly instead of forcing re-initialization
+    // This avoids the Database connection failed error in tests
+    authService.db = mockDb;
 
     // Mock password utils
     passwordUtils.verifyPassword = jest.fn();
