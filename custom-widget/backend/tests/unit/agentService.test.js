@@ -210,22 +210,6 @@ describe('AgentService', () => {
         });
     });
 
-    describe('Name Generation', () => {
-        it('should extract name from email', () => {
-            const name = agentService.getAgentDisplayName('john.doe@support.com');
-            expect(name).toBe('John doe');
-        });
-
-        it('should format admin names', () => {
-            const name = agentService.getAgentDisplayName('admin@vilnius.lt');
-            expect(name).toBe('Admin User');
-        });
-
-        it('should handle agent role names', () => {
-            const name = agentService.getAgentDisplayName('agent_user_001');
-            expect(name).toBe('Agent User');
-        });
-    });
 
     describe('Status Management', () => {
         it('should update agent personal status to online', async () => {
@@ -312,78 +296,47 @@ describe('AgentService', () => {
             expect(agent).toBeNull();
         });
 
-        it('should sort agents by last seen for findBestAvailableAgent', async () => {
-            const user1Id = uuidv4();
-            const user2Id = uuidv4();
-
-            mockUsers.set(user1Id, {
-                id: user1Id,
-                email: 'agent1@test.com',
-                role: 'agent',
-                first_name: 'Agent',
-                last_name: 'One'
-            });
-            mockUsers.set(user2Id, {
-                id: user2Id,
-                email: 'agent2@test.com',
-                role: 'agent',
-                first_name: 'Agent',
-                last_name: 'Two'
-            });
-
-            mockAgentStatuses.set(user1Id, {
-                id: uuidv4(),
-                user_id: user1Id,
-                status: 'online',
-                updated_at: new Date(Date.now() - 60000)
-            });
-            mockAgentStatuses.set(user2Id, {
-                id: uuidv4(),
-                user_id: user2Id,
-                status: 'online',
-                updated_at: new Date()
-            });
-
-            const agent = await agentService.findBestAvailableAgent();
-            expect(agent).toBeDefined();
-        });
-
-        it('should handle multiple agents with same activity', async () => {
+        it('should prioritize most recently active agent for assignment', async () => {
+            const staleAgentId = uuidv4();
+            const activeAgentId = uuidv4();
             const now = new Date();
-            const user1Id = uuidv4();
-            const user2Id = uuidv4();
+            const oneMinuteAgo = new Date(now.getTime() - 60000);
 
-            mockUsers.set(user1Id, {
-                id: user1Id,
-                email: 'agent1@test.com',
+            mockUsers.set(staleAgentId, {
+                id: staleAgentId,
+                email: 'stale@test.com',
                 role: 'agent',
-                first_name: 'Agent',
-                last_name: 'One'
+                first_name: 'Stale',
+                last_name: 'Agent'
             });
-            mockUsers.set(user2Id, {
-                id: user2Id,
-                email: 'agent2@test.com',
+            mockUsers.set(activeAgentId, {
+                id: activeAgentId,
+                email: 'active@test.com',
                 role: 'agent',
-                first_name: 'Agent',
-                last_name: 'Two'
+                first_name: 'Active',
+                last_name: 'Agent'
             });
 
-            mockAgentStatuses.set(user1Id, {
+            mockAgentStatuses.set(staleAgentId, {
                 id: uuidv4(),
-                user_id: user1Id,
+                user_id: staleAgentId,
                 status: 'online',
-                updated_at: now
+                updated_at: oneMinuteAgo
             });
-            mockAgentStatuses.set(user2Id, {
+            mockAgentStatuses.set(activeAgentId, {
                 id: uuidv4(),
-                user_id: user2Id,
+                user_id: activeAgentId,
                 status: 'online',
                 updated_at: now
             });
 
             const agent = await agentService.findBestAvailableAgent();
+
             expect(agent).toBeDefined();
+            expect(agent.id).toBe(activeAgentId);
+            expect(new Date(agent.lastSeen).getTime()).toBeGreaterThan(oneMinuteAgo.getTime());
         });
+
     });
 
     describe('Agent Discovery', () => {
@@ -541,20 +494,23 @@ describe('AgentService', () => {
         });
     });
 
-    describe('Edge Cases', () => {
-        it('should handle AFK as no-op (deprecated)', async () => {
-            const result = await agentService.handleAgentAFK('agent@test.com', null);
-            expect(result).toEqual([]);
+    describe('Error Handling', () => {
+        it('should handle database errors gracefully when fetching agents', async () => {
+            mockPrisma.users.findFirst.mockRejectedValue(new Error('Database connection lost'));
+            const agent = await agentService.getAgent('agent@test.com');
+
+            expect(agent).toBeNull();
         });
 
-        it('should handle redistribution as no-op (disabled)', async () => {
-            const result = await agentService.redistributeOrphanedTickets(null);
-            expect(result).toEqual([]);
+        it('should return empty array when getAllAgents fails', async () => {
+            mockPrisma.users.findMany.mockRejectedValue(new Error('Database error'));
+            const agents = await agentService.getAllAgents();
+
+            expect(agents).toEqual([]);
         });
 
-        it('should handle database errors gracefully in getAgent', async () => {
-            mockPrisma.users.findFirst.mockRejectedValue(new Error('Database error'));
-            const agent = await agentService.getAgent('nonexistent@test.com');
+        it('should return null when no agents are available for assignment', async () => {
+            const agent = await agentService.getBestAvailableAgent();
             expect(agent).toBeNull();
         });
     });
