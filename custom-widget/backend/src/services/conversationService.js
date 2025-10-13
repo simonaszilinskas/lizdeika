@@ -86,7 +86,7 @@ class ConversationService {
                 category: ticket.category
             };
         } catch (error) {
-            console.error('Failed to create conversation:', error);
+            logger.error('Failed to create conversation:', error);
             throw new Error('Failed to create conversation: ' + error.message);
         }
     }
@@ -102,7 +102,7 @@ class ConversationService {
             });
             return !!ticket;
         } catch (error) {
-            console.error('Failed to check conversation existence:', error);
+            logger.error('Failed to check conversation existence:', error);
             return false;
         }
     }
@@ -160,7 +160,7 @@ class ConversationService {
                 messageCount: ticket._count.messages
             };
         } catch (error) {
-            console.error('Failed to get conversation:', error);
+            logger.error('Failed to get conversation:', error);
             return null;
         }
     }
@@ -207,7 +207,7 @@ class ConversationService {
                 category: ticket.category
             };
         } catch (error) {
-            console.error('Failed to update conversation:', error);
+            logger.error('Failed to update conversation:', error);
             throw new Error('Failed to update conversation: ' + error.message);
         }
     }
@@ -237,7 +237,7 @@ class ConversationService {
                 messageType: msg.message_type
             }));
         } catch (error) {
-            console.error('Failed to get messages:', error);
+            logger.error('Failed to get messages:', error);
             return [];
         }
     }
@@ -271,7 +271,7 @@ class ConversationService {
             
             return this.getMessages(conversationId);
         } catch (error) {
-            console.error('Failed to set messages:', error);
+            logger.error('Failed to set messages:', error);
             return [];
         }
     }
@@ -324,7 +324,7 @@ class ConversationService {
                 messageType: newMessage.message_type
             };
         } catch (error) {
-            console.error('Failed to add message:', error);
+            logger.error('Failed to add message:', error);
             throw new Error('Failed to add message: ' + error.message);
         }
     }
@@ -370,7 +370,7 @@ class ConversationService {
                 return await this.addMessage(conversationId, newMessage);
             }
         } catch (error) {
-            console.error('Failed to replace last message:', error);
+            logger.error('Failed to replace last message:', error);
             throw new Error('Failed to replace last message: ' + error.message);
         }
     }
@@ -404,7 +404,7 @@ class ConversationService {
             }
             return null;
         } catch (error) {
-            console.error('Failed to get existing offline message:', error);
+            logger.error('Failed to get existing offline message:', error);
             return null;
         }
     }
@@ -436,7 +436,7 @@ class ConversationService {
 
             return deleted.count;
         } catch (error) {
-            console.error('Failed to remove pending messages:', error);
+            logger.error('Failed to remove pending messages:', error);
             return 0;
         }
     }
@@ -472,10 +472,10 @@ class ConversationService {
                 }
             });
 
-            console.log(`Cleared ${deleted.count} pending suggestions for conversation ${conversationId}`);
+            logger.info(`Cleared ${deleted.count} pending suggestions for conversation ${conversationId}`);
             return deleted.count;
         } catch (error) {
-            console.error('Failed to clear pending suggestions:', error);
+            logger.error('Failed to clear pending suggestions:', error);
             return 0;
         }
     }
@@ -553,7 +553,7 @@ class ConversationService {
                 }))
             }));
         } catch (error) {
-            console.error('Failed to get conversations with stats:', error);
+            logger.error('Failed to get conversations with stats:', error);
             return [];
         }
     }
@@ -566,7 +566,7 @@ class ConversationService {
         try {
             return await prisma.tickets.count();
         } catch (error) {
-            console.error('Failed to get conversation count:', error);
+            logger.error('Failed to get conversation count:', error);
             return 0;
         }
     }
@@ -585,7 +585,7 @@ class ConversationService {
                 }
             });
         } catch (error) {
-            console.error('Failed to get total message count:', error);
+            logger.error('Failed to get total message count:', error);
             return 0;
         }
     }
@@ -615,7 +615,7 @@ class ConversationService {
             
             return true;
         } catch (error) {
-            console.error('Failed to clear all data:', error);
+            logger.error('Failed to clear all data:', error);
             return false;
         }
     }
@@ -670,7 +670,7 @@ class ConversationService {
                 messageCount: ticket._count.messages
             }));
         } catch (error) {
-            console.error('Failed to get agent conversations:', error);
+            logger.error('Failed to get agent conversations:', error);
             return [];
         }
     }
@@ -698,7 +698,7 @@ class ConversationService {
                 subject: ticket.subject
             }));
         } catch (error) {
-            console.error('Failed to get active conversations:', error);
+            logger.error('Failed to get active conversations:', error);
             return [];
         }
     }
@@ -746,7 +746,7 @@ class ConversationService {
                 subject: ticket.subject
             }));
         } catch (error) {
-            console.error('Failed to search conversations:', error);
+            logger.error('Failed to search conversations:', error);
             return [];
         }
     }
@@ -789,7 +789,7 @@ class ConversationService {
                         }
                     });
                 } catch (actionError) {
-                    console.error('Failed to log assignment action:', actionError);
+                    logger.error('Failed to log assignment action:', actionError);
                     // Don't fail the assignment if logging fails
                 }
             }
@@ -804,7 +804,7 @@ class ConversationService {
                 subject: ticket.subject
             };
         } catch (error) {
-            console.error('Failed to assign conversation:', error);
+            logger.error('Failed to assign conversation:', error);
             throw new Error('Failed to assign conversation: ' + error.message);
         }
     }
@@ -836,7 +836,7 @@ class ConversationService {
                 subject: ticket.subject
             }));
         } catch (error) {
-            console.error('Failed to get orphaned conversations:', error);
+            logger.error('Failed to get orphaned conversations:', error);
             return [];
         }
     }
@@ -911,7 +911,7 @@ class ConversationService {
             // Return next available number (starting from 1)
             return (result?.user_number || 0) + 1;
         } catch (error) {
-            console.error('Failed to generate user number:', error);
+            logger.error('Failed to generate user number:', error);
             // Fallback to timestamp-based number in case of error
             return Math.floor(Date.now() / 1000) % 100000;
         }
@@ -956,7 +956,7 @@ class ConversationService {
             
             return { count: result.count };
         } catch (error) {
-            console.error('Failed to bulk archive conversations:', error);
+            logger.error('Failed to bulk archive conversations:', error);
             throw new Error('Failed to archive conversations: ' + error.message);
         }
     }
@@ -981,7 +981,7 @@ class ConversationService {
             
             return { count: result.count };
         } catch (error) {
-            console.error('Failed to bulk unarchive conversations:', error);
+            logger.error('Failed to bulk unarchive conversations:', error);
             throw new Error('Failed to unarchive conversations: ' + error.message);
         }
     }
@@ -1017,7 +1017,7 @@ class ConversationService {
             
             return { count: result.count };
         } catch (error) {
-            console.error('Failed to bulk assign conversations:', error);
+            logger.error('Failed to bulk assign conversations:', error);
             throw new Error('Failed to assign conversations: ' + error.message);
         }
     }
@@ -1050,7 +1050,7 @@ class ConversationService {
                         const availableAgent = await agentService.getNextAvailableAgent();
                         updateData.assigned_agent_id = availableAgent || null;
                     } catch (error) {
-                        console.error('Failed to get available agent for auto-assignment:', error);
+                        logger.error('Failed to get available agent for auto-assignment:', error);
                         updateData.assigned_agent_id = null;
                     }
                 }
@@ -1063,6 +1063,8 @@ class ConversationService {
                 // Log auto-unarchive activity
                 try {
                     const activityService = require('./activityService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('conversationService');
                     await activityService.logActivity({
                         userId: assignToAgentId, // Log which agent caused the unarchive (if any)
                         actionType: 'conversation',
@@ -1075,17 +1077,17 @@ class ConversationService {
                         ipAddress: null // System action
                     });
                 } catch (error) {
-                    console.error('Failed to log auto-unarchive activity:', error);
+                    logger.error('Failed to log auto-unarchive activity:', error);
                     // Don't fail the unarchive operation if logging fails
                 }
                 
-                console.log(`Auto-unarchived conversation ${conversationId} due to new message`);
+                logger.info(`Auto-unarchived conversation ${conversationId} due to new message`);
                 return true;
             }
             
             return false;
         } catch (error) {
-            console.error('Failed to auto-unarchive conversation:', error);
+            logger.error('Failed to auto-unarchive conversation:', error);
             return false;
         }
     }
@@ -1114,11 +1116,11 @@ class ConversationService {
                 }
             });
 
-            console.log(`✅ Conversation ${conversationId} marked as seen by agent ${agentId}`);
+            logger.info(`✅ Conversation ${conversationId} marked as seen by agent ${agentId}`);
             return true;
 
         } catch (error) {
-            console.error(`Failed to mark conversation as seen:`, error);
+            logger.error(`Failed to mark conversation as seen:`, error);
             throw error;
         }
     }
@@ -1167,7 +1169,7 @@ class ConversationService {
 
             return updated;
         } catch (error) {
-            console.error(`Failed to update conversation category: ${error.message}`);
+            logger.error(`Failed to update conversation category: ${error.message}`);
             throw error;
         }
     }
@@ -1209,7 +1211,7 @@ class ConversationService {
 
             return updated;
         } catch (error) {
-            console.error(`Failed to toggle category override: ${error.message}`);
+            logger.error(`Failed to toggle category override: ${error.message}`);
             throw error;
         }
     }
@@ -1262,7 +1264,7 @@ class ConversationService {
                 take: limit
             });
         } catch (error) {
-            console.error(`Failed to get conversations by category: ${error.message}`);
+            logger.error(`Failed to get conversations by category: ${error.message}`);
             throw error;
         }
     }
@@ -1314,7 +1316,7 @@ class ConversationService {
                 }))
             };
         } catch (error) {
-            console.error(`Failed to get category statistics: ${error.message}`);
+            logger.error(`Failed to get category statistics: ${error.message}`);
             throw error;
         }
     }

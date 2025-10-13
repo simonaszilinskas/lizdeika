@@ -3,6 +3,9 @@
  * Standardized error creation and handling utilities
  */
 
+const { createLogger } = require('./logger');
+const logger = createLogger('errors');
+
 /**
  * Custom Application Error class
  */
@@ -103,8 +106,13 @@ const asyncHandler = (fn) => {
  * Service error handler - standardized logging and error transformation
  */
 const handleServiceError = (error, context = '') => {
-    console.error(`Service error${context ? ` in ${context}` : ''}:`, error);
-    
+    logger.error('Service error occurred', {
+        context,
+        error: error.message,
+        stack: error.stack,
+        code: error.code
+    });
+
     // If it's already an AppError, return as-is
     if (error instanceof AppError) {
         return error;

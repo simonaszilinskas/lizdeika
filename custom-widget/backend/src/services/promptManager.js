@@ -21,6 +21,8 @@
  */
 
 const { Langfuse } = require("langfuse");
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('promptManager');
 
 class LangfusePromptManager {
     constructor() {
@@ -46,12 +48,12 @@ class LangfusePromptManager {
                     debug: process.env.LANGFUSE_DEBUG === 'true'
                 });
                 this.enabled = true;
-                console.log('✅ Langfuse Prompt Management enabled');
+                logger.info('✅ Langfuse Prompt Management enabled');
             } else {
-                console.log('ℹ️ Langfuse Prompt Management disabled - credentials not found');
+                logger.info('ℹ️ Langfuse Prompt Management disabled - credentials not found');
             }
         } catch (error) {
-            console.warn('⚠️ Failed to initialize Langfuse Prompt Management:', error.message);
+            logger.warn('⚠️ Failed to initialize Langfuse Prompt Management:', error.message);
             this.enabled = false;
         }
     }
@@ -91,17 +93,17 @@ class LangfusePromptManager {
                     fromLangfuse: true
                 });
 
-                console.log(`📝 Fetched prompt '${name}' from Langfuse (version: ${langfusePrompt.version || 'latest'})`);
+                logger.info(`📝 Fetched prompt '${name}' from Langfuse (version: ${langfusePrompt.version || 'latest'})`);
                 return this.createPromptObject(langfusePrompt, fallback, variables, true, 'langfuse', name);
 
             } catch (error) {
                 // Handle specific f-string validation errors gracefully
                 if (error.message && error.message.includes('Missing value for input')) {
-                    console.warn(`⚠️ Langfuse prompt '${name}' has unresolved variables, using fallback:`, error.message.split('\n')[0]);
+                    logger.warn(`⚠️ Langfuse prompt '${name}' has unresolved variables, using fallback:`, error.message.split('\n')[0]);
                 } else {
-                    console.warn(`⚠️ Failed to fetch prompt '${name}' from Langfuse:`, error.message);
+                    logger.warn(`⚠️ Failed to fetch prompt '${name}' from Langfuse:`, error.message);
                 }
-                console.log(`📝 Using fallback prompt for '${name}'`);
+                logger.info(`📝 Using fallback prompt for '${name}'`);
             }
         }
 
@@ -111,7 +113,7 @@ class LangfusePromptManager {
         const source = envPrompt ? '.env override' : 'hardcoded fallback';
         
         if (envPrompt) {
-            console.log(`📝 Using .env prompt override for '${name}'`);
+            logger.info(`📝 Using .env prompt override for '${name}'`);
         }
 
         // Return fallback prompt object
@@ -176,7 +178,7 @@ class LangfusePromptManager {
         const logUnresolved = (compiledTemplate, phase) => {
             const unresolved = collectUnresolvedPlaceholders(compiledTemplate);
             if (unresolved.length > 0) {
-                console.warn(`⚠️ Prompt '${nextName}' (${phase}) missing variables:`, unresolved);
+                logger.warn(`⚠️ Prompt '${nextName}' (${phase}) missing variables:`, unresolved);
             }
         };
 
@@ -245,9 +247,9 @@ class LangfusePromptManager {
         try {
             // This linking happens automatically when using proper Langfuse integration
             // The trace will show which prompt version was used
-            console.log(`🔗 Prompt '${prompt.name}' (v${prompt.version}) linked to trace ${traceId}`);
+            logger.info(`🔗 Prompt '${prompt.name}' (v${prompt.version}) linked to trace ${traceId}`);
         } catch (error) {
-            console.warn('Failed to link prompt to trace:', error.message);
+            logger.warn('Failed to link prompt to trace:', error.message);
         }
     }
 
@@ -257,7 +259,7 @@ class LangfusePromptManager {
      */
     async createPrompt(name, promptContent, config = {}, labels = ['production']) {
         if (!this.enabled) {
-            console.warn('Cannot create prompt - Langfuse not enabled');
+            logger.warn('Cannot create prompt - Langfuse not enabled');
             return null;
         }
 
@@ -270,7 +272,7 @@ class LangfusePromptManager {
                 config: config
             });
 
-            console.log(`✅ Created/updated prompt '${name}' in Langfuse`);
+            logger.info(`✅ Created/updated prompt '${name}' in Langfuse`);
             
             // Clear cache for this prompt
             const cacheKeysToDelete = Array.from(this.promptCache.keys()).filter(key => 
@@ -280,7 +282,7 @@ class LangfusePromptManager {
             
             return prompt;
         } catch (error) {
-            console.error(`Failed to create prompt '${name}':`, error.message);
+            logger.error(`Failed to create prompt '${name}':`, error.message);
             return null;
         }
     }
@@ -290,7 +292,7 @@ class LangfusePromptManager {
      */
     clearCache() {
         this.promptCache.clear();
-        console.log('🧹 Prompt cache cleared');
+        logger.info('🧹 Prompt cache cleared');
     }
 
     /**

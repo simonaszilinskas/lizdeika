@@ -103,18 +103,18 @@ function createApp() {
     const shouldLogStaticDebug = process.env.DEBUG_STATIC_PATH === 'true';
 
     if (shouldLogStaticDebug) {
-        console.log(`📁 Serving static files from: ${staticPath}`);
+        logger.info('Serving static files', { staticPath });
         fsPromises.readdir(staticPath)
             .then((files) => {
-                console.log(`📋 Available files in static directory: ${files.join(', ')}`);
+                logger.debug('Available files in static directory', { files: files.join(', ') });
                 const htmlFiles = files.filter((file) => file.endsWith('.html'));
-                console.log(`🌐 HTML files found: ${htmlFiles.join(', ')}`);
+                logger.debug('HTML files found', { htmlFiles: htmlFiles.join(', ') });
             })
             .catch((error) => {
-                console.error(`❌ Cannot read static directory ${staticPath}:`, error.message);
+                logger.error('Cannot read static directory', { staticPath, error: error.message });
             });
     } else if (process.env.NODE_ENV !== 'production') {
-        console.log(`📁 Serving static files from: ${staticPath}`);
+        logger.info('Serving static files', { staticPath });
     }
 
     // Disable caching for JavaScript files in development

@@ -5,6 +5,8 @@
 
 const tokenUtils = require('../utils/tokenUtils');
 const databaseClient = require('../utils/database');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('authMiddleware');
 
 /**
  * Verify JWT token and attach user to request
@@ -79,7 +81,7 @@ const authenticateToken = async (req, res, next) => {
     next();
 
   } catch (error) {
-    console.error('Authentication middleware error:', error);
+    logger.error('Authentication middleware error:', error);
     return res.status(500).json({
       success: false,
       error: 'Authentication failed',
@@ -384,7 +386,7 @@ const authenticate2FASetupToken = async (req, res, next) => {
     next();
 
   } catch (error) {
-    console.error('2FA setup authentication error:', error);
+    logger.error('2FA setup authentication error:', error);
     return res.status(500).json({
       success: false,
       error: 'Authentication failed',

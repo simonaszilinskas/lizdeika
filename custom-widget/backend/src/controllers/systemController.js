@@ -76,7 +76,7 @@ class SystemController {
                     agents: agentService.getAgentCount()
                 };
             } catch (serviceError) {
-                console.warn('Service stats not available:', serviceError.message);
+                logger.warn('Service stats not available:', serviceError.message);
                 serverHealth.connections = { error: 'Services not initialized' };
             }
 
@@ -86,7 +86,7 @@ class SystemController {
                 serverHealth.aiProvider = aiProviderHealth;
                 aiProviderHealthy = aiProviderHealth && aiProviderHealth.healthy;
             } catch (aiError) {
-                console.warn('AI provider health check failed:', aiError.message);
+                logger.warn('AI provider health check failed:', aiError.message);
                 serverHealth.aiProvider = { error: 'AI service not available' };
                 aiProviderHealthy = false;
             }
@@ -107,7 +107,7 @@ class SystemController {
             res.status(httpStatus).json(serverHealth);
 
         } catch (error) {
-            console.error('Health check error:', error);
+            logger.error('Health check error:', error);
             res.status(503).json({
                 status: 'error',
                 error: error.message,
@@ -126,7 +126,7 @@ class SystemController {
                 systemPrompt: process.env.SYSTEM_PROMPT || 'UŽDUOTIS:\n\nTu esi naudingas Vilniaus miesto savivaldybės gyventojų aptarnavimo pokalbių robotas. Pasitelkdams tau pateiktą informaciją, kurią turi kontekste, atsakyk piliečiui į jo klausimą jo klausimo kalba. Jei klausimas neaiškus, užduok follow-up klausimą prieš atsakant. Niekada neišgalvok atsakymų, pasitelk tik informaciją, kurią turi. Niekada neminėk dokumentų ID. Gali cituoti tik nuorodas (URL) kurias turi kontekste.'
             });
         } catch (error) {
-            console.error('Error getting system prompt:', error);
+            logger.error('Error getting system prompt:', error);
             res.status(500).json({ error: 'Failed to get system prompt' });
         }
     }
@@ -143,7 +143,7 @@ class SystemController {
             // Only allow system prompt updates for OpenRouter
             if (currentProvider === 'openrouter' && systemPrompt) {
                 process.env.SYSTEM_PROMPT = systemPrompt;
-                console.log(`System prompt updated for ${currentProvider}`);
+                logger.info(`System prompt updated for ${currentProvider}`);
                 
                 res.json({ 
                     success: true, 
@@ -166,7 +166,7 @@ class SystemController {
             }
             
         } catch (error) {
-            console.error('Error updating settings:', error);
+            logger.error('Error updating settings:', error);
             res.status(500).json({ error: 'Failed to update settings' });
         }
     }
@@ -185,7 +185,7 @@ class SystemController {
             
             res.json(config);
         } catch (error) {
-            console.error('Error getting system config:', error);
+            logger.error('Error getting system config:', error);
             res.status(500).json({ error: 'Failed to get system configuration' });
         }
     }
@@ -206,7 +206,7 @@ class SystemController {
             conversationService.clearAllData();
             agentService.clearAllData();
             
-            console.log(`Reset completed: Cleared ${stats.conversations} conversations, ${stats.messages} messages, ${stats.agents} agents`);
+            logger.info(`Reset completed: Cleared ${stats.conversations} conversations, ${stats.messages} messages, ${stats.agents} agents`);
             
             res.json({
                 success: true,
@@ -214,7 +214,7 @@ class SystemController {
                 cleared: stats
             });
         } catch (error) {
-            console.error('Error during reset:', error);
+            logger.error('Error during reset:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to reset data'
@@ -231,7 +231,7 @@ class SystemController {
         try {
             const { initializePromptsInLangfuse } = require('../services/chains/VilniusPrompts');
             
-            console.log('🚀 Initializing Langfuse prompts...');
+            logger.info('🚀 Initializing Langfuse prompts...');
             const results = await initializePromptsInLangfuse();
             
             res.json({
@@ -242,7 +242,7 @@ class SystemController {
             });
             
         } catch (error) {
-            console.error('Failed to initialize prompts:', error);
+            logger.error('Failed to initialize prompts:', error);
             res.status(500).json({
                 error: 'Failed to initialize prompts',
                 details: error.message,
@@ -268,7 +268,7 @@ class SystemController {
             });
             
         } catch (error) {
-            console.error('Failed to check prompt health:', error);
+            logger.error('Failed to check prompt health:', error);
             res.status(500).json({
                 error: 'Failed to check prompt system health',
                 details: error.message
@@ -325,7 +325,7 @@ class SystemController {
             });
             
         } catch (error) {
-            console.error('Failed to list prompts:', error);
+            logger.error('Failed to list prompts:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to list prompts',
@@ -366,7 +366,7 @@ class SystemController {
             });
             
         } catch (error) {
-            console.error(`Failed to get prompt ${req.params.name}:`, error);
+            logger.error(`Failed to get prompt ${req.params.name}:`, error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to get prompt',
@@ -416,7 +416,7 @@ class SystemController {
             }
             
         } catch (error) {
-            console.error(`Failed to update prompt ${req.params.name}:`, error);
+            logger.error(`Failed to update prompt ${req.params.name}:`, error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to update prompt',
@@ -460,7 +460,7 @@ class SystemController {
             });
             
         } catch (error) {
-            console.error(`Failed to test prompt ${req.params.name}:`, error);
+            logger.error(`Failed to test prompt ${req.params.name}:`, error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to test prompt',
@@ -521,7 +521,7 @@ class SystemController {
             }
             
         } catch (error) {
-            console.error('Failed to create prompt:', error);
+            logger.error('Failed to create prompt:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to create prompt',
@@ -569,7 +569,7 @@ class SystemController {
             }
             
         } catch (error) {
-            console.error(`Failed to delete prompt ${req.params.name}:`, error);
+            logger.error(`Failed to delete prompt ${req.params.name}:`, error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to delete prompt',
@@ -587,6 +587,8 @@ class SystemController {
             const SettingsService = require('../services/settingsService');
             const settingsService = new SettingsService();
             const promptManager = require('../services/promptManager');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('systemController');
             
             // Get all prompt settings
             const promptSettings = await settingsService.getSettingsByCategory('prompts', true);
@@ -626,7 +628,7 @@ class SystemController {
             });
 
         } catch (error) {
-            console.error('Failed to get prompt stats:', error);
+            logger.error('Failed to get prompt stats:', error);
             res.status(500).json({
                 success: false,
                 error: 'Failed to get prompt statistics',

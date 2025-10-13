@@ -245,7 +245,7 @@ function createSystemRoutes() {
                 }
 
                 // Now test actual AI response generation
-                console.log(`🧪 Testing ${provider} with actual message generation...`);
+                logger.info(`🧪 Testing ${provider} with actual message generation...`);
 
                 // Temporarily set environment variables for the test
                 const originalEnvVars = {};
@@ -692,6 +692,8 @@ function createSystemRoutes() {
 
             // Generate AI suggestion with metadata
             const aiService = require('../services/aiService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('systemRoutes');
             const suggestion = await aiService.generateAISuggestion(
                 conversationId,
                 context,

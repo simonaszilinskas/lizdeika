@@ -35,6 +35,8 @@
  */
 const { CloudClient } = require("chromadb");
 const MistralEmbeddingFunction = require('./mistralEmbeddingFunction');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('chromaService');
 
 class ChromaService {
     constructor() {
@@ -61,7 +63,7 @@ class ChromaService {
             try {
                 this.embeddingFunction = new MistralEmbeddingFunction();
             } catch (error) {
-                console.warn('Mistral embeddings not available, falling back to default:', error.message);
+                logger.warn('Mistral embeddings not available, falling back to default:', error.message);
                 this.embeddingFunction = null;
             }
 
@@ -82,20 +84,20 @@ class ChromaService {
             if (this.embeddingFunction) {
                 // For Chroma, we need to use their embedding function format
                 // Since Mistral isn't built-in, we'll handle embeddings manually
-                console.log('Using Mistral embeddings with manual embedding generation');
+                logger.info('Using Mistral embeddings with manual embedding generation');
             }
 
             // Get or create collection
             this.collection = await this.client.getOrCreateCollection(collectionConfig);
 
             this.isConnected = true;
-            console.log(`Connected to Chroma Cloud - Collection: ${this.collectionName}`);
-            console.log(`Embedding function: ${this.embeddingFunction ? 'Mistral-embed' : 'Default'}`);
-            console.log(`HNSW configuration: cosine similarity, ef_construction=200, ef_search=100`);
+            logger.info(`Connected to Chroma Cloud - Collection: ${this.collectionName}`);
+            logger.info(`Embedding function: ${this.embeddingFunction ? 'Mistral-embed' : 'Default'}`);
+            logger.info(`HNSW configuration: cosine similarity, ef_construction=200, ef_search=100`);
             
             return true;
         } catch (error) {
-            console.error('Failed to initialize Chroma DB:', error);
+            logger.error('Failed to initialize Chroma DB:', error);
             this.isConnected = false;
             return false;
         }
@@ -120,9 +122,9 @@ class ChromaService {
             if (this.embeddingFunction) {
                 try {
                     embeddings = await this.embeddingFunction.generate(texts);
-                    console.log(`Generated ${embeddings.length} Mistral embeddings`);
+                    logger.info(`Generated ${embeddings.length} Mistral embeddings`);
                 } catch (error) {
-                    console.warn('Failed to generate Mistral embeddings:', error.message);
+                    logger.warn('Failed to generate Mistral embeddings:', error.message);
                     
                     // If error is about chunk size, propagate it to trigger re-chunking
                     if (error.message.includes('too large') || error.message.includes('32,000') || error.message.includes('8000 tokens')) {
@@ -130,7 +132,7 @@ class ChromaService {
                     }
                     
                     // For other errors, continue with default embeddings
-                    console.warn('Using default embeddings instead');
+                    logger.warn('Using default embeddings instead');
                     embeddings = null;
                 }
             }
@@ -149,10 +151,10 @@ class ChromaService {
             await this.collection.upsert(upsertData);
 
             const embeddingType = embeddings ? 'Mistral' : 'default';
-            console.log(`Added ${documents.length} documents to knowledge base with ${embeddingType} embeddings`);
+            logger.info(`Added ${documents.length} documents to knowledge base with ${embeddingType} embeddings`);
             return true;
         } catch (error) {
-            console.error('Failed to add documents:', error);
+            logger.error('Failed to add documents:', error);
             
             // If it's a chunk size error, re-throw to trigger re-chunking
             if (error.message.includes('Chunk size error for re-chunking')) {
@@ -168,15 +170,15 @@ class ChromaService {
      */
     async searchContext(query, nResults = 3) {
         if (!this.isConnected || !this.collection) {
-            console.warn('🔍 ChromaDB not connected, returning empty context');
+            logger.warn('🔍 ChromaDB not connected, returning empty context');
             return [];
         }
 
         try {
-            console.log(`\n🔍 ChromaDB Vector Search Query:`);
-            console.log(`  • Original Query: "${query}"`);
-            console.log(`  • Requested Results: ${nResults}`);
-            console.log(`  • Collection: ${this.collectionName}`);
+            logger.info(`\n🔍 ChromaDB Vector Search Query:`);
+            logger.info(`  • Original Query: "${query}"`);
+            logger.info(`  • Requested Results: ${nResults}`);
+            logger.info(`  • Collection: ${this.collectionName}`);
 
             let queryData = {
                 queryTexts: [query],
@@ -195,27 +197,27 @@ class ChromaService {
                         nResults: nResults,
                     };
 
-                    console.log(`  • Embedding Generation:`);
-                    console.log(`    - Provider: Mistral AI`);
-                    console.log(`    - Model: mistral-embed`);
-                    console.log(`    - Dimensions: ${queryEmbeddings[0].length}`);
-                    console.log(`    - Generation Time: ${embeddingTime.toFixed(2)}ms`);
-                    console.log(`    - First 5 Vector Values: [${queryEmbeddings[0].slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`);
+                    logger.info(`  • Embedding Generation:`);
+                    logger.info(`    - Provider: Mistral AI`);
+                    logger.info(`    - Model: mistral-embed`);
+                    logger.info(`    - Dimensions: ${queryEmbeddings[0].length}`);
+                    logger.info(`    - Generation Time: ${embeddingTime.toFixed(2)}ms`);
+                    logger.info(`    - First 5 Vector Values: [${queryEmbeddings[0].slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`);
                 } catch (error) {
-                    console.warn('⚠️ Failed to generate Mistral query embedding, using text search:', error.message);
+                    logger.warn('⚠️ Failed to generate Mistral query embedding, using text search:', error.message);
                     // Keep original queryTexts approach
                 }
             } else {
-                console.log(`  • Embedding: Using ChromaDB default embeddings`);
+                logger.info(`  • Embedding: Using ChromaDB default embeddings`);
             }
 
-            console.log(`  • Executing ChromaDB Query...`);
+            logger.info(`  • Executing ChromaDB Query...`);
             const searchStartTime = performance.now();
             const results = await this.collection.query(queryData);
             const searchTime = performance.now() - searchStartTime;
 
-            console.log(`\n📊 ChromaDB Search Results (${searchTime.toFixed(2)}ms):`);
-            console.log(`  • Total Documents Found: ${results.documents && results.documents[0] ? results.documents[0].length : 0}`);
+            logger.info(`\n📊 ChromaDB Search Results (${searchTime.toFixed(2)}ms):`);
+            logger.info(`  • Total Documents Found: ${results.documents && results.documents[0] ? results.documents[0].length : 0}`);
 
             // Format results for easier use
             const contexts = [];
@@ -229,34 +231,34 @@ class ChromaService {
                     };
                     contexts.push(context);
 
-                    console.log(`  • Document ${i + 1}:`);
-                    console.log(`    - ID: ${context.id}`);
-                    console.log(`    - Similarity Score: ${(1 - context.distance).toFixed(4)} (distance: ${context.distance.toFixed(4)})`);
-                    console.log(`    - Content Preview: "${context.content.substring(0, 100)}..."`);
-                    console.log(`    - Content Length: ${context.content.length} chars`);
+                    logger.info(`  • Document ${i + 1}:`);
+                    logger.info(`    - ID: ${context.id}`);
+                    logger.info(`    - Similarity Score: ${(1 - context.distance).toFixed(4)} (distance: ${context.distance.toFixed(4)})`);
+                    logger.info(`    - Content Preview: "${context.content.substring(0, 100)}..."`);
+                    logger.info(`    - Content Length: ${context.content.length} chars`);
                     if (context.metadata.source) {
-                        console.log(`    - Source File: ${context.metadata.source}`);
+                        logger.info(`    - Source File: ${context.metadata.source}`);
                     }
                     if (context.metadata.page) {
-                        console.log(`    - Page/Section: ${context.metadata.page}`);
+                        logger.info(`    - Page/Section: ${context.metadata.page}`);
                     }
                     if (context.metadata.chunk_index !== undefined) {
-                        console.log(`    - Chunk Index: ${context.metadata.chunk_index}`);
+                        logger.info(`    - Chunk Index: ${context.metadata.chunk_index}`);
                     }
                 }
             }
 
             const embeddingType = queryData.queryEmbeddings ? 'Mistral' : 'default';
-            console.log(`\n✅ ChromaDB search completed using ${embeddingType} embeddings`);
-            console.log(`  • Query: "${query}"`);
-            console.log(`  • Retrieved: ${contexts.length} document chunks`);
-            console.log(`  • Total Processing Time: ${searchTime.toFixed(2)}ms\n`);
+            logger.info(`\n✅ ChromaDB search completed using ${embeddingType} embeddings`);
+            logger.info(`  • Query: "${query}"`);
+            logger.info(`  • Retrieved: ${contexts.length} document chunks`);
+            logger.info(`  • Total Processing Time: ${searchTime.toFixed(2)}ms\n`);
 
             return contexts;
         } catch (error) {
-            console.error('❌ ChromaDB search failed:', error);
-            console.error(`  • Query: "${query}"`);
-            console.error(`  • Error Details: ${error.message}`);
+            logger.error('❌ ChromaDB search failed:', error);
+            logger.error(`  • Query: "${query}"`);
+            logger.error(`  • Error Details: ${error.message}`);
             return [];
         }
     }
@@ -277,7 +279,7 @@ class ChromaService {
                 collectionName: this.collectionName
             };
         } catch (error) {
-            console.error('Failed to get stats:', error);
+            logger.error('Failed to get stats:', error);
             return { connected: false, count: 0, error: error.message };
         }
     }
@@ -309,7 +311,7 @@ class ChromaService {
                 }
             }
 
-            console.log(`Retrieved ${documents.length} indexed documents from Chroma`);
+            logger.info(`Retrieved ${documents.length} indexed documents from Chroma`);
             return {
                 connected: true,
                 documents: documents,
@@ -317,7 +319,7 @@ class ChromaService {
                 collectionName: this.collectionName
             };
         } catch (error) {
-            console.error('Failed to get all documents:', error);
+            logger.error('Failed to get all documents:', error);
             return { connected: false, documents: [], error: error.message };
         }
     }
@@ -336,10 +338,10 @@ class ChromaService {
             this.collection = await this.client.createCollection({
                 name: this.collectionName,
             });
-            console.log('Cleared all data from knowledge base');
+            logger.info('Cleared all data from knowledge base');
             return true;
         } catch (error) {
-            console.error('Failed to clear data:', error);
+            logger.error('Failed to clear data:', error);
             return false;
         }
     }

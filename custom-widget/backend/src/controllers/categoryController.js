@@ -41,8 +41,10 @@ const getWebSocketService = () => {
     if (!websocketService) {
         try {
             websocketService = require('../services/websocketService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('categoryController');
         } catch (error) {
-            console.warn('WebSocket service not available for category broadcasts:', error.message);
+            logger.warn('WebSocket service not available for category broadcasts:', error.message);
         }
     }
     return websocketService;
@@ -248,7 +250,7 @@ class CategoryController {
                 });
                 wsService.broadcastCategoryUpdate(allCategories);
             } catch (error) {
-                console.error('Error broadcasting category creation:', error);
+                logger.error('Error broadcasting category creation:', error);
             }
         }
     });
@@ -399,7 +401,7 @@ class CategoryController {
                 });
                 wsService.broadcastCategoryUpdate(allCategories);
             } catch (error) {
-                console.error('Error broadcasting category update:', error);
+                logger.error('Error broadcasting category update:', error);
             }
         }
     });
@@ -464,7 +466,7 @@ class CategoryController {
                 });
                 wsService.broadcastCategoryUpdate(allCategories);
             } catch (error) {
-                console.error('Error broadcasting category archive:', error);
+                logger.error('Error broadcasting category archive:', error);
             }
         }
     });

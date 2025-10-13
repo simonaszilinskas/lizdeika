@@ -5,6 +5,8 @@
 
 const authService = require('../services/authService');
 const activityService = require('../services/activityService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('authController');
 
 class AuthController {
   /**
@@ -40,7 +42,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Registration error:', error);
+      logger.error('Registration error:', error);
       
       // Log failed registration attempt
       await activityService.logAuth(
@@ -138,7 +140,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
 
       // Determine if this was a 2FA failure
       const is2FAFailure = error.message.includes('2FA') || error.message.includes('Too many failed attempts');
@@ -181,7 +183,7 @@ class AuthController {
         data: result,
       });
     } catch (error) {
-      console.error('Token refresh error:', error);
+      logger.error('Token refresh error:', error);
       
       res.status(401).json({
         success: false,
@@ -216,7 +218,7 @@ class AuthController {
         message: 'Logout successful',
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error:', error);
       
       // Log logout attempt (even if failed, we still consider it a logout)
       await activityService.logAuth(
@@ -272,7 +274,7 @@ class AuthController {
         });
       }
     } catch (error) {
-      console.error('Forgot password error:', error);
+      logger.error('Forgot password error:', error);
       
       // Log failed password reset request
       await activityService.logSecurity(
@@ -320,7 +322,7 @@ class AuthController {
         message: result.message,
       });
     } catch (error) {
-      console.error('Password reset error:', error);
+      logger.error('Password reset error:', error);
       
       // Log failed password reset
       await activityService.logSecurity(
@@ -369,7 +371,7 @@ class AuthController {
         message: result.message,
       });
     } catch (error) {
-      console.error('Change password error:', error);
+      logger.error('Change password error:', error);
       
       // Log failed password change attempt
       await activityService.logSecurity(
@@ -402,7 +404,7 @@ class AuthController {
         data: user,
       });
     } catch (error) {
-      console.error('Get profile error:', error);
+      logger.error('Get profile error:', error);
       
       res.status(404).json({
         success: false,
@@ -432,7 +434,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Token verification error:', error);
+      logger.error('Token verification error:', error);
       
       res.status(401).json({
         success: false,
@@ -466,7 +468,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Auth status error:', error);
+      logger.error('Auth status error:', error);
       
       res.status(500).json({
         success: false,
@@ -492,7 +494,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Token cleanup error:', error);
+      logger.error('Token cleanup error:', error);
       
       res.status(500).json({
         success: false,
@@ -557,7 +559,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Create test user error:', error);
+      logger.error('Create test user error:', error);
       
       res.status(400).json({
         success: false,
@@ -595,7 +597,7 @@ class AuthController {
         },
       });
     } catch (error) {
-      console.error('Emergency admin recovery error:', error);
+      logger.error('Emergency admin recovery error:', error);
       
       res.status(400).json({
         success: false,
@@ -635,7 +637,7 @@ class AuthController {
         data: result.admin,
       });
     } catch (error) {
-      console.error('Emergency admin creation error:', error);
+      logger.error('Emergency admin creation error:', error);
       
       res.status(400).json({
         success: false,
