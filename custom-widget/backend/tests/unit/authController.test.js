@@ -77,7 +77,7 @@ describe('AuthController', () => {
     });
 
     it('should handle registration failure and log activity', async () => {
-      const error = new Error('Email already exists');
+      const error = new Error('User with this email already exists');
       mockReq.body = {
         email: 'existing@example.com',
         password: 'Password123!',
@@ -93,12 +93,12 @@ describe('AuthController', () => {
         false,
         '192.168.1.1',
         'Jest Test Agent',
-        { email: 'existing@example.com', error: 'Email already exists' }
+        { email: 'existing@example.com', error: 'User with this email already exists' }
       );
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.json).toHaveBeenCalledWith({
         success: false,
-        error: 'Email already exists',
+        error: 'User with this email already exists',
         code: 'REGISTRATION_FAILED',
       });
     });
