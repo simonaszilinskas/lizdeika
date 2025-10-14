@@ -102,7 +102,13 @@ class ConversationService {
                 category: ticket.category
             };
         } catch (error) {
-            logger.error('Failed to create conversation:', error);
+            logger.error('Failed to create conversation', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                subject: conversation.subject,
+                category: conversation.category
+            });
             throw new Error('Failed to create conversation: ' + error.message);
         }
     }
@@ -118,7 +124,11 @@ class ConversationService {
             });
             return !!ticket;
         } catch (error) {
-            logger.error('Failed to check conversation existence:', error);
+            logger.error('Failed to check conversation existence', {
+                error: error.message,
+                stack: error.stack,
+                conversationId
+            });
             return false;
         }
     }
@@ -176,7 +186,11 @@ class ConversationService {
                 messageCount: ticket._count.messages
             };
         } catch (error) {
-            logger.error('Failed to get conversation:', error);
+            logger.error('Failed to get conversation', {
+                error: error.message,
+                stack: error.stack,
+                conversationId
+            });
             return null;
         }
     }
@@ -223,7 +237,12 @@ class ConversationService {
                 category: ticket.category
             };
         } catch (error) {
-            logger.error('Failed to update conversation:', error);
+            logger.error('Failed to update conversation', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                updates: Object.keys(updates)
+            });
             throw new Error('Failed to update conversation: ' + error.message);
         }
     }
@@ -253,7 +272,11 @@ class ConversationService {
                 messageType: msg.message_type
             }));
         } catch (error) {
-            logger.error('Failed to get messages:', error);
+            logger.error('Failed to get messages', {
+                error: error.message,
+                stack: error.stack,
+                conversationId
+            });
             return [];
         }
     }
@@ -287,7 +310,12 @@ class ConversationService {
             
             return this.getMessages(conversationId);
         } catch (error) {
-            logger.error('Failed to set messages:', error);
+            logger.error('Failed to set messages', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                messageCount: messageList.length
+            });
             return [];
         }
     }
@@ -340,7 +368,13 @@ class ConversationService {
                 messageType: newMessage.message_type
             };
         } catch (error) {
-            logger.error('Failed to add message:', error);
+            logger.error('Failed to add message', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                sender: message.sender,
+                messageType: message.messageType
+            });
             throw new Error('Failed to add message: ' + error.message);
         }
     }
@@ -386,7 +420,12 @@ class ConversationService {
                 return await this.addMessage(conversationId, newMessage);
             }
         } catch (error) {
-            logger.error('Failed to replace last message:', error);
+            logger.error('Failed to replace last message', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                sender: newMessage.sender
+            });
             throw new Error('Failed to replace last message: ' + error.message);
         }
     }
@@ -420,7 +459,11 @@ class ConversationService {
             }
             return null;
         } catch (error) {
-            logger.error('Failed to get existing offline message:', error);
+            logger.error('Failed to get existing offline message', {
+                error: error.message,
+                stack: error.stack,
+                conversationId
+            });
             return null;
         }
     }
@@ -452,7 +495,11 @@ class ConversationService {
 
             return deleted.count;
         } catch (error) {
-            logger.error('Failed to remove pending messages:', error);
+            logger.error('Failed to remove pending messages', {
+                error: error.message,
+                stack: error.stack,
+                conversationId
+            });
             return 0;
         }
     }
@@ -488,10 +535,14 @@ class ConversationService {
                 }
             });
 
-            logger.info(`Cleared ${deleted.count} pending suggestions for conversation ${conversationId}`);
+            logger.debug(`Cleared ${deleted.count} pending suggestions for conversation ${conversationId}`);
             return deleted.count;
         } catch (error) {
-            logger.error('Failed to clear pending suggestions:', error);
+            logger.error('Failed to clear pending suggestions', {
+                error: error.message,
+                stack: error.stack,
+                conversationId
+            });
             return 0;
         }
     }
@@ -569,7 +620,10 @@ class ConversationService {
                 }))
             }));
         } catch (error) {
-            logger.error('Failed to get conversations with stats:', error);
+            logger.error('Failed to get conversations with stats', {
+                error: error.message,
+                stack: error.stack
+            });
             return [];
         }
     }
@@ -582,7 +636,10 @@ class ConversationService {
         try {
             return await prisma.tickets.count();
         } catch (error) {
-            logger.error('Failed to get conversation count:', error);
+            logger.error('Failed to get conversation count', {
+                error: error.message,
+                stack: error.stack
+            });
             return 0;
         }
     }
@@ -601,7 +658,10 @@ class ConversationService {
                 }
             });
         } catch (error) {
-            logger.error('Failed to get total message count:', error);
+            logger.error('Failed to get total message count', {
+                error: error.message,
+                stack: error.stack
+            });
             return 0;
         }
     }
@@ -631,7 +691,10 @@ class ConversationService {
             
             return true;
         } catch (error) {
-            logger.error('Failed to clear all data:', error);
+            logger.error('Failed to clear all data', {
+                error: error.message,
+                stack: error.stack
+            });
             return false;
         }
     }
@@ -687,7 +750,11 @@ class ConversationService {
                 messageCount: ticket._count.messages
             }));
         } catch (error) {
-            logger.error('Failed to get agent conversations:', error);
+            logger.error('Failed to get agent conversations', {
+                error: error.message,
+                stack: error.stack,
+                agentId
+            });
             return [];
         }
     }
@@ -716,7 +783,10 @@ class ConversationService {
                 subject: ticket.subject
             }));
         } catch (error) {
-            logger.error('Failed to get active conversations:', error);
+            logger.error('Failed to get active conversations', {
+                error: error.message,
+                stack: error.stack
+            });
             return [];
         }
     }
@@ -765,7 +835,11 @@ class ConversationService {
                 subject: ticket.subject
             }));
         } catch (error) {
-            logger.error('Failed to search conversations:', error);
+            logger.error('Failed to search conversations', {
+                error: error.message,
+                stack: error.stack,
+                criteria: Object.keys(criteria)
+            });
             return [];
         }
     }
@@ -808,7 +882,12 @@ class ConversationService {
                         }
                     });
                 } catch (actionError) {
-                    logger.error('Failed to log assignment action:', actionError);
+                    logger.error('Failed to log assignment action', {
+                        error: actionError.message,
+                        stack: actionError.stack,
+                        conversationId,
+                        userId
+                    });
                     // Don't fail the assignment if logging fails
                 }
             }
@@ -823,7 +902,12 @@ class ConversationService {
                 subject: ticket.subject
             };
         } catch (error) {
-            logger.error('Failed to assign conversation:', error);
+            logger.error('Failed to assign conversation', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                agentId
+            });
             throw new Error('Failed to assign conversation: ' + error.message);
         }
     }
@@ -856,7 +940,10 @@ class ConversationService {
                 subject: ticket.subject
             }));
         } catch (error) {
-            logger.error('Failed to get orphaned conversations:', error);
+            logger.error('Failed to get orphaned conversations', {
+                error: error.message,
+                stack: error.stack
+            });
             return [];
         }
     }
@@ -933,7 +1020,10 @@ class ConversationService {
             // Return next available number (starting from 1)
             return (result?.user_number || 0) + 1;
         } catch (error) {
-            logger.error('Failed to generate user number:', error);
+            logger.error('Failed to generate user number', {
+                error: error.message,
+                stack: error.stack
+            });
             // Fallback to timestamp-based number in case of error
             return Math.floor(Date.now() / 1000) % 100000;
         }
@@ -979,7 +1069,11 @@ class ConversationService {
             
             return { count: result.count };
         } catch (error) {
-            logger.error('Failed to bulk archive conversations:', error);
+            logger.error('Failed to bulk archive conversations', {
+                error: error.message,
+                stack: error.stack,
+                conversationCount: conversationIds?.length
+            });
             throw new Error('Failed to archive conversations: ' + error.message);
         }
     }
@@ -1005,7 +1099,11 @@ class ConversationService {
             
             return { count: result.count };
         } catch (error) {
-            logger.error('Failed to bulk unarchive conversations:', error);
+            logger.error('Failed to bulk unarchive conversations', {
+                error: error.message,
+                stack: error.stack,
+                conversationCount: conversationIds?.length
+            });
             throw new Error('Failed to unarchive conversations: ' + error.message);
         }
     }
@@ -1042,7 +1140,12 @@ class ConversationService {
             
             return { count: result.count };
         } catch (error) {
-            logger.error('Failed to bulk assign conversations:', error);
+            logger.error('Failed to bulk assign conversations', {
+                error: error.message,
+                stack: error.stack,
+                conversationCount: conversationIds?.length,
+                agentId
+            });
             throw new Error('Failed to assign conversations: ' + error.message);
         }
     }
@@ -1076,7 +1179,11 @@ class ConversationService {
                         const availableAgent = await agentService.getNextAvailableAgent();
                         updateData.assigned_agent_id = availableAgent || null;
                     } catch (error) {
-                        logger.error('Failed to get available agent for auto-assignment:', error);
+                        logger.error('Failed to get available agent for auto-assignment', {
+                            error: error.message,
+                            stack: error.stack,
+                            conversationId
+                        });
                         updateData.assigned_agent_id = null;
                     }
                 }
@@ -1101,17 +1208,27 @@ class ConversationService {
                         ipAddress: null // System action
                     });
                 } catch (error) {
-                    logger.error('Failed to log auto-unarchive activity:', error);
+                    logger.error('Failed to log auto-unarchive activity', {
+                        error: error.message,
+                        stack: error.stack,
+                        conversationId,
+                        assignToAgentId
+                    });
                     // Don't fail the unarchive operation if logging fails
                 }
-                
-                logger.info(`Auto-unarchived conversation ${conversationId} due to new message`);
+
+                logger.debug(`Auto-unarchived conversation ${conversationId} due to new message`);
                 return true;
             }
             
             return false;
         } catch (error) {
-            logger.error('Failed to auto-unarchive conversation:', error);
+            logger.error('Failed to auto-unarchive conversation', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                assignToAgentId
+            });
             return false;
         }
     }
@@ -1141,11 +1258,16 @@ class ConversationService {
                 }
             });
 
-            logger.info(`✅ Conversation ${conversationId} marked as seen by agent ${agentId}`);
+            logger.debug(`Conversation ${conversationId} marked as seen by agent ${agentId}`);
             return true;
 
         } catch (error) {
-            logger.error(`Failed to mark conversation as seen:`, error);
+            logger.error('Failed to mark conversation as seen', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                agentId
+            });
             throw error;
         }
     }
@@ -1195,7 +1317,13 @@ class ConversationService {
 
             return updated;
         } catch (error) {
-            logger.error(`Failed to update conversation category: ${error.message}`);
+            logger.error('Failed to update conversation category', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                categoryId,
+                isManualOverride
+            });
             throw error;
         }
     }
@@ -1238,7 +1366,12 @@ class ConversationService {
 
             return updated;
         } catch (error) {
-            logger.error(`Failed to toggle category override: ${error.message}`);
+            logger.error('Failed to toggle category override', {
+                error: error.message,
+                stack: error.stack,
+                conversationId,
+                manualOverride
+            });
             throw error;
         }
     }
@@ -1292,7 +1425,12 @@ class ConversationService {
                 take: limit
             });
         } catch (error) {
-            logger.error(`Failed to get conversations by category: ${error.message}`);
+            logger.error('Failed to get conversations by category', {
+                error: error.message,
+                stack: error.stack,
+                categoryId,
+                options
+            });
             throw error;
         }
     }
@@ -1345,7 +1483,10 @@ class ConversationService {
                 }))
             };
         } catch (error) {
-            logger.error(`Failed to get category statistics: ${error.message}`);
+            logger.error('Failed to get category statistics', {
+                error: error.message,
+                stack: error.stack
+            });
             throw error;
         }
     }
