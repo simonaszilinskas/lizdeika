@@ -36,7 +36,7 @@
  */
 
 const statisticsService = require('../services/statisticsService');
-const { asyncHandler } = require('../utils/errors');
+const { asyncHandler, ValidationError } = require('../utils/errors');
 
 class StatisticsController {
     /**
@@ -249,7 +249,8 @@ class StatisticsController {
     getTemplateStats = asyncHandler(async (req, res) => {
         const { startDate, endDate } = this.parseDateRange(req.query);
         const { agentId, limit = '10' } = req.query;
-        const limitNum = Math.min(parseInt(limit), 50); // Max 50 templates
+        const parsed = parseInt(limit, 10);
+        const limitNum = Math.min(Number.isFinite(parsed) ? parsed : 10, 50); // Max 50 templates
 
         if (agentId) {
             // Get agent-specific template usage
@@ -352,7 +353,7 @@ class StatisticsController {
         if (startDateStr) {
             startDate = new Date(startDateStr);
             if (isNaN(startDate.getTime())) {
-                throw new Error('Invalid startDate format. Use ISO 8601 format.');
+                throw new ValidationError('Invalid startDate format. Use ISO 8601 format.');
             }
         } else {
             startDate = new Date();
@@ -363,7 +364,7 @@ class StatisticsController {
         if (endDateStr) {
             endDate = new Date(endDateStr);
             if (isNaN(endDate.getTime())) {
-                throw new Error('Invalid endDate format. Use ISO 8601 format.');
+                throw new ValidationError('Invalid endDate format. Use ISO 8601 format.');
             }
         } else {
             endDate = new Date();
@@ -375,13 +376,13 @@ class StatisticsController {
 
         // Validate date range
         if (startDate > endDate) {
-            throw new Error('startDate must be before endDate');
+            throw new ValidationError('startDate must be before endDate');
         }
 
         // Prevent excessively long date ranges (more than 1 year)
         const daysDiff = (endDate - startDate) / (1000 * 60 * 60 * 24);
         if (daysDiff > 365) {
-            throw new Error('Date range cannot exceed 365 days');
+            throw new ValidationError('Date range cannot exceed 365 days');
         }
 
         return { startDate, endDate };

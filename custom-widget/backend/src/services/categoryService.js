@@ -21,13 +21,26 @@ let prisma;
 
 class CategoryService {
     /**
+     * Initialize database client with error handling
+     */
+    _ensureClient() {
+        if (!prisma) {
+            prisma = databaseClient.getClient();
+            if (!prisma) {
+                throw new Error('Database client not initialized');
+            }
+        }
+        return prisma;
+    }
+
+    /**
      * Get category by ID with user permission check
      * @param {string} categoryId - Category ID
      * @param {Object} user - User object (optional for permission check)
      * @returns {Object|null} Category object or null if not found/no permission
      */
     async getCategoryById(categoryId, user = null) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this._ensureClient();
 
         const category = await prisma.ticket_categories.findUnique({
             where: { id: categoryId },
@@ -66,7 +79,7 @@ class CategoryService {
      * @returns {Array} Array of categories
      */
     async getCategoriesForUser(user, filters = {}) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this._ensureClient();
 
         const {
             include_archived = false,
@@ -118,7 +131,7 @@ class CategoryService {
      * @returns {Object} Created category
      */
     async createCategory(categoryData, user) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this._ensureClient();
 
         const { name, description, color = '#6B7280' } = categoryData;
 
@@ -179,7 +192,7 @@ class CategoryService {
      * @returns {Object} Updated category
      */
     async updateCategory(categoryId, updates, user) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this._ensureClient();
 
         // Get existing category
         const existingCategory = await this.getCategoryById(categoryId);
@@ -265,7 +278,7 @@ class CategoryService {
      * @returns {Object} Result with tickets affected count
      */
     async archiveCategory(categoryId, user) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this._ensureClient();
 
         // Get category with ticket count
         const category = await prisma.ticket_categories.findUnique({
@@ -308,7 +321,7 @@ class CategoryService {
      * @returns {Object} Statistics object
      */
     async getCategoryStats(user) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this._ensureClient();
 
         if (user.role !== 'admin') {
             throw new Error('Administrator access required');
@@ -380,7 +393,7 @@ class CategoryService {
      * @returns {boolean} True if user can use category
      */
     async canUseCategory(categoryId, user) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this._ensureClient();
 
         const category = await this.getCategoryById(categoryId);
         if (!category || category.is_archived) {

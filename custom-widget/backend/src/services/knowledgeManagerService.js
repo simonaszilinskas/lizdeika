@@ -5,6 +5,8 @@
 const documentService = require('./documentService');
 const chromaService = require('./chromaService');
 const SettingsService = require('./settingsService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('knowledgeManagerService');
 
 // In-memory storage for document metadata (use proper database in production)
 const documents = new Map();
@@ -399,16 +401,14 @@ class KnowledgeManagerService {
             // Process the text content using documentService with intelligent fallback
             const documentService = require('./documentService');
             const chunkingResult = await documentService.chunkTextWithFallback(content, docInfo);
-            const chunks = chunkingResult.chunks;
-            const chunksCount = chunks.length;
-            
+            let chunks = chunkingResult.chunks;
+            let chunksCount = chunks.length;
+
             logger.info(`📊 Document indexed using ${chunkingResult.strategy} chunking strategy`);
             logger.info(`📝 Created ${chunksCount} chunks, avg size: ${chunkingResult.avgChunkSize} chars`);
 
             // Add documents to vector database with chunk size fallback protection
             const chromaService = require('./chromaService');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('knowledgeManagerService');
             try {
                 await chromaService.addDocuments(chunks);
             } catch (error) {

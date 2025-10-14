@@ -49,6 +49,8 @@
 const conversationService = require('../services/conversationService');
 const agentService = require('../services/agentService');
 const aiService = require('../services/aiService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('systemController');
 
 class SystemController {
     /**
@@ -587,9 +589,7 @@ class SystemController {
             const SettingsService = require('../services/settingsService');
             const settingsService = new SettingsService();
             const promptManager = require('../services/promptManager');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('systemController');
-            
+
             // Get all prompt settings
             const promptSettings = await settingsService.getSettingsByCategory('prompts', true);
             

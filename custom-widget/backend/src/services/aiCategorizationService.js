@@ -42,6 +42,8 @@
 
 const { getAIProviderConfig } = require('../../ai-providers');
 const databaseClient = require('../utils/database');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('aiCategorizationService');
 
 const getPrisma = () => databaseClient.getClient();
 
@@ -242,8 +244,6 @@ Tavo atsakymas:`;
             // Get AI configuration
             const config = await getAIProviderConfig();
             const OpenAI = require('openai');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('aiCategorizationService');
 
             // Use the rephrasing model for categorization (faster, cheaper)
             const rephrasingModel = config.REPHRASING_MODEL || 'google/gemini-2.5-flash-lite';

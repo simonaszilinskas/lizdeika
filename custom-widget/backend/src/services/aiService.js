@@ -51,6 +51,8 @@
  */
 const { createAIProvider, getAIProviderConfig, retryWithBackoff } = require('../../ai-providers');
 const knowledgeService = require('./knowledgeService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('aiService');
 // Note: Removed SystemController import to avoid circular dependency
 
 // Global AI provider instance - initialized lazily
@@ -200,8 +202,6 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         try {
             // Use LangChain RAG implementation
             const LangChainRAG = require('./langchainRAG');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('aiService');
             const ragService = new LangChainRAG();
             
             // Extract the most recent user message for context retrieval

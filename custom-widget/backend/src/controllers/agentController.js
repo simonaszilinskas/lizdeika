@@ -40,6 +40,8 @@ const agentService = require('../services/agentService');
 const statisticsService = require('../services/statisticsService');
 const { asyncHandler } = require('../utils/errors');
 const { validateFileMetadata } = require('../utils/fileValidation');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('agentController');
 
 class AgentController {
     constructor(io) {
@@ -243,8 +245,6 @@ class AgentController {
             if (suggestionAction && (suggestionAction === 'as-is' || suggestionAction === 'edited' || suggestionAction === 'from-scratch')) {
                 try {
                     const LangChainRAG = require('../services/langchainRAG');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('agentController');
                     const langchainRAG = new LangChainRAG();
                     
                     await langchainRAG.scoreAgentAction(

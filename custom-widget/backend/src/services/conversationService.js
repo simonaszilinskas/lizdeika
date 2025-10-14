@@ -39,6 +39,8 @@
 
 const databaseClient = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('conversationService');
 
 let prisma;
 
@@ -1063,8 +1065,6 @@ class ConversationService {
                 // Log auto-unarchive activity
                 try {
                     const activityService = require('./activityService');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('conversationService');
                     await activityService.logActivity({
                         userId: assignToAgentId, // Log which agent caused the unarchive (if any)
                         actionType: 'conversation',

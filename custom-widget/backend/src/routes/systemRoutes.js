@@ -34,6 +34,8 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const SettingsService = require('../services/settingsService');
 
 function createSystemRoutes() {
+    const { createLogger } = require('../utils/logger');
+    const logger = createLogger('systemRoutes');
     const router = express.Router();
     const systemController = new SystemController();
     const settingsService = new SettingsService();
@@ -692,8 +694,6 @@ function createSystemRoutes() {
 
             // Generate AI suggestion with metadata
             const aiService = require('../services/aiService');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('systemRoutes');
             const suggestion = await aiService.generateAISuggestion(
                 conversationId,
                 context,

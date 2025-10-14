@@ -59,6 +59,8 @@
  */
 const multer = require('multer');
 const knowledgeManagerService = require('../services/knowledgeManagerService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('knowledgeController');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -321,8 +323,6 @@ class KnowledgeController {
 
             // Use vector search via knowledgeService
             const knowledgeService = require('../services/knowledgeService');
-const { createLogger } = require('../utils/logger');
-const logger = createLogger('knowledgeController');
             const numResults = parseInt(k) || 10; // Default to 10 results
             const results = await knowledgeService.searchContext(query.trim(), numResults);
             
