@@ -46,10 +46,24 @@ let prisma;
 
 class ConversationService {
     /**
+     * Ensure Prisma client is initialized
+     * @private
+     */
+    ensureClient() {
+        if (!prisma) {
+            prisma = databaseClient.getClient();
+            if (!prisma) {
+                throw new Error('Database client not initialized');
+            }
+        }
+        return prisma;
+    }
+
+    /**
      * Create a new conversation (ticket)
      */
     async createConversation(conversationId, conversation) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             // Generate a user-friendly ticket number and user number for tracking
             const ticketNumber = await this.generateTicketNumber();
@@ -97,7 +111,7 @@ class ConversationService {
      * Check if conversation exists
      */
     async conversationExists(conversationId) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             const ticket = await prisma.tickets.findUnique({
                 where: { id: conversationId }
@@ -113,7 +127,7 @@ class ConversationService {
      * Get conversation by ID
      */
     async getConversation(conversationId) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             const ticket = await prisma.tickets.findUnique({
                 where: { id: conversationId },
@@ -171,7 +185,7 @@ class ConversationService {
      * Update conversation
      */
     async updateConversation(conversationId, updates) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             const updateData = { updated_at: new Date() };
             
@@ -218,7 +232,7 @@ class ConversationService {
      * Get messages for a conversation
      */
     async getMessages(conversationId) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             const messages = await prisma.messages.findMany({
                 where: { ticket_id: conversationId },
@@ -248,7 +262,7 @@ class ConversationService {
      * Set messages for a conversation (for testing/migration)
      */
     async setMessages(conversationId, messageList) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             // Delete existing messages and recreate (for testing)
             await prisma.messages.deleteMany({
@@ -282,7 +296,7 @@ class ConversationService {
      * Add message to conversation
      */
     async addMessage(conversationId, message) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             // Ensure conversation exists
             await this.ensureConversationExists(conversationId, message);
@@ -335,7 +349,7 @@ class ConversationService {
      * Replace the last message in a conversation
      */
     async replaceLastMessage(conversationId, newMessage) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             // Get the last message
             const lastMessage = await prisma.messages.findFirst({
@@ -381,7 +395,7 @@ class ConversationService {
      * Get existing offline notification message for a conversation
      */
     async getExistingOfflineMessage(conversationId) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             const offlineMessage = await prisma.messages.findFirst({
                 where: {
@@ -415,7 +429,7 @@ class ConversationService {
      * Remove pending messages from conversation
      */
     async removePendingMessages(conversationId) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             const deleted = await prisma.messages.deleteMany({
                 where: {
@@ -486,7 +500,7 @@ class ConversationService {
      * Get all conversations with statistics
      */
     async getAllConversationsWithStats() {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             const tickets = await prisma.tickets.findMany({
                 orderBy: { created_at: 'desc' },
@@ -564,7 +578,7 @@ class ConversationService {
      * Get conversation count
      */
     async getConversationCount() {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             return await prisma.tickets.count();
         } catch (error) {
@@ -577,7 +591,7 @@ class ConversationService {
      * Get total message count
      */
     async getTotalMessageCount() {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             return await prisma.messages.count({
                 where: {
@@ -604,7 +618,7 @@ class ConversationService {
      * Clear all data (for testing only)
      */
     async clearAllData() {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
             throw new Error('clearAllData can only be used in test/development environment');
         }
@@ -626,12 +640,13 @@ class ConversationService {
      * Get conversations assigned to a specific agent
      */
     async getAgentConversations(agentId) {
+        this.ensureClient();
         try {
             // Get or create the agent user to get the proper database user ID
             const agentService = require('./agentService');
             const agentUser = await agentService.getOrCreateAgentUser(agentId);
             const userId = agentUser.id;
-            
+
             const tickets = await prisma.tickets.findMany({
                 where: {
                     assigned_agent_id: userId  // Use the database user ID
@@ -681,6 +696,7 @@ class ConversationService {
      * Get active conversations
      */
     async getActiveConversations() {
+        this.ensureClient();
         try {
             const tickets = await prisma.tickets.findMany({
                 include: {
@@ -709,6 +725,7 @@ class ConversationService {
      * Search conversations by criteria
      */
     async searchConversations(criteria = {}) {
+        this.ensureClient();
         try {
             const where = {};
             
@@ -758,7 +775,7 @@ class ConversationService {
      * Assign conversation to agent
      */
     async assignConversation(conversationId, agentId) {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         try {
             // Get or create the agent user to get the proper database user ID
             const agentService = require('./agentService');
@@ -817,6 +834,7 @@ class ConversationService {
      * Get orphaned conversations (no assigned agent)
      */
     async getOrphanedConversations() {
+        this.ensureClient();
         try {
             const tickets = await prisma.tickets.findMany({
                 where: {
@@ -847,7 +865,7 @@ class ConversationService {
      * Get all conversations (alias for compatibility)
      */
     async getAllConversations() {
-        if (!prisma) prisma = databaseClient.getClient();
+        this.ensureClient();
         return this.getAllConversationsWithStats();
     }
 
@@ -868,15 +886,16 @@ class ConversationService {
      * Generate a unique ticket number
      */
     async generateTicketNumber() {
+        this.ensureClient();
         const today = new Date();
-        const dateStr = today.getFullYear().toString() + 
-                       (today.getMonth() + 1).toString().padStart(2, '0') + 
+        const dateStr = today.getFullYear().toString() +
+                       (today.getMonth() + 1).toString().padStart(2, '0') +
                        today.getDate().toString().padStart(2, '0');
-        
+
         // Get count of tickets created today
         const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-        
+
         const dailyCount = await prisma.tickets.count({
             where: {
                 created_at: {
@@ -894,6 +913,7 @@ class ConversationService {
      * Generate next available user number for anonymous users
      */
     async generateUserNumber() {
+        this.ensureClient();
         try {
             // Find the highest existing user number
             const result = await prisma.tickets.findFirst({
@@ -941,6 +961,7 @@ class ConversationService {
      * Bulk archive conversations
      */
     async bulkArchiveConversations(conversationIds) {
+        this.ensureClient();
         try {
             const result = await prisma.tickets.updateMany({
                 where: {
@@ -967,6 +988,7 @@ class ConversationService {
      * Bulk unarchive conversations
      */
     async bulkUnarchiveConversations(conversationIds) {
+        this.ensureClient();
         try {
             const result = await prisma.tickets.updateMany({
                 where: {
@@ -992,6 +1014,7 @@ class ConversationService {
      * Bulk assign conversations to agent
      */
     async bulkAssignConversations(conversationIds, agentId) {
+        this.ensureClient();
         try {
             // Convert agent email to user ID if needed
             let userId = agentId;
@@ -1028,6 +1051,7 @@ class ConversationService {
      * Auto-unarchive conversation when new message arrives
      */
     async autoUnarchiveOnNewMessage(conversationId, assignToAgentId = null) {
+        this.ensureClient();
         try {
             // Check if conversation is archived
             const conversation = await prisma.tickets.findUnique({
@@ -1098,6 +1122,7 @@ class ConversationService {
      * In the future, could add a proper seen_by tracking table
      */
     async markConversationAsSeenByAgent(conversationId, agentId) {
+        this.ensureClient();
         try {
             const ticket = await prisma.tickets.findUnique({
                 where: { id: conversationId }
@@ -1133,6 +1158,7 @@ class ConversationService {
      * @returns {Object} Updated conversation
      */
     async updateConversationCategory(conversationId, categoryId, isManualOverride = true) {
+        this.ensureClient();
         try {
             const existing = await prisma.tickets.findUnique({
                 where: { id: conversationId }
@@ -1181,6 +1207,7 @@ class ConversationService {
      * @returns {Object} Updated ticket with override status
      */
     async toggleCategoryOverride(conversationId, manualOverride) {
+        this.ensureClient();
         try {
             const existing = await prisma.tickets.findUnique({
                 where: { id: conversationId },
@@ -1223,6 +1250,7 @@ class ConversationService {
      * @returns {Array} Array of conversations
      */
     async getConversationsByCategory(categoryId, options = {}) {
+        this.ensureClient();
         const { limit = 50, offset = 0, includeArchived = false } = options;
 
         try {
@@ -1274,6 +1302,7 @@ class ConversationService {
      * @returns {Object} Category statistics
      */
     async getCategoryStatistics() {
+        this.ensureClient();
         try {
             const [categorizedCount, uncategorizedCount, categoryBreakdown] = await Promise.all([
                 // Count of categorized conversations
