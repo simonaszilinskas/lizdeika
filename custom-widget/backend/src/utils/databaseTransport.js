@@ -32,6 +32,12 @@ class DatabaseTransport extends Transport {
             this.emit('logged', info);
         });
 
+        // Skip database logging if prisma is not available (e.g., during tests)
+        if (!this.prisma || !this.prisma.application_logs) {
+            callback();
+            return;
+        }
+
         // Extract structured fields from the log info
         const {
             timestamp,
