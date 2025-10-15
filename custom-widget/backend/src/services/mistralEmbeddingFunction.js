@@ -3,6 +3,8 @@
  * Uses Mistral AI's embedding API to generate high-quality embeddings
  */
 const { Mistral } = require('@mistralai/mistralai');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('mistralEmbeddingFunction');
 
 class MistralEmbeddingFunction {
     constructor(apiKey, model = 'mistral-embed') {
@@ -14,7 +16,7 @@ class MistralEmbeddingFunction {
         }
         
         this.client = new Mistral({ apiKey: this.apiKey });
-        console.log(`Initialized Mistral embedding function with model: ${this.model}`);
+        logger.info(`Initialized Mistral embedding function with model: ${this.model}`);
     }
 
     /**
@@ -22,7 +24,7 @@ class MistralEmbeddingFunction {
      */
     async generate(texts) {
         try {
-            console.log(`Generating embeddings for ${texts.length} texts using Mistral ${this.model}`);
+            logger.info(`Generating embeddings for ${texts.length} texts using Mistral ${this.model}`);
             
             // Validate text size before sending to Mistral
             this.validateTextsForEmbedding(texts);
@@ -34,11 +36,11 @@ class MistralEmbeddingFunction {
 
             const embeddings = response.data.map(item => item.embedding);
             
-            console.log(`Generated ${embeddings.length} embeddings (dimension: ${embeddings[0].length})`);
+            logger.info(`Generated ${embeddings.length} embeddings (dimension: ${embeddings[0].length})`);
             return embeddings;
             
         } catch (error) {
-            console.error('Failed to generate Mistral embeddings:', error.message);
+            logger.error('Failed to generate Mistral embeddings:', error.message);
             
             // If error is about token limit, provide helpful message
             if (error.message.includes('token') || error.message.includes('length') || error.message.includes('limit')) {
@@ -79,7 +81,7 @@ class MistralEmbeddingFunction {
             }
         }
         
-        console.log(`✅ All ${texts.length} texts validated for Mistral embedding (max length: ${Math.max(...texts.map(t => t.length))} chars)`);
+        logger.info(`✅ All ${texts.length} texts validated for Mistral embedding (max length: ${Math.max(...texts.map(t => t.length))} chars)`);
     }
 }
 

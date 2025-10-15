@@ -1,5 +1,7 @@
 const { execSync } = require('child_process');
 const databaseClient = require('./database');
+const { createLogger } = require('./logger');
+const logger = createLogger('migrationManager');
 
 function parseMigrationStatus(output) {
     const lines = output.split('\n').map(line => line.trim()).filter(Boolean);
@@ -50,14 +52,14 @@ function validateDeploymentEnvironment() {
     const missingOptional = optionalVars.filter((key) => !process.env[key]);
 
     if (missingOptional.length) {
-        console.warn(`⚠️ Optional env vars not set: ${missingOptional.join(', ')}. Ensure pipeline handles shadow databases as needed.`);
+        logger.warn(`⚠️ Optional env vars not set: ${missingOptional.join(', ')}. Ensure pipeline handles shadow databases as needed.`);
     }
 }
 
 async function ensureMigrations(options = {}) {
     const cwd = options.cwd || process.cwd();
 
-    console.log('🔄 Validating Prisma migration state...');
+    logger.info('🔄 Validating Prisma migration state...');
 
     let statusSnapshot;
     try {
@@ -70,66 +72,66 @@ async function ensureMigrations(options = {}) {
         if (statusError.stdout) {
             statusSnapshot = parseMigrationStatus(statusError.stdout);
         } else {
-            console.error('❌ Unable to read migration status:', statusError.message);
+            logger.error('❌ Unable to read migration status:', statusError.message);
             throw statusError;
         }
     }
 
     if (statusSnapshot?.databaseError) {
-        console.error('❌ Migration status reports database error:', statusSnapshot.databaseError);
+        logger.error('❌ Migration status reports database error:', statusSnapshot.databaseError);
         throw new Error(statusSnapshot.databaseError);
     }
 
     const pendingMigrations = statusSnapshot?.migrations?.filter((migration) => migration.applied === false).map((m) => m.name) || [];
 
     if (pendingMigrations.length === 0) {
-        console.log('✅ No pending migrations detected. Skipping deploy.');
+        logger.info('✅ No pending migrations detected. Skipping deploy.');
         return;
     }
 
-    console.log(`📦 Pending migrations detected: ${pendingMigrations.join(', ')}`);
+    logger.info(`📦 Pending migrations detected: ${pendingMigrations.join(', ')}`);
 
     try {
         execPrismaCommand('npx prisma migrate deploy --schema prisma/schema.prisma', { cwd });
-        console.log('✅ Prisma migrations applied successfully');
+        logger.info('✅ Prisma migrations applied successfully');
     } catch (migrationError) {
-        console.error('💥 Prisma migrate deploy failed:', migrationError.message);
+        logger.error('💥 Prisma migrate deploy failed:', migrationError.message);
         await attemptMigrationRollback(pendingMigrations, cwd);
         throw migrationError;
     }
 
     try {
         execPrismaCommand('npx prisma migrate status --schema prisma/schema.prisma', { cwd });
-        console.log('🩺 Migration health check passed');
+        logger.info('🩺 Migration health check passed');
     } catch (healthError) {
-        console.error('❌ Migration health check failed:', healthError.message);
+        logger.error('❌ Migration health check failed:', healthError.message);
         await attemptMigrationRollback(pendingMigrations, cwd);
         throw healthError;
     }
 
     const databaseHealth = await databaseClient.healthCheck();
     if (databaseHealth.status !== 'healthy') {
-        console.error('❌ Database health check failed after migrations:', databaseHealth.error || 'Unknown error');
+        logger.error('❌ Database health check failed after migrations:', databaseHealth.error || 'Unknown error');
         await attemptMigrationRollback(pendingMigrations, cwd);
         throw new Error('Database health check failed after migrations');
     }
 
-    console.log('🧪 Database health verified after migrations');
+    logger.info('🧪 Database health verified after migrations');
 }
 
 async function attemptMigrationRollback(pendingMigrations, cwd) {
     if (!pendingMigrations?.length) {
-        console.warn('⚠️ No migrations to rollback. Manual intervention required.');
+        logger.warn('⚠️ No migrations to rollback. Manual intervention required.');
         return;
     }
 
     const rollbackTarget = pendingMigrations[pendingMigrations.length - 1];
     try {
-        console.log(`🛑 Attempting rollback for migration: ${rollbackTarget}`);
+        logger.info(`🛑 Attempting rollback for migration: ${rollbackTarget}`);
         execPrismaCommand(`npx prisma migrate resolve --rolled-back ${rollbackTarget} --schema prisma/schema.prisma`, { cwd });
-        console.log(`↩️  Migration ${rollbackTarget} marked as rolled back`);
+        logger.info(`↩️  Migration ${rollbackTarget} marked as rolled back`);
     } catch (rollbackError) {
-        console.error('❌ Failed to mark migration as rolled back:', rollbackError.message);
+        logger.error('❌ Failed to mark migration as rolled back:', rollbackError.message);
     }
 }
 

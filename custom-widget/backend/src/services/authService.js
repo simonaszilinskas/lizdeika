@@ -216,7 +216,7 @@ class AuthService {
 
     const { email, password, totpCode, backupCode } = credentials;
 
-    console.log('🔍 Login attempt for email:', email);
+    this.logger.debug('Login attempt', { email });
 
     // Find user by email
     const user = await this.db.users.findUnique({
@@ -226,11 +226,11 @@ class AuthService {
       },
     });
 
-    console.log('🔍 User found:', user ? 'YES' : 'NO');
-    if (user) {
-      console.log('🔍 User ID:', user.id);
-      console.log('🔍 User has password hash:', user.password_hash ? 'YES' : 'NO');
-    }
+    this.logger.debug('User lookup result', {
+      found: !!user,
+      userId: user?.id,
+      hasPasswordHash: !!user?.password_hash
+    });
 
     if (!user) {
       throw new Error('Invalid email or password');

@@ -3,6 +3,8 @@ const router = express.Router();
 const databaseClient = require('../utils/database');
 const { authenticateToken, requireAgent, requireAdmin } = require('../middleware/authMiddleware');
 const { v4: uuidv4 } = require('uuid');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('templateRoutes');
 
 // Get all active templates (agents and admins)
 router.get('/', authenticateToken, requireAgent, async (req, res) => {
@@ -26,7 +28,7 @@ router.get('/', authenticateToken, requireAgent, async (req, res) => {
 
         res.json({ success: true, templates });
     } catch (error) {
-        console.error('Error fetching templates:', error);
+        logger.error('Error fetching templates:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch templates'
@@ -64,7 +66,7 @@ router.get('/all', authenticateToken, requireAgent, requireAdmin, async (req, re
 
         res.json({ success: true, templates });
     } catch (error) {
-        console.error('Error fetching all templates:', error);
+        logger.error('Error fetching all templates:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to fetch templates'
@@ -120,7 +122,7 @@ router.post('/', authenticateToken, requireAgent, requireAdmin, async (req, res)
 
         res.json({ success: true, template });
     } catch (error) {
-        console.error('Error creating template:', error);
+        logger.error('Error creating template:', error);
         res.status(500).json({
             success: false,
             error: 'Failed to create template'
@@ -181,7 +183,7 @@ router.put('/:id', authenticateToken, requireAgent, requireAdmin, async (req, re
 
         res.json({ success: true, template });
     } catch (error) {
-        console.error('Error updating template:', error);
+        logger.error('Error updating template:', error);
         if (error && error.code === 'P2025') {
             return res.status(404).json({
                 success: false,
@@ -228,7 +230,7 @@ router.delete('/:id', authenticateToken, requireAgent, requireAdmin, async (req,
 
         res.json({ success: true, template });
     } catch (error) {
-        console.error('Error deleting template:', error);
+        logger.error('Error deleting template:', error);
         if (error && error.code === 'P2025') {
             return res.status(404).json({
                 success: false,

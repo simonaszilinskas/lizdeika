@@ -16,6 +16,8 @@
 
 const { PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate } = require("@langchain/core/prompts");
 const promptManager = require('../promptManager');
+const { createLogger } = require('../../../utils/logger');
+const logger = createLogger('VilniusPrompts');
 
 /**
  * System prompt for the main RAG chain
@@ -308,7 +310,7 @@ async function getContextPromptManaged(variables = {}) {
  * This creates the prompts in Langfuse UI for management
  */
 async function initializePromptsInLangfuse() {
-    console.log('🚀 Initializing Vilnius Assistant prompts in Langfuse...');
+    logger.info('🚀 Initializing Vilnius Assistant prompts in Langfuse...');
     
     const prompts = [
         {
@@ -350,7 +352,7 @@ async function initializePromptsInLangfuse() {
         results.push({ name: prompt.name, success: !!result });
     }
 
-    console.log('✅ Prompt initialization completed:', results);
+    logger.info('✅ Prompt initialization completed:', results);
     return results;
 }
 

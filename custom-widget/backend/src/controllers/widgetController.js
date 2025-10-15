@@ -1,3 +1,6 @@
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('widgetController');
+
 /**
  * Widget Controller
  * Handles widget customization settings and integration code generation
@@ -20,7 +23,7 @@ class WidgetController {
                 data: config
             });
         } catch (error) {
-            console.error('Failed to get widget config:', error);
+            logger.error('Failed to get widget config', { error: error.message, stack: error.stack });
             res.status(500).json({
                 error: 'Failed to get widget configuration',
                 details: error.message
@@ -56,7 +59,7 @@ class WidgetController {
                 }
             });
         } catch (error) {
-            console.error('Failed to generate integration code:', error);
+            logger.error('Failed to generate integration code', { error: error.message, stack: error.stack });
             res.status(500).json({
                 error: 'Failed to generate integration code',
                 details: error.message
@@ -87,7 +90,7 @@ class WidgetController {
                 }
             });
         } catch (error) {
-            console.error('Failed to validate domain:', error);
+            logger.error('Failed to validate domain', { error: error.message, stack: error.stack });
             res.status(500).json({
                 error: 'Failed to validate domain',
                 details: error.message

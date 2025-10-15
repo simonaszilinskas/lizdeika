@@ -34,6 +34,8 @@ const { authenticateToken } = require('../middleware/authMiddleware');
 const SettingsService = require('../services/settingsService');
 
 function createSystemRoutes() {
+    const { createLogger } = require('../utils/logger');
+    const logger = createLogger('systemRoutes');
     const router = express.Router();
     const systemController = new SystemController();
     const settingsService = new SettingsService();
@@ -245,7 +247,7 @@ function createSystemRoutes() {
                 }
 
                 // Now test actual AI response generation
-                console.log(`🧪 Testing ${provider} with actual message generation...`);
+                logger.info(`🧪 Testing ${provider} with actual message generation...`);
 
                 // Temporarily set environment variables for the test
                 const originalEnvVars = {};

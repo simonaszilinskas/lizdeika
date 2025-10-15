@@ -42,6 +42,8 @@
 
 const { getAIProviderConfig } = require('../../ai-providers');
 const databaseClient = require('../utils/database');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('aiCategorizationService');
 
 const getPrisma = () => databaseClient.getClient();
 
@@ -57,7 +59,7 @@ const getWebSocketService = () => {
         try {
             websocketService = require('./websocketService');
         } catch (error) {
-            console.warn('WebSocket service not available for categorization broadcasts:', error.message);
+            logger.warn('WebSocket service not available for categorization broadcasts:', error.message);
         }
     }
     return websocketService;
@@ -258,7 +260,7 @@ Tavo atsakymas:`;
             // Build the categorization prompt
             const prompt = this.buildCategorizationPrompt(conversationContext, categories);
 
-            console.log(`🤖 AI Categorization: Using model ${rephrasingModel} for ticket classification`);
+            logger.info(`🤖 AI Categorization: Using model ${rephrasingModel} for ticket classification`);
 
             // Call OpenRouter API
             const response = await openai.chat.completions.create({
@@ -285,13 +287,13 @@ Tavo atsakymas:`;
             // Parse JSON response
             const parsed = this.parseAIResponse(aiResponse);
 
-            console.log(`✅ AI Categorization result: Category ${parsed.categoryId} (confidence: ${parsed.confidence})`);
-            console.log(`   Reasoning: ${parsed.reasoning}`);
+            logger.info(`✅ AI Categorization result: Category ${parsed.categoryId} (confidence: ${parsed.confidence})`);
+            logger.info(`   Reasoning: ${parsed.reasoning}`);
 
             return parsed;
 
         } catch (error) {
-            console.error('❌ AI categorization failed:', error);
+            logger.error('❌ AI categorization failed:', error);
             throw new Error(`Failed to categorize ticket: ${error.message}`);
         }
     }
@@ -328,7 +330,7 @@ Tavo atsakymas:`;
             };
 
         } catch (error) {
-            console.error('Failed to parse AI response:', aiResponse);
+            logger.error('Failed to parse AI response:', aiResponse);
             throw new Error(`Invalid AI response format: ${error.message}`);
         }
     }
@@ -340,26 +342,26 @@ Tavo atsakymas:`;
      */
     async categorizeTicket(ticketId) {
         try {
-            console.log(`🎯 Starting auto-categorization for ticket ${ticketId}`);
+            logger.info(`🎯 Starting auto-categorization for ticket ${ticketId}`);
 
             // Check eligibility
             const eligibility = await this.isEligibleForCategorization(ticketId);
             if (!eligibility.eligible) {
-                console.log(`   ⏭️  Skipped: ${eligibility.reason}`);
+                logger.info(`   ⏭️  Skipped: ${eligibility.reason}`);
                 return { success: false, message: eligibility.reason };
             }
 
             // Get conversation context
             const conversationContext = await this.getConversationContext(ticketId);
             if (conversationContext.length === 0) {
-                console.log('   ⏭️  Skipped: No messages in conversation');
+                logger.info('   ⏭️  Skipped: No messages in conversation');
                 return { success: false, message: 'No messages in conversation' };
             }
 
             // Get available categories
             const categories = await this.getAvailableCategories();
             if (categories.length === 0) {
-                console.log('   ⏭️  Skipped: No categories available');
+                logger.info('   ⏭️  Skipped: No categories available');
                 return { success: false, message: 'No categories available' };
             }
 
@@ -369,7 +371,7 @@ Tavo atsakymas:`;
             // Verify category exists
             const categoryExists = categories.some(cat => cat.id === result.categoryId);
             if (!categoryExists) {
-                console.log(`   ❌ AI suggested invalid category ID: ${result.categoryId}`);
+                logger.info(`   ❌ AI suggested invalid category ID: ${result.categoryId}`);
                 return { success: false, message: 'AI suggested non-existent category' };
             }
 
@@ -398,7 +400,7 @@ Tavo atsakymas:`;
                 }
             });
 
-            console.log(`   ✅ Categorized as: ${updatedTicket.ticket_category?.name}`);
+            logger.info(`   ✅ Categorized as: ${updatedTicket.ticket_category?.name}`);
 
             // Broadcast category update via WebSocket
             const ws = getWebSocketService();
@@ -420,7 +422,7 @@ Tavo atsakymas:`;
             };
 
         } catch (error) {
-            console.error(`❌ Failed to categorize ticket ${ticketId}:`, error);
+            logger.error(`❌ Failed to categorize ticket ${ticketId}:`, error);
             return {
                 success: false,
                 message: error.message,
@@ -509,11 +511,11 @@ Tavo atsakymas:`;
         const tickets = await this.findEligibleTickets(limit);
 
         if (tickets.length === 0) {
-            console.log('📊 No tickets eligible for auto-categorization');
+            logger.info('📊 No tickets eligible for auto-categorization');
             return { processed: 0, successful: 0, failed: 0, results: [] };
         }
 
-        console.log(`📊 Processing ${tickets.length} tickets for auto-categorization`);
+        logger.info(`📊 Processing ${tickets.length} tickets for auto-categorization`);
 
         const results = [];
         let successful = 0;
@@ -537,7 +539,7 @@ Tavo atsakymas:`;
             await new Promise(resolve => setTimeout(resolve, 500));
         }
 
-        console.log(`📊 Batch categorization complete: ${successful} successful, ${failed} failed`);
+        logger.info(`📊 Batch categorization complete: ${successful} successful, ${failed} failed`);
 
         return {
             processed: tickets.length,

@@ -72,6 +72,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const mammoth = require('mammoth');
 const { v4: uuidv4 } = require('uuid');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('documentService');
 
 class DocumentService {
     constructor() {
@@ -86,7 +88,7 @@ class DocumentService {
         try {
             await fs.mkdir(this.uploadDir, { recursive: true });
         } catch (error) {
-            console.error('Failed to create upload directory:', error);
+            logger.error('Failed to create upload directory:', error);
         }
     }
 
@@ -108,7 +110,7 @@ class DocumentService {
                 extractedText = result.value;
                 
                 if (result.messages.length > 0) {
-                    console.warn('Word document processing warnings:', result.messages);
+                    logger.warn('Word document processing warnings:', result.messages);
                 }
             } else {
                 throw new Error(`Unsupported file type: ${file.mimetype}`);
@@ -146,8 +148,8 @@ class DocumentService {
             const chunkingResult = await this.chunkTextWithFallback(extractedText, documentInfo);
             const chunks = chunkingResult.chunks;
 
-            console.log(`Processed file: ${file.originalname} -> ${chunks.length} chunks using ${chunkingResult.strategy} strategy`);
-            console.log(`Average chunk size: ${chunkingResult.avgChunkSize} characters`);
+            logger.info(`Processed file: ${file.originalname} -> ${chunks.length} chunks using ${chunkingResult.strategy} strategy`);
+            logger.info(`Average chunk size: ${chunkingResult.avgChunkSize} characters`);
 
             return {
                 document: documentInfo,
@@ -157,7 +159,7 @@ class DocumentService {
             };
             
         } catch (error) {
-            console.error('Failed to process file:', error);
+            logger.error('Failed to process file:', error);
             throw error;
         }
     }
@@ -375,7 +377,7 @@ class DocumentService {
             const skipIndex = chunkingStrategies.findIndex(s => s.name === skipStrategy);
             if (skipIndex !== -1) {
                 availableStrategies = chunkingStrategies.slice(skipIndex + 1);
-                console.log(`⏭️ Skipping ${skipStrategy} strategy and all larger ones, trying smaller strategies...`);
+                logger.info(`⏭️ Skipping ${skipStrategy} strategy and all larger ones, trying smaller strategies...`);
             }
         }
 
@@ -385,13 +387,13 @@ class DocumentService {
 
         for (const strategy of availableStrategies) {
             try {
-                console.log(`🔄 Trying ${strategy.name} chunking (${strategy.size} chars)...`);
+                logger.info(`🔄 Trying ${strategy.name} chunking (${strategy.size} chars)...`);
                 
                 // Create chunks with current strategy
                 const chunks = this.chunkText(text, documentInfo, strategy.size, strategy.minSize, strategy.overlap);
                 
-                console.log(`✅ ${strategy.name} chunking successful: ${chunks.length} chunks created`);
-                console.log(`📊 Chunk sizes: ${chunks.map(c => c.content.length).join(', ')} characters`);
+                logger.info(`✅ ${strategy.name} chunking successful: ${chunks.length} chunks created`);
+                logger.info(`📊 Chunk sizes: ${chunks.map(c => c.content.length).join(', ')} characters`);
                 
                 return {
                     chunks: chunks,
@@ -401,7 +403,7 @@ class DocumentService {
                 };
 
             } catch (error) {
-                console.warn(`⚠️ ${strategy.name} chunking failed: ${error.message}`);
+                logger.warn(`⚠️ ${strategy.name} chunking failed: ${error.message}`);
                 
                 // If this is the last available strategy, throw the error
                 if (strategy === availableStrategies[availableStrategies.length - 1]) {
@@ -486,10 +488,10 @@ class DocumentService {
                 await fs.unlink(filePath);
             }
 
-            console.log(`Deleted ${documentFiles.length} files for document ${documentId}`);
+            logger.info(`Deleted ${documentFiles.length} files for document ${documentId}`);
             return true;
         } catch (error) {
-            console.error('Failed to delete document files:', error);
+            logger.error('Failed to delete document files:', error);
             return false;
         }
     }
@@ -515,7 +517,7 @@ class DocumentService {
 
             return fileInfos;
         } catch (error) {
-            console.error('Failed to get file info:', error);
+            logger.error('Failed to get file info:', error);
             return [];
         }
     }

@@ -20,6 +20,8 @@ const {
     formatChatHistory,
     getRephrasePromptManaged
 } = require('./VilniusPrompts');
+const { createLogger } = require('../../../utils/logger');
+const logger = createLogger('QueryRephraseChain');
 
 class QueryRephraseChain extends LLMChain {
     constructor(options = {}) {
@@ -75,14 +77,14 @@ class QueryRephraseChain extends LLMChain {
             try {
                 this.managedPrompt = await getRephrasePromptManaged();
                 if (this.verbose && this.managedPrompt.managed.fromLangfuse) {
-                    console.log(`📝 Using Langfuse managed rephrase prompt (v${this.managedPrompt.managed.version})`);
+                    logger.info(`📝 Using Langfuse managed rephrase prompt (v${this.managedPrompt.managed.version})`);
                 } else if (this.verbose && this.managedPrompt.managed.source === '.env override') {
-                    console.log(`📝 Using .env rephrase prompt override`);
+                    logger.info(`📝 Using .env rephrase prompt override`);
                 } else if (this.verbose) {
-                    console.log(`📝 Using hardcoded rephrase prompt fallback`);
+                    logger.info(`📝 Using hardcoded rephrase prompt fallback`);
                 }
             } catch (error) {
-                console.warn('Failed to get managed rephrase prompt, using hardcoded fallback:', error.message);
+                logger.warn('Failed to get managed rephrase prompt, using hardcoded fallback:', error.message);
                 this.managedPrompt = null;
             }
         }
@@ -155,9 +157,9 @@ class QueryRephraseChain extends LLMChain {
         };
 
         if (this.verbose) {
-            console.log('🔄 QueryRephraseChain: Starting query rephrasing');
-            console.log(`   Original query: "${question}"`);
-            console.log(`   History exchanges: ${chat_history.length} total, ${validHistory.length} valid`);
+            logger.info('🔄 QueryRephraseChain: Starting query rephrasing');
+            logger.info(`   Original query: "${question}"`);
+            logger.info(`   History exchanges: ${chat_history.length} total, ${validHistory.length} valid`);
         }
 
         try {
@@ -216,8 +218,8 @@ class QueryRephraseChain extends LLMChain {
             debugInfo.successful = true;
 
             if (this.verbose) {
-                console.log(`   Rephrased query: "${rephrasedQuery}"`);
-                console.log(`   Was improved: ${wasRephrased ? 'YES' : 'NO'}`);
+                logger.info(`   Rephrased query: "${rephrasedQuery}"`);
+                logger.info(`   Was improved: ${wasRephrased ? 'YES' : 'NO'}`);
             }
 
             return {
@@ -229,7 +231,7 @@ class QueryRephraseChain extends LLMChain {
             };
 
         } catch (error) {
-            console.error('🔴 QueryRephraseChain Error:', error);
+            logger.error('🔴 QueryRephraseChain Error:', error);
             
             debugInfo.action = 'failed';
             debugInfo.error = error.message;
@@ -391,14 +393,14 @@ class QueryRephraseChain extends LLMChain {
                 // Reset managed prompt cache to force reload
                 this.managedPrompt = null;
 
-                console.log('🔧 QueryRephraseChain: Updated configuration');
-                console.log(`   Rephrasing Model: ${this.rephrasingModel}`);
-                console.log(`   API Key: ${process.env.OPENROUTER_API_KEY ? 'Set' : 'Not set'}`);
+                logger.info('🔧 QueryRephraseChain: Updated configuration');
+                logger.info(`   Rephrasing Model: ${this.rephrasingModel}`);
+                logger.info(`   API Key: ${process.env.OPENROUTER_API_KEY ? 'Set' : 'Not set'}`);
             }
 
             return { success: true, recreated: needsRecreation };
         } catch (error) {
-            console.error('❌ Error updating QueryRephraseChain configuration:', error);
+            logger.error('❌ Error updating QueryRephraseChain configuration:', error);
             return { success: false, error: error.message };
         }
     }

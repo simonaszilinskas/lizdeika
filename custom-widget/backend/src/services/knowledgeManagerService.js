@@ -5,6 +5,8 @@
 const documentService = require('./documentService');
 const chromaService = require('./chromaService');
 const SettingsService = require('./settingsService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('knowledgeManagerService');
 
 // In-memory storage for document metadata (use proper database in production)
 const documents = new Map();
@@ -28,7 +30,7 @@ class KnowledgeManagerService {
             const aiConfig = await settingsService.getAIProviderConfig();
             return aiConfig.AI_PROVIDER || 'flowise';
         } catch (error) {
-            console.log('Warning: Could not load AI provider from database, using fallback:', error.message);
+            logger.info('Warning: Could not load AI provider from database, using fallback:', error.message);
             return process.env.AI_PROVIDER || 'flowise';
         }
     }
@@ -64,12 +66,12 @@ class KnowledgeManagerService {
                     docMetadata.status = 'indexed';
                     docMetadata.indexedAt = new Date();
                     
-                    console.log(`Document ${document.originalName} indexed successfully with ${chunks.length} chunks`);
+                    logger.info(`Document ${document.originalName} indexed successfully with ${chunks.length} chunks`);
                 } catch (error) {
                     // Check if error is about chunk size and try re-chunking
                     if (error.message.includes('Chunk size error for re-chunking')) {
                         try {
-                            console.log(`🔄 Chunk size error for file upload, re-chunking with smaller strategy...`);
+                            logger.info(`🔄 Chunk size error for file upload, re-chunking with smaller strategy...`);
                             
                             // Re-chunk with smaller strategy
                             const rechunkingResult = await documentService.chunkTextWithFallback(
@@ -79,7 +81,7 @@ class KnowledgeManagerService {
                             );
                             
                             const smallerChunks = rechunkingResult.chunks;
-                            console.log(`📦 Re-chunked file using ${rechunkingResult.strategy} strategy: ${smallerChunks.length} chunks`);
+                            logger.info(`📦 Re-chunked file using ${rechunkingResult.strategy} strategy: ${smallerChunks.length} chunks`);
                             
                             // Try adding the smaller chunks
                             await chromaService.addDocuments(smallerChunks);
@@ -91,14 +93,14 @@ class KnowledgeManagerService {
                             docMetadata.chunksCount = smallerChunks.length;
                             docMetadata.chunkingStrategy = rechunkingResult.strategy;
                             
-                            console.log(`✅ File successfully indexed with smaller chunks (${rechunkingResult.strategy})`);
+                            logger.info(`✅ File successfully indexed with smaller chunks (${rechunkingResult.strategy})`);
                         } catch (rechunkError) {
                             // Update status to failed
                             const docMetadata = this.documents.get(document.id);
                             docMetadata.status = 'failed';
                             docMetadata.error = rechunkError.message;
                             
-                            console.error('Failed to index document after re-chunking:', rechunkError);
+                            logger.error('Failed to index document after re-chunking:', rechunkError);
                             throw new Error(`Document processed but indexing failed after re-chunking: ${rechunkError.message}`);
                         }
                     } else {
@@ -107,7 +109,7 @@ class KnowledgeManagerService {
                         docMetadata.status = 'failed';
                         docMetadata.error = error.message;
                         
-                        console.error('Failed to index document:', error);
+                        logger.error('Failed to index document:', error);
                         throw new Error(`Document processed but indexing failed: ${error.message}`);
                     }
                 }
@@ -127,7 +129,7 @@ class KnowledgeManagerService {
             };
 
         } catch (error) {
-            console.error('Failed to upload file:', error);
+            logger.error('Failed to upload file:', error);
             throw error;
         }
     }
@@ -176,9 +178,9 @@ class KnowledgeManagerService {
                     // Find and remove chunks from vector database
                     // Note: This would require implementing a way to delete by metadata filter
                     // For now, we'll mark as deleted and clean up later
-                    console.log(`Document ${documentId} marked for cleanup from vector database`);
+                    logger.info(`Document ${documentId} marked for cleanup from vector database`);
                 } catch (error) {
-                    console.warn('Failed to remove from vector database:', error);
+                    logger.warn('Failed to remove from vector database:', error);
                 }
             }
 
@@ -188,11 +190,11 @@ class KnowledgeManagerService {
             // Remove from metadata storage
             this.documents.delete(documentId);
 
-            console.log(`Document ${document.originalName} deleted successfully`);
+            logger.info(`Document ${document.originalName} deleted successfully`);
             return true;
 
         } catch (error) {
-            console.error('Failed to delete document:', error);
+            logger.error('Failed to delete document:', error);
             throw error;
         }
     }
@@ -229,7 +231,7 @@ class KnowledgeManagerService {
         const currentProvider = await this._getAIProvider();
         
         if (currentProvider !== 'openrouter') {
-            console.log('Skipping re-indexing: not using OpenRouter provider');
+            logger.info('Skipping re-indexing: not using OpenRouter provider');
             return { message: 'Re-indexing not needed for current provider', provider: currentProvider };
         }
 
@@ -241,7 +243,7 @@ class KnowledgeManagerService {
             try {
                 // Re-read and process the document
                 // This is simplified - in production you might want to cache the chunks
-                console.log(`Re-indexing document: ${doc.originalName}`);
+                logger.info(`Re-indexing document: ${doc.originalName}`);
                 
                 // Update status
                 doc.status = 'indexed';
@@ -249,7 +251,7 @@ class KnowledgeManagerService {
                 indexed++;
                 
             } catch (error) {
-                console.error(`Failed to re-index ${doc.originalName}:`, error);
+                logger.error(`Failed to re-index ${doc.originalName}:`, error);
                 doc.status = 'failed';
                 doc.error = error.message;
                 failed++;
@@ -278,7 +280,7 @@ class KnowledgeManagerService {
                 await this.deleteDocument(documentId);
                 deleted++;
             } catch (error) {
-                console.error(`Failed to delete document ${documentId}:`, error);
+                logger.error(`Failed to delete document ${documentId}:`, error);
                 failed++;
             }
         }
@@ -361,10 +363,10 @@ class KnowledgeManagerService {
                     
                     // Remove old chunks from vector database
                     await this.removeDocumentChunks(documentId);
-                    console.log(`🔄 Replacing existing document: ${duplicateInfo.document.originalName} (${duplicateInfo.type} match)`);
+                    logger.info(`🔄 Replacing existing document: ${duplicateInfo.document.originalName} (${duplicateInfo.type} match)`);
                 } else {
                     // Keep existing, reject new
-                    console.log(`⚠️ Duplicate found, keeping existing: ${duplicateInfo.document.originalName} (${duplicateInfo.type} match)`);
+                    logger.info(`⚠️ Duplicate found, keeping existing: ${duplicateInfo.document.originalName} (${duplicateInfo.type} match)`);
                     return {
                         documentId: duplicateInfo.document.id,
                         chunksCount: duplicateInfo.document.chunksCount,
@@ -399,11 +401,11 @@ class KnowledgeManagerService {
             // Process the text content using documentService with intelligent fallback
             const documentService = require('./documentService');
             const chunkingResult = await documentService.chunkTextWithFallback(content, docInfo);
-            const chunks = chunkingResult.chunks;
-            const chunksCount = chunks.length;
-            
-            console.log(`📊 Document indexed using ${chunkingResult.strategy} chunking strategy`);
-            console.log(`📝 Created ${chunksCount} chunks, avg size: ${chunkingResult.avgChunkSize} chars`);
+            let chunks = chunkingResult.chunks;
+            let chunksCount = chunks.length;
+
+            logger.info(`📊 Document indexed using ${chunkingResult.strategy} chunking strategy`);
+            logger.info(`📝 Created ${chunksCount} chunks, avg size: ${chunkingResult.avgChunkSize} chars`);
 
             // Add documents to vector database with chunk size fallback protection
             const chromaService = require('./chromaService');
@@ -412,7 +414,7 @@ class KnowledgeManagerService {
             } catch (error) {
                 // If error is about chunk size, try re-chunking with smaller strategy
                 if (error.message.includes('Chunk size error for re-chunking')) {
-                    console.log(`🔄 Chunk size error detected, re-chunking with smaller strategy...`);
+                    logger.info(`🔄 Chunk size error detected, re-chunking with smaller strategy...`);
                     
                     // Force re-chunking with smaller strategy by excluding the current one
                     const rechunkingResult = await documentService.chunkTextWithFallback(
@@ -422,7 +424,7 @@ class KnowledgeManagerService {
                     );
                     
                     const smallerChunks = rechunkingResult.chunks;
-                    console.log(`📦 Re-chunked using ${rechunkingResult.strategy} strategy: ${smallerChunks.length} chunks`);
+                    logger.info(`📦 Re-chunked using ${rechunkingResult.strategy} strategy: ${smallerChunks.length} chunks`);
                     
                     // Try adding the smaller chunks
                     await chromaService.addDocuments(smallerChunks);
@@ -430,7 +432,7 @@ class KnowledgeManagerService {
                     // Update chunk information
                     chunks = smallerChunks;
                     chunksCount = smallerChunks.length;
-                    console.log(`✅ Successfully indexed with smaller chunks (${rechunkingResult.strategy})`);
+                    logger.info(`✅ Successfully indexed with smaller chunks (${rechunkingResult.strategy})`);
                 } else {
                     throw error;
                 }
@@ -443,7 +445,7 @@ class KnowledgeManagerService {
             docInfo.indexedAt = new Date();
 
             const action = replacedDocument ? 'replaced' : 'indexed';
-            console.log(`✅ API document ${action} successfully: ${documentId} (${chunksCount} chunks)`);
+            logger.info(`✅ API document ${action} successfully: ${documentId} (${chunksCount} chunks)`);
 
             return {
                 documentId,
@@ -454,7 +456,7 @@ class KnowledgeManagerService {
             };
 
         } catch (error) {
-            console.error('Failed to index text content:', error);
+            logger.error('Failed to index text content:', error);
             throw error;
         }
     }
@@ -523,13 +525,13 @@ class KnowledgeManagerService {
         try {
             // This is a placeholder - implementation depends on vector database capabilities
             // For ChromaDB, you would filter by document metadata and delete matching chunks
-            console.log(`Removing chunks for document: ${documentId}`);
+            logger.info(`Removing chunks for document: ${documentId}`);
             
             // In a real implementation, you'd do something like:
             // await chromaService.deleteDocuments({ source_document_id: documentId });
             
         } catch (error) {
-            console.warn('Failed to remove document chunks:', error);
+            logger.warn('Failed to remove document chunks:', error);
             // Don't throw - this shouldn't block the replacement process
         }
     }

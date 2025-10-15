@@ -29,6 +29,8 @@ const { v4: uuidv4 } = require('uuid');
 const rateLimit = require('express-rate-limit');
 const { optionalAuth } = require('../middleware/authMiddleware');
 const databaseClient = require('../utils/database');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('uploadRoutes');
 
 const router = express.Router();
 
@@ -135,7 +137,7 @@ router.post('/upload', uploadRateLimit, optionalAuth, upload.single('file'), (re
         // Validate authentication - only authenticated users or valid widget sessions can upload
         // Note: conversationId comes from FormData and is available in req.body after multer processing
         if (!req.user && !req.body.conversationId) {
-            console.warn('Upload attempt without authentication:', {
+            logger.warn('Upload attempt without authentication:', {
                 hasUser: !!req.user,
                 hasConversationId: !!req.body.conversationId,
                 ip: req.ip
@@ -155,7 +157,7 @@ router.post('/upload', uploadRateLimit, optionalAuth, upload.single('file'), (re
         }
 
         // Log successful upload
-        console.log('File uploaded successfully:', {
+        logger.info('File uploaded successfully:', {
             filename: req.file.filename,
             conversationId: req.body.conversationId,
             authenticated: !!req.user
@@ -169,7 +171,7 @@ router.post('/upload', uploadRateLimit, optionalAuth, upload.single('file'), (re
             file: fileMetadata
         });
     } catch (error) {
-        console.error('Upload error:', error);
+        logger.error('Upload error:', error);
         res.status(500).json({
             success: false,
             error: 'File upload failed'
@@ -225,7 +227,7 @@ router.get('/uploads/:filename', optionalAuth, async (req, res) => {
         if (!message) {
             // File exists but not linked to any message
             // Allow access for backward compatibility or orphaned files
-            console.warn(`File accessed without message link: ${filename}`);
+            logger.warn(`File accessed without message link: ${filename}`);
             return res.sendFile(filePath);
         }
 
@@ -268,7 +270,7 @@ router.get('/uploads/:filename', optionalAuth, async (req, res) => {
         });
 
     } catch (error) {
-        console.error('File access error:', error);
+        logger.error('File access error:', error);
         return res.status(500).json({
             success: false,
             error: 'Failed to retrieve file'

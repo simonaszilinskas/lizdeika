@@ -40,6 +40,8 @@ const agentService = require('../services/agentService');
 const statisticsService = require('../services/statisticsService');
 const { asyncHandler } = require('../utils/errors');
 const { validateFileMetadata } = require('../utils/fileValidation');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('agentController');
 
 class AgentController {
     constructor(io) {
@@ -79,7 +81,7 @@ class AgentController {
                 agentCount: recentAgents.length
             });
         } catch (error) {
-            console.error('Error getting agent status:', error);
+            logger.error('Error getting agent status:', error);
             res.status(500).json({ error: 'Failed to get agent status' });
         }
     }
@@ -95,7 +97,7 @@ class AgentController {
             
             res.json({ success: true });
         } catch (error) {
-            console.error('Error updating agent status:', error);
+            logger.error('Error updating agent status:', error);
             res.status(500).json({ error: 'Failed to update agent status' });
         }
     }
@@ -114,7 +116,7 @@ class AgentController {
             
             // If conversation is assigned to a different agent, reassign it
             if (conversation.assignedAgent !== agentId) {
-                console.log(`Reassigning conversation ${conversationId} from ${conversation.assignedAgent} to ${agentId}`);
+                logger.info(`Reassigning conversation ${conversationId} from ${conversation.assignedAgent} to ${agentId}`);
                 await conversationService.assignConversation(conversationId, agentId);
             }
             
@@ -133,7 +135,7 @@ class AgentController {
             res.json({ success: true, message: agentMessage });
             
         } catch (error) {
-            console.error('Error sending agent message:', error);
+            logger.error('Error sending agent message:', error);
             res.status(500).json({ error: 'Failed to send message' });
         }
     }
@@ -164,10 +166,10 @@ class AgentController {
             
             // Auto-assign conversation to responding agent if requested or if already assigned to different agent
             if (autoAssign || (conversation.assignedAgent && conversation.assignedAgent !== agentId)) {
-                console.log(`Auto-assigning conversation ${conversationId} to agent ${agentId}`);
+                logger.info(`Auto-assigning conversation ${conversationId} to agent ${agentId}`);
                 await conversationService.assignConversation(conversationId, agentId);
             } else if (conversation.assignedAgent !== agentId) {
-                console.log(`Reassigning conversation ${conversationId} from ${conversation.assignedAgent} to ${agentId}`);
+                logger.info(`Reassigning conversation ${conversationId} from ${conversation.assignedAgent} to ${agentId}`);
                 await conversationService.assignConversation(conversationId, agentId);
             }
             
@@ -236,7 +238,7 @@ class AgentController {
                     systemMode
                 });
             } catch (error) {
-                console.error('Failed to record message statistics:', error);
+                logger.error('Failed to record message statistics', { error: error.message, stack: error.stack });
             }
 
             // Score agent action in Langfuse for observability (excludes autopilot mode)
@@ -251,7 +253,7 @@ class AgentController {
                         usedSuggestion // Original suggestion for metadata
                     );
                 } catch (error) {
-                    console.error('Failed to score agent action:', error);
+                    logger.error('Failed to score agent action:', error);
                     // Don't fail the request if scoring fails
                 }
             }
@@ -265,7 +267,7 @@ class AgentController {
             // Also emit to agents room so the sending agent sees their own message immediately
             const agentsRoom = this.io.sockets.adapter.rooms.get('agents');
             const socketsInRoom = agentsRoom ? agentsRoom.size : 0;
-            console.log('🔥 DEBUG: Emitting agent-sent-message to agents room:', { 
+            logger.info('🔥 DEBUG: Emitting agent-sent-message to agents room:', { 
                 conversationId, 
                 messageId: agentMessage.id,
                 socketsInRoom: socketsInRoom 
@@ -275,14 +277,14 @@ class AgentController {
                 message: agentMessage,
                 timestamp: new Date()
             });
-            console.log('🔥 DEBUG: agent-sent-message event emitted to', socketsInRoom, 'sockets successfully');
+            logger.info('🔥 DEBUG: agent-sent-message event emitted to', socketsInRoom, 'sockets successfully');
 
-            console.log(`Agent ${agentId} sent message to conversation ${conversationId}: ${messageText.substring(0, 50)}...`);
+            logger.info(`Agent ${agentId} sent message to conversation ${conversationId}: ${messageText.substring(0, 50)}...`);
 
             res.json({ success: true, message: agentMessage });
             
         } catch (error) {
-            console.error('Error sending agent response:', error);
+            logger.error('Error sending agent response:', error);
             res.status(500).json({ error: 'Failed to send response' });
         }
     }
@@ -295,7 +297,7 @@ class AgentController {
             const activeAgents = await agentService.getActiveAgents();
             res.json({ agents: activeAgents });
         } catch (error) {
-            console.error('Error getting active agents:', error);
+            logger.error('Error getting active agents:', error);
             res.status(500).json({ error: 'Failed to get active agents' });
         }
     }
@@ -327,14 +329,14 @@ class AgentController {
             // Handle status changes with ticket management
             if (personalStatus === 'offline' && previousStatus !== 'offline') {
                 // Agent going offline - no automatic reassignment in simplified version
-                console.log(`Agent ${agentId} went offline`);
+                logger.info(`Agent ${agentId} went offline`);
                 
             } else if (personalStatus === 'online' && previousStatus === 'offline') {
                 // Agent coming back online - reclaim appropriate tickets
                 const reclaims = await agentService.handleAgentBackOnline(agentId, conversationService);
                 const redistributions = await agentService.redistributeOrphanedTickets(conversationService, 2);
                 reassignments = [...reclaims, ...redistributions];
-                console.log(`Agent ${agentId} back online, reclaimed/redistributed ${reassignments.length} tickets`);
+                logger.info(`Agent ${agentId} back online, reclaimed/redistributed ${reassignments.length} tickets`);
             }
             
             // Broadcast updates
@@ -355,7 +357,7 @@ class AgentController {
                 reassignments: reassignments.length
             });
         } catch (error) {
-            console.error('Error updating personal status:', error);
+            logger.error('Error updating personal status:', error);
             res.status(500).json({ error: 'Failed to update personal status' });
         }
     }
@@ -397,7 +399,7 @@ class AgentController {
             ]);
             res.json({ agents: connectedAgents, systemMode });
         } catch (error) {
-            console.error('Error getting connected agents:', error);
+            logger.error('Error getting connected agents:', error);
             res.status(500).json({ error: 'Failed to get connected agents' });
         }
     }
@@ -433,7 +435,7 @@ class AgentController {
             
             res.json({ agents: agentsWithStatus });
         } catch (error) {
-            console.error('Error getting all agents:', error);
+            logger.error('Error getting all agents:', error);
             res.status(500).json({ error: 'Failed to get all agents' });
         }
     }

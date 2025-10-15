@@ -16,6 +16,8 @@
 const { BaseRetriever } = require("@langchain/core/retrievers");
 const { Document } = require("@langchain/core/documents");
 const knowledgeService = require('../knowledgeService');
+const { createLogger } = require('../../../utils/logger');
+const logger = createLogger('ChromaRetriever');
 
 class ChromaRetriever extends BaseRetriever {
     constructor(options = {}) {
@@ -32,7 +34,7 @@ class ChromaRetriever extends BaseRetriever {
     async _getRelevantDocuments(query, runManager) {
         try {
             if (this.verbose) {
-                console.log(`🔍 ChromaRetriever: Searching for "${query}" with k=${this.k}`);
+                logger.info(`🔍 ChromaRetriever: Searching for "${query}" with k=${this.k}`);
             }
 
             // Use existing knowledgeService for ChromaDB integration
@@ -40,7 +42,7 @@ class ChromaRetriever extends BaseRetriever {
 
             if (!chromaResults || chromaResults.length === 0) {
                 if (this.verbose) {
-                    console.log(`📭 ChromaRetriever: No documents found for query "${query}"`);
+                    logger.info(`📭 ChromaRetriever: No documents found for query "${query}"`);
                 }
                 return [];
             }
@@ -70,7 +72,7 @@ class ChromaRetriever extends BaseRetriever {
                 // Filter out results below threshold
                 if (this.scoreThreshold > 0 && result.distance > (1 - this.scoreThreshold)) {
                     if (this.verbose) {
-                        console.log(`🚫 ChromaRetriever: Filtered document ${index} (score too low)`);
+                        logger.info(`🚫 ChromaRetriever: Filtered document ${index} (score too low)`);
                     }
                     return null;
                 }
@@ -82,16 +84,16 @@ class ChromaRetriever extends BaseRetriever {
             }).filter(doc => doc !== null); // Remove filtered documents
 
             if (this.verbose) {
-                console.log(`✅ ChromaRetriever: Retrieved ${documents.length} documents`);
+                logger.info(`✅ ChromaRetriever: Retrieved ${documents.length} documents`);
                 documents.forEach((doc, i) => {
-                    console.log(`   ${i + 1}. ${doc.metadata.source} (score: ${doc.metadata.similarity_score?.toFixed(3)})`);
+                    logger.info(`   ${i + 1}. ${doc.metadata.source} (score: ${doc.metadata.similarity_score?.toFixed(3)})`);
                 });
             }
 
             return documents;
 
         } catch (error) {
-            console.error('🔴 ChromaRetriever Error:', error);
+            logger.error('🔴 ChromaRetriever Error:', error);
             
             // Notify run manager if available
             if (runManager) {
@@ -122,7 +124,7 @@ class ChromaRetriever extends BaseRetriever {
         try {
             return await knowledgeService.getStats();
         } catch (error) {
-            console.error('ChromaRetriever stats error:', error);
+            logger.error('ChromaRetriever stats error:', error);
             return { connected: false, error: error.message };
         }
     }

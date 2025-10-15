@@ -27,6 +27,8 @@
 
 const databaseClient = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('activityService');
 
 let prisma;
 
@@ -85,11 +87,11 @@ class ActivityService {
                 }
             });
 
-            console.log(`[ACTIVITY] ${actionType}:${action} by ${userId || 'anonymous'} - ${success ? 'SUCCESS' : 'FAILED'}`);
+            logger.info(`[ACTIVITY] ${actionType}:${action} by ${userId || 'anonymous'} - ${success ? 'SUCCESS' : 'FAILED'}`);
             
             return activity;
         } catch (error) {
-            console.error('Failed to log activity:', error);
+            logger.error('Failed to log activity:', error);
             // Don't throw - activity logging should never break the main flow
             return null;
         }
@@ -262,7 +264,7 @@ class ActivityService {
                 }
             };
         } catch (error) {
-            console.error('Failed to get user activities:', error);
+            logger.error('Failed to get user activities:', error);
             throw error;
         }
     }
@@ -294,7 +296,7 @@ class ActivityService {
 
             return activities.map(this.formatActivity);
         } catch (error) {
-            console.error('Failed to get recent user activities:', error);
+            logger.error('Failed to get recent user activities:', error);
             throw error;
         }
     }
@@ -358,7 +360,7 @@ class ActivityService {
                 recentActivities24h: recentActivities
             };
         } catch (error) {
-            console.error('Failed to get activity stats:', error);
+            logger.error('Failed to get activity stats:', error);
             throw error;
         }
     }
@@ -379,10 +381,10 @@ class ActivityService {
                 }
             });
 
-            console.log(`Cleaned up ${result.count} old activity records (older than ${daysToKeep} days)`);
+            logger.info(`Cleaned up ${result.count} old activity records (older than ${daysToKeep} days)`);
             return result.count;
         } catch (error) {
-            console.error('Failed to cleanup old activities:', error);
+            logger.error('Failed to cleanup old activities:', error);
             throw error;
         }
     }

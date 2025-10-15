@@ -59,6 +59,8 @@
  */
 const multer = require('multer');
 const knowledgeManagerService = require('../services/knowledgeManagerService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('knowledgeController');
 
 // Configure multer for file uploads
 const upload = multer({
@@ -103,7 +105,7 @@ class KnowledgeController {
 
             const uploadSource = req.body.source || 'manual';
             
-            console.log(`Processing uploaded file: ${req.file.originalname} (${req.file.mimetype})`);
+            logger.info(`Processing uploaded file: ${req.file.originalname} (${req.file.mimetype})`);
 
             const result = await knowledgeManagerService.uploadFile(req.file, uploadSource);
 
@@ -114,7 +116,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to upload document:', error);
+            logger.error('Failed to upload document:', error);
             
             // Return appropriate error message
             if (error.message.includes('Unsupported file type')) {
@@ -156,7 +158,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to get documents:', error);
+            logger.error('Failed to get documents:', error);
             res.status(500).json({
                 error: 'Failed to retrieve documents',
                 details: error.message
@@ -191,7 +193,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to get document:', error);
+            logger.error('Failed to get document:', error);
             res.status(500).json({
                 error: 'Failed to retrieve document',
                 details: error.message
@@ -220,7 +222,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to delete document:', error);
+            logger.error('Failed to delete document:', error);
             
             if (error.message === 'Document not found') {
                 res.status(404).json({
@@ -270,7 +272,7 @@ class KnowledgeController {
             res.json(combinedStats);
 
         } catch (error) {
-            console.error('Failed to get knowledge stats:', error);
+            logger.error('Failed to get knowledge stats:', error);
             res.status(500).json({
                 error: 'Failed to retrieve statistics',
                 details: error.message,
@@ -296,7 +298,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to get indexed documents:', error);
+            logger.error('Failed to get indexed documents:', error);
             res.status(500).json({
                 error: 'Failed to retrieve indexed documents',
                 details: error.message
@@ -317,16 +319,16 @@ class KnowledgeController {
                 });
             }
 
-            console.log(`🔍 Vector search request: "${query.trim()}" (k=${k || 10})`);
+            logger.info(`🔍 Vector search request: "${query.trim()}" (k=${k || 10})`);
 
             // Use vector search via knowledgeService
             const knowledgeService = require('../services/knowledgeService');
             const numResults = parseInt(k) || 10; // Default to 10 results
             const results = await knowledgeService.searchContext(query.trim(), numResults);
             
-            console.log(`🔍 Vector search results: ${results?.length || 0} documents found`);
+            logger.info(`🔍 Vector search results: ${results?.length || 0} documents found`);
             if (results && results.length > 0) {
-                console.log(`🔍 First result preview: ${results[0]?.content?.substring(0, 100)}...`);
+                logger.info(`🔍 First result preview: ${results[0]?.content?.substring(0, 100)}...`);
             }
             
             res.json({
@@ -337,7 +339,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to search documents:', error);
+            logger.error('Failed to search documents:', error);
             res.status(500).json({
                 error: 'Search failed',
                 details: error.message
@@ -359,7 +361,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to clear documents:', error);
+            logger.error('Failed to clear documents:', error);
             res.status(500).json({
                 error: 'Failed to clear documents',
                 details: error.message
@@ -381,7 +383,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to re-index documents:', error);
+            logger.error('Failed to re-index documents:', error);
             res.status(500).json({
                 error: 'Re-indexing failed',
                 details: error.message
@@ -402,7 +404,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to get supported file types:', error);
+            logger.error('Failed to get supported file types:', error);
             res.status(500).json({
                 error: 'Failed to retrieve supported file types',
                 details: error.message
@@ -477,7 +479,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to index document:', error);
+            logger.error('Failed to index document:', error);
             res.status(500).json({
                 error: 'Failed to index document',
                 details: error.message
@@ -615,7 +617,7 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            console.error('Failed to process document batch:', error);
+            logger.error('Failed to process document batch:', error);
             res.status(500).json({
                 error: 'Failed to process document batch',
                 details: error.message

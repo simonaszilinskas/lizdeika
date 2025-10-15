@@ -4,6 +4,8 @@
  */
 
 const { ValidationError } = require('./validation');
+const { createLogger } = require('./logger');
+const logger = createLogger('errorHandler');
 
 /**
  * Standard error response structure
@@ -53,7 +55,7 @@ function handleControllerError(error, defaultMessage, req, res) {
     
     // Log server errors (5xx) only
     if (errorResponse.status >= 500) {
-        console.error(`${defaultMessage}:`, error);
+        logger.error(`${defaultMessage}:`, error);
     }
     
     return res.status(errorResponse.status).json(errorResponse.body);

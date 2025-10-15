@@ -1,6 +1,9 @@
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('errorHandler');
+
 /**
  * ERROR HANDLER MIDDLEWARE
- * 
+ *
  * Main Purpose: Centralized error handling and response formatting for the entire application
  * 
  * Key Responsibilities:
@@ -38,14 +41,16 @@
  */
 
 const errorHandler = (err, req, res, next) => {
-    console.error('Error occurred:', err);
+    logger.error('Error occurred', {
+        message: err.message,
+        name: err.name,
+        code: err.code,
+        stack: err.stack
+    });
 
     // Default error
     let error = { ...err };
     error.message = err.message;
-
-    // Log error for debugging
-    console.error(err.stack);
 
     // Prisma Client Errors
     if (err.name === 'PrismaClientKnownRequestError') {

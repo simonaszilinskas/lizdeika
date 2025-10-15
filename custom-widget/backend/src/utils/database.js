@@ -26,11 +26,11 @@ class DatabaseClient {
 
       // Test the connection
       await this.prisma.$connect();
-      console.log('✅ Database connected successfully');
+      logger.info('✅ Database connected successfully');
       
       return this.prisma;
     } catch (error) {
-      console.error('❌ Database connection failed:', error);
+      logger.error('❌ Database connection failed:', error);
       throw error;
     }
   }
@@ -68,7 +68,7 @@ class DatabaseClient {
     if (this.prisma) {
       await this.prisma.$disconnect();
       this.prisma = null;
-      console.log('🔌 Database disconnected');
+      logger.info('🔌 Database disconnected');
     }
   }
 
@@ -81,9 +81,9 @@ class DatabaseClient {
         const { execSync } = require('child_process');
         // Use db push for development to avoid migration state issues
         execSync('npx prisma db push', { stdio: 'inherit' });
-        console.log('✅ Database schema push completed');
+        logger.info('✅ Database schema push completed');
       } catch (error) {
-        console.error('❌ Schema push failed:', error);
+        logger.error('❌ Schema push failed:', error);
         throw error;
       }
     }
@@ -99,10 +99,12 @@ class DatabaseClient {
 
     try {
       const { execSync } = require('child_process');
+const { createLogger } = require('./logger');
+const logger = createLogger('database');
       execSync('npx prisma migrate reset --force', { stdio: 'inherit' });
-      console.log('🔄 Database reset completed');
+      logger.info('🔄 Database reset completed');
     } catch (error) {
-      console.error('❌ Database reset failed:', error);
+      logger.error('❌ Database reset failed:', error);
       throw error;
     }
   }

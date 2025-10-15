@@ -41,6 +41,8 @@
 const databaseClient = require('../utils/database');
 const { v4: uuidv4 } = require('uuid');
 const { handleServiceError, createError } = require('../utils/errors');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('agentService');
 
 let prisma;
 
@@ -137,7 +139,7 @@ class AgentService {
             
             return agent;
         } catch (error) {
-            console.error('Failed to update agent personal status:', error);
+            logger.error('Failed to update agent personal status:', error);
             // Return a basic agent object for compatibility
             return {
                 id: agentId,
@@ -170,7 +172,7 @@ class AgentService {
             
             return await this.mapUserToAgent(user);
         } catch (error) {
-            console.error('Failed to get agent:', error);
+            logger.error('Failed to get agent:', error);
             return null;
         }
     }
@@ -193,7 +195,7 @@ class AgentService {
             
             return Promise.all(users.map(user => this.mapUserToAgent(user)));
         } catch (error) {
-            console.error('Failed to get all agents:', error);
+            logger.error('Failed to get all agents:', error);
             return [];
         }
     }
@@ -208,7 +210,7 @@ class AgentService {
             
             return Promise.all(users.map(user => this.mapUserToAgent(user)));
         } catch (error) {
-            console.error('Failed to get available agents:', error);
+            logger.error('Failed to get available agents:', error);
             return [];
         }
     }
@@ -231,7 +233,7 @@ class AgentService {
             
             return Promise.all(users.map(user => this.mapUserToAgent(user)));
         } catch (error) {
-            console.error('Failed to get online agents:', error);
+            logger.error('Failed to get online agents:', error);
             return [];
         }
     }
@@ -269,7 +271,7 @@ class AgentService {
                 user_id: user.id
             };
         } catch (error) {
-            console.error('Failed to set agent online:', error);
+            logger.error('Failed to set agent online:', error);
             return {
                 id: agentId,
                 name: this.getAgentDisplayName(agentId),
@@ -305,7 +307,7 @@ class AgentService {
             
             return true;
         } catch (error) {
-            console.error('Failed to update agent activity:', error);
+            logger.error('Failed to update agent activity:', error);
             return false;
         }
     }
@@ -332,7 +334,7 @@ class AgentService {
                 }
             });
             
-            console.log(`🔴 Agent ${agentId} set to offline`);
+            logger.info(`🔴 Agent ${agentId} set to offline`);
             
             return {
                 id: agentId,
@@ -344,7 +346,7 @@ class AgentService {
                 user_id: user.id
             };
         } catch (error) {
-            console.error('Failed to set agent offline:', error);
+            logger.error('Failed to set agent offline:', error);
             return {
                 id: agentId,
                 name: this.getAgentDisplayName(agentId),
@@ -370,7 +372,7 @@ class AgentService {
             // Simple: return first available agent
             return availableAgents[0];
         } catch (error) {
-            console.error('Failed to get best available agent:', error);
+            logger.error('Failed to get best available agent:', error);
             return null;
         }
     }
@@ -431,7 +433,7 @@ class AgentService {
             
             return Promise.all(users.map(user => this.mapUserToAgent(user)));
         } catch (error) {
-            console.error('Failed to get connected agents:', error);
+            logger.error('Failed to get connected agents:', error);
             return [];
         }
     }
@@ -490,7 +492,7 @@ class AgentService {
                 user_id: user.id
             };
         } catch (error) {
-            console.error('Failed to update last seen:', error);
+            logger.error('Failed to update last seen:', error);
             return null;
         }
     }
@@ -507,7 +509,7 @@ class AgentService {
                 }
             });
         } catch (error) {
-            console.error('Failed to get agent count:', error);
+            logger.error('Failed to get agent count:', error);
             return 0;
         }
     }
@@ -527,7 +529,7 @@ class AgentService {
             
             return true;
         } catch (error) {
-            console.error('Failed to clear all agent data:', error);
+            logger.error('Failed to clear all agent data:', error);
             return false;
         }
     }
@@ -567,7 +569,7 @@ class AgentService {
             
             return stats;
         } catch (error) {
-            console.error('Failed to get agent stats:', error);
+            logger.error('Failed to get agent stats:', error);
             return {
                 total: 0,
                 online: 0,
@@ -607,7 +609,7 @@ class AgentService {
                 lastActive: new Date()
             };
         } catch (error) {
-            console.error('Failed to get agent performance:', error);
+            logger.error('Failed to get agent performance:', error);
             return null;
         }
     }
@@ -636,7 +638,7 @@ class AgentService {
             
             return onlineAgents[0];
         } catch (error) {
-            console.error('Failed to find best available agent:', error);
+            logger.error('Failed to find best available agent:', error);
             return null;
         }
     }
@@ -746,7 +748,7 @@ class AgentService {
             
             return user;
         } catch (error) {
-            console.error('Failed to get or create agent user:', error);
+            logger.error('Failed to get or create agent user:', error);
             throw error;
         }
     }

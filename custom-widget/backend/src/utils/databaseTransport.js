@@ -83,9 +83,8 @@ class DatabaseTransport extends Transport {
             }
         }).catch(error => {
             // Don't let database errors break logging
-            console.error('Failed to write log to database:', error.message);
-            // Debug timestamp issue
-            console.error('Original timestamp value:', timestamp, typeof timestamp);
+            // Note: We use console.error here to avoid circular dependency with logger
+            console.error('[DatabaseTransport] Failed to write log to database:', error.message);
         });
 
         callback();

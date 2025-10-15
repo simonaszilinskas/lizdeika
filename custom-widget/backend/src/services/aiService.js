@@ -51,6 +51,8 @@
  */
 const { createAIProvider, getAIProviderConfig, retryWithBackoff } = require('../../ai-providers');
 const knowledgeService = require('./knowledgeService');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('aiService');
 // Note: Removed SystemController import to avoid circular dependency
 
 // Global AI provider instance - initialized lazily
@@ -69,22 +71,22 @@ async function getAIProvider() {
 
             try {
                 aiProvider = createAIProvider(AI_PROVIDER, config);
-                console.log(`AI Provider initialized: ${AI_PROVIDER}`, {
+                logger.info(`AI Provider initialized: ${AI_PROVIDER}`, {
                     model: config.OPENROUTER_MODEL || 'N/A',
                     siteName: config.SITE_NAME || 'N/A',
                     siteUrl: config.SITE_URL || 'N/A',
                     configKeys: Object.keys(config).filter(k => config[k])
                 });
             } catch (error) {
-                console.error(`Failed to initialize AI provider "${AI_PROVIDER}":`, error.message);
+                logger.error(`Failed to initialize AI provider "${AI_PROVIDER}":`, error.message);
 
                 // Fallback to Flowise if OpenRouter fails
                 if (AI_PROVIDER !== 'flowise') {
                     try {
                         aiProvider = createAIProvider('flowise', config);
-                        console.log('Fallback to Flowise provider successful');
+                        logger.info('Fallback to Flowise provider successful');
                     } catch (fallbackError) {
-                        console.error('Fallback to Flowise also failed:', fallbackError.message);
+                        logger.error('Fallback to Flowise also failed:', fallbackError.message);
                         aiProvider = null;
                     }
                 } else {
@@ -92,7 +94,7 @@ async function getAIProvider() {
                 }
             }
         } catch (configError) {
-            console.error('Failed to get AI provider config:', configError.message);
+            logger.error('Failed to get AI provider config:', configError.message);
             aiProvider = null;
         }
     }
@@ -141,7 +143,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
 
     // If no AI provider is available, return fallback
     if (!provider) {
-        console.log('No AI provider available, using fallback response');
+        logger.info('No AI provider available, using fallback response');
         debugInfo.step2_providerCheck = { status: 'unavailable', fallbackUsed: true };
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
@@ -166,7 +168,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
     
     // If provider is known to be unhealthy, return fallback immediately
     if (!provider.isHealthy) {
-        console.log(`${config.AI_PROVIDER} provider is unhealthy, using fallback response`);
+        logger.info(`${config.AI_PROVIDER} provider is unhealthy, using fallback response`);
         debugInfo.step2_providerCheck = { status: 'unhealthy', fallbackUsed: true };
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
@@ -211,21 +213,21 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
             debugInfo.step3_ragProcessing.chatHistoryLength = chatHistory.length;
             
             // Debug logging to understand conversation parsing
-            console.log('🔍 AI Service Debug:');
-            console.log('Conversation context:', conversationContext);
-            console.log('Parsed chat history:', JSON.stringify(chatHistory, null, 2));
-            console.log('Recent message:', recentMessage);
+            logger.info('🔍 AI Service Debug:');
+            logger.info('Conversation context:', conversationContext);
+            logger.info('Parsed chat history:', JSON.stringify(chatHistory, null, 2));
+            logger.info('Recent message:', recentMessage);
             
             if (recentMessage) {
                 // DEBUG: Check debugInfo before LangChain call
-                console.log('🔍 BEFORE LangChain - debugInfo keys:', Object.keys(debugInfo));
-                console.log('🔍 BEFORE LangChain - debugInfo sample:', JSON.stringify(debugInfo, null, 2).substring(0, 300));
+                logger.info('🔍 BEFORE LangChain - debugInfo keys:', Object.keys(debugInfo));
+                logger.info('🔍 BEFORE LangChain - debugInfo sample:', JSON.stringify(debugInfo, null, 2).substring(0, 300));
 
                 // Get RAG response using LangChain with full conversation context and debug info
                 const ragResult = await ragService.getAnswer(recentMessage, chatHistory, true, conversationId);
 
                 // DEBUG: Check debugInfo after LangChain call
-                console.log('🔍 AFTER LangChain - debugInfo keys:', Object.keys(debugInfo));
+                logger.info('🔍 AFTER LangChain - debugInfo keys:', Object.keys(debugInfo));
                 
                 // Merge LangChain debug info into main debug structure
                 if (ragResult.debugInfo) {
@@ -241,7 +243,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
                         debugInfo.step6_llmResponse = ragResult.debugInfo.step6_llmResponse;
                     }
                 } else {
-                    console.warn('⚠️ No debug info received from LangChain RAG');
+                    logger.warn('⚠️ No debug info received from LangChain RAG');
                     debugInfo.step4_langchainRAG = { error: 'No debug info received from LangChain' };
                 }
                 
@@ -254,7 +256,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
                 debugInfo.finalResponse = ragResult.answer;
 
                 // Store comprehensive debug info including LangChain internals
-                console.log('📝 Storing debug info with keys:', Object.keys(debugInfo));
+                logger.info('📝 Storing debug info with keys:', Object.keys(debugInfo));
                 await storeDebugInfo(conversationId, debugInfo);
 
                 // Return structured response with comprehensive debug information
@@ -271,11 +273,11 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
                 };
             }
         } catch (error) {
-            console.error('LangChain RAG Error:', error.message);
+            logger.error('LangChain RAG Error:', error.message);
             debugInfo.step3_ragProcessing.error = error.message;
         }
     } else if (currentProvider === 'flowise') {
-        console.log('Flowise provider: Using built-in RAG capabilities');
+        logger.info('Flowise provider: Using built-in RAG capabilities');
         debugInfo.step3_ragProcessing.note = 'Flowise uses built-in RAG capabilities';
     }
     
@@ -318,7 +320,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
         };
 
     } catch (error) {
-        console.error(`Error generating AI suggestion from ${config.AI_PROVIDER} after retries:`, error.message);
+        logger.error(`Error generating AI suggestion from ${config.AI_PROVIDER} after retries:`, error.message);
         
         // Mark provider as unhealthy
         provider.isHealthy = false;
@@ -371,11 +373,11 @@ function extractRecentUserMessage(conversationContext) {
  */
 function parseConversationHistory(conversationContext) {
     if (!conversationContext || typeof conversationContext !== 'string') {
-        console.warn('⚠️ Invalid conversation context:', conversationContext);
+        logger.warn('⚠️ Invalid conversation context:', conversationContext);
         return [];
     }
     
-    console.log('🔍 Parsing conversation context:', conversationContext.substring(0, 200) + '...');
+    logger.info('🔍 Parsing conversation context:', conversationContext.substring(0, 200) + '...');
     
     // Handle both single and double-escaped newlines
     const normalizedContext = conversationContext
@@ -414,7 +416,7 @@ function parseConversationHistory(conversationContext) {
         history.push([currentUserMessage, '']);
     }
     
-    console.log(`✅ Parsed ${history.length} conversation pairs:`, history);
+    logger.info(`✅ Parsed ${history.length} conversation pairs:`, history);
     return history;
 }
 
@@ -467,7 +469,7 @@ async function switchProvider(newProviderName) {
 
         const newProvider = createAIProvider(newProviderName, config);
         aiProvider = newProvider;
-        console.log(`AI Provider successfully switched to: ${newProviderName}`);
+        logger.info(`AI Provider successfully switched to: ${newProviderName}`);
         return aiProvider;
     } catch (error) {
         throw error;
