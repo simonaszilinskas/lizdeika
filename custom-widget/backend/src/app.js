@@ -129,6 +129,18 @@ function createApp() {
         });
     }
 
+    // Disable caching for JavaScript files in development
+    if (process.env.NODE_ENV !== 'production') {
+        app.use((req, res, next) => {
+            if (req.url.endsWith('.js') || req.url.includes('.js?')) {
+                res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+                res.set('Pragma', 'no-cache');
+                res.set('Expires', '0');
+            }
+            next();
+        });
+    }
+
     app.use(express.static(staticPath));
 
     // Request logging in development

@@ -238,7 +238,7 @@ class AgentController {
                     systemMode
                 });
             } catch (error) {
-                logger.error('Failed to record message statistics:', error);
+                logger.error('Failed to record message statistics', { error: error.message, stack: error.stack });
             }
 
             // Score agent action in Langfuse for observability (excludes autopilot mode)
