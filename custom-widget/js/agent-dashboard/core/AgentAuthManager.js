@@ -49,26 +49,26 @@ export class AgentAuthManager {
             const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
             if (userData) {
                 const user = JSON.parse(userData);
-                if (user.email) {
-                    console.log(`Using agent ID from user_data: ${user.email}`);
-                    return user.email; // Use full email as agent ID
+                if (user.id) {
+                    console.log(`Using agent ID from user_data: ${user.id}`);
+                    return user.id; // Use user UUID as agent ID
                 }
             }
-            
+
             // Try to get authenticated user from localStorage (old format)
             const agentUser = localStorage.getItem(STORAGE_KEYS.AGENT_USER);
             if (agentUser) {
                 const user = JSON.parse(agentUser);
-                // Use full email as agent ID
-                if (user.email) {
-                    console.log(`Using agent ID from agentUser: ${user.email}`);
-                    return user.email;
+                // Use user UUID as agent ID
+                if (user.id) {
+                    console.log(`Using agent ID from agentUser: ${user.id}`);
+                    return user.id;
                 }
             }
         } catch (error) {
             console.warn('Could not get authenticated agent ID:', error);
         }
-        
+
         // Fallback: check if running in iframe and try to communicate with parent
         try {
             if (window.parent && window.parent !== window) {
@@ -76,16 +76,16 @@ export class AgentAuthManager {
                 const parentAgentUser = window.parent.localStorage?.getItem(STORAGE_KEYS.AGENT_USER);
                 if (parentAgentUser) {
                     const user = JSON.parse(parentAgentUser);
-                    if (user.email) {
-                        console.log(`Using agent ID from parent: ${user.email.split('@')[0]}`);
-                        return user.email.split('@')[0];
+                    if (user.id) {
+                        console.log(`Using agent ID from parent: ${user.id}`);
+                        return user.id;
                     }
                 }
             }
         } catch (error) {
             console.warn('Could not access parent window for agent ID:', error);
         }
-        
+
         // Final fallback: generate random ID (for development/standalone use)
         console.warn('No authenticated user found, generating random agent ID');
         return DEFAULTS.AGENT_ID_PREFIX + Math.random().toString(36).substring(2, DEFAULTS.RANDOM_ID_LENGTH);

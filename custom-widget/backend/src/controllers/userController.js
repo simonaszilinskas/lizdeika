@@ -29,7 +29,7 @@
  * - Database access via Prisma client
  */
 
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../utils/database');
 const { hashPassword, generateSecurePassword } = require('../utils/passwordUtils');
 const { asyncHandler } = require('../utils/errors');
 const bcrypt = require('bcryptjs');
@@ -38,13 +38,15 @@ const totpUtils = require('../utils/totpUtils');
 const QRCode = require('qrcode');
 const activityService = require('../services/activityService');
 
-const prisma = new PrismaClient();
+let prisma;
 
 class UserController {
     /**
      * Get all users (admin only)
      */
     getAllUsers = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
+
         const users = await prisma.users.findMany({
             select: {
                 id: true,
@@ -96,6 +98,8 @@ class UserController {
      * Create a new user (admin only)
      */
     createUser = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
+
         const { email, firstName, lastName, role = 'user' } = req.body;
 
         // Validate required fields
@@ -182,6 +186,7 @@ class UserController {
      * Get specific user by ID (admin only)
      */
     getUserById = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
 
         const user = await prisma.users.findUnique({
@@ -253,6 +258,7 @@ class UserController {
      * Update user profile (admin only)
      */
     updateUser = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
         const { email, firstName, lastName, role, isActive } = req.body;
 
@@ -335,6 +341,7 @@ class UserController {
      * Does NOT expose the current password
      */
     regeneratePassword = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
 
         // Check if user exists
@@ -397,6 +404,7 @@ class UserController {
      * Marks user as inactive instead of deleting
      */
     deactivateUser = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
 
         // Check if user exists
@@ -452,6 +460,7 @@ class UserController {
      * Reactivate user account (admin only)
      */
     reactivateUser = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
 
         // Check if user exists
@@ -493,6 +502,7 @@ class UserController {
      * Delete user permanently (admin only)
      */
     deleteUser = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
 
         // Check if user exists
@@ -547,6 +557,7 @@ class UserController {
      * Get user statistics (admin only)
      */
     getUserStats = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const stats = await prisma.$transaction([
             prisma.users.count(),
             prisma.users.count({ where: { role: 'admin' } }),
@@ -576,6 +587,7 @@ class UserController {
      * POST /api/users/:id/totp/initiate
      */
     initiateTOTP = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
         const { ipAddress, userAgent} = activityService.constructor.getRequestMetadata(req);
 
@@ -668,6 +680,7 @@ class UserController {
      * POST /api/users/:id/totp/verify
      */
     verifyTOTP = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
         const { code } = req.body;
         const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
@@ -763,6 +776,7 @@ class UserController {
      * POST /api/users/:id/totp/backup-codes
      */
     regenerateBackupCodes = asyncHandler(async (req, res) => {
+        if (!prisma) prisma = databaseClient.getClient();
         const { id } = req.params;
         const { ipAddress, userAgent } = activityService.constructor.getRequestMetadata(req);
 

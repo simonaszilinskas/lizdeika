@@ -61,6 +61,7 @@ const logsRoutes = require('./routes/logsRoutes');
 const createDocsRoutes = require('./routes/docsRoutes');
 const { router: uploadRoutes } = require('./routes/uploadRoutes');
 const templateRoutes = require('./routes/templateRoutes');
+const statisticsRoutes = require('./routes/statisticsRoutes');
 
 // Import services
 const WebSocketService = require('./services/websocketService');
@@ -116,8 +117,20 @@ function createApp() {
         console.log(`📁 Serving static files from: ${staticPath}`);
     }
 
+    // Disable caching for JavaScript files in development
+    if (process.env.NODE_ENV !== 'production') {
+        app.use((req, res, next) => {
+            if (req.url.endsWith('.js') || req.url.includes('.js?')) {
+                res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+                res.set('Pragma', 'no-cache');
+                res.set('Expires', '0');
+            }
+            next();
+        });
+    }
+
     app.use(express.static(staticPath));
-    
+
     // Request logging in development
     if (process.env.NODE_ENV !== 'production') {
         app.use(requestLogger);
@@ -136,6 +149,7 @@ function createApp() {
     app.use('/api/activities', activityRoutes); // Activity logging routes
     app.use('/api/logs', logsRoutes); // Centralized logging routes (admin only)
     app.use('/api/templates', templateRoutes); // Response template routes (admin create/edit, agents read)
+    app.use('/api/statistics', statisticsRoutes); // Statistics and analytics routes (agent/admin)
     app.use('/api', uploadRoutes); // File upload routes
     app.use('/api', createConversationRoutes(io));
     app.use('/api', createAgentRoutes(io));

@@ -16,16 +16,17 @@ model agent_status {
 }
 
 model messages {
-  id           String      @id
-  ticket_id    String
-  sender_id    String?
-  senderType   SenderType
-  content      String
-  message_type MessageType @default(text)
-  metadata     Json?       // For file attachments: {filename, path, mimetype, size, url}
-  created_at   DateTime    @default(now())
-  users        users?      @relation(fields: [sender_id], references: [id])
-  tickets      tickets     @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  id                 String              @id
+  ticket_id          String
+  sender_id          String?
+  senderType         SenderType
+  content            String
+  message_type       MessageType         @default(text)
+  metadata           Json?               // For file attachments: {filename, path, mimetype, size, url}
+  created_at         DateTime            @default(now())
+  users              users?              @relation(fields: [sender_id], references: [id])
+  tickets            tickets             @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  message_statistics message_statistics?
 
   @@index([created_at])
   @@index([senderType])
@@ -148,27 +149,28 @@ model ticket_categories {
 }
 
 model tickets {
-  id                                     String             @id
-  ticket_number                          String             @unique
+  id                                     String               @id
+  ticket_number                          String               @unique
   user_id                                String?
   assigned_agent_id                      String?
-  user_number                            Int?               @unique
-  priority                               TicketPriority     @default(medium)
-  category                               String?            // Legacy field - will be removed after migration
-  category_id                            String?            // New FK to ticket_categories
-  category_metadata                      Json?              // Stores AI categorization info (source, confidence, reasoning)
-  manual_category_override               Boolean            @default(false) // Prevents AI from overriding manual selection
+  user_number                            Int?                 @unique
+  priority                               TicketPriority       @default(medium)
+  category                               String?              // Legacy field - will be removed after migration
+  category_id                            String?              // New FK to ticket_categories
+  category_metadata                      Json?                // Stores AI categorization info (source, confidence, reasoning)
+  manual_category_override               Boolean              @default(false) // Prevents AI from overriding manual selection
   subject                                String
   description                            String?
-  source                                 TicketSource       @default(widget)
-  archived                               Boolean            @default(false)
-  created_at                             DateTime           @default(now())
+  source                                 TicketSource         @default(widget)
+  archived                               Boolean              @default(false)
+  created_at                             DateTime             @default(now())
   updated_at                             DateTime
   messages                               messages[]
+  message_statistics                     message_statistics[]
   ticket_actions                         ticket_actions[]
-  ticket_category                        ticket_categories? @relation(fields: [category_id], references: [id], onDelete: SetNull)
-  users_tickets_assigned_agent_idTousers users?             @relation("tickets_assigned_agent_idTousers", fields: [assigned_agent_id], references: [id])
-  users_tickets_user_idTousers           users?             @relation("tickets_user_idTousers", fields: [user_id], references: [id])
+  ticket_category                        ticket_categories?   @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  users_tickets_assigned_agent_idTousers users?               @relation("tickets_assigned_agent_idTousers", fields: [assigned_agent_id], references: [id])
+  users_tickets_user_idTousers           users?               @relation("tickets_user_idTousers", fields: [user_id], references: [id])
 
   @@index([assigned_agent_id])
   @@index([created_at])
@@ -178,35 +180,36 @@ model tickets {
 }
 
 model users {
-  id                                       String              @id
-  email                                    String              @unique
+  id                                       String                @id
+  email                                    String                @unique
   password_hash                            String
   first_name                               String
   last_name                                String
-  role                                     UserRole            @default(user)
-  is_active                                Boolean             @default(true)
-  email_verified                           Boolean             @default(false)
+  role                                     UserRole              @default(user)
+  is_active                                Boolean               @default(true)
+  email_verified                           Boolean               @default(false)
   last_login                               DateTime?
-  created_at                               DateTime            @default(now())
+  created_at                               DateTime              @default(now())
   updated_at                               DateTime
-  user_number                              Int?                @unique
-  totp_enabled                             Boolean             @default(false)
+  user_number                              Int?                  @unique
+  totp_enabled                             Boolean               @default(false)
   totp_secret                              String?
   totp_confirmed_at                        DateTime?
-  totp_failed_attempts                     Int                 @default(0)
+  totp_failed_attempts                     Int                   @default(0)
   totp_lock_until                          DateTime?
   backup_codes                             Json?
   agent_status                             agent_status?
   messages                                 messages[]
+  message_statistics                       message_statistics[]
   refresh_tokens                           refresh_tokens[]
   ticket_actions                           ticket_actions[]
-  tickets_tickets_assigned_agent_idTousers tickets[]           @relation("tickets_assigned_agent_idTousers")
-  tickets_tickets_user_idTousers           tickets[]           @relation("tickets_user_idTousers")
+  tickets_tickets_assigned_agent_idTousers tickets[]             @relation("tickets_assigned_agent_idTousers")
+  tickets_tickets_user_idTousers           tickets[]             @relation("tickets_user_idTousers")
   user_activities                          user_activities[]
-  created_categories                       ticket_categories[] @relation("CategoryCreator")
-  updated_categories                       ticket_categories[] @relation("CategoryUpdater")
-  created_templates                        response_templates[] @relation("TemplateCreator")
-  updated_templates                        response_templates[] @relation("TemplateUpdater")
+  created_categories                       ticket_categories[]   @relation("CategoryCreator")
+  updated_categories                       ticket_categories[]   @relation("CategoryUpdater")
+  created_templates                        response_templates[]  @relation("TemplateCreator")
+  updated_templates                        response_templates[]  @relation("TemplateUpdater")
 
   @@index([is_active])
   @@index([last_login])
@@ -215,20 +218,49 @@ model users {
 }
 
 model response_templates {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  created_by  String
-  updated_by  String?
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id                 String               @id @default(cuid())
+  title              String
+  content            String
+  created_by         String
+  updated_by         String?
+  is_active          Boolean              @default(true)
+  created_at         DateTime             @default(now())
+  updated_at         DateTime             @updatedAt
+  message_statistics message_statistics[]
 
   creator users  @relation("TemplateCreator", fields: [created_by], references: [id], onDelete: Restrict)
   updater users? @relation("TemplateUpdater", fields: [updated_by], references: [id], onDelete: SetNull)
 
   @@index([is_active])
   @@index([created_by])
+}
+
+model message_statistics {
+  id                    String            @id @default(cuid())
+  message_id            String            @unique
+  agent_id              String
+  ticket_id             String
+  ai_suggestion_used    Boolean           @default(false)
+  suggestion_action     SuggestionAction?
+  suggestion_edit_ratio Float?
+  original_suggestion   String?
+  template_used         Boolean           @default(false)
+  template_id           String?
+  system_mode           SystemMode
+  created_at            DateTime          @default(now())
+
+  message  messages            @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  agent    users               @relation(fields: [agent_id], references: [id], onDelete: Cascade)
+  ticket   tickets             @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  template response_templates? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+
+  @@index([agent_id])
+  @@index([ticket_id])
+  @@index([template_id])
+  @@index([created_at])
+  @@index([ai_suggestion_used])
+  @@index([suggestion_action])
+  @@index([system_mode])
 }
 
 enum ActionType {
@@ -284,5 +316,17 @@ enum UserActivityType {
   system
   profile
   security
+}
+
+enum SuggestionAction {
+  sent_as_is
+  edited
+  from_scratch
+}
+
+enum SystemMode {
+  hitl
+  autopilot
+  off
 }
 
