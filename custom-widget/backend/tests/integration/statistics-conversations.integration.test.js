@@ -22,7 +22,7 @@ const {
   createTestCategory,
   createTestTicket,
 } = require('./helpers/testData');
-const { authenticatedGet, authenticateAsAgent } = require('./helpers/apiHelpers');
+const { authenticatedGet, authenticateAsAgent, createTestApp } = require('./helpers/apiHelpers');
 
 // Load test environment
 require('dotenv').config({ path: __dirname + '/../../.env.test' });
@@ -36,7 +36,7 @@ describe('Conversation Statistics Integration Tests', () => {
 
   beforeAll(async () => {
     prisma = await initializeTestDatabase();
-    app = require('../../server');
+    app = createTestApp();
   });
 
   afterAll(async () => {

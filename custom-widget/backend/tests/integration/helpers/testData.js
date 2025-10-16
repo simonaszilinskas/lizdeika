@@ -130,7 +130,7 @@ async function createTestTemplate(prisma, creatorId, overrides = {}) {
 async function createTestCategory(prisma, creatorId, overrides = {}) {
   const categoryId = overrides.id || uuidv4();
 
-  const category = await prisma.ticket_categories.create({
+  const category = await prisma.categories.create({
     data: {
       id: categoryId,
       name: overrides.name || `Test Category ${Date.now()}`,
@@ -250,7 +250,7 @@ async function cleanupAllTestData(prisma) {
     prisma.agent_status.deleteMany(),
     prisma.refresh_tokens.deleteMany(),
     prisma.response_templates.deleteMany(),
-    prisma.ticket_categories.deleteMany(),
+    prisma.categories.deleteMany(),
     prisma.system_logs.deleteMany(),
     prisma.application_logs.deleteMany(),
     prisma.users.deleteMany(),

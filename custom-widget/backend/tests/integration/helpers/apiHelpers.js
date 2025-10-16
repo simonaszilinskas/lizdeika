@@ -7,18 +7,14 @@
 
 const request = require('supertest');
 const { v4: uuidv4 } = require('uuid');
+const { createTestApp: createApp } = require('./testApp');
 
 /**
  * Create Express app instance for testing
- * Loads the actual server without starting it
+ * Creates minimal app without external dependencies
  */
 function createTestApp() {
-  // Load environment variables from .env.test
-  require('dotenv').config({ path: '.env.test' });
-
-  // Import server app (without starting the server)
-  const app = require('../../../server');
-  return app;
+  return createApp();
 }
 
 /**
@@ -29,9 +25,16 @@ function createTestApp() {
  * @returns {Promise<string>} JWT access token
  */
 async function login(app, email, password) {
+  console.log('[TEST DEBUG] Attempting login with:', { email, passwordLength: password?.length });
+
   const response = await request(app)
     .post('/api/auth/login')
     .send({ email, password });
+
+  console.log('[TEST DEBUG] Login response:', {
+    status: response.status,
+    body: response.body
+  });
 
   if (response.status !== 200) {
     throw new Error(`Login failed: ${response.body.error || 'Unknown error'}`);

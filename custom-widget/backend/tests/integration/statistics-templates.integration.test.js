@@ -24,7 +24,7 @@ const {
   createTestMessage,
   createTestMessageStats,
 } = require('./helpers/testData');
-const { authenticatedGet, authenticateAsAgent } = require('./helpers/apiHelpers');
+const { authenticatedGet, authenticateAsAgent, createTestApp } = require('./helpers/apiHelpers');
 
 // Load test environment
 require('dotenv').config({ path: __dirname + '/../../.env.test' });
@@ -40,8 +40,8 @@ describe('Template Statistics Integration Tests', () => {
     // Initialize test database
     prisma = await initializeTestDatabase();
 
-    // Load Express app for testing
-    app = require('../../server');
+    // Create test Express app (without starting server)
+    app = createTestApp();
   });
 
   afterAll(async () => {
@@ -56,6 +56,12 @@ describe('Template Statistics Integration Tests', () => {
     // Create test users
     adminUser = await createTestAdmin(prisma);
     agentUser = await createTestAgent(prisma);
+
+    console.log('[TEST] Created agent user:', {
+      email: agentUser.email,
+      plainPassword: agentUser.plainPassword,
+      hasPassword: !!agentUser.plainPassword
+    });
 
     // Authenticate as agent
     const authResult = await authenticateAsAgent(app, prisma, agentUser.email, agentUser.plainPassword);

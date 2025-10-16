@@ -50,36 +50,21 @@ async function initializeTestDatabase() {
  */
 async function cleanTestDatabase() {
   if (!prisma) {
-    await initializeTestDatabase();
+    prisma = await initializeTestDatabase();
   }
 
   try {
     // Delete in order to respect foreign key constraints
-    await prisma.$transaction([
-      // Delete dependent records first
-      prisma.message_statistics.deleteMany(),
-      prisma.messages.deleteMany(),
-      prisma.ticket_actions.deleteMany(),
-      prisma.tickets.deleteMany(),
-
-      // Delete user-related records
-      prisma.user_activities.deleteMany(),
-      prisma.agent_status.deleteMany(),
-      prisma.refresh_tokens.deleteMany(),
-
-      // Delete configuration data
-      prisma.response_templates.deleteMany(),
-      prisma.ticket_categories.deleteMany(),
-
-      // Delete logs
-      prisma.system_logs.deleteMany(),
-      prisma.application_logs.deleteMany(),
-
-      // Delete users last (referenced by many tables)
-      prisma.users.deleteMany(),
-
-      // Note: Don't delete system_settings as they contain config
-    ]);
+    await prisma.message_statistics.deleteMany({});
+    await prisma.messages.deleteMany({});
+    await prisma.ticket_actions.deleteMany({});
+    await prisma.tickets.deleteMany({});
+    await prisma.user_activities.deleteMany({});
+    await prisma.agent_status.deleteMany({});
+    await prisma.refresh_tokens.deleteMany({});
+    await prisma.response_templates.deleteMany({});
+    await prisma.categories.deleteMany({});
+    await prisma.users.deleteMany({});
   } catch (error) {
     console.error('Error cleaning test database:', error);
     throw error;
@@ -133,7 +118,7 @@ function getTestClient() {
  * Combines cleanup and schema sync
  */
 async function resetTestDatabase() {
-  await initializeTestDatabase();
+  prisma = await initializeTestDatabase();
   await cleanTestDatabase();
   // Schema sync only needed if schema changed
   // await synchronizeSchema();
