@@ -55,6 +55,7 @@ async function cleanTestDatabase() {
 
   try {
     // Delete in order to respect foreign key constraints
+    // Note: Must delete refresh_tokens before users due to FK constraint
     await prisma.message_statistics.deleteMany({});
     await prisma.messages.deleteMany({});
     await prisma.ticket_actions.deleteMany({});
@@ -64,7 +65,15 @@ async function cleanTestDatabase() {
     await prisma.refresh_tokens.deleteMany({});
     await prisma.response_templates.deleteMany({});
     await prisma.ticket_categories.deleteMany({});
+    await prisma.system_logs.deleteMany({});
     await prisma.users.deleteMany({});
+
+    // Verify cleanup
+    const userCount = await prisma.users.count();
+    const tokenCount = await prisma.refresh_tokens.count();
+    if (userCount > 0 || tokenCount > 0) {
+      console.warn(`[CLEANUP WARNING] Database not fully cleaned: ${userCount} users, ${tokenCount} tokens remaining`);
+    }
   } catch (error) {
     console.error('Error cleaning test database:', error);
     throw error;

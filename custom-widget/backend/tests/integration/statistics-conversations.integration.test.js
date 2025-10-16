@@ -64,6 +64,8 @@ describe('Conversation Statistics Integration Tests', () => {
       // 2. Query statistics API
       const response = await authenticatedGet(app, agentToken, '/api/statistics/conversations');
 
+      console.log('[TEST] Conversations API response:', JSON.stringify(response.body, null, 2));
+
       // 3. Assert: Total conversations should be 5
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);

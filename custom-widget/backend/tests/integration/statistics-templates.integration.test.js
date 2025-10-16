@@ -153,8 +153,9 @@ describe('Template Statistics Integration Tests', () => {
 
       // 5. Assert: No template usage recorded
       expect(response.status).toBe(200);
+      expect(response.body.data.overview.totalMessages).toBe(1);
       expect(response.body.data.overview.templatedMessages).toBe(0);
-      expect(response.body.data.overview.templatedMessages).toBe(0);
+      expect(response.body.data.overview.templateUsagePercentage).toBe(0);
       expect(response.body.data.topTemplates).toHaveLength(0);
     });
   });
@@ -190,13 +191,15 @@ describe('Template Statistics Integration Tests', () => {
 
       // 4. Assert: Template used 3 times
       expect(response.status).toBe(200);
+      expect(response.body.data.overview.totalMessages).toBe(3);
       expect(response.body.data.overview.templatedMessages).toBe(3);
-      expect(response.body.data.overview.templatedMessages).toBe(1);
+      expect(response.body.data.overview.templateUsagePercentage).toBe(100);
 
       const templateStats = response.body.data.topTemplates;
       expect(templateStats).toHaveLength(1);
       expect(templateStats[0].templateId).toBe(template.id);
       expect(templateStats[0].usageCount).toBe(3);
+      expect(templateStats[0].percentage).toBe(100);
     });
 
     test('tracks different templates separately', async () => {
@@ -252,8 +255,9 @@ describe('Template Statistics Integration Tests', () => {
 
       // 5. Assert: Both templates tracked separately
       expect(response.status).toBe(200);
+      expect(response.body.data.overview.totalMessages).toBe(5);
       expect(response.body.data.overview.templatedMessages).toBe(5);
-      expect(response.body.data.overview.templatedMessages).toBe(2);
+      expect(response.body.data.overview.templateUsagePercentage).toBe(100);
 
       const templateStats = response.body.data.topTemplates;
       expect(templateStats).toHaveLength(2);

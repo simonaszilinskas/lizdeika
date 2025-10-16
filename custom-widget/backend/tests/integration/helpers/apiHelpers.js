@@ -129,6 +129,11 @@ async function authenticatedGet(app, token, path, query = {}) {
     console.error('[TEST DEBUG] 401 Unauthorized on GET', path, '- Response:', response.body);
   }
 
+  // Log response for debugging
+  if (response.status !== 200 || !response.body.success) {
+    console.error('[TEST DEBUG] API Error on GET', path, '- Status:', response.status, '- Body:', JSON.stringify(response.body, null, 2));
+  }
+
   return response;
 }
 
