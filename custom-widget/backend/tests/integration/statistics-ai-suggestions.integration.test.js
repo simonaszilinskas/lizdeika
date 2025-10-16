@@ -79,7 +79,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
       // 4. Assert: Sent-as-is tracked
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.overview.total_ai_suggestions).toBe(1);
+      expect(response.body.data.overview.totalSuggestions).toBe(1);
       expect(response.body.data.breakdown.sent_as_is.count).toBe(1);
       expect(response.body.data.breakdown.sent_as_is.percentage).toBe(100);
     });
@@ -110,7 +110,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 4. Assert: Edited suggestion tracked
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_ai_suggestions).toBe(1);
+      expect(response.body.data.overview.totalSuggestions).toBe(1);
       expect(response.body.data.breakdown.edited.count).toBe(1);
       expect(response.body.data.breakdown.edited.percentage).toBe(100);
     });
@@ -139,7 +139,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 4. Assert: From-scratch tracked
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_ai_suggestions).toBe(1);
+      expect(response.body.data.overview.totalSuggestions).toBe(1);
       expect(response.body.data.breakdown.from_scratch.count).toBe(1);
       expect(response.body.data.breakdown.from_scratch.percentage).toBe(100);
     });
@@ -196,7 +196,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 3. Assert: Correct counts and percentages
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_ai_suggestions).toBe(10);
+      expect(response.body.data.overview.totalSuggestions).toBe(10);
 
       const breakdown = response.body.data.breakdown;
 
@@ -244,7 +244,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 4. Assert: Only HITL message counted
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_ai_suggestions).toBe(1);
+      expect(response.body.data.overview.totalSuggestions).toBe(1);
       expect(response.body.data.breakdown.sent_as_is.count).toBe(1);
     });
 
@@ -269,7 +269,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 3. Assert: OFF mode messages not counted
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_ai_suggestions).toBe(0);
+      expect(response.body.data.overview.totalSuggestions).toBe(0);
     });
   });
 
@@ -280,7 +280,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 2. Assert: All counts zero
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_ai_suggestions).toBe(0);
+      expect(response.body.data.overview.totalSuggestions).toBe(0);
       expect(response.body.data.breakdown.sent_as_is.count).toBe(0);
       expect(response.body.data.breakdown.edited.count).toBe(0);
       expect(response.body.data.breakdown.from_scratch.count).toBe(0);

@@ -108,18 +108,23 @@ describe('Template Statistics Integration Tests', () => {
       // 5. Query the statistics API
       const response = await authenticatedGet(app, agentToken, '/api/statistics/templates');
 
+      // Debug: Log the actual response
+      console.log('[TEST] Statistics API response:', JSON.stringify(response.body, null, 2));
+
       // 6. Assert: Template usage count should be 1
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.overview.total_messages_with_templates).toBe(1);
-      expect(response.body.data.overview.unique_templates_used).toBe(1);
+      expect(response.body.data.overview.totalMessages).toBe(1);
+      expect(response.body.data.overview.templatedMessages).toBe(1);
+      expect(response.body.data.overview.templateUsagePercentage).toBe(100);
 
       // 7. Assert: Our specific template should appear in the list
-      const templateStats = response.body.data.top_templates;
+      const templateStats = response.body.data.topTemplates;
       expect(templateStats).toHaveLength(1);
-      expect(templateStats[0].template_id).toBe(template.id);
-      expect(templateStats[0].template_title).toBe('Welcome Message');
-      expect(templateStats[0].usage_count).toBe(1);
+      expect(templateStats[0].templateId).toBe(template.id);
+      expect(templateStats[0].title).toBe('Welcome Message');
+      expect(templateStats[0].usageCount).toBe(1);
+      expect(templateStats[0].percentage).toBe(100);
     });
 
     test('message without template does not increment statistics', async () => {
@@ -148,9 +153,9 @@ describe('Template Statistics Integration Tests', () => {
 
       // 5. Assert: No template usage recorded
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_messages_with_templates).toBe(0);
-      expect(response.body.data.overview.unique_templates_used).toBe(0);
-      expect(response.body.data.top_templates).toHaveLength(0);
+      expect(response.body.data.overview.templatedMessages).toBe(0);
+      expect(response.body.data.overview.templatedMessages).toBe(0);
+      expect(response.body.data.topTemplates).toHaveLength(0);
     });
   });
 
@@ -185,13 +190,13 @@ describe('Template Statistics Integration Tests', () => {
 
       // 4. Assert: Template used 3 times
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_messages_with_templates).toBe(3);
-      expect(response.body.data.overview.unique_templates_used).toBe(1);
+      expect(response.body.data.overview.templatedMessages).toBe(3);
+      expect(response.body.data.overview.templatedMessages).toBe(1);
 
-      const templateStats = response.body.data.top_templates;
+      const templateStats = response.body.data.topTemplates;
       expect(templateStats).toHaveLength(1);
-      expect(templateStats[0].template_id).toBe(template.id);
-      expect(templateStats[0].usage_count).toBe(3);
+      expect(templateStats[0].templateId).toBe(template.id);
+      expect(templateStats[0].usageCount).toBe(3);
     });
 
     test('tracks different templates separately', async () => {
@@ -247,19 +252,19 @@ describe('Template Statistics Integration Tests', () => {
 
       // 5. Assert: Both templates tracked separately
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_messages_with_templates).toBe(5);
-      expect(response.body.data.overview.unique_templates_used).toBe(2);
+      expect(response.body.data.overview.templatedMessages).toBe(5);
+      expect(response.body.data.overview.templatedMessages).toBe(2);
 
-      const templateStats = response.body.data.top_templates;
+      const templateStats = response.body.data.topTemplates;
       expect(templateStats).toHaveLength(2);
 
       // Farewell should be first (3 uses > 2 uses)
-      expect(templateStats[0].template_id).toBe(farewellTemplate.id);
-      expect(templateStats[0].usage_count).toBe(3);
+      expect(templateStats[0].templateId).toBe(farewellTemplate.id);
+      expect(templateStats[0].usageCount).toBe(3);
 
       // Welcome should be second
-      expect(templateStats[1].template_id).toBe(welcomeTemplate.id);
-      expect(templateStats[1].usage_count).toBe(2);
+      expect(templateStats[1].templateId).toBe(welcomeTemplate.id);
+      expect(templateStats[1].usageCount).toBe(2);
     });
   });
 });

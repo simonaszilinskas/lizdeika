@@ -196,19 +196,19 @@ describe('Dashboard Statistics Integration Tests', () => {
       const data = response.body.data;
 
       // Conversation stats
-      expect(data.conversations.total_conversations).toBe(5);
-      expect(data.conversations.active_conversations).toBe(4);
-      expect(data.conversations.archived_conversations).toBe(1);
+      expect(data.conversations.totalConversations).toBe(5);
+      expect(data.conversations.activeConversations).toBe(4);
+      expect(data.conversations.archivedConversations).toBe(1);
 
       // Message stats (total: 1+1+1+3+1 = 7 messages)
       expect(data.messages.total_messages).toBeGreaterThanOrEqual(7);
 
       // Template stats (used in: conv1=1, conv2=1, conv4=3 = 5 total)
-      expect(data.templates.total_messages_with_templates).toBe(5);
-      expect(data.templates.unique_templates_used).toBe(2); // welcome + faq
+      expect(data.templates.templatedMessages).toBe(5);
+      expect(data.templates.templatedMessages).toBe(2); // welcome + faq
 
       // AI suggestion stats (conv1=sent, conv2=edited, conv3=scratch, conv4=3xsent, conv5=sent = 6 total)
-      expect(data.ai_suggestions.total_ai_suggestions).toBe(6);
+      expect(data.ai_suggestions.totalSuggestions).toBe(6);
 
       // Verify breakdown
       const aiBreakdown = data.ai_suggestions.breakdown;
@@ -223,10 +223,10 @@ describe('Dashboard Statistics Integration Tests', () => {
 
       // 2. Assert: All metrics zero
       expect(response.status).toBe(200);
-      expect(response.body.data.conversations.total_conversations).toBe(0);
+      expect(response.body.data.conversations.totalConversations).toBe(0);
       expect(response.body.data.messages.total_messages).toBe(0);
-      expect(response.body.data.templates.total_messages_with_templates).toBe(0);
-      expect(response.body.data.ai_suggestions.total_ai_suggestions).toBe(0);
+      expect(response.body.data.templates.templatedMessages).toBe(0);
+      expect(response.body.data.ai_suggestions.totalSuggestions).toBe(0);
     });
 
     test('dashboard respects date range filters', async () => {
@@ -274,7 +274,7 @@ describe('Dashboard Statistics Integration Tests', () => {
 
       // 4. Assert: Only today's conversation counted
       expect(response.status).toBe(200);
-      expect(response.body.data.conversations.total_conversations).toBe(1);
+      expect(response.body.data.conversations.totalConversations).toBe(1);
     });
   });
 
@@ -303,7 +303,7 @@ describe('Dashboard Statistics Integration Tests', () => {
 
       // 4. Assert: Categories shown
       expect(response.status).toBe(200);
-      expect(response.body.data.conversations.total_conversations).toBe(3);
+      expect(response.body.data.conversations.totalConversations).toBe(3);
       // Dashboard should include category breakdown if available
       if (response.body.data.conversations.by_category) {
         expect(response.body.data.conversations.by_category.length).toBeGreaterThan(0);

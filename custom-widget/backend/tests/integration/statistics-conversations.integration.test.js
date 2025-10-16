@@ -67,7 +67,7 @@ describe('Conversation Statistics Integration Tests', () => {
       // 3. Assert: Total conversations should be 5
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.overview.total_conversations).toBe(5);
+      expect(response.body.data.overview.totalConversations).toBe(5);
     });
 
     test('tracks archived conversations separately', async () => {
@@ -92,9 +92,9 @@ describe('Conversation Statistics Integration Tests', () => {
 
       // 4. Assert: Correct counts
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_conversations).toBe(5);
-      expect(response.body.data.overview.archived_conversations).toBe(2);
-      expect(response.body.data.overview.active_conversations).toBe(3);
+      expect(response.body.data.overview.totalConversations).toBe(5);
+      expect(response.body.data.overview.archivedConversations).toBe(2);
+      expect(response.body.data.overview.activeConversations).toBe(3);
     });
 
     test('empty database returns zero counts', async () => {
@@ -103,9 +103,9 @@ describe('Conversation Statistics Integration Tests', () => {
 
       // 2. Assert: All counts should be 0
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_conversations).toBe(0);
-      expect(response.body.data.overview.archived_conversations).toBe(0);
-      expect(response.body.data.overview.active_conversations).toBe(0);
+      expect(response.body.data.overview.totalConversations).toBe(0);
+      expect(response.body.data.overview.archivedConversations).toBe(0);
+      expect(response.body.data.overview.activeConversations).toBe(0);
     });
   });
 
@@ -148,7 +148,7 @@ describe('Conversation Statistics Integration Tests', () => {
 
       // 4. Assert: Categories counted correctly
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_conversations).toBe(6);
+      expect(response.body.data.overview.totalConversations).toBe(6);
 
       const byCategory = response.body.data.by_category;
       expect(byCategory).toHaveLength(3); // 2 categories + uncategorized
@@ -188,7 +188,7 @@ describe('Conversation Statistics Integration Tests', () => {
 
       // 3. Assert: Only filtered category counted
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.total_conversations).toBe(2);
+      expect(response.body.data.overview.totalConversations).toBe(2);
     });
   });
 
@@ -236,7 +236,7 @@ describe('Conversation Statistics Integration Tests', () => {
       // 3. Assert: Only conversations in range
       expect(response.status).toBe(200);
       // Should include: TODAY, YESTERDAY, TWO-DAYS (not THREE-DAYS)
-      expect(response.body.data.overview.total_conversations).toBe(3);
+      expect(response.body.data.overview.totalConversations).toBe(3);
     });
   });
 });
