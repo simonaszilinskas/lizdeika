@@ -52,6 +52,7 @@ module.exports = {
       displayName: 'integration',
       testMatch: ['**/tests/integration/**/*.test.js'],
       setupFilesAfterEnv: ['<rootDir>/tests/integration/jest.setup.js'],
+      maxWorkers: 1, // Run integration tests sequentially to avoid database conflicts
     }
   ],
 

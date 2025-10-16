@@ -42,7 +42,14 @@ async function login(app, email, password) {
     throw new Error(`Login failed: ${response.body.error || 'Unknown error'}`);
   }
 
-  return response.body.accessToken;
+  // Extract access token from nested response structure
+  const accessToken = response.body.data?.tokens?.accessToken || response.body.accessToken;
+  if (!accessToken) {
+    console.error('[TEST DEBUG] No access token in response:', JSON.stringify(response.body, null, 2));
+    throw new Error('Login succeeded but no access token found in response');
+  }
+
+  return accessToken;
 }
 
 /**
@@ -106,6 +113,8 @@ async function authenticateAsAgent(app, prisma, email = null, password = null) {
  * @returns {Promise<Object>} Response object
  */
 async function authenticatedGet(app, token, path, query = {}) {
+  console.log('[TEST DEBUG] Making GET request:', { path, hasToken: !!token, tokenLength: token?.length });
+
   let req = request(app)
     .get(path)
     .set('Authorization', `Bearer ${token}`);
@@ -114,7 +123,13 @@ async function authenticatedGet(app, token, path, query = {}) {
     req = req.query(query);
   }
 
-  return await req;
+  const response = await req;
+
+  if (response.status === 401) {
+    console.error('[TEST DEBUG] 401 Unauthorized on GET', path, '- Response:', response.body);
+  }
+
+  return response;
 }
 
 /**
