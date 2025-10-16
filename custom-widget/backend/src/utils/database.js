@@ -4,6 +4,8 @@
  */
 
 const { PrismaClient } = require('@prisma/client');
+const { createLogger } = require('./logger');
+const logger = createLogger('database');
 
 class DatabaseClient {
   constructor() {
@@ -99,8 +101,6 @@ class DatabaseClient {
 
     try {
       const { execSync } = require('child_process');
-const { createLogger } = require('./logger');
-const logger = createLogger('database');
       execSync('npx prisma migrate reset --force', { stdio: 'inherit' });
       logger.info('🔄 Database reset completed');
     } catch (error) {
