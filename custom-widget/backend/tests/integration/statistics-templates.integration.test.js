@@ -63,6 +63,16 @@ describe('Template Statistics Integration Tests', () => {
       hasPassword: !!agentUser.plainPassword
     });
 
+    // Verify user was created correctly in DB
+    const dbUser = await prisma.users.findUnique({ where: { email: agentUser.email } });
+    console.log('[TEST] Agent user in DB:', {
+      exists: !!dbUser,
+      email: dbUser?.email,
+      role: dbUser?.role,
+      hasPasswordHash: !!dbUser?.password_hash,
+      passwordHashLength: dbUser?.password_hash?.length
+    });
+
     // Authenticate as agent
     const authResult = await authenticateAsAgent(app, prisma, agentUser.email, agentUser.plainPassword);
     agentToken = authResult.token;

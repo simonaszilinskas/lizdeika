@@ -242,7 +242,20 @@ class AuthService {
     }
 
     // Verify password
+    this.logger.debug('Verifying password', {
+      userId: user.id,
+      passwordProvided: !!password,
+      passwordLength: password?.length,
+      hashExists: !!user.password_hash
+    });
+
     const isPasswordValid = await passwordUtils.verifyPassword(password, user.password_hash);
+
+    this.logger.debug('Password verification result', {
+      userId: user.id,
+      isValid: isPasswordValid
+    });
+
     if (!isPasswordValid) {
       throw new Error('Invalid email or password');
     }

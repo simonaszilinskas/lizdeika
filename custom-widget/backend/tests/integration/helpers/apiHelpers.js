@@ -25,7 +25,7 @@ function createTestApp() {
  * @returns {Promise<string>} JWT access token
  */
 async function login(app, email, password) {
-  console.log('[TEST DEBUG] Attempting login with:', { email, passwordLength: password?.length });
+  console.log('[TEST DEBUG] Attempting login with:', { email, passwordLength: password?.length, password });
 
   const response = await request(app)
     .post('/api/auth/login')
@@ -33,10 +33,12 @@ async function login(app, email, password) {
 
   console.log('[TEST DEBUG] Login response:', {
     status: response.status,
-    body: response.body
+    body: response.body,
+    headers: response.headers
   });
 
   if (response.status !== 200) {
+    console.error('[TEST DEBUG] Login failed! Full response:', JSON.stringify(response.body, null, 2));
     throw new Error(`Login failed: ${response.body.error || 'Unknown error'}`);
   }
 
