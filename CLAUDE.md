@@ -20,9 +20,14 @@ npm run db:reset       # Reset database completely
 # Server operations
 npm start              # Start production server
 npm run dev            # Start with nodemon for development
-npm test               # Run all backend tests
-npm run test:unit      # Run unit tests only
-npm run test:coverage  # Run tests with coverage report
+
+# Testing
+npm test                        # Run all backend tests
+npm run test:unit               # Run unit tests only (with mocks)
+npm run test:integration        # Run integration tests (real database)
+npm run test:integration:watch  # Integration tests in watch mode
+npm run test:coverage           # Run tests with coverage report
+npm run db:test:setup           # Setup test database schema
 ```
 
 ### Frontend Testing (from root)
@@ -141,14 +146,35 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Follow single responsibility principle for modules
 - Maintain event-driven communication via StateManager
 
-**Testing**: Comprehensive testing infrastructure with **220 passing tests** across 11 test suites:
-- `tests/unit/` - Unit test files covering all major modules
-- `tests/integration/` - Integration tests for module interactions
-- `tests/baseline/` - Error handling baseline tests
-- `tests/mocks/` - Mock services for isolated testing
-- `tests/utilities/` - ES6 module testing utilities
+**Testing**: Comprehensive testing infrastructure with **two test types**:
 
-**Current Status**: 220/221 tests passing (134 backend + 86 frontend). All tests use Jest with JSDOM environment for frontend module testing.
+1. **Unit Tests** (220 tests with mocks):
+   - `tests/unit/` - Unit test files covering all major modules
+   - `tests/baseline/` - Error handling baseline tests
+   - `tests/mocks/` - Mock services for isolated testing
+   - `tests/utilities/` - ES6 module testing utilities
+   - Run with: `npm run test:unit`
+
+2. **Integration Tests** (NEW - Real database operations):
+   - `tests/integration/` - API integration tests for statistics system
+   - Tests perform real user actions (no mocks)
+   - Use separate test database (vilnius_support_test)
+   - Coverage: Templates, Conversations, AI Suggestions, Dashboard
+   - Run with: `npm run test:integration`
+
+**Test Database Setup**: Integration tests require a separate PostgreSQL test database:
+```bash
+# Create test database (one-time setup)
+createdb vilnius_support_test
+
+# Push schema to test database
+npm run db:test:setup
+
+# Run integration tests
+npm run test:integration
+```
+
+**Current Status**: 220/221 unit tests passing (134 backend + 86 frontend). Integration tests verify end-to-end statistics flows with real database operations.
 
 **Known Test Issue**: One auth test occasionally fails in CI due to timing issues with token expiration checks. This is a test environment issue documented in `custom-widget/backend/tests/unit/auth.test.js`. The authentication flow works correctly in production.
 
