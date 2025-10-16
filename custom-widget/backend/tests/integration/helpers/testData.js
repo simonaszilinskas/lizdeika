@@ -130,7 +130,7 @@ async function createTestTemplate(prisma, creatorId, overrides = {}) {
 async function createTestCategory(prisma, creatorId, overrides = {}) {
   const categoryId = overrides.id || uuidv4();
 
-  const category = await prisma.categories.create({
+  const category = await prisma.ticket_categories.create({
     data: {
       id: categoryId,
       name: overrides.name || `Test Category ${Date.now()}`,
@@ -226,8 +226,7 @@ async function createTestMessageStats(prisma, messageId, agentId, ticketId, over
       original_suggestion: overrides.original_suggestion || null,
       template_used: overrides.template_used !== undefined ? overrides.template_used : false,
       template_id: overrides.template_id || null,
-      system_mode: overrides.system_mode || 'HITL',
-      response_time_seconds: overrides.response_time_seconds !== undefined ? overrides.response_time_seconds : 0,
+      system_mode: overrides.system_mode || 'hitl',
       created_at: overrides.created_at || new Date(),
     },
   });

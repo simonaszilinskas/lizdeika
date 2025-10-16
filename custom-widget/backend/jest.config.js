@@ -1,13 +1,13 @@
 module.exports = {
   // Test environment
   testEnvironment: 'node',
-  
+
   // Test file patterns
   testMatch: [
     '**/tests/**/*.test.js',
     '**/tests/**/*.spec.js'
   ],
-  
+
   // Coverage configuration
   collectCoverage: false, // Enable only when running test:coverage
   collectCoverageFrom: [
@@ -21,7 +21,7 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  
+
   // Coverage thresholds (goals for Phase 1)
   coverageThreshold: {
     global: {
@@ -37,19 +37,33 @@ module.exports = {
       statements: 90
     }
   },
-  
+
   // Setup and teardown
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
-  
+
+  // Integration test projects with separate setup
+  projects: [
+    {
+      displayName: 'unit',
+      testMatch: ['**/tests/unit/**/*.test.js', '**/tests/baseline/**/*.test.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+    },
+    {
+      displayName: 'integration',
+      testMatch: ['**/tests/integration/**/*.test.js'],
+      setupFilesAfterEnv: ['<rootDir>/tests/integration/jest.setup.js'],
+    }
+  ],
+
   // Test timeout (30 seconds for integration tests)
   testTimeout: 30000,
-  
+
   // Verbose output for better debugging
   verbose: true,
-  
+
   // Clear mocks between tests
   clearMocks: true,
-  
+
   // Automatically restore mock state between tests
   restoreMocks: true
 };

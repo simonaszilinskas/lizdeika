@@ -63,7 +63,7 @@ async function cleanTestDatabase() {
     await prisma.agent_status.deleteMany({});
     await prisma.refresh_tokens.deleteMany({});
     await prisma.response_templates.deleteMany({});
-    await prisma.categories.deleteMany({});
+    await prisma.ticket_categories.deleteMany({});
     await prisma.users.deleteMany({});
   } catch (error) {
     console.error('Error cleaning test database:', error);

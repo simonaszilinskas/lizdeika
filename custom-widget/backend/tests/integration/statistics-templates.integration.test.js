@@ -102,7 +102,7 @@ describe('Template Statistics Integration Tests', () => {
       await createTestMessageStats(prisma, message.id, agentUser.id, ticket.id, {
         template_used: true,
         template_id: template.id,
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // 5. Query the statistics API

@@ -70,7 +70,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
       await createTestMessageStats(prisma, message.id, agentUser.id, ticket.id, {
         ai_suggestion_used: true,
         suggestion_action: 'sent_as_is',
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // 3. Query AI suggestions statistics
@@ -102,7 +102,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
         suggestion_action: 'edited',
         suggestion_edit_ratio: 0.3,
         original_suggestion: 'Original AI response',
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // 3. Query statistics
@@ -131,7 +131,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
       await createTestMessageStats(prisma, message.id, agentUser.id, ticket.id, {
         ai_suggestion_used: false,
         suggestion_action: 'from_scratch',
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // 3. Query statistics
@@ -161,7 +161,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
         await createTestMessageStats(prisma, msg.id, agentUser.id, ticket.id, {
           ai_suggestion_used: true,
           suggestion_action: 'sent_as_is',
-          system_mode: 'HITL',
+          system_mode: 'hitl',
         });
       }
 
@@ -174,7 +174,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
         await createTestMessageStats(prisma, msg.id, agentUser.id, ticket.id, {
           ai_suggestion_used: true,
           suggestion_action: 'edited',
-          system_mode: 'HITL',
+          system_mode: 'hitl',
         });
       }
 
@@ -187,7 +187,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
         await createTestMessageStats(prisma, msg.id, agentUser.id, ticket.id, {
           ai_suggestion_used: false,
           suggestion_action: 'from_scratch',
-          system_mode: 'HITL',
+          system_mode: 'hitl',
         });
       }
 
@@ -225,7 +225,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
       await createTestMessageStats(prisma, hitlMessage.id, agentUser.id, ticket.id, {
         ai_suggestion_used: true,
         suggestion_action: 'sent_as_is',
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // 2. Create autopilot message (should NOT be counted)
@@ -236,7 +236,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
       await createTestMessageStats(prisma, autopilotMessage.id, agentUser.id, ticket.id, {
         ai_suggestion_used: true,
         suggestion_action: 'sent_as_is',
-        system_mode: 'AUTOPILOT',
+        system_mode: 'autopilot',
       });
 
       // 3. Query statistics
@@ -261,7 +261,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
       await createTestMessageStats(prisma, message.id, agentUser.id, ticket.id, {
         ai_suggestion_used: false,
         suggestion_action: null,
-        system_mode: 'OFF',
+        system_mode: 'off',
       });
 
       // 2. Query statistics

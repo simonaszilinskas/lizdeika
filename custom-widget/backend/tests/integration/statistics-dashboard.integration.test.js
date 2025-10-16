@@ -98,7 +98,7 @@ describe('Dashboard Statistics Integration Tests', () => {
         template_id: welcomeTemplate.id,
         ai_suggestion_used: true,
         suggestion_action: 'sent_as_is',
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // Conversation 2: Billing category, FAQ template, AI edited
@@ -120,7 +120,7 @@ describe('Dashboard Statistics Integration Tests', () => {
         ai_suggestion_used: true,
         suggestion_action: 'edited',
         suggestion_edit_ratio: 0.2,
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // Conversation 3: Support, no template, from scratch
@@ -140,7 +140,7 @@ describe('Dashboard Statistics Integration Tests', () => {
         template_used: false,
         ai_suggestion_used: false,
         suggestion_action: 'from_scratch',
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // Conversation 4: Uncategorized, multiple messages with welcome template
@@ -162,7 +162,7 @@ describe('Dashboard Statistics Integration Tests', () => {
           template_id: welcomeTemplate.id,
           ai_suggestion_used: true,
           suggestion_action: 'sent_as_is',
-          system_mode: 'HITL',
+          system_mode: 'hitl',
         });
       }
 
@@ -183,7 +183,7 @@ describe('Dashboard Statistics Integration Tests', () => {
         template_used: false,
         ai_suggestion_used: true,
         suggestion_action: 'sent_as_is',
-        system_mode: 'HITL',
+        system_mode: 'hitl',
       });
 
       // 3. Query dashboard statistics
