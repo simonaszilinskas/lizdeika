@@ -79,9 +79,9 @@ describe('AI Suggestion Statistics Integration Tests', () => {
       // 4. Assert: Sent-as-is tracked
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.overview.totalSuggestions).toBe(1);
-      expect(response.body.data.breakdown.sent_as_is.count).toBe(1);
-      expect(response.body.data.breakdown.sent_as_is.percentage).toBe(100);
+      expect(response.body.data.totalSuggestions).toBe(1);
+      expect(response.body.data.sentAsIs).toBe(1);
+      expect(response.body.data.sentAsIsPercentage).toBe(100);
     });
 
     test('tracks edited suggestions', async () => {
@@ -110,9 +110,9 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 4. Assert: Edited suggestion tracked
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.totalSuggestions).toBe(1);
-      expect(response.body.data.breakdown.edited.count).toBe(1);
-      expect(response.body.data.breakdown.edited.percentage).toBe(100);
+      expect(response.body.data.totalSuggestions).toBe(1);
+      expect(response.body.data.edited).toBe(1);
+      expect(response.body.data.editedPercentage).toBe(100);
     });
 
     test('tracks from-scratch messages', async () => {
@@ -139,9 +139,9 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 4. Assert: From-scratch tracked
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.totalSuggestions).toBe(1);
-      expect(response.body.data.breakdown.from_scratch.count).toBe(1);
-      expect(response.body.data.breakdown.from_scratch.percentage).toBe(100);
+      expect(response.body.data.totalSuggestions).toBe(1);
+      expect(response.body.data.fromScratch).toBe(1);
+      expect(response.body.data.fromScratchPercentage).toBe(100);
     });
   });
 
@@ -196,18 +196,16 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 3. Assert: Correct counts and percentages
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.totalSuggestions).toBe(10);
+      expect(response.body.data.totalSuggestions).toBe(10);
 
-      const breakdown = response.body.data.breakdown;
+      expect(response.body.data.sentAsIs).toBe(5);
+      expect(response.body.data.sentAsIsPercentage).toBe(50);
 
-      expect(breakdown.sent_as_is.count).toBe(5);
-      expect(breakdown.sent_as_is.percentage).toBe(50);
+      expect(response.body.data.edited).toBe(3);
+      expect(response.body.data.editedPercentage).toBe(30);
 
-      expect(breakdown.edited.count).toBe(3);
-      expect(breakdown.edited.percentage).toBe(30);
-
-      expect(breakdown.from_scratch.count).toBe(2);
-      expect(breakdown.from_scratch.percentage).toBe(20);
+      expect(response.body.data.fromScratch).toBe(2);
+      expect(response.body.data.fromScratchPercentage).toBe(20);
     });
   });
 
@@ -244,8 +242,8 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 4. Assert: Only HITL message counted
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.totalSuggestions).toBe(1);
-      expect(response.body.data.breakdown.sent_as_is.count).toBe(1);
+      expect(response.body.data.totalSuggestions).toBe(1);
+      expect(response.body.data.sentAsIs).toBe(1);
     });
 
     test('handles OFF mode messages', async () => {
@@ -269,7 +267,7 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 3. Assert: OFF mode messages not counted
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.totalSuggestions).toBe(0);
+      expect(response.body.data.totalSuggestions).toBe(0);
     });
   });
 
@@ -280,10 +278,10 @@ describe('AI Suggestion Statistics Integration Tests', () => {
 
       // 2. Assert: All counts zero
       expect(response.status).toBe(200);
-      expect(response.body.data.overview.totalSuggestions).toBe(0);
-      expect(response.body.data.breakdown.sent_as_is.count).toBe(0);
-      expect(response.body.data.breakdown.edited.count).toBe(0);
-      expect(response.body.data.breakdown.from_scratch.count).toBe(0);
+      expect(response.body.data.totalSuggestions).toBe(0);
+      expect(response.body.data.sentAsIs).toBe(0);
+      expect(response.body.data.edited).toBe(0);
+      expect(response.body.data.fromScratch).toBe(0);
     });
   });
 });
