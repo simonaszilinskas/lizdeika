@@ -62,8 +62,6 @@ describe('Token Refresh Integration Tests', () => {
         .post('/api/auth/refresh')
         .send({ refreshToken });
 
-      console.log('[TEST] Refresh response:', JSON.stringify(refreshResponse.body, null, 2));
-
       // 3. Verify new access token generated
       expect(refreshResponse.status).toBe(200);
       expect(refreshResponse.body.success).toBe(true);

@@ -55,8 +55,6 @@ describe('Login Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      console.log('[TEST] Login response:', JSON.stringify(response.body, null, 2));
-
       // 3. Verify response structure
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);

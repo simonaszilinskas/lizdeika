@@ -604,7 +604,7 @@ class AuthService {
     }
 
     // Check if new password is same as old password
-    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.passwordHash);
+    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.password_hash);
     if (isSamePassword) {
       throw new Error('New password must be different from current password');
     }
@@ -661,7 +661,7 @@ class AuthService {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await passwordUtils.verifyPassword(currentPassword, user.passwordHash);
+    const isCurrentPasswordValid = await passwordUtils.verifyPassword(currentPassword, user.password_hash);
     if (!isCurrentPasswordValid) {
       throw new Error('Current password is incorrect');
     }
@@ -673,7 +673,7 @@ class AuthService {
     }
 
     // Check if new password is same as current password
-    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.passwordHash);
+    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.password_hash);
     if (isSamePassword) {
       throw new Error('New password must be different from current password');
     }
@@ -684,7 +684,7 @@ class AuthService {
     // Update password
     await this.db.users.update({
       where: { id: userId },
-      data: { passwordHash: newPasswordHash },
+      data: { password_hash: newPasswordHash },
     });
 
     // Revoke all other refresh tokens for security (keep current session)
@@ -698,9 +698,10 @@ class AuthService {
     // Log password change
     await this.db.system_logs.create({
       data: {
+        id: uuidv4(),
         action: 'password_changed',
         details: {
-          user_id: user.id,
+          user_id: userId,
           email: user.email,
           timestamp: new Date().toISOString(),
         },
