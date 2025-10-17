@@ -12,3 +12,4 @@ tmp/
 *.db
 custom-widget/backend/logs/
 custom-widget/backend/uploads/
+.mcp.json

@@ -446,7 +446,9 @@ class AuthService {
     // Generate new access token
     const newAccessToken = tokenUtils.generateAccessToken(storedToken.users);
 
-    // Optionally rotate refresh token (for enhanced security)
+    // Automatic refresh token rotation for enhanced security
+    // Rotates 30% of refresh tokens to limit the window of exposure if a token is compromised
+    // This balances security (frequent rotation) with database load (not every request)
     const shouldRotateRefreshToken = Math.random() > 0.7; // 30% chance
     let newRefreshToken = refreshToken;
 
