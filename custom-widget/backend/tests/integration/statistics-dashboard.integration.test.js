@@ -189,6 +189,8 @@ describe('Dashboard Statistics Integration Tests', () => {
       // 3. Query dashboard statistics
       const response = await authenticatedGet(app, agentToken, '/api/statistics/dashboard');
 
+      console.log('[TEST] Dashboard API response:', JSON.stringify(response.body, null, 2));
+
       // 4. Comprehensive assertions
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
@@ -196,25 +198,24 @@ describe('Dashboard Statistics Integration Tests', () => {
       const data = response.body.data;
 
       // Conversation stats
-      expect(data.conversations.totalConversations).toBe(5);
-      expect(data.conversations.activeConversations).toBe(4);
-      expect(data.conversations.archivedConversations).toBe(1);
+      expect(data.conversations.total).toBe(5);
+      expect(data.conversations.active).toBe(4);
+      expect(data.conversations.archived).toBe(1);
 
       // Message stats (total: 1+1+1+3+1 = 7 messages)
-      expect(data.messages.total_messages).toBeGreaterThanOrEqual(7);
+      expect(data.messages.total).toBe(7);
+      expect(data.messages.averagePerConversation).toBeCloseTo(1.4, 1);
 
       // Template stats (used in: conv1=1, conv2=1, conv4=3 = 5 total)
       expect(data.templates.templatedMessages).toBe(5);
-      expect(data.templates.templatedMessages).toBe(2); // welcome + faq
+      expect(data.templates.totalMessages).toBe(7);
+      expect(data.templates.templateUsagePercentage).toBeCloseTo(71.4, 1);
 
       // AI suggestion stats (conv1=sent, conv2=edited, conv3=scratch, conv4=3xsent, conv5=sent = 6 total)
-      expect(data.ai_suggestions.totalSuggestions).toBe(6);
-
-      // Verify breakdown
-      const aiBreakdown = data.ai_suggestions.breakdown;
-      expect(aiBreakdown.sent_as_is.count).toBe(5); // conv1 + conv4(3) + conv5
-      expect(aiBreakdown.edited.count).toBe(1); // conv2
-      expect(aiBreakdown.from_scratch.count).toBe(0); // conv3 has ai_suggestion_used:false, so not counted
+      expect(data.aiSuggestions.totalSuggestions).toBe(6);
+      expect(data.aiSuggestions.sentAsIs).toBe(5); // conv1 + conv4(3) + conv5
+      expect(data.aiSuggestions.edited).toBe(1); // conv2
+      expect(data.aiSuggestions.fromScratch).toBe(0); // conv3 has ai_suggestion_used:false, so not counted
     });
 
     test('handles empty dashboard state', async () => {
@@ -223,10 +224,10 @@ describe('Dashboard Statistics Integration Tests', () => {
 
       // 2. Assert: All metrics zero
       expect(response.status).toBe(200);
-      expect(response.body.data.conversations.totalConversations).toBe(0);
-      expect(response.body.data.messages.total_messages).toBe(0);
+      expect(response.body.data.conversations.total).toBe(0);
+      expect(response.body.data.messages.total).toBe(0);
       expect(response.body.data.templates.templatedMessages).toBe(0);
-      expect(response.body.data.ai_suggestions.totalSuggestions).toBe(0);
+      expect(response.body.data.aiSuggestions.totalSuggestions).toBe(0);
     });
 
     test('dashboard respects date range filters', async () => {
@@ -274,7 +275,7 @@ describe('Dashboard Statistics Integration Tests', () => {
 
       // 4. Assert: Only today's conversation counted
       expect(response.status).toBe(200);
-      expect(response.body.data.conversations.totalConversations).toBe(1);
+      expect(response.body.data.conversations.total).toBe(1);
     });
   });
 
@@ -303,7 +304,7 @@ describe('Dashboard Statistics Integration Tests', () => {
 
       // 4. Assert: Categories shown
       expect(response.status).toBe(200);
-      expect(response.body.data.conversations.totalConversations).toBe(3);
+      expect(response.body.data.conversations.total).toBe(3);
       // Dashboard should include category breakdown if available
       if (response.body.data.conversations.by_category) {
         expect(response.body.data.conversations.by_category.length).toBeGreaterThan(0);

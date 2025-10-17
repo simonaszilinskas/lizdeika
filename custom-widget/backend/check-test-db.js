@@ -20,7 +20,8 @@ async function main() {
   await prisma.agent_status.deleteMany({});
   await prisma.refresh_tokens.deleteMany({});
   await prisma.response_templates.deleteMany({});
-  await prisma.categories.deleteMany({});
+  await prisma.ticket_categories.deleteMany({});
+  await prisma.system_logs.deleteMany({});
   await prisma.users.deleteMany({});
 
   console.log('Test database cleaned!');
