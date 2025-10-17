@@ -452,7 +452,7 @@ class AuthService {
 
     if (shouldRotateRefreshToken) {
       // Generate new refresh token
-      newRefreshToken = tokenUtils.generateRefreshToken(storedToken.user.id);
+      newRefreshToken = tokenUtils.generateRefreshToken(storedToken.users.id);
       
       // Update stored token
       await this.db.refresh_tokens.update({
@@ -615,7 +615,7 @@ class AuthService {
     // Update password
     await this.db.users.update({
       where: { id: user.id },
-      data: { passwordHash: newPasswordHash },
+      data: { password_hash: newPasswordHash },
     });
 
     // Revoke all refresh tokens for security
