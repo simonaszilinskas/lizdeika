@@ -17,7 +17,6 @@ if (result.error) {
 }
 
 console.log('[JEST SETUP] Loaded test environment variables');
-console.log('[JEST SETUP] DATABASE_URL:', process.env.DATABASE_URL);
 console.log('[JEST SETUP] NODE_ENV:', process.env.NODE_ENV);
 
 // Increase timeout for integration tests

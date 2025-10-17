@@ -49,9 +49,9 @@ dotenv.config({ path: '.env.test' });
 ### 2. Test File Execution Order
 
 Jest runs test files in this order (with `--runInBand` flag for sequential execution):
-1. `statistics-templates.integration.test.js` (4 tests)
-2. `statistics-conversations.integration.test.js` (6 tests)
-3. `statistics-ai-suggestions.integration.test.js` (7 tests)
+1. `statistics-agents.integration.test.js` (5 tests)
+2. `statistics-ai-suggestions.integration.test.js` (7 tests)
+3. `statistics-conversations.integration.test.js` (6 tests)
 4. `statistics-dashboard.integration.test.js` (4 tests)
 
 **Why sequential**: Multiple tests accessing the same database concurrently can cause:
@@ -70,11 +70,8 @@ beforeAll(async () => {
   // 2. Create Express app (full app, not minimal mock)
   app = createTestApp();
 
-  // 3. Create admin user (needed for creating categories/templates)
-  adminUser = await createTestAgent(prisma, {
-    email: `admin-${Date.now()}@test.com`,
-    role: 'admin'
-  });
+  // 3. Create admin user (needed for creating categories)
+  adminUser = await createTestAdmin(prisma);
 });
 ```
 
@@ -83,10 +80,10 @@ beforeAll(async () => {
 beforeEach(async () => {
   // 1. Clean ALL data from database
   await resetTestDatabase();
-  // This deletes: messages, tickets, users, templates, categories, etc.
+  // This deletes: messages, tickets, users, categories, etc.
 
   // 2. Re-create admin user for this test
-  adminUser = await createTestAgent(prisma, { role: 'admin' });
+  adminUser = await createTestAdmin(prisma);
 
   // 3. Create agent user and login
   agentUser = await createTestAgent(prisma);
@@ -110,21 +107,24 @@ afterAll(async () => {
 
 ### 4. Individual Test Execution
 
-Let's trace a complete test example: **"tracks template usage"** from `statistics-templates.integration.test.js`
+Let's trace a complete test example: **"tracks AI suggestion usage"** from `statistics-ai-suggestions.integration.test.js`
 
 #### Step 1: Setup Test Data
 ```javascript
-test('tracks template usage', async () => {
-  // Create a response template
-  const template = await createTestTemplate(prisma, {
-    title: 'Welcome Message',
-    content: 'Welcome to our support!',
-    created_by: adminUser.id
+test('tracks sent-as-is suggestions', async () => {
+  // Create an admin user for the test
+  const adminUser = await createTestAdmin(prisma);
+
+  // Create an agent user
+  const agentUser = await createTestAgent(prisma, {
+    email: 'agent@test.com',
+    first_name: 'Test',
+    last_name: 'Agent'
   });
 
   // What happens in database:
-  // INSERT INTO response_templates (id, title, content, created_by, created_at)
-  // VALUES ('uuid', 'Welcome Message', 'Welcome to our support!', 'admin-id', NOW())
+  // INSERT INTO users (id, email, first_name, last_name, role, created_at)
+  // VALUES ('uuid', 'agent@test.com', 'Test', 'Agent', 'agent', NOW())
 });
 ```
 
@@ -139,34 +139,34 @@ test('tracks template usage', async () => {
   // Database:
   // INSERT INTO tickets (id, ticket_number, assigned_agent_id, status, created_at)
 
-  // Create a message from the agent using the template
+  // Create a message from the agent
   const message = await createTestMessage(prisma, {
     ticket_id: ticket.id,
-    user_id: agentUser.id,
-    sender_type: 'agent',
-    content: 'Welcome to our support!'
+    sender_id: agentUser.id,
+    senderType: 'agent',
+    content: 'Thank you for contacting us!'
   });
 
   // Database:
-  // INSERT INTO messages (id, ticket_id, user_id, sender_type, content, created_at)
+  // INSERT INTO messages (id, ticket_id, sender_id, senderType, content, created_at)
 ```
 
-#### Step 3: Track Template Usage in Statistics
+#### Step 3: Track AI Suggestion Usage in Statistics
 ```javascript
-  // Create message statistics record
+  // Create message statistics record tracking AI suggestion
   await createTestMessageStats(prisma, message.id, agentUser.id, ticket.id, {
-    template_used: true,
-    template_id: template.id,
+    ai_suggestion_used: true,
+    suggestion_action: 'sent_as_is',
     system_mode: 'hitl'
   });
 
   // Database:
   // INSERT INTO message_statistics (
   //   message_id, agent_id, ticket_id,
-  //   template_used, template_id, system_mode
+  //   ai_suggestion_used, suggestion_action, system_mode
   // ) VALUES (
   //   'msg-uuid', 'agent-uuid', 'ticket-uuid',
-  //   true, 'template-uuid', 'hitl'
+  //   true, 'sent_as_is', 'hitl'
   // )
 ```
 
@@ -176,24 +176,23 @@ test('tracks template usage', async () => {
   const response = await authenticatedGet(
     app,
     agentToken,
-    '/api/statistics/templates'
+    '/api/statistics/ai-suggestions'
   );
 
   // What happens:
-  // 1. supertest creates HTTP request: GET /api/statistics/templates
+  // 1. supertest creates HTTP request: GET /api/statistics/ai-suggestions
   // 2. Includes Authorization header: Bearer <agentToken>
   // 3. Express app processes request:
   //    - Auth middleware validates JWT token
   //    - Extracts agent user from token
-  //    - Routes to statisticsController.getTemplateStatistics()
-  // 4. Controller calls statisticsService.getTemplateStatistics()
+  //    - Routes to statisticsController.getAISuggestionStats()
+  // 4. Controller calls statisticsService.getAISuggestionUsage()
   // 5. Service queries database:
-  //    SELECT COUNT(*), template_id, title
-  //    FROM message_statistics ms
-  //    JOIN response_templates rt ON ms.template_id = rt.id
-  //    WHERE template_used = true
-  //    GROUP BY template_id
-  // 6. Service formats response
+  //    SELECT COUNT(*), suggestion_action
+  //    FROM message_statistics
+  //    WHERE ai_suggestion_used = true AND system_mode = 'hitl'
+  //    GROUP BY suggestion_action
+  // 6. Service formats response with percentages
   // 7. Controller sends JSON response
 ```
 
@@ -203,17 +202,12 @@ test('tracks template usage', async () => {
   expect(response.status).toBe(200);
   expect(response.body.success).toBe(true);
 
-  // Verify statistics data
-  expect(response.body.data.overview.totalMessages).toBe(1);
-  expect(response.body.data.overview.templatedMessages).toBe(1);
-  expect(response.body.data.overview.templateUsagePercentage).toBe(100);
-
-  // Verify template details
-  const topTemplate = response.body.data.topTemplates[0];
-  expect(topTemplate.templateId).toBe(template.id);
-  expect(topTemplate.title).toBe('Welcome Message');
-  expect(topTemplate.usageCount).toBe(1);
-  expect(topTemplate.percentage).toBe(100);
+  // Verify AI suggestion statistics
+  expect(response.body.data.totalSuggestions).toBe(1);
+  expect(response.body.data.sentAsIs).toBe(1);
+  expect(response.body.data.sentAsIsPercentage).toBe(100);
+  expect(response.body.data.edited).toBe(0);
+  expect(response.body.data.fromScratch).toBe(0);
 
   // If any assertion fails, test fails with detailed error message
 });
@@ -221,25 +215,15 @@ test('tracks template usage', async () => {
 
 ## Common Test Patterns
 
-### Pattern 1: Template Usage Test
-```javascript
-// Create template → Create ticket → Create message → Create stats → Query API
-1. createTestTemplate() - Makes template available
-2. createTestTicket() - Creates conversation
-3. createTestMessage() - Agent sends message
-4. createTestMessageStats({ template_used: true, template_id }) - Track usage
-5. GET /api/statistics/templates - Verify statistics
-```
-
-### Pattern 2: Conversation Count Test
+### Pattern 1: Conversation Count Test
 ```javascript
 // Create multiple tickets → Query API
 1. createTestTicket() x 5 - Create 5 conversations
-2. Some with status='active', some with status='archived'
+2. Some with archived=false, some with archived=true
 3. GET /api/statistics/conversations - Verify counts
 ```
 
-### Pattern 3: AI Suggestion Test
+### Pattern 2: AI Suggestion Test
 ```javascript
 // Create message with AI suggestion tracking
 1. createTestTicket()
@@ -256,9 +240,8 @@ test('tracks template usage', async () => {
 // Create comprehensive test data across all categories
 1. Create 5 conversations with mixed status
 2. Create messages with AI suggestions
-3. Create messages with templates
-4. Create messages with categories
-5. GET /api/statistics/dashboard - Verify all metrics together
+3. Create messages in different categories
+4. GET /api/statistics/dashboard - Verify all metrics together
 ```
 
 ## Database Cleanup Process
@@ -448,30 +431,6 @@ const stats = await createTestMessageStats(prisma, message.id, agent.id, ticket.
 
 Each endpoint returns different response structures:
 
-### Templates Endpoint
-```json
-GET /api/statistics/templates
-
-{
-  "success": true,
-  "data": {
-    "overview": {
-      "totalMessages": 10,
-      "templatedMessages": 7,
-      "templateUsagePercentage": 70
-    },
-    "topTemplates": [
-      {
-        "templateId": "uuid",
-        "title": "Welcome Message",
-        "usageCount": 5,
-        "percentage": 71.4
-      }
-    ]
-  }
-}
-```
-
 ### Conversations Endpoint
 ```json
 GET /api/statistics/conversations
@@ -523,7 +482,11 @@ GET /api/statistics/dashboard
 {
   "success": true,
   "data": {
-    "conversations": { /* same as conversations endpoint */ },
+    "conversations": {
+      "total": 50,
+      "active": 35,
+      "archived": 15
+    },
     "messages": {
       "total": 150,
       "averagePerConversation": 3.0
@@ -537,8 +500,12 @@ GET /api/statistics/dashboard
         "percentage": 33.3
       }
     },
-    "aiSuggestions": { /* same as AI suggestions endpoint */ },
-    "templates": { /* same as templates endpoint */ }
+    "aiSuggestions": {
+      "totalSuggestions": 100,
+      "sentAsIs": 60,
+      "edited": 30,
+      "fromScratch": 10
+    }
   },
   "meta": {
     "startDate": "2025-09-16T00:00:00.000Z",
@@ -567,9 +534,9 @@ GET /api/statistics/dashboard
 ### Test Execution Times
 
 With `--runInBand` on our test suite:
-- Templates: ~1.0s (4 tests)
-- Conversations: ~1.5s (6 tests)
+- Agents: ~1.2s (5 tests)
 - AI Suggestions: ~1.8s (7 tests)
+- Conversations: ~1.5s (6 tests)
 - Dashboard: ~1.2s (4 tests)
 - **Total: ~6-7 seconds**
 
@@ -585,10 +552,10 @@ console.log('[TEST] Database state:', await prisma.users.count());
 ### 2. Run Single Test
 ```bash
 # Run specific test file
-npx jest --testMatch='**/statistics-templates.integration.test.js'
+npx jest --testMatch='**/statistics-agents.integration.test.js'
 
 # Run specific test by name
-npx jest --testNamePattern="tracks template usage"
+npx jest --testNamePattern="returns all agents ranked by message count"
 
 # Run with verbose output
 npx jest --verbose

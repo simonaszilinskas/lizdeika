@@ -481,6 +481,8 @@ class StatisticsService {
 
     /**
      * Get total messages and average per conversation
+     * Filters by message creation date (not ticket creation date) to accurately
+     * reflect messages sent during the requested time period.
      * @param {Date} startDate - Start of date range
      * @param {Date} endDate - End of date range
      * @returns {Promise<Object>} {total: number, average: number}
@@ -488,28 +490,39 @@ class StatisticsService {
     async getTotalMessagesAndAverage(startDate, endDate) {
         if (!prisma) prisma = databaseClient.getClient();
 
-        const conversations = await prisma.tickets.findMany({
+        // Count total messages sent during the date range
+        const totalMessages = await prisma.messages.count({
+            where: {
+                created_at: {
+                    gte: startDate,
+                    lte: endDate
+                }
+            }
+        });
+
+        // Get unique conversation IDs that had messages during the date range
+        const conversationsWithMessages = await prisma.messages.findMany({
             where: {
                 created_at: {
                     gte: startDate,
                     lte: endDate
                 }
             },
-            include: {
-                _count: {
-                    select: { messages: true }
-                }
-            }
+            select: {
+                ticket_id: true
+            },
+            distinct: ['ticket_id']
         });
 
-        if (conversations.length === 0) {
+        const conversationCount = conversationsWithMessages.length;
+
+        if (conversationCount === 0) {
             return { total: 0, average: 0 };
         }
 
-        const totalMessages = conversations.reduce((sum, conv) => sum + conv._count.messages, 0);
         return {
             total: totalMessages,
-            average: totalMessages / conversations.length
+            average: totalMessages / conversationCount
         };
     }
 

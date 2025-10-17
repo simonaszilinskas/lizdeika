@@ -25,7 +25,7 @@ function createTestApp() {
  * @returns {Promise<string>} JWT access token
  */
 async function login(app, email, password) {
-  console.log('[TEST DEBUG] Attempting login with:', { email, passwordLength: password?.length, password });
+  console.log('[TEST DEBUG] Attempting login with:', { email, passwordLength: password?.length });
 
   const response = await request(app)
     .post('/api/auth/login')
@@ -33,8 +33,8 @@ async function login(app, email, password) {
 
   console.log('[TEST DEBUG] Login response:', {
     status: response.status,
-    body: response.body,
-    headers: response.headers
+    hasToken: !!response.body?.data?.tokens?.accessToken,
+    tokenLength: response.body?.data?.tokens?.accessToken?.length
   });
 
   if (response.status !== 200) {

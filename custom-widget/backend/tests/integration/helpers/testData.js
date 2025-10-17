@@ -250,7 +250,7 @@ async function cleanupAllTestData(prisma) {
     prisma.agent_status.deleteMany(),
     prisma.refresh_tokens.deleteMany(),
     prisma.response_templates.deleteMany(),
-    prisma.categories.deleteMany(),
+    prisma.ticket_categories.deleteMany(),
     prisma.system_logs.deleteMany(),
     prisma.application_logs.deleteMany(),
     prisma.users.deleteMany(),
