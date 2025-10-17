@@ -63,6 +63,16 @@ async function createTestAgent(prisma, overrides = {}) {
     },
   });
 
+  // Create required agent_status record
+  await prisma.agent_status.create({
+    data: {
+      id: `agent_status_${userId}`,
+      user_id: userId,
+      status: 'offline',
+      updated_at: new Date(),
+    },
+  });
+
   return { ...user, plainPassword: password };
 }
 

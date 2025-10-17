@@ -66,7 +66,14 @@ describe('Conversation Management Integration Tests', () => {
         (r) => r.status === 429
       );
 
-      expect(rateLimitedResponses.length).toBeGreaterThan(0);
+      // At least 1 request should be rate limited
+      expect(rateLimitedResponses.length).toBeGreaterThanOrEqual(1);
+
+      // Verify rate limit response structure
+      if (rateLimitedResponses.length > 0) {
+        expect(rateLimitedResponses[0].body.success).toBe(false);
+        expect(rateLimitedResponses[0].body.error).toContain('Too many messages');
+      }
     });
   });
 
@@ -95,7 +102,7 @@ describe('Conversation Management Integration Tests', () => {
   });
 
   describe('Bulk Operations', () => {
-    test('admin can bulk archive multiple conversations', async () => {
+    test('agent can bulk archive multiple conversations', async () => {
       const agent = await createTestAgent(prisma);
       const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
 
@@ -123,7 +130,7 @@ describe('Conversation Management Integration Tests', () => {
       expect(archivedTickets.length).toBe(3);
     });
 
-    test('admin can bulk unarchive multiple conversations', async () => {
+    test('agent can bulk unarchive multiple conversations', async () => {
       const agent = await createTestAgent(prisma);
       const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
 
@@ -150,7 +157,7 @@ describe('Conversation Management Integration Tests', () => {
       expect(unarchivedTickets.length).toBe(2);
     });
 
-    test('admin can bulk assign conversations to agent', async () => {
+    test('agent can bulk assign conversations to agent', async () => {
       const agent = await createTestAgent(prisma);
       const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
 
@@ -181,7 +188,7 @@ describe('Conversation Management Integration Tests', () => {
   });
 
   describe('AI Suggestions', () => {
-    test('retrieve pending AI suggestion for conversation', async () => {
+    test('retrieve pending AI suggestion returns 404 when none exists', async () => {
       const agent = await createTestAgent(prisma);
       const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
       const ticket = await createTestTicket(prisma, {
@@ -193,11 +200,8 @@ describe('Conversation Management Integration Tests', () => {
         .set('Authorization', `Bearer ${token}`)
         .send();
 
-      expect([200, 404]).toContain(response.status);
-
-      if (response.status === 200) {
-        expect(response.body.success).toBe(true);
-      }
+      // Without messages, there should be no pending suggestion
+      expect(response.status).toBe(404);
     });
   });
 });
