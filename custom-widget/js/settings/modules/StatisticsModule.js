@@ -2,7 +2,7 @@
  * STATISTICS MODULE
  *
  * Manages statistics dashboard for support operations
- * Displays conversation metrics, agent performance, AI usage, and template analytics
+ * Displays conversation metrics, agent performance, and AI usage
  */
 
 export default class StatisticsModule {
@@ -15,7 +15,7 @@ export default class StatisticsModule {
             end: new Date()
         };
 
-        this.currentView = 'dashboard'; // dashboard, conversations, agents, ai, templates, trends
+        this.currentView = 'dashboard'; // dashboard, conversations, agents, ai, trends
         this.isLoading = false;
         this.error = null;
         this.data = null;
@@ -69,7 +69,6 @@ export default class StatisticsModule {
                                 <button class="view-btn" data-view="conversations">Conversations</button>
                                 <button class="view-btn" data-view="agents">Agents</button>
                                 <button class="view-btn" data-view="ai">AI Usage</button>
-                                <button class="view-btn" data-view="templates">Templates</button>
                             </div>
                         </div>
                     </div>
@@ -148,9 +147,6 @@ export default class StatisticsModule {
                 break;
             case 'ai':
                 await this.loadAIUsage();
-                break;
-            case 'templates':
-                await this.loadTemplates();
                 break;
         }
     }
@@ -244,28 +240,6 @@ export default class StatisticsModule {
     }
 
     /**
-     * Load template statistics
-     */
-    async loadTemplates() {
-        this.showLoading();
-
-        try {
-            const params = this.buildDateParams(this.dateRange.start, this.dateRange.end);
-            const response = await this.apiManager.get(`/api/statistics/templates?${params}`);
-
-            if (response.success) {
-                this.data = response.data;
-                this.renderTemplates(response.data);
-                this.hideLoading();
-            } else {
-                throw new Error(response.error || 'Failed to load template statistics');
-            }
-        } catch (error) {
-            this.showError(error.message);
-        }
-    }
-
-    /**
      * Render dashboard view
      */
     renderDashboard(data) {
@@ -332,21 +306,6 @@ export default class StatisticsModule {
                         <div class="stat-breakdown">
                             <span class="stat-badge stat-badge-success">${data.aiSuggestions?.sentAsIsPercentage?.toFixed(0) || 0}% sent as-is</span>
                             <span class="stat-badge stat-badge-warning">${data.aiSuggestions?.editedPercentage?.toFixed(0) || 0}% edited</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="stat-card stat-card-templates">
-                    <div class="stat-header">
-                        <div class="stat-icon-wrapper stat-icon-orange">
-                            <i class="fas fa-file-alt"></i>
-                        </div>
-                        <h4>Templates</h4>
-                    </div>
-                    <div class="stat-body">
-                        <div class="stat-main-value">${data.templates?.templatedMessages || 0}</div>
-                        <div class="stat-subtext">
-                            <i class="fas fa-percentage"></i> ${data.templates?.templateUsagePercentage != null ? data.templates.templateUsagePercentage.toFixed(1) : 0}% of all messages
                         </div>
                     </div>
                 </div>
@@ -420,7 +379,6 @@ export default class StatisticsModule {
                 <td>${agent.name || agent.agentId}</td>
                 <td>${agent.messageCount || 0}</td>
                 <td>${agent.suggestionUsage || 0}</td>
-                <td>${agent.templateUsage || 0}</td>
             </tr>
         `).join('');
 
@@ -434,11 +392,10 @@ export default class StatisticsModule {
                             <th>Agent</th>
                             <th>Messages</th>
                             <th>Suggestions</th>
-                            <th>Templates</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${agentRows || '<tr><td colspan="5">No data</td></tr>'}
+                        ${agentRows || '<tr><td colspan="4">No data</td></tr>'}
                     </tbody>
                 </table>
             </div>
@@ -490,56 +447,6 @@ export default class StatisticsModule {
                     </div>
                     ` : ''}
                 </div>
-            </div>
-        `;
-    }
-
-    /**
-     * Render templates view
-     */
-    renderTemplates(data) {
-        const container = document.getElementById('stats-data');
-        if (!container) return;
-
-        const overview = data.overview || {};
-        const hasData = (overview.totalUsed || 0) > 0;
-        const topTemplates = data.topTemplates || [];
-        const templateRows = topTemplates.map((template, index) => `
-            <tr>
-                <td>${index + 1}</td>
-                <td>${template.name || 'Unnamed'}</td>
-                <td>${template.count || 0}</td>
-            </tr>
-        `).join('');
-
-        const emptyMessage = !hasData ? '<p class="text-gray-500 italic">No template usage data yet. Statistics will be tracked as agents send new messages.</p>' : '';
-
-        container.innerHTML = `
-            <div class="templates-stats">
-                <div class="stat-section">
-                    <h4>Template Usage Overview</h4>
-                    <p>Total Used: <strong>${overview.totalUsed || 0}</strong></p>
-                    <p>Usage Rate: <strong>${overview.usagePercentage != null ? overview.usagePercentage.toFixed(1) : 0}%</strong> of all messages</p>
-                    ${emptyMessage}
-                </div>
-
-                ${hasData ? `
-                <div class="stat-section">
-                    <h4>Most Popular Templates</h4>
-                    <table class="stats-table">
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Template</th>
-                                <th>Uses</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${templateRows || '<tr><td colspan="3">No data</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-                ` : ''}
             </div>
         `;
     }

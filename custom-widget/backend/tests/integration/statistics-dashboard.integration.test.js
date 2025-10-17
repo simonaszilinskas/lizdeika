@@ -9,6 +9,9 @@
  * 1. Dashboard reflects all user actions correctly
  * 2. Combined statistics from multiple sources
  * 3. Real-world usage scenario with mixed activities
+ *
+ * Note: Message counting includes ALL messages (customer + agent), not just
+ * agent-sent messages. Template statistics were removed from the API.
  */
 
 const {
@@ -202,20 +205,26 @@ describe('Dashboard Statistics Integration Tests', () => {
       expect(data.conversations.active).toBe(4);
       expect(data.conversations.archived).toBe(1);
 
-      // Message stats (total: 1+1+1+3+1 = 7 messages)
+      // Message stats (counts ALL messages: agent-sent = 7 messages total in this test)
+      // Note: If customer messages were present, they would also be counted
       expect(data.messages.total).toBe(7);
-      expect(data.messages.averagePerConversation).toBeCloseTo(1.4, 1);
-
-      // Template stats (used in: conv1=1, conv2=1, conv4=3 = 5 total)
-      expect(data.templates.templatedMessages).toBe(5);
-      expect(data.templates.totalMessages).toBe(7);
-      expect(data.templates.templateUsagePercentage).toBeCloseTo(71.4, 1);
+      expect(data.messages.averagePerConversation).toBeCloseTo(1.4, 1); // 7 messages / 5 conversations
 
       // AI suggestion stats (conv1=sent, conv2=edited, conv3=scratch, conv4=3xsent, conv5=sent = 6 total)
       expect(data.aiSuggestions.totalSuggestions).toBe(6);
       expect(data.aiSuggestions.sentAsIs).toBe(5); // conv1 + conv4(3) + conv5
       expect(data.aiSuggestions.edited).toBe(1); // conv2
       expect(data.aiSuggestions.fromScratch).toBe(0); // conv3 has ai_suggestion_used:false, so not counted
+
+      // Agent stats (PREVIOUSLY MISSING - this was the bug!)
+      expect(data.agents).toBeDefined();
+      expect(data.agents.activeAgents).toBe(1); // Only agentUser
+      expect(data.agents.topAgent).toBeDefined();
+      expect(data.agents.topAgent.agentId).toBe(agentUser.id);
+      expect(data.agents.topAgent.name).toBe(`${agentUser.first_name} ${agentUser.last_name}`);
+      expect(data.agents.topAgent.email).toBe(agentUser.email);
+      expect(data.agents.topAgent.messageCount).toBe(7); // Total messages sent
+      expect(data.agents.topAgent.percentage).toBe(100); // Only one agent
     });
 
     test('handles empty dashboard state', async () => {
@@ -226,8 +235,9 @@ describe('Dashboard Statistics Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(response.body.data.conversations.total).toBe(0);
       expect(response.body.data.messages.total).toBe(0);
-      expect(response.body.data.templates.templatedMessages).toBe(0);
       expect(response.body.data.aiSuggestions.totalSuggestions).toBe(0);
+      expect(response.body.data.agents.activeAgents).toBe(0);
+      expect(response.body.data.agents.topAgent).toBeNull();
     });
 
     test('dashboard respects date range filters', async () => {

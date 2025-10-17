@@ -154,7 +154,8 @@ async function createTestCategory(prisma, creatorId, overrides = {}) {
  */
 async function createTestTicket(prisma, overrides = {}) {
   const ticketId = overrides.id || uuidv4();
-  const ticketNumber = overrides.ticket_number || `TEST-${Date.now()}`;
+  // Use UUID suffix to ensure uniqueness even if multiple tickets created in same millisecond
+  const ticketNumber = overrides.ticket_number || `TEST-${Date.now()}-${uuidv4().slice(0, 8)}`;
 
   const ticket = await prisma.tickets.create({
     data: {

@@ -19,7 +19,6 @@
  * - GET /statistics/conversations - Detailed conversation statistics
  * - GET /statistics/agents - Agent performance and activity
  * - GET /statistics/ai-suggestions - AI suggestion usage patterns
- * - GET /statistics/templates - Template usage analytics
  * - GET /statistics/trends - Time-series data for charts
  *
  * Query Parameters:
@@ -28,7 +27,6 @@
  * - agentId: Filter by specific agent (optional)
  * - category_id: Filter by category (optional)
  * - granularity: 'day' | 'week' | 'month' (for trends)
- * - limit: Number of results (for templates)
  *
  * Dependencies:
  * - Statistics service for all calculations
@@ -53,19 +51,14 @@ class StatisticsController {
             conversationStatus,
             agentCounts,
             suggestionUsage,
-            templateOverview,
-            avgMessages
+            messageStats
         ] = await Promise.all([
             statisticsService.getTotalConversations(startDate, endDate),
             statisticsService.getConversationStatus(startDate, endDate),
             statisticsService.getAgentMessageCounts(startDate, endDate),
             statisticsService.getAISuggestionUsage(startDate, endDate),
-            statisticsService.getTemplateUsageOverview(startDate, endDate),
-            statisticsService.getAverageMessagesPerConversation(startDate, endDate)
+            statisticsService.getTotalMessagesAndAverage(startDate, endDate)
         ]);
-
-        // Calculate total messages from agent counts
-        const totalMessages = agentCounts.reduce((sum, agent) => sum + agent.messageCount, 0);
 
         res.json({
             success: true,
@@ -76,15 +69,14 @@ class StatisticsController {
                     archived: conversationStatus.archived
                 },
                 messages: {
-                    total: totalMessages,
-                    averagePerConversation: avgMessages
+                    total: messageStats.total,
+                    averagePerConversation: messageStats.average
                 },
                 agents: {
                     activeAgents: agentCounts.length,
                     topAgent: agentCounts[0] || null
                 },
-                aiSuggestions: suggestionUsage,
-                templates: templateOverview
+                aiSuggestions: suggestionUsage
             },
             meta: {
                 startDate: startDate.toISOString(),
@@ -145,20 +137,17 @@ class StatisticsController {
             // Get detailed stats for specific agent
             const [
                 agentDetails,
-                suggestionBreakdown,
-                templateUsage
+                suggestionBreakdown
             ] = await Promise.all([
                 statisticsService.getAgentActivityDetails(agentId, startDate, endDate),
-                statisticsService.getAgentSuggestionBreakdown(agentId, startDate, endDate),
-                statisticsService.getTemplateUsageByAgent(agentId, startDate, endDate)
+                statisticsService.getAgentSuggestionBreakdown(agentId, startDate, endDate)
             ]);
 
             res.json({
                 success: true,
                 data: {
                     agent: agentDetails,
-                    suggestions: suggestionBreakdown,
-                    templates: templateUsage
+                    suggestions: suggestionBreakdown
                 },
                 meta: {
                     startDate: startDate.toISOString(),
@@ -181,8 +170,7 @@ class StatisticsController {
                 const details = activityDetails.find(d => d.agentId === agent.agentId);
                 return {
                     ...agent,
-                    suggestionUsage: details?.suggestionUsagePercentage || 0,
-                    templateUsage: details?.templateUsagePercentage || 0
+                    suggestionUsage: details?.suggestionUsagePercentage || 0
                 };
             });
 
@@ -236,59 +224,6 @@ class StatisticsController {
                     endDate: endDate.toISOString(),
                     generatedAt: new Date().toISOString(),
                     note: 'Statistics include HITL mode only (excludes autopilot)'
-                }
-            });
-        }
-    });
-
-    /**
-     * Get template usage statistics
-     * @route GET /api/statistics/templates?startDate=...&endDate=...&agentId=...&limit=10
-     * @access Agent/Admin
-     */
-    getTemplateStats = asyncHandler(async (req, res) => {
-        const { startDate, endDate } = this.parseDateRange(req.query);
-        const { agentId, limit = '10' } = req.query;
-        const parsed = parseInt(limit, 10);
-        const limitNum = Math.min(Number.isFinite(parsed) ? parsed : 10, 50); // Max 50 templates
-
-        if (agentId) {
-            // Get agent-specific template usage
-            const templates = await statisticsService.getTemplateUsageByAgent(
-                agentId,
-                startDate,
-                endDate
-            );
-
-            res.json({
-                success: true,
-                data: { templates },
-                meta: {
-                    startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
-                    generatedAt: new Date().toISOString()
-                }
-            });
-        } else {
-            // Get overall template usage
-            const [
-                overview,
-                topTemplates
-            ] = await Promise.all([
-                statisticsService.getTemplateUsageOverview(startDate, endDate),
-                statisticsService.getMostPopularTemplates(startDate, endDate, limitNum)
-            ]);
-
-            res.json({
-                success: true,
-                data: {
-                    overview,
-                    topTemplates
-                },
-                meta: {
-                    startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
-                    generatedAt: new Date().toISOString()
                 }
             });
         }

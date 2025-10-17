@@ -132,7 +132,7 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - ✅ Real-time WebSocket communication
 - ✅ Role-based authentication and user management
 - ✅ Ticket categorization system (admin-only management, real-time updates)
-- ✅ **Statistics backend API (Issue #27)** - Conversation metrics, agent performance, AI suggestion usage, template analytics
+- ✅ **Statistics backend API (Issue #27)** - Conversation metrics, agent performance, AI suggestion usage
 
 ### Important Implementation Details
 
@@ -159,7 +159,7 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
    - `tests/integration/` - API integration tests for statistics system
    - Tests perform real user actions (no mocks)
    - Use separate test database (vilnius_support_test)
-   - Coverage: Templates, Conversations, AI Suggestions, Dashboard
+   - Coverage: Conversations, AI Suggestions, Dashboard
    - Run with: `npm run test:integration`
 
 **Test Database Setup**: Integration tests require a separate PostgreSQL test database:
@@ -178,12 +178,11 @@ npm run test:integration
 
 **Known Test Issue**: One auth test occasionally fails in CI due to timing issues with token expiration checks. This is a test environment issue documented in `custom-widget/backend/tests/unit/auth.test.js`. The authentication flow works correctly in production.
 
-**Statistics API**: Backend complete with 6 REST endpoints for analytics:
+**Statistics API**: Backend complete with 5 REST endpoints for analytics:
 - `/api/statistics/dashboard` - Combined overview of key metrics
 - `/api/statistics/conversations` - Detailed conversation statistics
 - `/api/statistics/agents` - Agent performance and rankings
 - `/api/statistics/ai-suggestions` - AI suggestion usage (HITL-only)
-- `/api/statistics/templates` - Template usage analytics
 - `/api/statistics/trends` - Time-series data for charts
 
 See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
