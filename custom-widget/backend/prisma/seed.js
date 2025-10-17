@@ -52,19 +52,18 @@ async function main() {
 
     console.log('✅ Created sample agent:', agent.email);
 
-    // Set agent status
+    // Create agent_status for the sample agent
     await prisma.agent_status.upsert({
       where: { user_id: agent.id },
-      update: { status: 'online', updated_at: new Date() },
+      update: {},
       create: {
-        id: agent.id + '_status',
+        id: `agent_status_${agent.id}`,
         user_id: agent.id,
-        status: 'online',
+        status: 'offline',
         updated_at: new Date(),
       },
     });
-
-    console.log('✅ Set agent status');
+    console.log('✅ Created agent_status for:', agent.email);
 
     // Create one sample user
     const userPassword = await bcrypt.hash('user123', 12);

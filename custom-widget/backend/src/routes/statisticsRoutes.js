@@ -7,7 +7,6 @@
  * - Conversation metrics and trends
  * - Agent performance and rankings
  * - AI suggestion usage (HITL mode only)
- * - Template popularity and adoption
  */
 
 const express = require('express');
@@ -26,7 +25,7 @@ router.use(requireAgentOrAdmin);
  * @access Agent/Admin
  * @query {string} startDate - Start of date range (ISO 8601, optional, default: 30 days ago)
  * @query {string} endDate - End of date range (ISO 8601, optional, default: now)
- * @returns {Object} Dashboard overview with conversations, messages, agents, AI, and template stats
+ * @returns {Object} Dashboard overview with conversations, messages, agents, and AI stats
  */
 router.get('/dashboard', statisticsController.getDashboardStats);
 
@@ -64,18 +63,6 @@ router.get('/agents', statisticsController.getAgentStats);
  * @note Only includes suggestions from HITL mode, excludes autopilot
  */
 router.get('/ai-suggestions', statisticsController.getAISuggestionStats);
-
-/**
- * @route GET /api/statistics/templates
- * @desc Get template usage analytics
- * @access Agent/Admin
- * @query {string} startDate - Start of date range (ISO 8601)
- * @query {string} endDate - End of date range (ISO 8601)
- * @query {string} agentId - Get stats for specific agent (optional)
- * @query {number} limit - Number of top templates to return (default: 10, max: 50)
- * @returns {Object} Template usage overview and most popular templates
- */
-router.get('/templates', statisticsController.getTemplateStats);
 
 /**
  * @route GET /api/statistics/trends

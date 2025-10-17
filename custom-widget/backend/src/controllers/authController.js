@@ -140,7 +140,8 @@ class AuthController {
         },
       });
     } catch (error) {
-      logger.error('Login error:', error);
+      logger.error('Login error:', error.message);
+      logger.error('Error stack:', error.stack);
 
       // Determine if this was a 2FA failure
       const is2FAFailure = error.message.includes('2FA') || error.message.includes('Too many failed attempts');

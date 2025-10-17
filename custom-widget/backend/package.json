@@ -10,14 +10,17 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:unit": "jest tests/unit",
-    "test:integration": "jest tests/integration",
+    "test:integration": "NODE_ENV=test jest tests/integration --runInBand",
+    "test:integration:watch": "NODE_ENV=test jest tests/integration --watch",
+    "test:integration:coverage": "NODE_ENV=test jest tests/integration --coverage",
     "test:e2e": "jest tests/e2e",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
-    "db:seed": "node prisma/seed.js"
+    "db:seed": "node prisma/seed.js",
+    "db:test:setup": "NODE_ENV=test npx prisma db push --skip-generate"
   },
   "dependencies": {
     "@chroma-core/default-embed": "^0.1.8",
