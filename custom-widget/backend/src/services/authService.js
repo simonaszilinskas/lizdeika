@@ -422,15 +422,15 @@ class AuthService {
     // Find stored refresh token
     const storedToken = await this.db.refresh_tokens.findUnique({
       where: { token: refreshToken },
-      include: { user: true },
+      include: { users: true },
     });
 
-    if (!storedToken || storedToken.isRevoked) {
+    if (!storedToken || storedToken.is_revoked) {
       throw new Error('Refresh token not found or revoked');
     }
 
     // Check if token is expired
-    if (new Date() > storedToken.expiresAt) {
+    if (new Date() > storedToken.expires_at) {
       // Clean up expired token
       await this.db.refresh_tokens.delete({
         where: { id: storedToken.id },
@@ -444,15 +444,17 @@ class AuthService {
     }
 
     // Generate new access token
-    const newAccessToken = tokenUtils.generateAccessToken(storedToken.user);
+    const newAccessToken = tokenUtils.generateAccessToken(storedToken.users);
 
-    // Optionally rotate refresh token (for enhanced security)
+    // Automatic refresh token rotation for enhanced security
+    // Rotates 30% of refresh tokens to limit the window of exposure if a token is compromised
+    // This balances security (frequent rotation) with database load (not every request)
     const shouldRotateRefreshToken = Math.random() > 0.7; // 30% chance
     let newRefreshToken = refreshToken;
 
     if (shouldRotateRefreshToken) {
       // Generate new refresh token
-      newRefreshToken = tokenUtils.generateRefreshToken(storedToken.user.id);
+      newRefreshToken = tokenUtils.generateRefreshToken(storedToken.users.id);
       
       // Update stored token
       await this.db.refresh_tokens.update({
@@ -604,7 +606,7 @@ class AuthService {
     }
 
     // Check if new password is same as old password
-    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.passwordHash);
+    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.password_hash);
     if (isSamePassword) {
       throw new Error('New password must be different from current password');
     }
@@ -615,7 +617,7 @@ class AuthService {
     // Update password
     await this.db.users.update({
       where: { id: user.id },
-      data: { passwordHash: newPasswordHash },
+      data: { password_hash: newPasswordHash },
     });
 
     // Revoke all refresh tokens for security
@@ -661,7 +663,7 @@ class AuthService {
     }
 
     // Verify current password
-    const isCurrentPasswordValid = await passwordUtils.verifyPassword(currentPassword, user.passwordHash);
+    const isCurrentPasswordValid = await passwordUtils.verifyPassword(currentPassword, user.password_hash);
     if (!isCurrentPasswordValid) {
       throw new Error('Current password is incorrect');
     }
@@ -673,7 +675,7 @@ class AuthService {
     }
 
     // Check if new password is same as current password
-    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.passwordHash);
+    const isSamePassword = await passwordUtils.verifyPassword(newPassword, user.password_hash);
     if (isSamePassword) {
       throw new Error('New password must be different from current password');
     }
@@ -684,23 +686,23 @@ class AuthService {
     // Update password
     await this.db.users.update({
       where: { id: userId },
-      data: { passwordHash: newPasswordHash },
+      data: { password_hash: newPasswordHash },
     });
 
-    // Revoke all other refresh tokens for security (keep current session)
+    // Revoke all refresh tokens for security
     await this.db.refresh_tokens.deleteMany({
-      where: { 
-        user_id: userId,
-        expires_at: { lt: new Date(Date.now() + 24 * 60 * 60 * 1000) } // Delete tokens expiring within 24 hours
+      where: {
+        user_id: userId
       },
     });
 
     // Log password change
     await this.db.system_logs.create({
       data: {
+        id: uuidv4(),
         action: 'password_changed',
         details: {
-          user_id: user.id,
+          user_id: userId,
           email: user.email,
           timestamp: new Date().toISOString(),
         },
