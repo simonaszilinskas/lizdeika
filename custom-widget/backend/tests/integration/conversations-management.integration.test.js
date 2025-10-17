@@ -51,29 +51,27 @@ describe('Conversation Management Integration Tests', () => {
         message: 'Spam message',
       };
 
-      // Send 11 messages rapidly (limit is 10 per minute)
-      const requests = [];
+      // Send 11 messages sequentially to avoid race condition
+      const responses = [];
       for (let i = 0; i < 11; i++) {
-        requests.push(
-          request(app)
-            .post('/api/messages')
-            .send(messageData)
-        );
+        const response = await request(app)
+          .post('/api/messages')
+          .send(messageData);
+        responses.push(response);
       }
 
-      const responses = await Promise.all(requests);
       const rateLimitedResponses = responses.filter(
         (r) => r.status === 429
       );
 
-      // At least 1 request should be rate limited
+      // At least 1 request should be rate limited (11 requests, limit is 10)
       expect(rateLimitedResponses.length).toBeGreaterThanOrEqual(1);
 
       // Verify rate limit response structure
-      if (rateLimitedResponses.length > 0) {
-        expect(rateLimitedResponses[0].body.success).toBe(false);
-        expect(rateLimitedResponses[0].body.error).toContain('Too many messages');
-      }
+      const rateLimited = rateLimitedResponses[0];
+      expect(rateLimited.body.success).toBe(false);
+      expect(rateLimited.body.error).toContain('Too many messages');
+      expect(rateLimited.body.code).toBe('RATE_LIMIT_EXCEEDED');
     });
   });
 

@@ -129,15 +129,15 @@ function createConversationRoutes(io) {
     });
 
     // Bulk operations (admin-only endpoints)
-    router.post('/admin/conversations/bulk-archive', (req, res) => {
+    router.post('/admin/conversations/bulk-archive', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.bulkArchiveConversations(req, res);
     });
 
-    router.post('/admin/conversations/bulk-unarchive', (req, res) => {
+    router.post('/admin/conversations/bulk-unarchive', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.bulkUnarchiveConversations(req, res);
     });
 
-    router.post('/admin/conversations/bulk-assign', (req, res) => {
+    router.post('/admin/conversations/bulk-assign', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.bulkAssignConversations(req, res);
     });
 
