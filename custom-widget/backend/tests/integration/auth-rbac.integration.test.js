@@ -184,12 +184,11 @@ describe('RBAC Integration Tests', () => {
       expect(response.body.success).toBe(false);
     });
 
-    test('expired token is rejected', async () => {
-      // This is implicitly tested by token refresh tests
-      // Just verify that profile requires valid token
+    test('malformed token is rejected', async () => {
+      // Use an obviously invalid token
       const response = await request(app)
         .get('/api/auth/profile')
-        .set('Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjB9.invalid');
+        .set('Authorization', 'Bearer not-a-valid-jwt-token');
 
       // Should be unauthorized
       expect(response.status).toBe(401);

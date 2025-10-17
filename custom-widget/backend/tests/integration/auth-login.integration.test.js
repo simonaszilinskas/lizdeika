@@ -174,7 +174,7 @@ describe('Login Integration Tests', () => {
         });
 
       // 3. Verify account deactivated error
-      expect(response.status).toBe(400); // AuthService throws error, caught as 400
+      expect(response.status).toBe(403);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toContain('deactivated');
 

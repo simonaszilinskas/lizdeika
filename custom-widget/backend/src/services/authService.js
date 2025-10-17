@@ -687,11 +687,10 @@ class AuthService {
       data: { password_hash: newPasswordHash },
     });
 
-    // Revoke all other refresh tokens for security (keep current session)
+    // Revoke all refresh tokens for security
     await this.db.refresh_tokens.deleteMany({
-      where: { 
-        user_id: userId,
-        expires_at: { lt: new Date(Date.now() + 24 * 60 * 60 * 1000) } // Delete tokens expiring within 24 hours
+      where: {
+        user_id: userId
       },
     });
 

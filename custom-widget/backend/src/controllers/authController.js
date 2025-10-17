@@ -159,12 +159,20 @@ class AuthController {
         }
       );
 
-      const statusCode = error.message.includes('Invalid email or password') ? 401 : 400;
+      let statusCode = 400;
+      let errorCode = is2FAFailure ? 'TOTP_INVALID' : 'LOGIN_FAILED';
+
+      if (error.message.includes('Invalid email or password')) {
+        statusCode = 401;
+      } else if (error.message.includes('deactivated')) {
+        statusCode = 403;
+        errorCode = 'ACCOUNT_DEACTIVATED';
+      }
 
       res.status(statusCode).json({
         success: false,
         error: error.message,
-        code: is2FAFailure ? 'TOTP_INVALID' : 'LOGIN_FAILED',
+        code: errorCode,
       });
     }
   }

@@ -91,6 +91,48 @@ describe('Password Change Integration Tests', () => {
       expect(newPasswordLogin.status).toBe(200);
       expect(newPasswordLogin.body.success).toBe(true);
     });
+
+    test('password change revokes refresh tokens', async () => {
+      // 1. Create agent and login
+      const agent = await createTestAgent(prisma);
+
+      const loginResponse = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: agent.email,
+          password: agent.plainPassword,
+        });
+
+      const accessToken = loginResponse.body.data.tokens.accessToken;
+      const refreshToken = loginResponse.body.data.tokens.refreshToken;
+
+      // 2. Change password
+      const newPassword = 'NewSecurePassword123!';
+      const changeResponse = await request(app)
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          currentPassword: agent.plainPassword,
+          newPassword,
+        });
+
+      expect(changeResponse.status).toBe(200);
+
+      // 3. Attempt to use old refresh token
+      const refreshResponse = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken });
+
+      // 4. Old refresh token should be revoked (401 Unauthorized)
+      expect(refreshResponse.status).toBe(401);
+      expect(refreshResponse.body.success).toBe(false);
+
+      // 5. Verify no active tokens in database
+      const activeTokens = await prisma.refresh_tokens.findMany({
+        where: { user_id: agent.id },
+      });
+      expect(activeTokens.length).toBe(0);
+    });
   });
 
   describe('Failed Password Change', () => {

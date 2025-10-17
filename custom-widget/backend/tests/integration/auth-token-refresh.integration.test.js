@@ -93,9 +93,10 @@ describe('Token Refresh Integration Tests', () => {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1); // 1 day ago
 
+      const { v4: uuidv4 } = require('uuid');
       await prisma.refresh_tokens.create({
         data: {
-          id: require('uuid').v4(),
+          id: uuidv4(),
           user_id: agent.id,
           token: expiredToken,
           expires_at: yesterday, // Already expired
@@ -151,15 +152,16 @@ describe('Token Refresh Integration Tests', () => {
     });
 
     test('non-existent refresh token returns 401', async () => {
-      // 1. Create fake token that was never issued
-      const fakeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYWtlLWlkIiwiaWF0IjoxNjE2MjM5MDIyfQ.fakesignature';
+      // 1. Generate a valid-looking token that was never issued to the database
+      const { v4: uuidv4 } = require('uuid');
+      const fakeToken = tokenUtils.generateRefreshToken(uuidv4());
 
       // 2. Attempt to use it
       const response = await request(app)
         .post('/api/auth/refresh')
         .send({ refreshToken: fakeToken });
 
-      // 3. Verify rejected
+      // 3. Verify rejected (token not in database)
       expect(response.status).toBe(401);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBeDefined();
