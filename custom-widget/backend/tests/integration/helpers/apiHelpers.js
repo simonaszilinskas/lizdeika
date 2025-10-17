@@ -95,6 +95,16 @@ async function authenticateAsAgent(app, prisma, email = null, password = null) {
       },
     });
 
+    // Create required agent_status row for authentication
+    await prisma.agent_status.create({
+      data: {
+        id: `agent_status_${userId}`,
+        user_id: userId,
+        status: 'offline',
+        updated_at: new Date(),
+      },
+    });
+
     const token = await login(app, email, password);
     return { token, userId };
   }
