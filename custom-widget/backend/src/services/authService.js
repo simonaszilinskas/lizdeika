@@ -422,15 +422,15 @@ class AuthService {
     // Find stored refresh token
     const storedToken = await this.db.refresh_tokens.findUnique({
       where: { token: refreshToken },
-      include: { user: true },
+      include: { users: true },
     });
 
-    if (!storedToken || storedToken.isRevoked) {
+    if (!storedToken || storedToken.is_revoked) {
       throw new Error('Refresh token not found or revoked');
     }
 
     // Check if token is expired
-    if (new Date() > storedToken.expiresAt) {
+    if (new Date() > storedToken.expires_at) {
       // Clean up expired token
       await this.db.refresh_tokens.delete({
         where: { id: storedToken.id },
@@ -444,7 +444,7 @@ class AuthService {
     }
 
     // Generate new access token
-    const newAccessToken = tokenUtils.generateAccessToken(storedToken.user);
+    const newAccessToken = tokenUtils.generateAccessToken(storedToken.users);
 
     // Optionally rotate refresh token (for enhanced security)
     const shouldRotateRefreshToken = Math.random() > 0.7; // 30% chance
