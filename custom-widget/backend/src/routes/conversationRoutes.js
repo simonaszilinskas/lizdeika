@@ -92,13 +92,13 @@ function createConversationRoutes(io) {
         conversationController.getAllConversations(req, res);
     });
 
-    // Get AI suggestion for a pending message
-    router.get('/conversations/:conversationId/pending-suggestion', (req, res) => {
+    // Get AI suggestion for a pending message (agent/admin only)
+    router.get('/conversations/:conversationId/pending-suggestion', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.getPendingSuggestion(req, res);
     });
 
-    // Generate new AI suggestion (agent-initiated)
-    router.post('/conversations/:conversationId/generate-suggestion', (req, res) => {
+    // Generate new AI suggestion (agent-initiated, agent/admin only)
+    router.post('/conversations/:conversationId/generate-suggestion', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.generateAISuggestion(req, res);
     });
 

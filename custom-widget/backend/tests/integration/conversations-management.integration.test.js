@@ -186,6 +186,17 @@ describe('Conversation Management Integration Tests', () => {
   });
 
   describe('AI Suggestions', () => {
+    test('retrieve pending AI suggestion requires authentication', async () => {
+      const ticket = await createTestTicket(prisma);
+
+      const response = await request(app)
+        .get(`/api/conversations/${ticket.id}/pending-suggestion`)
+        .send();
+
+      // Should require authentication
+      expect(response.status).toBe(401);
+    });
+
     test('retrieve pending AI suggestion returns 404 when none exists', async () => {
       const agent = await createTestAgent(prisma);
       const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
@@ -200,6 +211,17 @@ describe('Conversation Management Integration Tests', () => {
 
       // Without messages, there should be no pending suggestion
       expect(response.status).toBe(404);
+    });
+
+    test('generate AI suggestion requires authentication', async () => {
+      const ticket = await createTestTicket(prisma);
+
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/generate-suggestion`)
+        .send();
+
+      // Should require authentication
+      expect(response.status).toBe(401);
     });
   });
 });
