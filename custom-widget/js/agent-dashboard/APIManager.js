@@ -472,8 +472,10 @@ export class APIManager {
      */
     async getPendingSuggestion(conversationId) {
         try {
-            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/pending-suggestion`);
-            
+            const response = await fetch(`${this.apiUrl}/api/conversations/${conversationId}/pending-suggestion`, {
+                headers: this.getAuthHeaders()
+            });
+
             if (response.ok) {
                 return await response.json();
             }

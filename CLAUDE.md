@@ -133,6 +133,7 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - ✅ Role-based authentication and user management
 - ✅ Ticket categorization system (admin-only management, real-time updates)
 - ✅ **Statistics backend API (Issue #27)** - Conversation metrics, agent performance, AI suggestion usage
+- ✅ **AI Suggestion Security (Issue #63)** - Authentication middleware added to AI suggestion endpoints
 
 ### Important Implementation Details
 
@@ -155,11 +156,11 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
    - `tests/utilities/` - ES6 module testing utilities
    - Run with: `npm run test:unit`
 
-2. **Integration Tests** (NEW - Real database operations):
-   - `tests/integration/` - API integration tests for statistics system
+2. **Integration Tests** (57 tests - Real database operations):
+   - `tests/integration/` - API integration tests for auth, statistics, and conversation management
    - Tests perform real user actions (no mocks)
    - Use separate test database (vilnius_support_test)
-   - Coverage: Conversations, AI Suggestions, Dashboard
+   - Coverage: Authentication, RBAC, Conversations, AI Suggestions, Dashboard, Agent Statistics
    - Run with: `npm run test:integration`
 
 **Test Database Setup**: Integration tests require a separate PostgreSQL test database:
@@ -174,9 +175,14 @@ npm run db:test:setup
 npm run test:integration
 ```
 
-**Current Status**: 220/221 unit tests passing (134 backend + 86 frontend). Integration tests verify end-to-end statistics flows with real database operations.
+**Current Status**: 220/221 unit tests passing (134 backend + 86 frontend). 57/57 integration tests passing - verifying end-to-end flows with real database operations.
 
 **Known Test Issue**: One auth test occasionally fails in CI due to timing issues with token expiration checks. This is a test environment issue documented in `custom-widget/backend/tests/unit/auth.test.js`. The authentication flow works correctly in production.
+
+**AI Suggestion Endpoints**: Secured with authentication middleware (Issue #63):
+- `/api/conversations/:id/pending-suggestion` (GET) - Retrieve cached AI suggestion (agent/admin only)
+- `/api/conversations/:id/generate-suggestion` (POST) - Generate new AI suggestion (agent/admin only)
+- Note: Full AI integration testing is impractical due to external service dependencies (OpenRouter, ChromaDB, Mistral). See `tests/integration/AI_SUGGESTION_TESTS_DECISION.md` for rationale.
 
 **Statistics API**: Backend complete with 5 REST endpoints for analytics:
 - `/api/statistics/dashboard` - Combined overview of key metrics

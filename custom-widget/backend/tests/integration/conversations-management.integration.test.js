@@ -186,6 +186,17 @@ describe('Conversation Management Integration Tests', () => {
   });
 
   describe('AI Suggestions', () => {
+    test('retrieve pending AI suggestion requires authentication', async () => {
+      const ticket = await createTestTicket(prisma);
+
+      const response = await request(app)
+        .get(`/api/conversations/${ticket.id}/pending-suggestion`)
+        .send();
+
+      // Should require authentication
+      expect(response.status).toBe(401);
+    });
+
     test('retrieve pending AI suggestion returns 404 when none exists', async () => {
       const agent = await createTestAgent(prisma);
       const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
@@ -200,6 +211,91 @@ describe('Conversation Management Integration Tests', () => {
 
       // Without messages, there should be no pending suggestion
       expect(response.status).toBe(404);
+    });
+
+    test('generate AI suggestion requires authentication', async () => {
+      const ticket = await createTestTicket(prisma);
+
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/generate-suggestion`)
+        .send();
+
+      // Should require authentication
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('Conversation Management Endpoints - Security', () => {
+    test('assign endpoint requires authentication', async () => {
+      const agent = await createTestAgent(prisma);
+      const ticket = await createTestTicket(prisma);
+
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/assign`)
+        .send({ agentId: agent.id });
+
+      expect(response.status).toBe(401);
+    });
+
+    test('unassign endpoint requires authentication', async () => {
+      const agent = await createTestAgent(prisma);
+      const ticket = await createTestTicket(prisma, { assigned_agent_id: agent.id });
+
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/unassign`)
+        .send({ agentId: agent.id });
+
+      expect(response.status).toBe(401);
+    });
+
+    test('end conversation endpoint requires authentication', async () => {
+      const ticket = await createTestTicket(prisma);
+
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/end`)
+        .send();
+
+      expect(response.status).toBe(401);
+    });
+
+    test('mark-seen endpoint requires authentication', async () => {
+      const agent = await createTestAgent(prisma);
+      const ticket = await createTestTicket(prisma);
+
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/mark-seen`)
+        .send({ agentId: agent.id });
+
+      expect(response.status).toBe(401);
+    });
+
+    test('authenticated agent can access assign endpoint', async () => {
+      const agent = await createTestAgent(prisma);
+      const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
+      const ticket = await createTestTicket(prisma);
+
+      // Test with valid authentication - endpoint is accessible (may fail on business logic,  but not on auth)
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/assign`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ agentId: 'test-agent-id' });
+
+      // Should not return 401 (authentication required)
+      // May return 400/404/500 due to invalid agentId, but that proves auth works
+      expect(response.status).not.toBe(401);
+    });
+
+    test('agent can mark conversation as seen', async () => {
+      const agent = await createTestAgent(prisma);
+      const { token } = await authenticateAsAgent(app, prisma, agent.email, agent.plainPassword);
+      const ticket = await createTestTicket(prisma, { assigned_agent_id: agent.id });
+
+      const response = await request(app)
+        .post(`/api/conversations/${ticket.id}/mark-seen`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ agentId: agent.id });
+
+      expect(response.status).toBe(200);
     });
   });
 });

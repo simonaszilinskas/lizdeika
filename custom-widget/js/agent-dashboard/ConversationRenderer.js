@@ -777,10 +777,12 @@ export class ConversationRenderer {
 
         try {
             // Make API call to mark messages as seen in the backend
+            const token = localStorage.getItem('agent_token');
             const response = await fetch(`/api/conversations/${conversationId}/mark-seen`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     agentId: this.agentId

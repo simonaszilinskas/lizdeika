@@ -1,27 +1,40 @@
 /**
  * CONVERSATION ROUTES
- * 
+ *
  * Main Purpose: Define HTTP route endpoints for customer conversations and message handling
- * 
+ *
  * Key Responsibilities:
  * - Route Definition: Map conversation-related URLs to controller methods
  * - Message Flow: Handle customer message submission and AI response generation
  * - Admin Access: Provide administrative endpoints for conversation monitoring
  * - Agent Integration: Support agent assignment and conversation management
- * 
- * Customer Routes:
+ *
+ * Customer Routes (Public):
  * - POST /conversations - Create new conversation
- * - POST /messages - Send customer message and get AI response
+ * - POST /messages - Send customer message and get AI response (rate limited)
  * - GET /conversations/:id/messages - Retrieve conversation history
- * 
- * Agent Routes:
- * - GET /conversations/:id/pending-suggestion - Get AI suggestion for agent
+ *
+ * Agent Routes (Requires Authentication - agent/admin only):
+ * - GET /conversations/:id/pending-suggestion - Get cached AI suggestion
+ * - POST /conversations/:id/generate-suggestion - Generate new AI suggestion
  * - POST /conversations/:id/assign - Assign conversation to agent
+ * - POST /conversations/:id/unassign - Unassign conversation from agent
  * - POST /conversations/:id/end - End conversation
- * 
- * Admin Routes:
+ * - POST /conversations/:id/mark-seen - Mark messages as seen by agent
+ * - PATCH /conversations/:id/category - Assign category to conversation
+ *
+ * Admin Routes (Requires Authentication - agent/admin only):
  * - GET /admin/conversations - View all conversations with statistics
- * 
+ * - POST /admin/conversations/bulk-archive - Archive multiple conversations
+ * - POST /admin/conversations/bulk-unarchive - Unarchive multiple conversations
+ * - POST /admin/conversations/bulk-assign - Assign multiple conversations
+ * - PATCH /admin/conversations/bulk-category - Assign category to multiple conversations
+ *
+ * Security:
+ * - All agent and admin routes require JWT authentication via authenticateToken middleware
+ * - Agent routes require agent or admin role via requireAgentOrAdmin middleware
+ * - Customer message endpoint has rate limiting (10 messages per minute per IP)
+ *
  * Notes:
  * - WebSocket instance enables real-time notifications to agents
  * - Routes handle both customer-facing and agent-facing functionality
@@ -92,34 +105,34 @@ function createConversationRoutes(io) {
         conversationController.getAllConversations(req, res);
     });
 
-    // Get AI suggestion for a pending message
-    router.get('/conversations/:conversationId/pending-suggestion', (req, res) => {
+    // Get AI suggestion for a pending message (agent/admin only)
+    router.get('/conversations/:conversationId/pending-suggestion', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.getPendingSuggestion(req, res);
     });
 
-    // Generate new AI suggestion (agent-initiated)
-    router.post('/conversations/:conversationId/generate-suggestion', (req, res) => {
+    // Generate new AI suggestion (agent-initiated, agent/admin only)
+    router.post('/conversations/:conversationId/generate-suggestion', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.generateAISuggestion(req, res);
     });
 
 
-    // Assign conversation to agent
-    router.post('/conversations/:conversationId/assign', (req, res) => {
+    // Assign conversation to agent (agent/admin only)
+    router.post('/conversations/:conversationId/assign', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.assignConversation(req, res);
     });
 
-    // Unassign conversation from agent
-    router.post('/conversations/:conversationId/unassign', (req, res) => {
+    // Unassign conversation from agent (agent/admin only)
+    router.post('/conversations/:conversationId/unassign', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.unassignConversation(req, res);
     });
 
-    // End conversation
-    router.post('/conversations/:conversationId/end', (req, res) => {
+    // End conversation (agent/admin only)
+    router.post('/conversations/:conversationId/end', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.endConversation(req, res);
     });
 
-    // Mark messages as seen by agent
-    router.post('/conversations/:conversationId/mark-seen', (req, res) => {
+    // Mark messages as seen by agent (agent/admin only)
+    router.post('/conversations/:conversationId/mark-seen', authenticateToken, requireAgentOrAdmin, (req, res) => {
         conversationController.markMessagesAsSeen(req, res);
     });
 
