@@ -38,6 +38,7 @@
  */
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
@@ -88,6 +89,29 @@ function createApp() {
 
     // Correlation ID middleware must be first to track all requests
     app.use(correlationMiddleware);
+
+    // Cookie parsing middleware for authentication token handling
+    app.use(cookieParser());
+
+    // Root route handler - redirect based on authentication status
+    app.get('/', (req, res) => {
+        // Check for agent token first
+        const agentToken = req.cookies?.agent_token || req.headers.authorization?.replace('Bearer ', '');
+        if (agentToken) {
+            // User is logged in as agent, redirect to dashboard
+            return res.redirect('/agent-dashboard.html');
+        }
+
+        // Check for any other auth token or session
+        const userToken = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+        if (userToken) {
+            // User has some auth, redirect to dashboard
+            return res.redirect('/agent-dashboard.html');
+        }
+
+        // No authentication found, redirect to login
+        return res.redirect('/login.html');
+    });
 
     app.use(express.json());
 
