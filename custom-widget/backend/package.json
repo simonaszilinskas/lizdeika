@@ -33,6 +33,7 @@
     "bcryptjs": "^2.4.3",
     "chromadb": "^3.0.17",
     "cls-hooked": "^4.2.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",

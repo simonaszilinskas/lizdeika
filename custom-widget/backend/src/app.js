@@ -40,6 +40,8 @@ const express = require('express');
 const cors = require('cors');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const cookieParser = require('cookie-parser');
+const crypto = require('crypto');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -88,6 +90,9 @@ function createApp() {
 
     // Correlation ID middleware must be first to track all requests
     app.use(correlationMiddleware);
+
+    // Cookie parser with security configuration
+    app.use(cookieParser(process.env.COOKIE_SECRET || crypto.randomBytes(32).toString('hex')));
 
     app.use(express.json());
 
@@ -153,6 +158,53 @@ function createApp() {
 
     // Initialize WebSocket service
     const websocketService = new WebSocketService(io);
+
+    // Root route with secure token validation and role-based routing
+    // IMPORTANT: Must be registered before other '/' routes
+    app.get('/', async (req, res) => {
+        const { verifyAccessToken } = require('./utils/tokenUtils');
+        const databaseClient = require('./utils/database');
+
+        const token = req.cookies?.token ||
+                      req.cookies?.agent_token ||
+                      req.headers.authorization?.replace('Bearer ', '');
+
+        if (token) {
+            try {
+                // Validate token signature and expiration
+                const decoded = verifyAccessToken(token);
+
+                // Verify user exists and is active
+                const db = databaseClient.getClient();
+                const user = await db.users.findUnique({
+                    where: { id: decoded.sub },
+                    select: {
+                        id: true,
+                        is_active: true,
+                        role: true
+                    }
+                });
+
+                if (user && user.is_active) {
+                    // Route based on user role
+                    switch (user.role) {
+                        case 'admin':
+                            return res.redirect('/agent-dashboard.html');
+                        case 'agent':
+                            return res.redirect('/agent-dashboard.html');
+                        case 'customer':
+                            return res.redirect('/customer-portal.html');
+                        default:
+                            return res.redirect('/login.html');
+                    }
+                }
+            } catch (error) {
+                logger.debug('Root route token validation failed', { error: error.message });
+            }
+        }
+
+        return res.redirect('/login.html');
+    });
 
     // Routes
     app.use('/api/auth', authRoutes); // Authentication routes

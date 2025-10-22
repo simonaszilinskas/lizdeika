@@ -131,6 +131,14 @@ class AuthController {
         { role: result.user.role }
       );
 
+      // Set secure HTTP-only cookies for token
+      res.cookie('token', result.tokens.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000 // 15 minutes (match JWT expiration)
+      });
+
       res.json({
         success: true,
         message: 'Login successful',
@@ -215,13 +223,25 @@ class AuthController {
       
       // Log successful logout
       await activityService.logAuth(
-        req.user?.id || null, 
-        'logout_success', 
-        true, 
-        ipAddress, 
+        req.user?.id || null,
+        'logout_success',
+        true,
+        ipAddress,
         userAgent
       );
-      
+
+      // Clear secure cookies
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+      });
+      res.clearCookie('agent_token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+      });
+
       res.json({
         success: true,
         message: 'Logout successful',
