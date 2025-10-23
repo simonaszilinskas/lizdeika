@@ -28,6 +28,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=development
+      - HOST=0.0.0.0
       - PORT=3002
       - HOST=0.0.0.0
       - DATABASE_URL=postgresql://vilnius_user:secure_password@postgres:5432/vilnius_support
