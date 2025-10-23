@@ -38,7 +38,6 @@
  */
 const express = require('express');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
@@ -47,6 +46,7 @@ const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
 const { correlationMiddleware, socketCorrelationMiddleware } = require('./middleware/correlationMiddleware');
 const { createLogger } = require('./utils/logger');
+const tokenUtils = require('./utils/tokenUtils');
 
 // Import route creators
 const createConversationRoutes = require('./routes/conversationRoutes');
@@ -90,27 +90,31 @@ function createApp() {
     // Correlation ID middleware must be first to track all requests
     app.use(correlationMiddleware);
 
-    // Cookie parsing middleware for authentication token handling
-    app.use(cookieParser());
-
     // Root route handler - redirect based on authentication status
     app.get('/', (req, res) => {
-        // Check for agent token first
-        const agentToken = req.cookies?.agent_token || req.headers.authorization?.replace('Bearer ', '');
-        if (agentToken) {
-            // User is logged in as agent, redirect to dashboard
-            return res.redirect('/agent-dashboard.html');
+        const authHeader = req.headers.authorization;
+
+        // Extract token safely
+        let token = null;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
         }
 
-        // Check for any other auth token or session
-        const userToken = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
-        if (userToken) {
-            // User has some auth, redirect to dashboard
-            return res.redirect('/agent-dashboard.html');
+        // No token provided, redirect to login
+        if (!token) {
+            return res.redirect('/login.html');
         }
 
-        // No authentication found, redirect to login
-        return res.redirect('/login.html');
+        // Validate token
+        try {
+            const decoded = tokenUtils.verifyAccessToken(token);
+
+            // Token is valid, redirect to dashboard
+            return res.redirect('/agent-dashboard.html');
+        } catch (error) {
+            // Token is invalid or expired, redirect to login
+            return res.redirect('/login.html');
+        }
     });
 
     app.use(express.json());
