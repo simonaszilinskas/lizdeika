@@ -271,8 +271,8 @@
                     document.getElementById('qrCodeContainer').innerHTML =
                         `<img src="${data.data.qrCode}" alt="QR Code" class="w-48 h-48" />`;
 
-                    // Display secret
-                    document.getElementById('secretText').textContent = data.data.secret;
+                    // Display manual entry key
+                    document.getElementById('secretText').textContent = data.data.manualEntryKey;
 
                     // Store backup codes for later use
                     backupCodes = data.data.backupCodes || [];

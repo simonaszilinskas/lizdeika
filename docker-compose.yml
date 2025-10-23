@@ -39,6 +39,7 @@ services:
       - RAG_K=100
       - RAG_SHOW_SOURCES=true
       - ADMIN_RECOVERY_KEY=dev-recovery-key-123
+      - TOTP_ENCRYPTION_KEY=development-totp-encryption-key-must-be-32-chars!
     volumes:
       - ./custom-widget/backend:/app
       - /app/node_modules
