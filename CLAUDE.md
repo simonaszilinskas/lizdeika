@@ -134,6 +134,7 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - ✅ Ticket categorization system (admin-only management, real-time updates)
 - ✅ **Statistics backend API (Issue #27)** - Conversation metrics, agent performance, AI suggestion usage
 - ✅ **AI Suggestion Security (Issue #63)** - Authentication middleware added to AI suggestion endpoints
+- ✅ **Two-Factor Authentication (2FA/TOTP)** - Time-based one-time passwords with QR code setup, manual entry key, and backup codes
 
 ### Important Implementation Details
 
@@ -183,6 +184,26 @@ npm run test:integration
 - `/api/conversations/:id/pending-suggestion` (GET) - Retrieve cached AI suggestion (agent/admin only)
 - `/api/conversations/:id/generate-suggestion` (POST) - Generate new AI suggestion (agent/admin only)
 - Note: Full AI integration testing is impractical due to external service dependencies (OpenRouter, ChromaDB, Mistral). See `tests/integration/AI_SUGGESTION_TESTS_DECISION.md` for rationale.
+
+**2FA/TOTP Implementation**: Two-factor authentication with time-based one-time passwords:
+- **Frontend**: `custom-widget/setup-2fa.html` - QR code generation and manual entry key display
+  - QR code displayed as image from backend
+  - Manual entry key shown for users who can't scan QR codes (field: `data.data.manualEntryKey`)
+  - Backup codes provided for account recovery
+- **Backend**: `custom-widget/backend/src/controllers/userController.js` - 2FA endpoints
+  - `POST /api/users/:id/2fa/setup` - Initiate 2FA setup (returns QR code and manual key)
+  - `POST /api/users/:id/2fa/confirm` - Confirm TOTP secret with verification code
+  - `GET /api/users/:id/2fa/status` - Check if 2FA is enabled
+- **Environment**: Requires `TOTP_ENCRYPTION_KEY` env var (minimum 32 characters)
+  - Development: Set in `docker-compose.yml`
+  - Production: Set in `.env` file (see `.env.example`)
+- **Database**: TOTP columns in `users` table:
+  - `totp_enabled` (boolean) - Whether 2FA is active
+  - `totp_secret` (encrypted) - TOTP secret for generating codes
+  - `totp_confirmed_at` (timestamp) - When 2FA was confirmed
+  - `backup_codes` (JSON) - Recovery codes for account access
+  - `totp_failed_attempts` (integer) - Failed verification attempts (rate limiting)
+  - `totp_lock_until` (timestamp) - Account lock time after failed attempts
 
 **Statistics API**: Backend complete with 5 REST endpoints for analytics:
 - `/api/statistics/dashboard` - Combined overview of key metrics
