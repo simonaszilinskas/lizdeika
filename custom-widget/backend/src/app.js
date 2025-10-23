@@ -141,12 +141,18 @@ function createApp() {
         });
     }
 
-    app.use(express.static(staticPath));
-
-    // Request logging in development
+    // Request logging in development (must be before static and error handler)
     if (process.env.NODE_ENV !== 'production') {
-        app.use(requestLogger);
+        app.use((req, res, next) => {
+            // Skip logging for static files
+            if (req.url.match(/\.(html|css|js|json|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+                return next();
+            }
+            requestLogger(req, res, next);
+        });
     }
+
+    app.use(express.static(staticPath));
 
     // Add correlation middleware to Socket.IO
     io.use(socketCorrelationMiddleware);
