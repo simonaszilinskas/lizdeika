@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vilnius Assistant</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .loader {
+            text-align: center;
+            color: white;
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .message {
+            font-size: 16px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader">
+        <div class="spinner"></div>
+        <div class="message">Redirecting...</div>
+    </div>
+
+    <script>
+        /**
+         * Client-side authentication redirect
+         * Matches login.html pattern for consistency
+         */
+
+        (function() {
+            const apiUrl = window.location.port === '3002'
+                ? window.location.protocol + '//' + window.location.hostname + ':3002'
+                : window.location.origin;
+            const token = localStorage.getItem('agent_token');
+
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Verify token with retry mechanism and token refresh
+            let retryCount = 0;
+            const maxRetries = 2;
+            const retryDelay = 1000;
+
+            async function attemptTokenRefresh() {
+                const refreshToken = localStorage.getItem('refresh_token');
+                if (!refreshToken) {
+                    return false;
+                }
+
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000);
+
+                    const response = await fetch(`${apiUrl}/api/auth/refresh`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refreshToken }),
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeout);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        localStorage.setItem('agent_token', data.data.tokens.accessToken);
+                        localStorage.setItem('refresh_token', data.data.tokens.refreshToken);
+                        window.location.href = 'agent-dashboard.html';
+                        return true;
+                    }
+                } catch (error) {
+                    // Network or other error during token refresh - silently fail
+                }
+
+                return false;
+            }
+
+            async function verifyToken() {
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000);
+
+                    const response = await fetch(`${apiUrl}/api/auth/verify`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeout);
+
+                    if (response.ok) {
+                        window.location.href = 'agent-dashboard.html';
+                    } else if (response.status === 401) {
+                        // Token expired - attempt refresh
+                        const refreshed = await attemptTokenRefresh();
+                        if (!refreshed) {
+                            localStorage.removeItem('agent_token');
+                            localStorage.removeItem('refresh_token');
+                            localStorage.removeItem('user_data');
+                            window.location.href = 'login.html';
+                        }
+                    } else if (response.status >= 500 && retryCount < maxRetries) {
+                        // Server error - retry
+                        retryCount++;
+                        setTimeout(verifyToken, retryDelay * retryCount);
+                    } else {
+                        // Other error or max retries reached
+                        localStorage.removeItem('agent_token');
+                        localStorage.removeItem('refresh_token');
+                        localStorage.removeItem('user_data');
+                        window.location.href = 'login.html';
+                    }
+                } catch (error) {
+                    // Network error - retry
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        setTimeout(verifyToken, retryDelay * retryCount);
+                    } else {
+                        // Network error - max retries reached, logout
+                        localStorage.removeItem('agent_token');
+                        localStorage.removeItem('refresh_token');
+                        localStorage.removeItem('user_data');
+                        window.location.href = 'login.html';
+                    }
+                }
+            }
+
+            verifyToken();
+        })();
+    </script>
+</body>
+</html>

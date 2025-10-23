@@ -187,7 +187,9 @@
     </div>
 
     <script>
-        const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+        const apiUrl = window.location.port === '3002'
+            ? window.location.protocol + '//' + window.location.hostname + ':3002'
+            : window.location.origin;
         let userId = null;
         let userEmail = null;
         let backupCodes = [];
