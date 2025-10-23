@@ -46,7 +46,6 @@ const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
 const { correlationMiddleware, socketCorrelationMiddleware } = require('./middleware/correlationMiddleware');
 const { createLogger } = require('./utils/logger');
-const tokenUtils = require('./utils/tokenUtils');
 
 // Import route creators
 const createConversationRoutes = require('./routes/conversationRoutes');
@@ -89,33 +88,6 @@ function createApp() {
 
     // Correlation ID middleware must be first to track all requests
     app.use(correlationMiddleware);
-
-    // Root route handler - redirect based on authentication status
-    app.get('/', (req, res) => {
-        const authHeader = req.headers.authorization;
-
-        // Extract token safely
-        let token = null;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            token = authHeader.substring(7);
-        }
-
-        // No token provided, redirect to login
-        if (!token) {
-            return res.redirect('/login.html');
-        }
-
-        // Validate token
-        try {
-            const decoded = tokenUtils.verifyAccessToken(token);
-
-            // Token is valid, redirect to dashboard
-            return res.redirect('/agent-dashboard.html');
-        } catch (error) {
-            // Token is invalid or expired, redirect to login
-            return res.redirect('/login.html');
-        }
-    });
 
     app.use(express.json());
 
