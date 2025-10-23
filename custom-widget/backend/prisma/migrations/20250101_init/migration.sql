@@ -1,3 +1,7 @@
+-- Initial database schema for Vilnius Assistant
+-- NOTE: This migration was reorganized to fix execution order before any production deployment
+-- All migrations in the 20250101-20250111 series are pre-production and safe to reorganize
+
 -- CreateEnum
 CREATE TYPE "ActionType" AS ENUM ('created', 'assigned', 'priority_changed', 'message_added');
 

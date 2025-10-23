@@ -144,8 +144,13 @@ function createApp() {
     // Request logging in development (must be before static and error handler)
     if (process.env.NODE_ENV !== 'production') {
         app.use((req, res, next) => {
-            // Skip logging for static files
-            if (req.url.match(/\.(html|css|js|json|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+            // Skip logging for static asset files (not API calls that happen to end with these extensions)
+            // Only skip if the URL is a direct file request, not an API endpoint
+            const isStaticAsset = req.url.startsWith('/') &&
+                !req.url.startsWith('/api') &&
+                /\.(html|css|js|json|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot)$/.test(req.url);
+
+            if (isStaticAsset) {
                 return next();
             }
             requestLogger(req, res, next);

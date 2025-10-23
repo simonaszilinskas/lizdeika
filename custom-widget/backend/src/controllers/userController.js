@@ -663,13 +663,23 @@ class UserController {
             { target_user_id: id, target_email: user.email }
         );
 
+        // Prevent caching of sensitive 2FA setup data
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+
         res.json({
             success: true,
             message: '2FA setup initiated',
             data: {
                 qrCode: qrCodeDataUrl,
                 otpauthUri: otpauthUri,
+                // ⚠️ SECURITY: manualEntryKey is the TOTP secret - show only once to user
+                // Frontend must clear this from memory after display to prevent exposure
                 manualEntryKey: secret,
+                // ⚠️ SECURITY: Backup codes are shown only during setup - treat as sensitive
+                // User should store these securely (password manager, printed backup)
+                // These should only be displayed once - frontend should warn about this
                 backupCodes: backupCodes
             }
         });
