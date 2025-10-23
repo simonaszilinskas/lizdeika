@@ -161,7 +161,7 @@ async function startServer() {
         }
 
         // Start server only after all dependencies are ready
-        // Bind to 0.0.0.0 for Railway/Docker, localhost for development
+        // Host binding: respects HOST env var first, then falls back to 0.0.0.0 for production or localhost for development
         const host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost');
         server.listen(PORT, host, () => {
             console.log(`✅ Widget backend running on http://${host}:${PORT}`);
