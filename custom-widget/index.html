@@ -51,7 +51,9 @@
          */
 
         (function() {
-            const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+            const apiUrl = window.location.port === '3002'
+                ? window.location.protocol + '//' + window.location.hostname + ':3002'
+                : window.location.origin;
             const token = localStorage.getItem('agent_token');
 
             if (!token) {
@@ -71,11 +73,17 @@
                 }
 
                 try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000);
+
                     const response = await fetch(`${apiUrl}/api/auth/refresh`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ refreshToken })
+                        body: JSON.stringify({ refreshToken }),
+                        signal: controller.signal
                     });
+
+                    clearTimeout(timeout);
 
                     if (response.ok) {
                         const data = await response.json();
@@ -93,12 +101,18 @@
 
             async function verifyToken() {
                 try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000);
+
                     const response = await fetch(`${apiUrl}/api/auth/verify`, {
                         headers: {
                             'Authorization': `Bearer ${token}`,
                             'Content-Type': 'application/json'
-                        }
+                        },
+                        signal: controller.signal
                     });
+
+                    clearTimeout(timeout);
 
                     if (response.ok) {
                         window.location.href = 'agent-dashboard.html';
@@ -108,6 +122,7 @@
                         if (!refreshed) {
                             localStorage.removeItem('agent_token');
                             localStorage.removeItem('refresh_token');
+                            localStorage.removeItem('user_data');
                             window.location.href = 'login.html';
                         }
                     } else if (response.status >= 500 && retryCount < maxRetries) {
@@ -118,6 +133,7 @@
                         // Other error or max retries reached
                         localStorage.removeItem('agent_token');
                         localStorage.removeItem('refresh_token');
+                        localStorage.removeItem('user_data');
                         window.location.href = 'login.html';
                     }
                 } catch (error) {
@@ -129,6 +145,7 @@
                         console.error('Token verification failed after retries:', error);
                         localStorage.removeItem('agent_token');
                         localStorage.removeItem('refresh_token');
+                        localStorage.removeItem('user_data');
                         window.location.href = 'login.html';
                     }
                 }
