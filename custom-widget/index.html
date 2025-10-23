@@ -52,46 +52,66 @@
          * - Browsers don't send Authorization headers on standard navigation
          * - Authentication tokens are stored in localStorage (not cookies)
          * - Server-side redirect can't access localStorage
-         *
-         * Flow:
-         * 1. Check localStorage for agent_token
-         * 2. If token exists and valid, redirect to dashboard
-         * 3. If no token or invalid, redirect to login
          */
 
         (function() {
-            const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+            // Build API URL with proper port handling
+            const port = window.location.port || '3002';
+            const apiUrl = `${window.location.protocol}//${window.location.hostname}:${port}`;
             const token = localStorage.getItem('agent_token');
 
             if (!token) {
-                // No token found, redirect to login
                 window.location.href = '/login.html';
                 return;
             }
 
-            // Verify token is still valid by making API call
-            fetch(`${apiUrl}/api/auth/verify`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => {
-                if (response.ok) {
-                    // Token is valid, redirect to dashboard
-                    window.location.href = '/agent-dashboard.html';
-                } else {
-                    // Token is invalid or expired, clear it and redirect to login
-                    localStorage.removeItem('agent_token');
-                    localStorage.removeItem('refresh_token');
-                    window.location.href = '/login.html';
-                }
-            })
-            .catch(error => {
-                // Network error or server down, redirect to login to be safe
-                console.error('Token verification failed:', error);
-                window.location.href = '/login.html';
-            });
+            // Verify token with retry mechanism for network errors
+            let retryCount = 0;
+            const maxRetries = 2;
+            const retryDelay = 1000;
+
+            function verifyToken() {
+                fetch(`${apiUrl}/api/auth/verify`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        window.location.href = '/agent-dashboard.html';
+                    } else if (response.status === 401) {
+                        // Token is invalid or expired
+                        localStorage.removeItem('agent_token');
+                        localStorage.removeItem('refresh_token');
+                        window.location.href = '/login.html';
+                    } else if (response.status >= 500 && retryCount < maxRetries) {
+                        // Server error, retry
+                        retryCount++;
+                        setTimeout(verifyToken, retryDelay * retryCount);
+                    } else {
+                        // Other error or max retries reached
+                        localStorage.removeItem('agent_token');
+                        localStorage.removeItem('refresh_token');
+                        window.location.href = '/login.html';
+                    }
+                })
+                .catch(error => {
+                    // Network error
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        setTimeout(verifyToken, retryDelay * retryCount);
+                    } else {
+                        // Max retries reached, treat as expired token
+                        console.error('Token verification failed after retries:', error);
+                        localStorage.removeItem('agent_token');
+                        localStorage.removeItem('refresh_token');
+                        window.location.href = '/login.html';
+                    }
+                });
+            }
+
+            verifyToken();
         })();
     </script>
 </body>
