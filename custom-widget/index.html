@@ -55,7 +55,7 @@
             const token = localStorage.getItem('agent_token');
 
             if (!token) {
-                window.location.href = '/login.html';
+                window.location.href = 'login.html';
                 return;
             }
 
@@ -81,7 +81,7 @@
                         const data = await response.json();
                         localStorage.setItem('agent_token', data.data.tokens.accessToken);
                         localStorage.setItem('refresh_token', data.data.tokens.refreshToken);
-                        window.location.href = '/agent-dashboard.html';
+                        window.location.href = 'agent-dashboard.html';
                         return true;
                     }
                 } catch (error) {
