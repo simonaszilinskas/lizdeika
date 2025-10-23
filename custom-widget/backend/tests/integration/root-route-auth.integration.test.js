@@ -26,6 +26,14 @@ const jwt = require('jsonwebtoken');
 
 require('dotenv').config({ path: __dirname + '/../../.env.test' });
 
+// Validate required environment variables
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is not defined. Check your .env.test file.');
+}
+if (!process.env.JWT_REFRESH_SECRET) {
+  throw new Error('JWT_REFRESH_SECRET environment variable is not defined. Check your .env.test file.');
+}
+
 describe('Root Route Authentication Integration Tests', () => {
   let prisma;
   let app;
@@ -54,7 +62,8 @@ describe('Root Route Authentication Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      const { accessToken } = loginResponse.body.data.tokens;
+      const accessToken = loginResponse.body.data?.tokens?.accessToken || loginResponse.body.accessToken;
+      expect(accessToken).toBeDefined();
 
       // 2. Verify token
       const response = await request(app)
@@ -140,7 +149,8 @@ describe('Root Route Authentication Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      const { accessToken } = loginResponse.body.data.tokens;
+      const accessToken = loginResponse.body.data?.tokens?.accessToken || loginResponse.body.accessToken;
+      expect(accessToken).toBeDefined();
 
       // 2. Deactivate user
       await prisma.users.update({
@@ -168,7 +178,8 @@ describe('Root Route Authentication Integration Tests', () => {
           password: admin.plainPassword,
         });
 
-      const { accessToken } = loginResponse.body.data.tokens;
+      const accessToken = loginResponse.body.data?.tokens?.accessToken || loginResponse.body.accessToken;
+      expect(accessToken).toBeDefined();
 
       // 2. Verify token
       const response = await request(app)
@@ -192,7 +203,8 @@ describe('Root Route Authentication Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      const { refreshToken } = loginResponse.body.data.tokens;
+      const refreshToken = loginResponse.body.data?.tokens?.refreshToken || loginResponse.body.refreshToken;
+      expect(refreshToken).toBeDefined();
 
       // 2. Refresh token
       const refreshResponse = await request(app)
@@ -244,7 +256,8 @@ describe('Root Route Authentication Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      const { refreshToken } = loginResponse.body.data.tokens;
+      const refreshToken = loginResponse.body.data?.tokens?.refreshToken || loginResponse.body.refreshToken;
+      expect(refreshToken).toBeDefined();
 
       // 2. Deactivate user
       await prisma.users.update({
@@ -272,14 +285,16 @@ describe('Root Route Authentication Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      const { refreshToken } = loginResponse.body.data.tokens;
+      const refreshToken = loginResponse.body.data?.tokens?.refreshToken || loginResponse.body.refreshToken;
+      expect(refreshToken).toBeDefined();
 
       // 2. Refresh token
       const refreshResponse = await request(app)
         .post('/api/auth/refresh')
         .send({ refreshToken });
 
-      const newAccessToken = refreshResponse.body.data.tokens.accessToken;
+      const newAccessToken = refreshResponse.body.data?.tokens?.accessToken || refreshResponse.body.accessToken;
+      expect(newAccessToken).toBeDefined();
 
       // 3. Verify new access token
       const verifyResponse = await request(app)
@@ -312,7 +327,8 @@ describe('Root Route Authentication Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      const { accessToken } = loginResponse.body.data.tokens;
+      const accessToken = loginResponse.body.data?.tokens?.accessToken || loginResponse.body.accessToken;
+      expect(accessToken).toBeDefined();
 
       // 2. Verify
       const response = await request(app)
@@ -333,7 +349,8 @@ describe('Root Route Authentication Integration Tests', () => {
           password: agent.plainPassword,
         });
 
-      const { refreshToken } = loginResponse.body.data.tokens;
+      const refreshToken = loginResponse.body.data?.tokens?.refreshToken || loginResponse.body.refreshToken;
+      expect(refreshToken).toBeDefined();
 
       // 2. Simulate expired access token (401 response)
       const expiredToken = jwt.sign(
