@@ -101,14 +101,14 @@
                     });
 
                     if (response.ok) {
-                        window.location.href = '/agent-dashboard.html';
+                        window.location.href = 'agent-dashboard.html';
                     } else if (response.status === 401) {
                         // Token expired - attempt refresh
                         const refreshed = await attemptTokenRefresh();
                         if (!refreshed) {
                             localStorage.removeItem('agent_token');
                             localStorage.removeItem('refresh_token');
-                            window.location.href = '/login.html';
+                            window.location.href = 'login.html';
                         }
                     } else if (response.status >= 500 && retryCount < maxRetries) {
                         // Server error - retry
@@ -118,7 +118,7 @@
                         // Other error or max retries reached
                         localStorage.removeItem('agent_token');
                         localStorage.removeItem('refresh_token');
-                        window.location.href = '/login.html';
+                        window.location.href = 'login.html';
                     }
                 } catch (error) {
                     // Network error - retry
@@ -129,7 +129,7 @@
                         console.error('Token verification failed after retries:', error);
                         localStorage.removeItem('agent_token');
                         localStorage.removeItem('refresh_token');
-                        window.location.href = '/login.html';
+                        window.location.href = 'login.html';
                     }
                 }
             }
