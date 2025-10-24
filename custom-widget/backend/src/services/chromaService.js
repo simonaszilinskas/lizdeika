@@ -325,6 +325,35 @@ class ChromaService {
     }
 
     /**
+     * Delete specific chunks by their IDs
+     * Used for orphan cleanup and content updates
+     */
+    async deleteChunks(chunkIds) {
+        if (!this.isConnected || !this.collection) {
+            logger.warn('ChromaDB not connected, cannot delete chunks');
+            return { deleted: 0 };
+        }
+
+        if (!Array.isArray(chunkIds) || chunkIds.length === 0) {
+            return { deleted: 0 };
+        }
+
+        try {
+            // Chroma deleteCollection uses 'where' for filtering
+            // Delete documents by their IDs
+            await this.collection.delete({
+                ids: chunkIds
+            });
+
+            logger.info(`Deleted ${chunkIds.length} chunks from ChromaDB`);
+            return { deleted: chunkIds.length };
+        } catch (error) {
+            logger.error('Failed to delete chunks:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Clear all data (for testing)
      */
     async clearAll() {

@@ -13,6 +13,9 @@
  * - POST /documents/upload - Upload and process documents (.txt, .docx)
  * - POST /documents/index - Index single document with metadata via API
  * - POST /documents/index-batch - Index multiple documents in batch via API
+ * - POST /documents/ingest - Smart ingest with deduplication and change detection
+ * - POST /documents/detect-orphans - Detect and clean up orphaned documents
+ * - GET /documents/ingest-stats - Get ingestion statistics
  * - GET /documents - List all documents with metadata
  * - GET /documents/:id - Get specific document details
  * - DELETE /documents/:id - Remove document from knowledge base
@@ -101,6 +104,21 @@ function createKnowledgeRoutes() {
     // API endpoint for batch document indexing
     router.post('/documents/index-batch', (req, res) => {
         knowledgeController.indexDocumentsBatch(req, res);
+    });
+
+    // Smart document ingestion endpoint (for scraper integration)
+    router.post('/documents/ingest', (req, res) => {
+        knowledgeController.ingestDocuments(req, res);
+    });
+
+    // Detect and clean up orphaned documents
+    router.post('/documents/detect-orphans', (req, res) => {
+        knowledgeController.detectOrphans(req, res);
+    });
+
+    // Get ingestion statistics
+    router.get('/documents/ingest-stats', (req, res) => {
+        knowledgeController.getIngestStatistics(req, res);
     });
 
     return router;

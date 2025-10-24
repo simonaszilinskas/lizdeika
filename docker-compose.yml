@@ -40,6 +40,11 @@ services:
       - RAG_SHOW_SOURCES=true
       - ADMIN_RECOVERY_KEY=dev-recovery-key-123
       - TOTP_ENCRYPTION_KEY=development-totp-encryption-key-must-be-32-chars!
+      - CHROMA_URL=https://api.trychroma.com
+      - CHROMA_TENANT=707f6b37-54fb-4c51-89e0-430784903964
+      - CHROMA_DATABASE=Vilnius-first-test
+      - CHROMA_API_KEY=ck-EoNbwLKKWDDzjE9jd2XWy2FgrcQVFHop4iDtseXD2A46
+      - MISTRAL_API_KEY=ZK6ehScZB2XM1hpBUPTQlNhE2tPX6cQJ
     volumes:
       - ./custom-widget/backend:/app
       - /app/node_modules

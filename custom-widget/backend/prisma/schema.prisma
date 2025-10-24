@@ -263,6 +263,31 @@ model message_statistics {
   @@index([system_mode])
 }
 
+model knowledge_documents {
+  id              String   @id @default(cuid())
+  source_url      String?  @unique
+  title           String
+  content_hash    String   @unique
+  source_type     String   @default("manual_upload")
+  status          String   @default("indexed")
+  chunks_count    Int      @default(0)
+  total_chars     Int      @default(0)
+  chroma_ids      Json?
+  file_path       String?
+  size            Int?
+  error_message   String?
+  metadata        Json?
+  last_updated    DateTime @updatedAt
+  created_at      DateTime @default(now())
+  indexed_at      DateTime?
+
+  @@index([source_url])
+  @@index([content_hash])
+  @@index([source_type])
+  @@index([status])
+  @@index([created_at])
+}
+
 enum ActionType {
   created
   assigned
