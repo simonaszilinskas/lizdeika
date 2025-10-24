@@ -52,12 +52,15 @@ class ChromaService {
      */
     async initialize() {
         try {
+            console.log('[ChromaService] initialize() called');
+            logger.info(`Chroma Config: URL=${process.env.CHROMA_URL}, Tenant=${process.env.CHROMA_TENANT}, Database=${process.env.CHROMA_DATABASE}`);
             this.client = new CloudClient({
-                url: "https://api.trychroma.com",
-                apiKey: process.env.CHROMA_AUTH_TOKEN,
+                url: process.env.CHROMA_URL || "https://api.trychroma.com",
+                apiKey: process.env.CHROMA_API_KEY,
                 tenant: process.env.CHROMA_TENANT,
                 database: process.env.CHROMA_DATABASE
             });
+            logger.info('CloudClient created successfully');
 
             // Initialize Mistral embedding function
             try {
@@ -88,7 +91,9 @@ class ChromaService {
             }
 
             // Get or create collection
+            logger.info(`Getting or creating collection: ${this.collectionName}`);
             this.collection = await this.client.getOrCreateCollection(collectionConfig);
+            logger.info('Collection retrieved successfully');
 
             this.isConnected = true;
             logger.info(`Connected to Chroma Cloud - Collection: ${this.collectionName}`);
@@ -97,6 +102,7 @@ class ChromaService {
             
             return true;
         } catch (error) {
+            console.log('[ChromaService] Error during initialize:', error.message);
             logger.error('Failed to initialize Chroma DB:', error);
             this.isConnected = false;
             return false;
