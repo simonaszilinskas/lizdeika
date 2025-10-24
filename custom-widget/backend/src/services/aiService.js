@@ -144,7 +144,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
     // If no AI provider is available, return fallback
     if (!provider) {
         logger.info('No AI provider available, using fallback response');
-        debugInfo.step2_providerCheck = { status: 'unavailable', fallbackUsed: true };
+        debugInfo.step2_providerCheck = { status: 'unavailable', provider: config.AI_PROVIDER, fallbackUsed: true };
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
         await storeDebugInfo(conversationId, debugInfo);
@@ -169,7 +169,7 @@ async function generateAISuggestion(conversationId, conversationContext, enableR
     // If provider is known to be unhealthy, return fallback immediately
     if (!provider.isHealthy) {
         logger.info(`${config.AI_PROVIDER} provider is unhealthy, using fallback response`);
-        debugInfo.step2_providerCheck = { status: 'unhealthy', fallbackUsed: true };
+        debugInfo.step2_providerCheck = { status: 'unhealthy', provider: config.AI_PROVIDER, fallbackUsed: true };
         const fallbackResponse = getFallbackResponse(conversationContext);
         debugInfo.finalResponse = fallbackResponse;
         await storeDebugInfo(conversationId, debugInfo);
