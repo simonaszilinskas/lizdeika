@@ -124,6 +124,58 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Agent dashboard requires agent/admin role
 - Default admin credentials: `admin@vilnius.lt` / `admin123` (from seed data)
 
+### UI Design Philosophy (Issue #76)
+
+This project follows an **extreme text-light design** philosophy to reduce cognitive load and translation overhead.
+
+**Core Principles**:
+1. **Minimal Text** - Every visible word must serve a purpose (modify behavior or prevent errors)
+2. **Icon-First** - Visual communication replaces verbose labels where safe
+3. **Progressive Disclosure** - Supplementary info only shown on demand (tooltips, focus states)
+4. **Accessibility First** - `aria-label` attributes provide full context for screen readers
+5. **Translation-Friendly** - Reduced text = lower translation costs and faster cross-language deployment
+
+**Implementation Guidelines**:
+
+**Filter Buttons** (Agent Dashboard):
+- Single-letter buttons (M/U/O/A) instead of full text
+- `title` attributes provide hover tooltips
+- `aria-label` describes full intent for accessibility
+
+**Icon-Only Buttons**:
+- Settings → ⚙️ icon
+- Logout → ↗️ icon
+- Archive/Unarchive → box icons
+- Search → magnifying glass
+- Always include `title` and `aria-label`
+
+**Form Labels**:
+- Use `placeholder` text instead of explicit labels in login/2FA flows
+- Minimal helper text (e.g., "Type..." not "Enter your message")
+- Error messages shown only on validation failure
+
+**Empty States**:
+- Icon + one-line caption instead of explanatory paragraphs
+- Visual hierarchy communicates meaning
+
+**Action Buttons**:
+- Prefer icons with surrounding color context
+- Text limited to 1-2 words maximum
+- Example: "→ Dashboard" instead of "Continue to Dashboard"
+
+**When Adding Features**:
+1. Audit every text element - keep only what prevents errors
+2. Replace explanatory text with icons + tooltips
+3. Add ARIA labels for all icon-only elements
+4. Use consistent iconography from Font Awesome
+5. Test with screen readers to ensure accessibility
+6. Consider translation impact of any new text
+
+**Files to Reference**:
+- `custom-widget/agent-dashboard.html` - Filter buttons (M/U/O/A), icon-only navigation
+- `custom-widget/login.html` - Placeholder-based floating labels
+- `custom-widget/setup-2fa.html` - Progressive disclosure (details element for manual key)
+
 ## Current System Status
 
 ### Completed Features (Production Ready)
@@ -140,6 +192,7 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - ✅ **AI Suggestion Security (Issue #63)** - Authentication middleware added to AI suggestion endpoints
 - ✅ **Two-Factor Authentication (2FA/TOTP)** - Time-based one-time passwords with QR code setup, manual entry key, and backup codes
 - ✅ **Smart Document Ingestion (Issue #78)** - Event-driven API with SHA256 deduplication, change detection, and orphan management
+- ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
 
 ### Important Implementation Details
 

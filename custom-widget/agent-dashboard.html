@@ -357,22 +357,19 @@
     </style>
 </head>
 <body class="bg-gray-100 h-screen overflow-hidden">
-    <!-- 2FA Reminder Banner (shown if dismissed) -->
-    <div id="2fa-reminder-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-3">
+    <!-- 2FA Reminder Banner -->
+    <div id="2fa-reminder-banner" class="hidden bg-yellow-50 border-b border-yellow-200 px-4 py-2">
         <div class="flex items-center justify-between max-w-7xl mx-auto">
-            <div class="flex items-center gap-3">
-                <i class="fas fa-shield-alt text-yellow-600 text-xl"></i>
-                <div>
-                    <p class="text-sm font-semibold text-yellow-900">Secure your account with Two-Factor Authentication</p>
-                    <p class="text-xs text-yellow-700">Add an extra layer of security to protect your account and customer data.</p>
-                </div>
+            <div class="flex items-center gap-2">
+                <i class="fas fa-shield-alt text-yellow-600" aria-hidden="true"></i>
+                <span class="text-xs font-semibold text-yellow-900">Secure account: Enable 2FA</span>
             </div>
-            <div class="flex items-center gap-3">
-                <button onclick="window.location.href='setup-2fa.html'" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-lg transition-colors font-medium">
-                    <i class="fas fa-shield-alt mr-2"></i>Set Up Now
+            <div class="flex items-center gap-2">
+                <button onclick="window.location.href='setup-2fa.html'" class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors font-medium" title="Setup 2FA" aria-label="Setup 2FA">
+                    Setup
                 </button>
-                <button onclick="dismiss2FAReminder()" class="text-yellow-700 hover:text-yellow-900 text-sm">
-                    <i class="fas fa-times"></i>
+                <button onclick="dismiss2FAReminder()" class="text-yellow-700 hover:text-yellow-900 text-xs" title="Dismiss" aria-label="Dismiss">
+                    ✕
                 </button>
             </div>
         </div>
@@ -435,17 +432,20 @@
             <div class="bg-gray-50 border-b collapsible-content">
                 <div class="p-3">
                     <div class="flex justify-between items-center mb-2">
-                        <button id="filter-section-toggle" class="flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-gray-700">
+                        <button id="filter-section-toggle" class="flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-gray-700"
+                                aria-label="Toggle filters" title="Toggle filters">
                             <i class="fas fa-chevron-down text-xs transition-transform" id="filter-toggle-icon"></i>
-                            <span>Filter Conversations</span>
+                            <span>Filters</span>
                         </button>
                         <div class="flex items-center gap-2">
-                            <button id="search-toggle" title="Search Conversations"
-                                    class="text-gray-400 hover:text-indigo-600 transition-colors">
+                            <button id="search-toggle" title="Search"
+                                    class="text-gray-400 hover:text-indigo-600 transition-colors"
+                                    aria-label="Search conversations">
                                 <i class="fas fa-search text-sm"></i>
                             </button>
-                            <button id="archive-toggle" title="Toggle Archive View"
-                                    class="text-gray-400 hover:text-gray-600 transition-colors">
+                            <button id="archive-toggle" title="Archive"
+                                    class="text-gray-400 hover:text-gray-600 transition-colors"
+                                    aria-label="View archive">
                                 <i class="fas fa-archive text-sm"></i>
                             </button>
                         </div>
@@ -457,8 +457,9 @@
                             <input
                                 type="text"
                                 id="conversation-search"
-                                placeholder="Search conversations, categories, messages..."
+                                placeholder="Search..."
                                 class="w-full px-3 py-2 pl-9 pr-8 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                aria-label="Search conversations"
                             />
                             <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                             <button
@@ -472,24 +473,28 @@
                     </div>
                     <div id="filter-buttons" class="flex flex-wrap gap-1">
                         <button id="filter-mine" onclick="dashboard.setFilter('mine')"
-                                class="flex-1 min-w-[60px] text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-800 font-medium transition hover:bg-blue-200"
-                                data-full-text="MINE" data-short-text="M">
-                            <span class="button-text">MINE</span>
+                                class="flex-1 text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-800 font-medium transition hover:bg-blue-200"
+                                aria-label="Filter: My conversations"
+                                title="My conversations">
+                            <span class="button-text">M</span>
                         </button>
                         <button id="filter-unassigned" onclick="dashboard.setFilter('unassigned')"
-                                class="flex-1 min-w-[60px] text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
-                                data-full-text="NOBODY'S" data-short-text="N">
-                            <span class="button-text">NOBODY'S</span>
+                                class="flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
+                                aria-label="Filter: Unassigned conversations"
+                                title="Unassigned">
+                            <span class="button-text">U</span>
                         </button>
                         <button id="filter-others" onclick="dashboard.setFilter('others')"
-                                class="flex-1 min-w-[60px] text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
-                                data-full-text="SOMEBODY'S" data-short-text="S">
-                            <span class="button-text">SOMEBODY'S</span>
+                                class="flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
+                                aria-label="Filter: Other agents' conversations"
+                                title="Others">
+                            <span class="button-text">O</span>
                         </button>
                         <button id="filter-all" onclick="dashboard.setFilter('all')"
-                                class="flex-1 min-w-[60px] text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
-                                data-full-text="ALL" data-short-text="A">
-                            <span class="button-text">ALL</span>
+                                class="flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
+                                aria-label="Filter: All conversations"
+                                title="All">
+                            <span class="button-text">A</span>
                         </button>
                     </div>
                 </div>
@@ -500,29 +505,34 @@
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
                         <label class="flex items-center cursor-pointer">
-                            <input type="checkbox" id="select-all" class="mr-2">
-                            <span class="text-sm font-medium text-orange-800">Select All</span>
+                            <input type="checkbox" id="select-all" class="mr-2" aria-label="Select all">
+                            <span class="text-xs font-medium text-orange-800">All</span>
                         </label>
                         <span class="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded-full">
-                            <span id="selected-count">0</span> selected
+                            <span id="selected-count">0</span>
                         </span>
                     </div>
-                    <button id="clear-selection" class="text-xs text-orange-600 hover:text-orange-800 font-medium">
-                        Clear
+                    <button id="clear-selection" class="text-xs text-orange-600 hover:text-orange-800 font-medium"
+                            aria-label="Clear selection" title="Clear">
+                        ✕
                     </button>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
-                    <button id="bulk-archive" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded font-medium">
-                        <i class="fas fa-archive mr-1"></i>Archive
+                    <button id="bulk-archive" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded font-medium"
+                            aria-label="Archive selected" title="Archive">
+                        <i class="fas fa-archive mr-1"></i>
                     </button>
-                    <button id="bulk-unarchive" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded font-medium">
-                        <i class="fas fa-box-open mr-1"></i>Unarchive
+                    <button id="bulk-unarchive" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded font-medium"
+                            aria-label="Unarchive selected" title="Unarchive">
+                        <i class="fas fa-box-open mr-1"></i>
                     </button>
-                    <button id="bulk-assign-me" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded font-medium">
-                        <i class="fas fa-user mr-1"></i>Assign to Me
+                    <button id="bulk-assign-me" class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded font-medium"
+                            aria-label="Assign selected to me" title="Assign">
+                        <i class="fas fa-user mr-1"></i>
                     </button>
-                    <select id="bulk-assign-agent" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded font-medium cursor-pointer">
-                        <option value="">Assign to...</option>
+                    <select id="bulk-assign-agent" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded font-medium cursor-pointer"
+                            aria-label="Assign selected to agent">
+                        <option value="">→</option>
                     </select>
                 </div>
             </div>
@@ -534,16 +544,14 @@
                 </div>
             </div>
 
-            <!-- Navigation Buttons - Responsive -->
+            <!-- Navigation Buttons -->
             <div class="p-2 border-t border-gray-200 collapsible-content">
-                <div id="nav-buttons" class="flex gap-2 flex-wrap">
-                    <a href="settings.html" class="nav-button flex-1 min-w-[100px] bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition no-underline text-center text-sm font-medium flex items-center justify-center" title="Nustatymai">
+                <div id="nav-buttons" class="flex gap-2">
+                    <a href="settings.html" class="nav-button flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md transition no-underline text-center font-medium flex items-center justify-center" title="Settings" aria-label="Settings">
                         <i class="fas fa-cog nav-icon"></i>
-                        <span class="nav-text ml-2">Nustatymai</span>
                     </a>
-                    <button onclick="logoutAgent()" class="nav-button flex-1 min-w-[100px] bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-md transition text-sm font-medium flex items-center justify-center" title="Atsijungti">
+                    <button onclick="logoutAgent()" class="nav-button flex-1 bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded-md transition font-medium flex items-center justify-center" title="Logout" aria-label="Logout">
                         <i class="fas fa-sign-out-alt nav-icon"></i>
-                        <span class="nav-text ml-2">Atsijungti</span>
                     </button>
                 </div>
             </div>
@@ -563,8 +571,7 @@
                 <div id="no-chat-selected" class="h-full flex items-center justify-center text-gray-500">
                     <div class="text-center">
                         <i class="fas fa-comments text-6xl mb-4 text-gray-300"></i>
-                        <h3 class="text-xl font-semibold mb-2">Nepasirinktas pokalbis</h3>
-                        <p>Pasirinkite pokalbį iš eilės, kad pradėtumėte padėti klientams</p>
+                        <p class="text-sm text-gray-500">Select a conversation to begin</p>
                     </div>
                 </div>
                 
@@ -577,26 +584,25 @@
             <!-- AI Suggestion Panel -->
             <div id="ai-suggestion-panel" class="hidden bg-purple-50 border-t border-purple-200 p-4 max-h-64 overflow-y-auto">
                 <div class="flex items-start gap-3">
-                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0" aria-label="AI suggestion">
                         <i class="fas fa-robot text-white text-sm"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="font-semibold text-purple-700">AI pasiūlymas</span>
-                            <span class="text-xs text-gray-500">kliento paskutiniam pranešimui</span>
-                        </div>
                         <div id="ai-suggestion-text" class="text-gray-700 mb-3 bg-white p-3 rounded border max-h-32 overflow-y-auto" style="line-height: 1.5;">
                             <!-- AI suggestion will appear here -->
                         </div>
                         <div class="flex gap-2 flex-wrap">
-                            <button id="send-as-is-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium">
-                                <i class="fas fa-paper-plane mr-1"></i> Siųsti kaip yra
+                            <button id="send-as-is-btn" class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs font-medium"
+                                    title="Send suggestion" aria-label="Send suggestion">
+                                <i class="fas fa-paper-plane"></i>
                             </button>
-                            <button id="edit-suggestion-btn" class="bg-white hover:bg-gray-50 text-purple-600 border border-purple-200 px-4 py-2 rounded text-sm font-medium">
-                                <i class="fas fa-edit mr-1"></i> Redaguoti
+                            <button id="edit-suggestion-btn" class="bg-white hover:bg-gray-50 text-purple-600 border border-purple-200 px-3 py-1 rounded text-xs font-medium"
+                                    title="Edit suggestion" aria-label="Edit suggestion">
+                                <i class="fas fa-edit"></i>
                             </button>
-                            <button id="write-from-scratch-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm font-medium">
-                                <i class="fas fa-pen mr-1"></i> Nuo pradžių
+                            <button id="write-from-scratch-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs font-medium"
+                                    title="Write from scratch" aria-label="Write from scratch">
+                                <i class="fas fa-pen"></i>
                             </button>
                         </div>
                     </div>
@@ -616,41 +622,36 @@
                         />
                         <div class="flex items-start gap-2">
                             <div class="flex flex-col gap-1">
-                                <button type="button" id="agent-attach-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Prisegti failą">
+                                <button type="button" id="agent-attach-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Attach" aria-label="Attach file">
                                     <i class="fas fa-paperclip text-xl"></i>
                                 </button>
                                 <div class="relative">
-                                    <button type="button" id="template-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Naudoti šabloną">
+                                    <button type="button" id="template-button" class="text-gray-500 hover:text-gray-700 p-2 transition-colors" title="Templates" aria-label="Use template">
                                         <i class="fas fa-file-lines text-xl"></i>
                                     </button>
                                     <div id="template-dropdown" class="hidden absolute left-0 bottom-full mb-2 bg-white border border-gray-300 rounded-lg shadow-lg w-80 max-h-96 overflow-y-auto z-50">
                                         <div id="template-list" class="py-1">
-                                            <div class="px-4 py-8 text-center text-gray-500 text-sm">Loading templates...</div>
+                                            <div class="px-4 py-8 text-center text-gray-500 text-sm">Loading...</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <textarea
                                 id="message-input"
-                                placeholder="Rašykite savo pranešimą..."
+                                placeholder="Type..."
                                 class="flex-1 border border-gray-300 rounded-lg px-4 py-2 resize-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 style="resize: none; overflow-y: auto; height: 80px; min-height: 80px; max-height: 300px; transition: height 0.2s ease;"
+                                aria-label="Message input"
                             ></textarea>
                         </div>
                         <div id="agent-file-preview" class="hidden mt-2 p-2 bg-gray-100 rounded-lg text-sm"></div>
                     </div>
                     <div class="flex flex-col items-end gap-2">
-                        <button type="button" onclick="dashboard.getAIAssistance()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm flex items-center transition-colors">
-                            <span class="mr-1">✨</span> Regenerate
+                        <button type="button" onclick="dashboard.getAIAssistance()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm flex items-center transition-colors" title="Regenerate suggestion" aria-label="Regenerate">
+                            <span>✨</span>
                         </button>
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0 flex flex-col items-center">
-                            <div class="flex items-center">
-                                <i class="fas fa-paper-plane mr-1"></i> Siųsti
-                            </div>
-                            <div class="text-xs text-indigo-200 mt-0.5">
-                                <span class="hidden md:inline">⌘+Enter</span>
-                                <span class="md:hidden">Ctrl+Enter</span>
-                            </div>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg flex-shrink-0 flex items-center" title="Send (Ctrl+Enter)" aria-label="Send">
+                            <i class="fas fa-paper-plane"></i>
                         </button>
                     </div>
                 </form>
