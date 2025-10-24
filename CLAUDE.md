@@ -139,6 +139,7 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - ✅ **Statistics backend API (Issue #27)** - Conversation metrics, agent performance, AI suggestion usage
 - ✅ **AI Suggestion Security (Issue #63)** - Authentication middleware added to AI suggestion endpoints
 - ✅ **Two-Factor Authentication (2FA/TOTP)** - Time-based one-time passwords with QR code setup, manual entry key, and backup codes
+- ✅ **Smart Document Ingestion (Issue #78)** - Event-driven API with SHA256 deduplication, change detection, and orphan management
 
 ### Important Implementation Details
 
@@ -217,6 +218,44 @@ npm run test:integration
 - `/api/statistics/trends` - Time-series data for charts
 
 See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
+
+**Smart Document Ingestion (Issue #78)**: Event-driven API for intelligent document management:
+- **Endpoints**:
+  - `POST /api/knowledge/documents/ingest` - Ingest documents with deduplication and change detection
+  - `POST /api/knowledge/documents/detect-orphans` - Identify and delete orphaned documents
+  - `GET /api/knowledge/documents/ingest-stats` - Retrieve ingestion statistics
+- **Core Features**:
+  - **Deduplication**: SHA256 hashing prevents duplicate embeddings
+  - **Change Detection**: Identifies content modifications and cleans old chunks
+  - **Orphan Management**: Detects documents removed from source website
+  - **Metadata Persistence**: Stores document info in `knowledge_documents` PostgreSQL table
+  - **Unified RAG**: Single ChromaDB collection for all document sources
+- **Database Schema**:
+  - `knowledge_documents` table with content_hash, source_type, source_url, chroma_ids tracking
+  - Automatic timestamps and audit trails
+- **Request Format** (POST /api/knowledge/documents/ingest):
+  ```json
+  {
+    "documents": [
+      {
+        "body": "Document content (required)",
+        "title": "Optional title (auto-generated from first 50 chars if omitted)",
+        "sourceUrl": "https://source.example.com/doc (optional)",
+        "date": "ISO timestamp (optional, defaults to now)",
+        "sourceType": "scraper|api|manual_upload (default: api)"
+      }
+    ]
+  }
+  ```
+- **Response**: Returns batch statistics with per-document status (indexed/duplicate_rejected/failed)
+- **Orphan Detection** (POST /api/knowledge/documents/detect-orphans):
+  - Send list of current source URLs
+  - System finds and deletes documents not in list
+  - Returns count and details of deleted orphans
+- **Testing**:
+  - 20+ integration tests covering all scenarios
+  - Unit tests for DocumentHashService with SHA256 validation
+  - Real database testing with PostgreSQL and ChromaDB
 
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)

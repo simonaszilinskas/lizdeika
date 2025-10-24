@@ -40,6 +40,11 @@ services:
       - RAG_SHOW_SOURCES=true
       - ADMIN_RECOVERY_KEY=dev-recovery-key-123
       - TOTP_ENCRYPTION_KEY=development-totp-encryption-key-must-be-32-chars!
+      - CHROMA_URL=${CHROMA_URL}
+      - CHROMA_TENANT=${CHROMA_TENANT}
+      - CHROMA_DATABASE=${CHROMA_DATABASE}
+      - CHROMA_API_KEY=${CHROMA_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
     volumes:
       - ./custom-widget/backend:/app
       - /app/node_modules

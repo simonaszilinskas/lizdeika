@@ -624,6 +624,112 @@ class KnowledgeController {
             });
         }
     }
+
+    /**
+     * Ingest documents for scraper integration
+     * Smart deduplication with SHA256 hashing and change detection
+     * Validation handled by validateIngestDocuments middleware
+     */
+    async ingestDocuments(req, res) {
+        try {
+            const DocumentIngestService = require('../services/documentIngestService');
+
+            // Use validated data from middleware
+            const { documents } = req.validatedData;
+
+            // Ingest batch of documents
+            const result = await DocumentIngestService.ingestBatch(documents);
+
+            res.json({
+                success: result.success,
+                batch: result.batch,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            // Categorize errors for better debugging and appropriate status codes
+            logger.error('[ingestDocuments]', {
+                error: error.message,
+                stack: error.stack,
+                userId: req.user?.id,
+                documentCount: req.validatedData?.documents?.length,
+                errorName: error.name,
+            });
+
+            // Determine status code based on error type
+            let statusCode = 500;
+            let errorType = 'ServerError';
+
+            if (error.name === 'ValidationError' || error.message.includes('validation')) {
+                statusCode = 400;
+                errorType = 'ValidationError';
+            } else if (error.message.includes('ChromaDB')) {
+                statusCode = 503;  // Service unavailable
+                errorType = 'ChromaDBError';
+            } else if (error.message.includes('database') || error.name === 'PrismaClientKnownRequestError') {
+                statusCode = 500;
+                errorType = 'DatabaseError';
+            }
+
+            res.status(statusCode).json({
+                error: 'Failed to ingest documents',
+                details: error.message,
+                errorType,
+            });
+        }
+    }
+
+    /**
+     * Detect and clean up orphaned documents from scraper
+     * Validation handled by validateDetectOrphans middleware
+     */
+    async detectOrphans(req, res) {
+        try {
+            const DocumentIngestService = require('../services/documentIngestService');
+
+            // Use validated data from middleware
+            const { currentUrls, dryRun = false } = req.validatedData;
+
+            const result = await DocumentIngestService.detectOrphans(currentUrls, { dryRun });
+
+            res.json({
+                success: true,
+                orphans: result,
+                dryRun,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            logger.error('[detectOrphans]', error);
+            res.status(500).json({
+                error: 'Failed to detect orphans',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Get document ingestion statistics
+     */
+    async getIngestStatistics(req, res) {
+        try {
+            const DocumentIngestService = require('../services/documentIngestService');
+
+            const stats = await DocumentIngestService.getStatistics();
+
+            res.json({
+                success: true,
+                statistics: stats
+            });
+
+        } catch (error) {
+            logger.error('[getIngestStatistics]', error);
+            res.status(500).json({
+                error: 'Failed to get statistics',
+                details: error.message
+            });
+        }
+    }
 }
 
 module.exports = KnowledgeController;
