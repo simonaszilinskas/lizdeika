@@ -2,7 +2,8 @@ const DocumentRepository = require('../repositories/documentRepository');
 const DocumentHashService = require('./documentHashService');
 const documentService = require('./documentService');
 const chromaService = require('./chromaService');
-const logger = require('../utils/logger');
+const { createLogger } = require('../utils/logger');
+const logger = createLogger('documentIngestService');
 
 /**
  * Main service for intelligent document ingestion
@@ -69,21 +70,39 @@ class DocumentIngestService {
       const generatedTitle =
         title || `${normalizedContent.substring(0, 50)}${normalizedContent.length > 50 ? '...' : ''}`;
 
-      // Process document: extract text, chunk, embed
-      const processingResult = await documentService.processTextContent(
-        normalizedContent,
-        {
-          sourceDocumentId: undefined,
-          sourceDocumentName: generatedTitle,
-          uploadSource: sourceType,
-          uploadTime: date,
-          sourceUrl,
-        }
-      );
+      // Create document info for chunking
+      const documentInfo = {
+        sourceDocumentId: 'ingested',
+        sourceDocumentName: generatedTitle,
+        uploadSource: sourceType,
+        uploadTime: new Date(date), // Convert string to Date if needed
+        fileType: 'text',
+        category: sourceType === 'scraper' ? 'scraped_document' : 'ingested_document',
+        source_url: sourceUrl,
+      };
 
-      if (!processingResult || !processingResult.chunkIds || processingResult.chunkIds.length === 0) {
-        throw new Error('Document processing failed: no chunks created');
+      // Chunk the text with fallback strategies
+      const chunkingResult = await documentService.chunkTextWithFallback(normalizedContent, documentInfo);
+      const chunks = chunkingResult.chunks;
+
+      if (!chunks || chunks.length === 0) {
+        throw new Error('Document chunking failed: no chunks created');
       }
+
+      // Add chunks to ChromaDB
+      if (chromaService.isConnected) {
+        try {
+          await chromaService.addDocuments(chunks);
+        } catch (error) {
+          logger.error('Failed to add chunks to ChromaDB:', error);
+          throw new Error(`Failed to embed chunks in vector database: ${error.message}`);
+        }
+      } else {
+        logger.warn('ChromaDB not connected, skipping chunk embedding (document still created locally)');
+      }
+
+      // Extract chunk IDs for tracking
+      const chunkIds = chunks.map((c) => c.id);
 
       // Handle content change if URL exists
       let replacedDocumentId = null;
@@ -104,13 +123,14 @@ class DocumentIngestService {
         source_type: sourceType,
         source_url: sourceUrl,
         status: 'indexed',
-        chunks_count: processingResult.chunkIds.length,
+        chunks_count: chunkIds.length,
         total_chars: normalizedContent.length,
-        chroma_ids: processingResult.chunkIds,
+        chroma_ids: chunkIds,
         metadata: {
           date,
           sourceUrl,
           generatedTitle: !title,
+          chunkingStrategy: chunkingResult.strategy,
         },
       });
 
@@ -121,7 +141,7 @@ class DocumentIngestService {
         title: generatedTitle,
         sourceUrl,
         date,
-        chunksCount: processingResult.chunkIds.length,
+        chunksCount: chunkIds.length,
         totalLength: normalizedContent.length,
         replacedDocument: replacedDocumentId,
         generatedTitle: !title,
