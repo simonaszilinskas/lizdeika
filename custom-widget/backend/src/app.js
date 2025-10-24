@@ -37,11 +37,11 @@
  * - Static file serving includes the entire widget frontend
  */
 const express = require('express');
-const cors = require('cors');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
 // Import middleware
+const createCorsMiddleware = require('./middleware/corsMiddleware');
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
 const { correlationMiddleware, socketCorrelationMiddleware } = require('./middleware/correlationMiddleware');
@@ -70,10 +70,18 @@ require('dotenv').config();
 function createApp() {
     const app = express();
     const server = createServer(app);
+
+    // Socket.IO uses admin CORS settings (agents/admins only)
+    const adminAllowedOrigins = process.env.ADMIN_ALLOWED_ORIGINS || 'same-origin';
+    const socketOrigin = adminAllowedOrigins === 'same-origin'
+        ? false
+        : (adminAllowedOrigins.trim() === '*' ? '*' : adminAllowedOrigins.split(',').map(o => o.trim()));
+
     const io = new Server(server, {
         cors: {
-            origin: "*",
-            methods: ["GET", "POST"]
+            origin: socketOrigin,
+            methods: ["GET", "POST"],
+            credentials: true
         }
     });
 
@@ -84,7 +92,8 @@ function createApp() {
     app.set('trust proxy', true);
 
     // Middleware - IMPORTANT: Order matters!
-    app.use(cors());
+    // CORS middleware differentiates between admin and widget routes
+    app.use(createCorsMiddleware());
 
     // Correlation ID middleware must be first to track all requests
     app.use(correlationMiddleware);

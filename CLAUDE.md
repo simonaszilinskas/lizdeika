@@ -219,6 +219,30 @@ See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
 - **Docker**: Backend on `localhost:3002`, internal PostgreSQL on port 5434
 - **Production**: Nginx reverse proxy with SSL termination
 
+### CORS Security Configuration
+The system uses separate CORS policies for admin and widget endpoints:
+
+**Admin Endpoints** (stricter):
+- Routes: `/api/auth`, `/api/users`, `/api/categories`, `/api/activities`, `/api/logs`, `/api/templates`, `/api/statistics`, `/api/widget`, `/api/knowledge`
+- Pages: `settings.html`, `agent-dashboard.html`, `setup-2fa.html`
+- CORS: Controlled by `ADMIN_ALLOWED_ORIGINS` (default: `same-origin`)
+- Socket.IO: Uses admin CORS settings (agents/admins only)
+
+**Widget Endpoints** (permissive for embedding):
+- Routes: `/api/conversations`, `/api/messages`, widget embed endpoints
+- CORS: Controlled by `WIDGET_ALLOWED_DOMAINS` (can be `*`)
+
+**Configuration**:
+- Set `ADMIN_ALLOWED_ORIGINS=same-origin` for production (same domain only)
+- Set `ADMIN_ALLOWED_ORIGINS=https://admin.example.com` for specific domain
+- Multiple origins: `ADMIN_ALLOWED_ORIGINS=https://admin1.com,https://admin2.com`
+- Development only: `ADMIN_ALLOWED_ORIGINS=*` (NOT for production)
+
+**Benefits**:
+- Prevents admin endpoints from being accessed by arbitrary origins
+- Allows flexible widget embedding on customer domains
+- Clear security boundary between admin and customer-facing features
+
 This system supports 20 concurrent agents handling 16,000+ conversations annually with full Lithuanian language support.
 
 # Guidance for development
