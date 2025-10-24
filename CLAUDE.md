@@ -42,7 +42,7 @@ npm run test:watch     # Watch mode for test development
 ### Docker Development
 ```bash
 # Primary development workflow
-docker-compose up --build          # Start all services
+docker-compose up --build          # Start all services (runs migrations automatically)
 docker-compose exec backend npm run db:seed    # Seed database
 docker-compose logs -f backend     # View backend logs
 docker-compose exec postgres psql -U postgres -d vilnius_support  # Database CLI
@@ -51,6 +51,8 @@ docker-compose exec postgres psql -U postgres -d vilnius_support  # Database CLI
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
+**Important**: Database migrations run automatically in the Docker entrypoint. The `message_statistics` table and all other schema changes are created via Prisma migrations stored in `custom-widget/backend/prisma/migrations/`. This ensures consistent database state across all deployments.
+
 ## Architecture Overview
 
 ### Core System Components
@@ -58,7 +60,7 @@ This is an AI-powered customer support platform with three main layers:
 
 1. **Frontend Layer** (Vanilla JS + ES6 Modules):
    - `custom-widget/js/agent-dashboard/` - Modularized agent dashboard (11 modules)
-   - `custom-widget/js/settings/` - Settings management (4 feature modules + 3 core services)
+   - `custom-widget/js/settings/` - Settings management (10 feature modules + 3 core services)
    - `*.html` files served by backend at port 3002
 
 2. **Backend Layer** (Node.js + Express):
@@ -83,12 +85,14 @@ The settings system uses a modernized modular ES6 architecture:
 **Feature Modules** (`custom-widget/js/settings/modules/`):
 - `SystemModeModule.js` - System mode management (HITL/Autopilot/OFF)
 - `UserManagementModule.js` - User CRUD operations (admin only)
-- `AgentStatusModule.js` - Connected agents display and monitoring
 - `WidgetConfigModule.js` - Widget configuration and integration code
 - `BrandingConfigModule.js` - Widget branding and appearance settings
 - `ContextEngineeringModule.js` - RAG and AI prompt configuration
 - `KnowledgeManagementModule.js` - Document upload and knowledge base management
 - `CategoryManagementModule.js` - Ticket categorization settings
+- `TemplateManagementModule.js` - Response templates management
+- `SecurityPolicyModule.js` - Security policy configuration
+- `StatisticsModule.js` - Analytics and statistics dashboards
 
 **Coordinator**: `SettingsManager.js` - Dependency injection and module coordination
 
@@ -287,3 +291,26 @@ This system supports 20 concurrent agents handling 16,000+ conversations annuall
 - One process per container
 - Use .dockerignore file
 - Layer caching optimization
+
+## Troubleshooting
+
+### Statistics API 400 Error
+**Problem**: Statistics dashboard shows HTTP 400 errors, backend logs show "table `public.message_statistics` does not exist"
+
+**Solution**: This was caused by the schema definition existing in `schema.prisma` but the migration not being committed. Fixed with commit `be9505c`. Ensure you:
+1. Pull the latest commits (includes the migration)
+2. Run `docker-compose down -v` to reset the volume
+3. Run `docker-compose up --build` to rebuild with fresh database
+4. Migrations will run automatically in the Docker entrypoint
+
+**Prevention**: Always create migrations for schema changes using `prisma migrate dev --name <description>` and commit them to git. Never use `db:push` in development - it bypasses the migration system.
+
+### Database Migration Failures
+**Problem**: Docker container restarts in a loop with "migrate found failed migrations"
+
+**Solution**:
+1. Stop all containers: `docker-compose down`
+2. Remove volumes: `docker volume prune`
+3. Rebuild: `docker-compose up --build`
+
+This forces a clean database state and re-applies all migrations in order.

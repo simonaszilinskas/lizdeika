@@ -9,7 +9,6 @@ import { APIManager } from './core/APIManager.js';
 import { StateManager } from './core/StateManager.js';
 import { ConnectionManager } from './core/ConnectionManager.js';
 import { SystemModeModule } from './modules/SystemModeModule.js';
-import { AgentStatusModule } from './modules/AgentStatusModule.js';
 import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
 import { UserManagementModule } from './modules/UserManagementModule.js';
 import { BrandingConfigModule } from './modules/BrandingConfigModule.js';
@@ -33,7 +32,6 @@ export class SettingsManager {
         
         // Initialize feature modules
         this.systemModeModule = new SystemModeModule(this.apiManager, this.stateManager, this.connectionManager);
-        this.agentStatusModule = new AgentStatusModule(this.apiManager, this.stateManager, this.connectionManager);
         this.widgetConfigModule = new WidgetConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         this.userManagementModule = new UserManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         this.brandingConfigModule = new BrandingConfigModule(this.apiManager, this.stateManager, this.connectionManager);
@@ -89,7 +87,6 @@ export class SettingsManager {
             // Initialize feature modules
             console.log('🎯 SettingsManager: Initializing feature modules');
             await this.systemModeModule.initialize();
-            await this.agentStatusModule.initialize();
             await this.widgetConfigModule.initialize();
             await this.userManagementModule.initialize();
             await this.brandingConfigModule.initialize();
@@ -133,9 +130,6 @@ export class SettingsManager {
             // System mode elements
             currentModeSpan: document.getElementById('current-mode'),
             saveModeButton: document.getElementById('save-mode'),
-            agentsList: document.getElementById('agents-list'),
-            totalConnected: document.getElementById('total-connected'),
-            totalAvailable: document.getElementById('total-available'),
             
             // Widget configuration elements
             widgetConfigDiv: document.getElementById('current-widget-config'),
@@ -239,13 +233,7 @@ export class SettingsManager {
         this.stateManager.on('systemModeChanged', (mode) => {
             this.updateSystemModeDisplay(mode);
         });
-        
-        this.stateManager.on('connectedAgentsChanged', (agents) => {
-            this.updateAgentsDisplay(agents);
-        });
-        
-        // Users changes are now handled by UserManagementModule
-        
+
         console.log('👂 SettingsManager: State listeners setup complete');
     }
 
@@ -339,43 +327,6 @@ export class SettingsManager {
         this.currentMode = mode;
     }
 
-    /**
-     * Update agents display
-     */
-    updateAgentsDisplay(agents) {
-        if (!this.elements.agentsList) return;
-        
-        if (agents.length === 0) {
-            this.elements.agentsList.innerHTML = '<p class="text-gray-500 text-center py-4">No agents currently connected</p>';
-            return;
-        }
-        
-        this.elements.agentsList.innerHTML = agents.map(agent => `
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div class="flex items-center gap-3">
-                    <div class="w-3 h-3 rounded-full ${agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400'}"></div>
-                    <div>
-                        <div class="font-medium text-gray-900">${agent.id.substring(0, 12)}...</div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm font-medium text-gray-900 capitalize">
-                        ${agent.personalStatus || 'online'}
-                    </div>
-                    <div class="text-xs text-gray-500">
-                        Last seen: ${this.formatTime(agent.lastSeen)}
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        
-        // Update stats
-        const total = agents.length;
-        const available = agents.filter(a => a.personalStatus === 'online').length;
-        
-        if (this.elements.totalConnected) this.elements.totalConnected.textContent = total;
-        if (this.elements.totalAvailable) this.elements.totalAvailable.textContent = available;
-    }
 
     // User display methods - handled by UserManagementModule
 
@@ -419,19 +370,6 @@ export class SettingsManager {
         }
     }
 
-    /**
-     * Format timestamp to time string
-     */
-    formatTime(timestamp) {
-        return new Date(timestamp).toLocaleTimeString();
-    }
-
-    /**
-     * Format timestamp to date string
-     */
-    formatDate(timestamp) {
-        return new Date(timestamp).toLocaleDateString();
-    }
 
     /**
      * Cleanup method for proper shutdown

@@ -349,9 +349,6 @@
                 <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors active" data-tab="system">
                     <i class="fas fa-cogs mr-1"></i>System
                 </button>
-                <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="agent">
-                    <i class="fas fa-user-cog mr-1"></i>Agent
-                </button>
                 <button class="tab-button px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent hover:border-gray-300 transition-colors admin-only" data-tab="branding">
                     <i class="fas fa-palette mr-1"></i>Branding
                 </button>
@@ -434,42 +431,8 @@
                 </div>
             </div>
 
-            <!-- Connected Agents Status -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <i class="fas fa-users text-indigo-600"></i>
-                    Connected Agents
-                </h2>
-
-                <div id="agents-list" class="space-y-3">
-                    <!-- Agents will be loaded here -->
-                </div>
-
-                <div class="mt-4 pt-4 border-t border-gray-200">
-                    <div class="flex justify-between text-sm text-gray-600">
-                        <span>Total Connected: <span id="total-connected">0</span></span>
-                        <span>Available: <span id="total-available">0</span></span>
-                        <span>AFK: <span id="total-afk">0</span></span>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <!-- Agent Preferences Tab -->
-        <div id="agent-tab" class="tab-content hidden">
-
-            <!-- Other Agent Settings -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <i class="fas fa-user-cog text-indigo-600"></i>
-                    Personal Preferences
-                </h2>
-                
-                <div class="text-gray-600">
-                    <p>Additional agent preferences will be added here in future updates.</p>
-                </div>
-            </div>
-        </div>
 
         <!-- Widget Configuration merged with Branding tab -->
 
@@ -1995,12 +1958,7 @@ KLAUSIMAS: {question}"
     <!-- Socket.IO for real-time updates -->
     <script src="/socket.io/socket.io.js"></script>
     
-    <!-- Phase 1: Modern ES6 Modular Settings System -->
-    
-    <!-- Load Settings JavaScript - New Modular Architecture -->
-    <!-- Migrated from monolithic settings.js to modular ES6 system -->
-    <!-- Integrated with agent-dashboard utilities (Toast, ErrorHandler) -->
-    
+    <!-- Load Settings JavaScript - Modern ES6 Modular Architecture -->
     <script type="module" src="js/settings/SettingsManager.js"></script>
 
     <!-- Hash routing for direct tab access -->
@@ -2019,9 +1977,6 @@ KLAUSIMAS: {question}"
             }
         });
     </script>
-    
-    <!-- Legacy settings.js preserved as backup during migration -->
-    <!-- <script src="js/settings.js"></script> -->
 
     <!-- Prompt View Modal -->
     <div id="prompt-view-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden">
