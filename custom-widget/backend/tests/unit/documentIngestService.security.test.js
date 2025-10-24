@@ -113,12 +113,9 @@ describe('DocumentIngestService - Security Fixes', () => {
       chromaService.deleteChunks.mockRejectedValue(new Error('ChromaDB unavailable'));
       DocumentRepository.markAsOrphaned.mockResolvedValue({ count: 1 });
 
-      try {
-        await DocumentIngestService.detectOrphans(currentUrls);
-        expect(true).toBe(false); // Should throw
-      } catch (error) {
-        expect(error.message).toContain('ChromaDB');
-      }
+      // Should reject with ChromaDB error using Jest promise assertion
+      await expect(DocumentIngestService.detectOrphans(currentUrls))
+        .rejects.toThrow(/ChromaDB/);
 
       // Should mark as orphaned instead of deleting
       expect(DocumentRepository.markAsOrphaned).toHaveBeenCalledWith(['orphan-1']);

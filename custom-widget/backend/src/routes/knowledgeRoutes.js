@@ -46,13 +46,15 @@ function createKnowledgeRoutes() {
     const router = express.Router();
     const knowledgeController = new KnowledgeController();
 
-    // Rate limiter for document operations (10 requests per minute per IP)
+    // Rate limiter for document operations (10 requests per minute per user/IP)
+    // Uses user ID when authenticated, falls back to IP for anonymous requests
     const documentLimiter = rateLimit({
         windowMs: 60 * 1000,
         max: 10,
         message: 'Too many document operations, please try again later',
         standardHeaders: true,
         legacyHeaders: false,
+        keyGenerator: (req) => req.user?.id || req.ip,  // User-based when possible, IP fallback
     });
 
     // File upload endpoint
@@ -74,9 +76,13 @@ function createKnowledgeRoutes() {
     });
 
     // Get ingestion statistics (must come before /:documentId to avoid pattern matching)
-    router.get('/documents/ingest-stats', (req, res) => {
-        knowledgeController.getIngestStatistics(req, res);
-    });
+    // Requires authentication to access statistics
+    router.get('/documents/ingest-stats',
+        authenticateToken,
+        (req, res) => {
+            knowledgeController.getIngestStatistics(req, res);
+        }
+    );
 
     // Get document by ID
     router.get('/documents/:documentId', (req, res) => {

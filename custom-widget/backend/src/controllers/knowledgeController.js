@@ -647,10 +647,34 @@ class KnowledgeController {
             });
 
         } catch (error) {
-            logger.error('[ingestDocuments]', error);
-            res.status(500).json({
+            // Categorize errors for better debugging and appropriate status codes
+            logger.error('[ingestDocuments]', {
+                error: error.message,
+                stack: error.stack,
+                userId: req.user?.id,
+                documentCount: req.validatedData?.documents?.length,
+                errorName: error.name,
+            });
+
+            // Determine status code based on error type
+            let statusCode = 500;
+            let errorType = 'ServerError';
+
+            if (error.name === 'ValidationError' || error.message.includes('validation')) {
+                statusCode = 400;
+                errorType = 'ValidationError';
+            } else if (error.message.includes('ChromaDB')) {
+                statusCode = 503;  // Service unavailable
+                errorType = 'ChromaDBError';
+            } else if (error.message.includes('database') || error.name === 'PrismaClientKnownRequestError') {
+                statusCode = 500;
+                errorType = 'DatabaseError';
+            }
+
+            res.status(statusCode).json({
                 error: 'Failed to ingest documents',
-                details: error.message
+                details: error.message,
+                errorType,
             });
         }
     }

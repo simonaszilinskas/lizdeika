@@ -10,7 +10,34 @@ const CHROMA_MAX_RETRIES = 3;
 const CHROMA_RETRY_DELAY_MS = 1000;
 
 /**
+ * Determine if an error is retryable (transient) or non-retryable (permanent)
+ * @param {Error} error - The error to check
+ * @returns {boolean} - True if the error should be retried
+ */
+function isRetryableError(error) {
+  // Non-retryable: authentication, validation, authorization
+  if (
+    error.message?.includes('auth') ||
+    error.message?.includes('Auth') ||
+    error.message?.includes('Unauthorized') ||
+    error.message?.includes('Forbidden') ||
+    error.message?.includes('validation') ||
+    error.message?.includes('Validation')
+  ) {
+    return false;
+  }
+
+  // Retryable: network, timeout, connection issues
+  const retryablePatterns = ['timeout', 'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'network'];
+  return retryablePatterns.some((pattern) =>
+    error.message?.includes(pattern) || error.message?.includes(pattern.toLowerCase())
+  );
+}
+
+/**
  * Retry wrapper for ChromaDB operations with exponential backoff
+ * Non-retryable errors (auth, validation) fail immediately
+ * Retryable errors (network, timeout) retry with exponential backoff
  * @param {Function} operation - Async operation to retry
  * @param {string} operationName - Name for logging
  * @returns {Promise<any>} - Result of operation
@@ -22,6 +49,13 @@ async function retryChromaOperation(operation, operationName = 'ChromaDB operati
       return await operation();
     } catch (error) {
       lastError = error;
+
+      // Exit immediately on non-retryable errors
+      if (!isRetryableError(error)) {
+        logger.error(`${operationName} failed with non-retryable error:`, error.message);
+        throw error;
+      }
+
       if (attempt < CHROMA_MAX_RETRIES) {
         const delayMs = CHROMA_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
         logger.warn(`${operationName} attempt ${attempt} failed, retrying in ${delayMs}ms:`, error.message);
@@ -102,7 +136,7 @@ class DocumentIngestService {
         sourceDocumentId: 'ingested',
         sourceDocumentName: generatedTitle,
         uploadSource: sourceType,
-        uploadTime: new Date(date), // Convert string to Date if needed
+        uploadTime: date instanceof Date ? date : new Date(date), // Type-safe date conversion
         fileType: 'text',
         category: sourceType === 'scraper' ? 'scraped_document' : 'ingested_document',
         source_url: sourceUrl,
@@ -134,9 +168,10 @@ class DocumentIngestService {
       // Extract chunk IDs for tracking
       const chunkIds = chunks.map((c) => c.id);
 
-      // Handle content change if URL exists but content hash differs
+      // Handle content change: replace old document if URL exists but hash differs
+      // This fires when: (1) URL exists with no matching hash anywhere, OR (2) URL exists but hash is different
       let replacedDocumentId = null;
-      if (existingByUrl && existingByUrl.content_hash !== contentHash) {
+      if (existingByUrl && (!existingByHash || existingByUrl.id !== existingByHash.id)) {
         // URL exists but content changed - delete old chunks from ChromaDB with retry
         if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids) && chromaService.isConnected) {
           try {
@@ -205,6 +240,21 @@ class DocumentIngestService {
       throw new Error('Documents array is required and must be non-empty');
     }
 
+    // Process documents in parallel for better performance with large batches
+    const promises = documents.map((doc) =>
+      this.ingestDocument({
+        body: doc.body,
+        title: doc.title,
+        sourceUrl: doc.sourceUrl,
+        date: doc.date,
+        sourceType: doc.sourceType || 'api',
+      })
+    );
+
+    // Use Promise.allSettled to handle all results (success or failure)
+    const settled = await Promise.allSettled(promises);
+
+    // Process results and count by status
     const results = {
       total: documents.length,
       successful: 0,
@@ -213,14 +263,18 @@ class DocumentIngestService {
       details: [],
     };
 
-    for (const doc of documents) {
-      const result = await this.ingestDocument({
-        body: doc.body,
-        title: doc.title,
-        sourceUrl: doc.sourceUrl,
-        date: doc.date,
-        sourceType: doc.sourceType || 'api',
-      });
+    settled.forEach((settlement) => {
+      let result;
+      if (settlement.status === 'fulfilled') {
+        result = settlement.value;
+      } else {
+        // Convert rejection to error result
+        result = {
+          success: false,
+          status: 'failed',
+          error: settlement.reason.message,
+        };
+      }
 
       results.details.push(result);
 
@@ -231,7 +285,7 @@ class DocumentIngestService {
       } else {
         results.failed += 1;
       }
-    }
+    });
 
     return {
       success: results.failed === 0,

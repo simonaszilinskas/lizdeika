@@ -301,7 +301,10 @@ class DocumentRepository {
       if (batch.length === 0) break; // No more documents
 
       // Filter out documents in the URL set
-      const orphanedBatch = batch.filter((doc) => !urlSet.has(doc.source_url));
+      // Note: Treat null source_url as orphaned (documents with no source URL)
+      const orphanedBatch = batch.filter((doc) =>
+        doc.source_url === null || !urlSet.has(doc.source_url)
+      );
       allOrphanedDocs = allOrphanedDocs.concat(orphanedBatch);
       currentOffset += FETCH_BATCH_SIZE;
 
