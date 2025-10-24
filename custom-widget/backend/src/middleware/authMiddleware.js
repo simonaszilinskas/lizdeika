@@ -10,6 +10,7 @@ const logger = createLogger('authMiddleware');
 
 /**
  * Verify JWT token and attach user to request
+ * Uses data from JWT payload to avoid database queries
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  * @param {Function} next - Express next function
@@ -39,10 +40,46 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Get user from database
+    // Use data from JWT payload (no database query)
+    req.user = {
+      id: decoded.sub,
+      email: decoded.email,
+      role: decoded.role,
+    };
+
+    next();
+
+  } catch (error) {
+    logger.error('Authentication middleware error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Authentication failed',
+      code: 'AUTH_ERROR',
+    });
+  }
+};
+
+/**
+ * Load full user profile from database
+ * Use this after authenticateToken when full user data is needed
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+const requireFullUserProfile = async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      });
+    }
+
+    // Fetch full user profile from database
     const db = databaseClient.getClient();
     const user = await db.users.findUnique({
-      where: { id: decoded.sub },
+      where: { id: req.user.id },
       select: {
         id: true,
         email: true,
@@ -76,16 +113,16 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    // Attach user to request
+    // Replace minimal user data with full profile
     req.user = user;
     next();
 
   } catch (error) {
-    logger.error('Authentication middleware error:', error);
+    logger.error('Load user profile error:', error);
     return res.status(500).json({
       success: false,
-      error: 'Authentication failed',
-      code: 'AUTH_ERROR',
+      error: 'Failed to load user profile',
+      code: 'PROFILE_LOAD_ERROR',
     });
   }
 };
@@ -155,28 +192,55 @@ const requireAgentOrAdmin = requireAgent;
 
 /**
  * Require user to be verified
+ * Loads full user profile to check verification status
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  * @param {Function} next - Express next function
  */
-const requireVerified = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
+const requireVerified = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      });
+    }
+
+    // Load verification status if not already loaded
+    if (req.user.email_verified === undefined) {
+      const db = databaseClient.getClient();
+      const user = await db.users.findUnique({
+        where: { id: req.user.id },
+        select: {
+          email_verified: true,
+        },
+      });
+
+      if (!user || !user.email_verified) {
+        return res.status(403).json({
+          success: false,
+          error: 'Email verification required',
+          code: 'EMAIL_NOT_VERIFIED',
+        });
+      }
+    } else if (!req.user.email_verified) {
+      return res.status(403).json({
+        success: false,
+        error: 'Email verification required',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('Require verified error:', error);
+    return res.status(500).json({
       success: false,
-      error: 'Authentication required',
-      code: 'AUTH_REQUIRED',
+      error: 'Failed to verify email status',
+      code: 'VERIFICATION_CHECK_ERROR',
     });
   }
-
-  if (!req.user.email_verified) {
-    return res.status(403).json({
-      success: false,
-      error: 'Email verification required',
-      code: 'EMAIL_NOT_VERIFIED',
-    });
-  }
-
-  next();
 };
 
 /**
@@ -270,36 +334,67 @@ const authRateLimit = (maxAttempts = 5, windowMs = 15 * 60 * 1000) => {
 
 /**
  * Require agent to be online for certain operations
+ * Loads full user profile to check agent status
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  * @param {Function} next - Express next function
  */
-const requireOnlineAgent = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
+const requireOnlineAgent = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED',
+      });
+    }
+
+    if (req.user.role !== 'agent' && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Agent role required',
+        code: 'AGENT_REQUIRED',
+      });
+    }
+
+    // Load full user profile to check agent status
+    if (req.user.role === 'agent' && !req.user.agent_status) {
+      const db = databaseClient.getClient();
+      const user = await db.users.findUnique({
+        where: { id: req.user.id },
+        select: {
+          agent_status: {
+            select: {
+              status: true,
+            },
+          },
+        },
+      });
+
+      if (!user || !user.agent_status || user.agent_status.status === 'offline') {
+        return res.status(403).json({
+          success: false,
+          error: 'Agent must be online to perform this action',
+          code: 'AGENT_OFFLINE',
+        });
+      }
+    } else if (req.user.role === 'agent' && req.user.agent_status?.status === 'offline') {
+      return res.status(403).json({
+        success: false,
+        error: 'Agent must be online to perform this action',
+        code: 'AGENT_OFFLINE',
+      });
+    }
+
+    next();
+  } catch (error) {
+    logger.error('Require online agent error:', error);
+    return res.status(500).json({
       success: false,
-      error: 'Authentication required',
-      code: 'AUTH_REQUIRED',
+      error: 'Failed to verify agent status',
+      code: 'AGENT_STATUS_ERROR',
     });
   }
-
-  if (req.user.role !== 'agent' && req.user.role !== 'admin') {
-    return res.status(403).json({
-      success: false,
-      error: 'Agent role required',
-      code: 'AGENT_REQUIRED',
-    });
-  }
-
-  if (req.user.role === 'agent' && (!req.user.agent_status || req.user.agent_status.status === 'offline')) {
-    return res.status(403).json({
-      success: false,
-      error: 'Agent must be online to perform this action',
-      code: 'AGENT_OFFLINE',
-    });
-  }
-
-  next();
 };
 
 /**
@@ -397,6 +492,7 @@ const authenticate2FASetupToken = async (req, res, next) => {
 
 module.exports = {
   authenticateToken,
+  requireFullUserProfile,
   optionalAuth,
   requireRoles,
   requireAdmin,

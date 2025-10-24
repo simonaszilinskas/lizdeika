@@ -6,7 +6,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const authController = require('../controllers/authController');
-const { authenticateToken, requireAdmin, optionalAuth, authRateLimit } = require('../middleware/authMiddleware');
+const { authenticateToken, requireFullUserProfile, requireAdmin, optionalAuth, authRateLimit } = require('../middleware/authMiddleware');
 const { validate, authSchemas } = require('../utils/validators');
 
 const router = express.Router();
@@ -98,6 +98,7 @@ router.post('/reset-password',
 router.get('/profile',
   generalRateLimit,
   authenticateToken,
+  requireFullUserProfile,
   authController.getProfile
 );
 
