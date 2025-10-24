@@ -281,8 +281,6 @@ model knowledge_documents {
   created_at      DateTime @default(now())
   indexed_at      DateTime?
 
-  @@index([source_url])
-  @@index([content_hash])
   @@index([source_type])
   @@index([status])
   @@index([created_at])

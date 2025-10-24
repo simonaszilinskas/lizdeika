@@ -15,8 +15,12 @@ const validateIngestDocuments = (req, res, next) => {
             body: z
               .string()
               .min(1, 'Document body must be non-empty')
-              .max(1000000, 'Document exceeds maximum size (1MB)'),
-            title: z.string().optional(),
+              .max(1000000, 'Document exceeds maximum size (1MB)')
+              .transform(val => val.trim()),  // Sanitize: remove leading/trailing whitespace
+            title: z
+              .string()
+              .optional()
+              .transform(val => val ? val.trim() : val),  // Sanitize: trim if provided
             sourceUrl: z.string().url('Invalid URL format').optional(),
             date: z.string().datetime().optional(),
             sourceType: z

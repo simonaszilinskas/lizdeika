@@ -5,6 +5,33 @@ const chromaService = require('./chromaService');
 const { createLogger } = require('../utils/logger');
 const logger = createLogger('documentIngestService');
 
+// Retry configuration for ChromaDB operations
+const CHROMA_MAX_RETRIES = 3;
+const CHROMA_RETRY_DELAY_MS = 1000;
+
+/**
+ * Retry wrapper for ChromaDB operations with exponential backoff
+ * @param {Function} operation - Async operation to retry
+ * @param {string} operationName - Name for logging
+ * @returns {Promise<any>} - Result of operation
+ */
+async function retryChromaOperation(operation, operationName = 'ChromaDB operation') {
+  let lastError;
+  for (let attempt = 1; attempt <= CHROMA_MAX_RETRIES; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (attempt < CHROMA_MAX_RETRIES) {
+        const delayMs = CHROMA_RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        logger.warn(`${operationName} attempt ${attempt} failed, retrying in ${delayMs}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+  throw new Error(`${operationName} failed after ${CHROMA_MAX_RETRIES} attempts: ${lastError.message}`);
+}
+
 /**
  * Main service for intelligent document ingestion
  * Handles deduplication, change detection, and orphan management
@@ -89,12 +116,15 @@ class DocumentIngestService {
         throw new Error('Document chunking failed: no chunks created');
       }
 
-      // Add chunks to ChromaDB
+      // Add chunks to ChromaDB with retry logic
       if (chromaService.isConnected) {
         try {
-          await chromaService.addDocuments(chunks);
+          await retryChromaOperation(
+            () => chromaService.addDocuments(chunks),
+            'Adding document chunks to ChromaDB'
+          );
         } catch (error) {
-          logger.error('Failed to add chunks to ChromaDB:', error);
+          logger.error('Failed to add chunks to ChromaDB after retries:', error);
           throw new Error(`Failed to embed chunks in vector database: ${error.message}`);
         }
       } else {
@@ -104,13 +134,16 @@ class DocumentIngestService {
       // Extract chunk IDs for tracking
       const chunkIds = chunks.map((c) => c.id);
 
-      // Handle content change if URL exists but hash differs
+      // Handle content change if URL exists but content hash differs
       let replacedDocumentId = null;
-      if (existingByUrl && existingByHash && existingByUrl.id !== existingByHash.id) {
-        // URL exists but content changed - delete old chunks from ChromaDB
+      if (existingByUrl && existingByUrl.content_hash !== contentHash) {
+        // URL exists but content changed - delete old chunks from ChromaDB with retry
         if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids) && chromaService.isConnected) {
           try {
-            await chromaService.deleteChunks(existingByUrl.chroma_ids);
+            await retryChromaOperation(
+              () => chromaService.deleteChunks(existingByUrl.chroma_ids),
+              'Deleting old document chunks from ChromaDB'
+            );
           } catch (error) {
             logger.error('[DocumentIngestService.ingestDocument] ChromaDB deletion error, not deleting DB record:', error);
             // Don't proceed with DB deletion if ChromaDB fails - maintain consistency
@@ -257,10 +290,13 @@ class DocumentIngestService {
         }
       });
 
-      // Delete chunks from ChromaDB (only if connected)
+      // Delete chunks from ChromaDB with retry (only if connected)
       if (chromaIdsToDelete.length > 0 && chromaService.isConnected) {
         try {
-          await chromaService.deleteChunks(chromaIdsToDelete);
+          await retryChromaOperation(
+            () => chromaService.deleteChunks(chromaIdsToDelete),
+            'Deleting orphaned document chunks from ChromaDB'
+          );
         } catch (error) {
           logger.error('[DocumentIngestService.detectOrphans] ChromaDB deletion error:', error);
           // Mark as orphaned instead of deleting to maintain consistency
