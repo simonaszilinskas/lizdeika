@@ -61,6 +61,11 @@ function createKnowledgeRoutes() {
         knowledgeController.searchDocuments(req, res);
     });
 
+    // Get ingestion statistics (must come before /:documentId to avoid pattern matching)
+    router.get('/documents/ingest-stats', (req, res) => {
+        knowledgeController.getIngestStatistics(req, res);
+    });
+
     // Get document by ID
     router.get('/documents/:documentId', (req, res) => {
         knowledgeController.getDocument(req, res);
@@ -114,11 +119,6 @@ function createKnowledgeRoutes() {
     // Detect and clean up orphaned documents
     router.post('/documents/detect-orphans', (req, res) => {
         knowledgeController.detectOrphans(req, res);
-    });
-
-    // Get ingestion statistics
-    router.get('/documents/ingest-stats', (req, res) => {
-        knowledgeController.getIngestStatistics(req, res);
     });
 
     return router;
