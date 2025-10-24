@@ -194,6 +194,7 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 - ✅ **Smart Document Ingestion (Issue #78)** - Event-driven API with SHA256 deduplication, change detection, and orphan management
 - ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
 - ✅ **CORS Configuration (Issue #74)** - Separate security policies for admin and widget routes
+- ✅ **Automated Archived Conversation Cleanup (Issue #20)** - Scheduled job to delete old archived conversations with configurable retention period
 
 ### Important Implementation Details
 
