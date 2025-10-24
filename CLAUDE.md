@@ -219,6 +219,24 @@ See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
 - **Docker**: Backend on `localhost:3002`, internal PostgreSQL on port 5434
 - **Production**: Nginx reverse proxy with SSL termination
 
+### Upload Security
+Uploaded files are stored outside the codebase directory for security:
+- **Directory**: `/var/uploads` (configurable via `UPLOADS_DIR` environment variable)
+- **Docker Volumes**:
+  - Development: `uploads_data:/var/uploads`
+  - Production: `uploads_prod_data:/var/uploads`
+- **Security Features**:
+  - Files stored outside codebase to prevent code/data exposure
+  - No execution permissions on upload directory
+  - File type validation (images, PDFs, documents only)
+  - Filename sanitization with UUID prefix
+  - Rate limiting: 5 uploads per minute per IP
+  - Access control: JWT authentication or valid conversation ID required
+  - Directory traversal protection
+- **File Types**: Images (JPEG, PNG, GIF, WebP), PDF, DOC, DOCX, XLS, XLSX, TXT
+- **Size Limits**: Configurable via `MAX_FILE_SIZE` (default 10MB for message attachments)
+- **Document Processing**: .txt and .docx files for RAG knowledge base (10MB for .txt, 50MB for .docx)
+
 This system supports 20 concurrent agents handling 16,000+ conversations annually with full Lithuanian language support.
 
 # Guidance for development

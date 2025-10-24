@@ -65,6 +65,9 @@ services:
       - LANGFUSE_DEBUG=${LANGFUSE_DEBUG:-false}
       - SYSTEM_PROMPT=${SYSTEM_PROMPT}
       - ADMIN_RECOVERY_KEY=${ADMIN_RECOVERY_KEY}
+      - UPLOADS_DIR=/var/uploads
+    volumes:
+      - uploads_prod_data:/var/uploads
     networks:
       - vilnius-internal
       - web
@@ -137,6 +140,8 @@ services:
 
 volumes:
   postgres_prod_data:
+    driver: local
+  uploads_prod_data:
     driver: local
   nginx_logs:
     driver: local

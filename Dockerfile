@@ -67,6 +67,10 @@ RUN npm install -g prisma@latest
 # Create necessary directories
 RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
 
+# Note: Upload directory is externally mounted at /var/uploads for security
+# This keeps uploaded files outside the codebase directory
+# Configure via UPLOADS_DIR environment variable and Docker volume mount
+
 USER nodejs
 
 # Health check - use PORT env var, fallback to 3002
