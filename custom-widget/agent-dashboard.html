@@ -475,26 +475,30 @@
                         <button id="filter-mine" onclick="dashboard.setFilter('mine')"
                                 class="flex-1 text-xs px-2 py-1.5 rounded bg-blue-100 text-blue-800 font-medium transition hover:bg-blue-200"
                                 aria-label="Filter: My conversations"
-                                title="My conversations">
-                            <span class="button-text">M</span>
+                                title="My conversations"
+                                data-fullText="MINE" data-shortText="M">
+                            <span class="button-text">MINE</span>
                         </button>
                         <button id="filter-unassigned" onclick="dashboard.setFilter('unassigned')"
                                 class="flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
                                 aria-label="Filter: Unassigned conversations"
-                                title="Unassigned">
-                            <span class="button-text">U</span>
+                                title="Unassigned"
+                                data-fullText="NOBODY'S" data-shortText="U">
+                            <span class="button-text">NOBODY'S</span>
                         </button>
                         <button id="filter-others" onclick="dashboard.setFilter('others')"
                                 class="flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
                                 aria-label="Filter: Other agents' conversations"
-                                title="Others">
-                            <span class="button-text">O</span>
+                                title="Others"
+                                data-fullText="SOMEBODY'S" data-shortText="O">
+                            <span class="button-text">SOMEBODY'S</span>
                         </button>
                         <button id="filter-all" onclick="dashboard.setFilter('all')"
                                 class="flex-1 text-xs px-2 py-1.5 rounded bg-gray-100 text-gray-700 transition hover:bg-gray-200"
                                 aria-label="Filter: All conversations"
-                                title="All">
-                            <span class="button-text">A</span>
+                                title="All"
+                                data-fullText="ALL" data-shortText="A">
+                            <span class="button-text">ALL</span>
                         </button>
                     </div>
                 </div>
