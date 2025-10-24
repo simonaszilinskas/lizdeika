@@ -98,61 +98,56 @@ Once the server is running (either via Docker or manually), you can access the v
 
 ## Production deployment to a client VM
 
-To deploy Lizdeika to a production Linux VM for a client, use Docker Compose with the production configuration:
+Deploy Lizdeika to a production Linux VM using Docker Compose. This is a simple, production-ready setup with no complex orchestration required.
 
 ### Prerequisites
 
-- Docker and Docker Compose installed on the client VM
+- Docker and Docker Compose installed on the VM
 - Git installed for cloning the repository
 
-### Deployment steps
+### Initial setup
 
-1. **Clone the repository:**
+1. **Clone and configure:**
 
    ```bash
    git clone https://github.com/simonaszilinskas/lizdeika.git
    cd lizdeika
-   ```
-
-2. **Configure environment variables:**
-
-   ```bash
    cp .env.template .env
    ```
 
-   Edit `.env` and fill in the required secrets:
-   - `OPENROUTER_API_KEY` – API key for AI provider
-   - `MISTRAL_API_KEY` – API key for document embeddings
-   - `JWT_SECRET` – Secret key for JWT tokens
-   - `TOTP_ENCRYPTION_KEY` – Secret key for 2FA encryption (minimum 32 characters)
+   Edit `.env` and fill in these required secrets:
+   - `OPENROUTER_API_KEY` – AI provider API key
+   - `MISTRAL_API_KEY` – Embeddings API key
+   - `JWT_SECRET` – JWT signing secret (32+ characters)
+   - `TOTP_ENCRYPTION_KEY` – 2FA encryption key (32+ characters)
    - `DB_PASSWORD` – PostgreSQL password
 
-3. **Start all services:**
+   Other variables (RAG, Langfuse, SMTP) are optional.
 
-   ```bash
-   docker-compose -f docker-compose.prod.yml up -d
-   ```
+### Deploy
 
-   This starts PostgreSQL, the backend application, and Nginx reverse proxy. Database migrations run automatically on startup.
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
 
-4. **Verify the deployment:**
+This starts PostgreSQL, the backend app, and Nginx. Database migrations run automatically on startup.
 
-   ```bash
-   docker-compose ps
-   curl http://localhost/health
-   ```
+### Verify and access
 
-   The application will be available at the VM's IP address or domain on port 80 (or 443 if HTTPS is configured in Nginx).
+```bash
+docker-compose ps
+curl http://localhost/health
+```
 
-5. **Update the deployment:**
+The application is available at the VM's IP address on port 80 (port 443 with HTTPS configured in Nginx).
 
-   When updating to a new version:
+### Update to a new version
 
-   ```bash
-   git pull
-   docker-compose -f docker-compose.prod.yml build
-   docker-compose -f docker-compose.prod.yml up -d
-   ```
+```bash
+git pull
+docker-compose -f docker-compose.prod.yml build
+docker-compose -f docker-compose.prod.yml up -d
+```
 
 ## Notes
 
