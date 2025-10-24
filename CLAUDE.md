@@ -60,7 +60,7 @@ This is an AI-powered customer support platform with three main layers:
 
 1. **Frontend Layer** (Vanilla JS + ES6 Modules):
    - `custom-widget/js/agent-dashboard/` - Modularized agent dashboard (11 modules)
-   - `custom-widget/js/settings/` - Settings management (4 feature modules + 3 core services)
+   - `custom-widget/js/settings/` - Settings management (10 feature modules + 3 core services)
    - `*.html` files served by backend at port 3002
 
 2. **Backend Layer** (Node.js + Express):
@@ -85,12 +85,14 @@ The settings system uses a modernized modular ES6 architecture:
 **Feature Modules** (`custom-widget/js/settings/modules/`):
 - `SystemModeModule.js` - System mode management (HITL/Autopilot/OFF)
 - `UserManagementModule.js` - User CRUD operations (admin only)
-- `AgentStatusModule.js` - Connected agents display and monitoring
 - `WidgetConfigModule.js` - Widget configuration and integration code
 - `BrandingConfigModule.js` - Widget branding and appearance settings
 - `ContextEngineeringModule.js` - RAG and AI prompt configuration
 - `KnowledgeManagementModule.js` - Document upload and knowledge base management
 - `CategoryManagementModule.js` - Ticket categorization settings
+- `TemplateManagementModule.js` - Response templates management
+- `SecurityPolicyModule.js` - Security policy configuration
+- `StatisticsModule.js` - Analytics and statistics dashboards
 
 **Coordinator**: `SettingsManager.js` - Dependency injection and module coordination
 
