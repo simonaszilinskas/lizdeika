@@ -9,7 +9,6 @@ import { APIManager } from './core/APIManager.js';
 import { StateManager } from './core/StateManager.js';
 import { ConnectionManager } from './core/ConnectionManager.js';
 import { SystemModeModule } from './modules/SystemModeModule.js';
-import { AgentStatusModule } from './modules/AgentStatusModule.js';
 import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
 import { UserManagementModule } from './modules/UserManagementModule.js';
 import { BrandingConfigModule } from './modules/BrandingConfigModule.js';
@@ -33,7 +32,6 @@ export class SettingsManager {
         
         // Initialize feature modules
         this.systemModeModule = new SystemModeModule(this.apiManager, this.stateManager, this.connectionManager);
-        this.agentStatusModule = new AgentStatusModule(this.apiManager, this.stateManager, this.connectionManager);
         this.widgetConfigModule = new WidgetConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         this.userManagementModule = new UserManagementModule(this.apiManager, this.stateManager, this.connectionManager);
         this.brandingConfigModule = new BrandingConfigModule(this.apiManager, this.stateManager, this.connectionManager);
@@ -89,7 +87,6 @@ export class SettingsManager {
             // Initialize feature modules
             console.log('🎯 SettingsManager: Initializing feature modules');
             await this.systemModeModule.initialize();
-            await this.agentStatusModule.initialize();
             await this.widgetConfigModule.initialize();
             await this.userManagementModule.initialize();
             await this.brandingConfigModule.initialize();
@@ -133,9 +130,6 @@ export class SettingsManager {
             // System mode elements
             currentModeSpan: document.getElementById('current-mode'),
             saveModeButton: document.getElementById('save-mode'),
-            agentsList: document.getElementById('agents-list'),
-            totalConnected: document.getElementById('total-connected'),
-            totalAvailable: document.getElementById('total-available'),
             
             // Widget configuration elements
             widgetConfigDiv: document.getElementById('current-widget-config'),
