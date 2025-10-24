@@ -8,6 +8,7 @@ Lizdeika is an open source customer support system that blends AI assistance wit
 - [Quick start with Docker](#quick-start-with-docker)
 - [Traditional setup](#traditional-setup)
 - [Accessing the platform](#accessing-the-platform)
+- [Production deployment to a client VM](#production-deployment-to-a-client-vm)
 
 ## Overview
 
@@ -89,14 +90,73 @@ npm start
 
 Once the server is running (either via Docker or manually), you can access the various interfaces at the following URLs (default port `3002`):
 
-- **Agent dashboard:** http://localhost:3002/agent-dashboard.html  
-- **Customer widget demo:** http://localhost:3002/embed-widget.html  
-- **Settings / admin:** http://localhost:3002/settings.html  
-- **Login page:** http://localhost:3002/login.html  
+- **Agent dashboard:** http://localhost:3002/agent-dashboard.html
+- **Customer widget demo:** http://localhost:3002/embed-widget.html
+- **Settings / admin:** http://localhost:3002/settings.html
+- **Login page:** http://localhost:3002/login.html
 - **API documentation (Swagger):** http://localhost:3002/docs
+
+## Production deployment to a client VM
+
+To deploy Lizdeika to a production Linux VM for a client, use Docker Compose with the production configuration:
+
+### Prerequisites
+
+- Docker and Docker Compose installed on the client VM
+- Git installed for cloning the repository
+
+### Deployment steps
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/simonaszilinskas/lizdeika.git
+   cd lizdeika
+   ```
+
+2. **Configure environment variables:**
+
+   ```bash
+   cp .env.template .env
+   ```
+
+   Edit `.env` and fill in the required secrets:
+   - `OPENROUTER_API_KEY` – API key for AI provider
+   - `MISTRAL_API_KEY` – API key for document embeddings
+   - `JWT_SECRET` – Secret key for JWT tokens
+   - `TOTP_ENCRYPTION_KEY` – Secret key for 2FA encryption (minimum 32 characters)
+   - `DB_PASSWORD` – PostgreSQL password
+
+3. **Start all services:**
+
+   ```bash
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
+
+   This starts PostgreSQL, the backend application, and Nginx reverse proxy. Database migrations run automatically on startup.
+
+4. **Verify the deployment:**
+
+   ```bash
+   docker-compose ps
+   curl http://localhost/health
+   ```
+
+   The application will be available at the VM's IP address or domain on port 80 (or 443 if HTTPS is configured in Nginx).
+
+5. **Update the deployment:**
+
+   When updating to a new version:
+
+   ```bash
+   git pull
+   docker-compose -f docker-compose.prod.yml build
+   docker-compose -f docker-compose.prod.yml up -d
+   ```
 
 ## Notes
 
-- All services run on port `3002` when using Docker.
+- All services run on port `3002` when using Docker for local development.
+- Production deployments use port 80/443 via Nginx reverse proxy (see `docker-compose.prod.yml`).
 - Do not commit API keys or secrets to the repository. Use environment variables to store sensitive data.
 - Contributions are welcome. Please open issues or pull requests with improvements or bug fixes.
