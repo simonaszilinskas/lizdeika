@@ -233,13 +233,7 @@ export class SettingsManager {
         this.stateManager.on('systemModeChanged', (mode) => {
             this.updateSystemModeDisplay(mode);
         });
-        
-        this.stateManager.on('connectedAgentsChanged', (agents) => {
-            this.updateAgentsDisplay(agents);
-        });
-        
-        // Users changes are now handled by UserManagementModule
-        
+
         console.log('👂 SettingsManager: State listeners setup complete');
     }
 
@@ -333,43 +327,6 @@ export class SettingsManager {
         this.currentMode = mode;
     }
 
-    /**
-     * Update agents display
-     */
-    updateAgentsDisplay(agents) {
-        if (!this.elements.agentsList) return;
-        
-        if (agents.length === 0) {
-            this.elements.agentsList.innerHTML = '<p class="text-gray-500 text-center py-4">No agents currently connected</p>';
-            return;
-        }
-        
-        this.elements.agentsList.innerHTML = agents.map(agent => `
-            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div class="flex items-center gap-3">
-                    <div class="w-3 h-3 rounded-full ${agent.personalStatus === 'online' ? 'bg-green-400' : 'bg-gray-400'}"></div>
-                    <div>
-                        <div class="font-medium text-gray-900">${agent.id.substring(0, 12)}...</div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm font-medium text-gray-900 capitalize">
-                        ${agent.personalStatus || 'online'}
-                    </div>
-                    <div class="text-xs text-gray-500">
-                        Last seen: ${this.formatTime(agent.lastSeen)}
-                    </div>
-                </div>
-            </div>
-        `).join('');
-        
-        // Update stats
-        const total = agents.length;
-        const available = agents.filter(a => a.personalStatus === 'online').length;
-        
-        if (this.elements.totalConnected) this.elements.totalConnected.textContent = total;
-        if (this.elements.totalAvailable) this.elements.totalAvailable.textContent = available;
-    }
 
     // User display methods - handled by UserManagementModule
 
@@ -413,19 +370,6 @@ export class SettingsManager {
         }
     }
 
-    /**
-     * Format timestamp to time string
-     */
-    formatTime(timestamp) {
-        return new Date(timestamp).toLocaleTimeString();
-    }
-
-    /**
-     * Format timestamp to date string
-     */
-    formatDate(timestamp) {
-        return new Date(timestamp).toLocaleDateString();
-    }
 
     /**
      * Cleanup method for proper shutdown
