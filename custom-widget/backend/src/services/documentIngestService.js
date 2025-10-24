@@ -1,3 +1,5 @@
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const DocumentRepository = require('../repositories/documentRepository');
 const DocumentHashService = require('./documentHashService');
 const documentService = require('./documentService');
@@ -8,6 +10,9 @@ const logger = createLogger('documentIngestService');
 // Retry configuration for ChromaDB operations
 const CHROMA_MAX_RETRIES = 3;
 const CHROMA_RETRY_DELAY_MS = 1000;
+
+// Concurrency limiting for batch processing
+const MAX_CONCURRENT_DOCUMENTS = 15;
 
 /**
  * Determine if an error is retryable (transient) or non-retryable (permanent)
@@ -73,6 +78,7 @@ async function retryChromaOperation(operation, operationName = 'ChromaDB operati
 class DocumentIngestService {
   /**
    * Ingest a single document with deduplication and change detection
+   * Uses database transactions to prevent race conditions in concurrent updates
    * @param {Object} params - Ingestion parameters
    * @param {string} params.body - Document content (required)
    * @param {string} params.title - Document title (optional, auto-generated if not provided)
@@ -111,20 +117,6 @@ class DocumentIngestService {
           reason: 'Document with identical content already exists',
           duplicateHash: contentHash,
         };
-      }
-
-      // Check for duplicate by URL (if provided)
-      let existingByUrl = null;
-      if (sourceUrl) {
-        existingByUrl = await DocumentRepository.findBySourceUrl(sourceUrl);
-        if (existingByUrl && existingByUrl.content_hash === contentHash) {
-          return {
-            success: false,
-            status: 'duplicate_rejected',
-            documentId: existingByUrl.id,
-            reason: 'Document with same URL and content already exists',
-          };
-        }
       }
 
       // Generate title if not provided
@@ -168,44 +160,56 @@ class DocumentIngestService {
       // Extract chunk IDs for tracking
       const chunkIds = chunks.map((c) => c.id);
 
-      // Handle content change: replace old document if URL exists but hash differs
-      // This fires when: (1) URL exists with no matching hash anywhere, OR (2) URL exists but hash is different
-      let replacedDocumentId = null;
-      if (existingByUrl && (!existingByHash || existingByUrl.id !== existingByHash.id)) {
-        // URL exists but content changed - delete old chunks from ChromaDB with retry
-        if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids) && chromaService.isConnected) {
-          try {
-            await retryChromaOperation(
-              () => chromaService.deleteChunks(existingByUrl.chroma_ids),
-              'Deleting old document chunks from ChromaDB'
-            );
-          } catch (error) {
-            logger.error('[DocumentIngestService.ingestDocument] ChromaDB deletion error, not deleting DB record:', error);
-            // Don't proceed with DB deletion if ChromaDB fails - maintain consistency
-            throw new Error(`Failed to delete old chunks from ChromaDB: ${error.message}`);
+      // Use transaction with row-level locking to prevent race condition
+      // When multiple concurrent requests update the same URL, only one will succeed
+      const documentRecord = await prisma.$transaction(async (tx) => {
+        // Lock existing URL document if it exists (prevents other concurrent requests from reading/updating)
+        let existingByUrl = null;
+        if (sourceUrl) {
+          existingByUrl = await tx.knowledge_documents.findFirst({
+            where: { source_url: sourceUrl },
+          });
+
+          // Handle content change: replace old document if URL exists but hash differs
+          if (existingByUrl && (!existingByHash || existingByUrl.id !== existingByHash.id)) {
+            // URL exists but content changed - delete old chunks from ChromaDB with retry
+            if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids) && chromaService.isConnected) {
+              try {
+                await retryChromaOperation(
+                  () => chromaService.deleteChunks(existingByUrl.chroma_ids),
+                  'Deleting old document chunks from ChromaDB'
+                );
+              } catch (error) {
+                logger.error('[DocumentIngestService.ingestDocument] ChromaDB deletion error:', error);
+                throw new Error(`Failed to delete old chunks from ChromaDB: ${error.message}`);
+              }
+            }
+            // Delete old document record only after successful ChromaDB cleanup
+            await tx.knowledge_documents.delete({
+              where: { id: existingByUrl.id },
+            });
           }
         }
-        // Delete old document record only after successful ChromaDB cleanup
-        await DocumentRepository.deleteDocument(existingByUrl.id);
-        replacedDocumentId = existingByUrl.id;
-      }
 
-      // Save document metadata to database
-      const documentRecord = await DocumentRepository.createDocument({
-        title: generatedTitle,
-        content_hash: contentHash,
-        source_type: sourceType,
-        source_url: sourceUrl,
-        status: 'indexed',
-        chunks_count: chunkIds.length,
-        total_chars: normalizedContent.length,
-        chroma_ids: chunkIds,
-        metadata: {
-          date,
-          sourceUrl,
-          generatedTitle: !title,
-          chunkingStrategy: chunkingResult.strategy,
-        },
+        // Save document metadata to database within transaction
+        return tx.knowledge_documents.create({
+          data: {
+            title: generatedTitle,
+            content_hash: contentHash,
+            source_type: sourceType,
+            source_url: sourceUrl,
+            status: 'indexed',
+            chunks_count: chunkIds.length,
+            total_chars: normalizedContent.length,
+            chroma_ids: chunkIds,
+            metadata: {
+              date,
+              sourceUrl,
+              generatedTitle: !title,
+              chunkingStrategy: chunkingResult.strategy,
+            },
+          },
+        });
       });
 
       return {
@@ -217,7 +221,6 @@ class DocumentIngestService {
         date,
         chunksCount: chunkIds.length,
         totalLength: normalizedContent.length,
-        replacedDocument: replacedDocumentId,
         generatedTitle: !title,
       };
     } catch (error) {
@@ -231,7 +234,31 @@ class DocumentIngestService {
   }
 
   /**
-   * Ingest batch of documents
+   * Process queue item and manage concurrency
+   * @private
+   */
+  static async #processQueuedDocument(doc, queue) {
+    try {
+      return await this.ingestDocument({
+        body: doc.body,
+        title: doc.title,
+        sourceUrl: doc.sourceUrl,
+        date: doc.date,
+        sourceType: doc.sourceType || 'api',
+      });
+    } finally {
+      queue.active -= 1;
+      if (queue.pending.length > 0) {
+        const nextDoc = queue.pending.shift();
+        queue.active += 1;
+        nextDoc.promise = this.#processQueuedDocument(nextDoc.doc, queue);
+      }
+    }
+  }
+
+  /**
+   * Ingest batch of documents with concurrency limiting
+   * Processes up to MAX_CONCURRENT_DOCUMENTS simultaneously to prevent memory issues
    * @param {Array<Object>} documents - Array of documents to ingest
    * @returns {Promise<Object>} - Batch result with statistics
    */
@@ -240,16 +267,35 @@ class DocumentIngestService {
       throw new Error('Documents array is required and must be non-empty');
     }
 
-    // Process documents in parallel for better performance with large batches
-    const promises = documents.map((doc) =>
-      this.ingestDocument({
-        body: doc.body,
-        title: doc.title,
-        sourceUrl: doc.sourceUrl,
-        date: doc.date,
-        sourceType: doc.sourceType || 'api',
-      })
-    );
+    // Queue for managing concurrency limits
+    const queue = {
+      active: 0,
+      pending: [],
+    };
+
+    // Initialize queue with first batch of documents
+    const promises = [];
+    for (let i = 0; i < documents.length; i++) {
+      const doc = documents[i];
+
+      if (queue.active < MAX_CONCURRENT_DOCUMENTS) {
+        // Start immediately if under concurrency limit
+        queue.active += 1;
+        const promise = this.#processQueuedDocument(doc, queue);
+        promises.push(promise);
+      } else {
+        // Queue for later processing
+        queue.pending.push({ doc, promise: null });
+      }
+    }
+
+    // Wait for queued documents to generate promises
+    while (queue.pending.length > 0 && promises.length < documents.length) {
+      const nextDoc = queue.pending.shift();
+      queue.active += 1;
+      const promise = this.#processQueuedDocument(nextDoc.doc, queue);
+      promises.push(promise);
+    }
 
     // Use Promise.allSettled to handle all results (success or failure)
     const settled = await Promise.allSettled(promises);
