@@ -340,9 +340,9 @@ export class SidebarManager {
         filterButtons.forEach(button => {
             const textElement = button.querySelector('.button-text');
             if (textElement) {
-                const fullText = button.dataset.fullText;
-                const shortText = button.dataset.shortText;
-                textElement.textContent = useShortText ? shortText : fullText;
+                const fullText = button.getAttribute('data-fulltext');
+                const shortText = button.getAttribute('data-shorttext');
+                textElement.textContent = useShortText ? (shortText || fullText) : (fullText || shortText);
             }
         });
     }
