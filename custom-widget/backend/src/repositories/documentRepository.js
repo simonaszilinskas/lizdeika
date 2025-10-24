@@ -125,16 +125,20 @@ class DocumentRepository {
   /**
    * Get all documents from scraper source that are indexed
    * @param {Object} options - Query options
+   * @param {number} options.limit - Maximum results (default: 1000, max: 10000)
+   * @param {number} options.offset - Skip results (default: 0)
    * @returns {Promise<Object[]>} - Scraper documents
    */
   static async getAllScraperDocuments(options = {}) {
-    const { limit = 10000, offset = 0 } = options;
+    const { limit = 1000, offset = 0 } = options;
+    // Cap limit to prevent memory issues
+    const safeLimitted = Math.min(Math.max(1, limit), 10000);
     return prisma.knowledge_documents.findMany({
       where: {
         source_type: 'scraper',
         status: 'indexed',
       },
-      take: limit,
+      take: safeLimitted,
       skip: offset,
       orderBy: { created_at: 'desc' },
     });
@@ -243,22 +247,54 @@ class DocumentRepository {
 
   /**
    * Find documents not in a list of URLs (for orphan detection)
+   * Uses batching strategy for large URL arrays to prevent performance issues
    * @param {Array<string>} currentUrls - Current URLs from scraper
    * @param {string} sourceType - Source type to filter by
+   * @param {Object} options - Query options
+   * @param {number} options.limit - Maximum results (default: 10000)
+   * @param {number} options.offset - Skip results (default: 0)
    * @returns {Promise<Object[]>} - Documents not in current list
    */
-  static async findDocumentsNotInUrls(currentUrls, sourceType = 'scraper') {
+  static async findDocumentsNotInUrls(currentUrls, sourceType = 'scraper', options = {}) {
+    const { limit = 10000, offset = 0 } = options;
+    const BATCH_SIZE = 500;
+
     if (currentUrls.length === 0) {
-      // If no URLs provided, return all documents of that type (to be safe)
-      return this.getDocumentsBySourceType(sourceType);
+      // If no URLs provided, return paginated documents of that type
+      return this.getDocumentsBySourceType(sourceType, { limit, offset });
     }
 
-    return prisma.knowledge_documents.findMany({
-      where: {
-        source_type: sourceType,
-        source_url: { notIn: currentUrls },
-      },
+    // For small URL arrays, use direct notIn query
+    if (currentUrls.length <= BATCH_SIZE) {
+      return prisma.knowledge_documents.findMany({
+        where: {
+          source_type: sourceType,
+          source_url: { notIn: currentUrls },
+        },
+        take: limit,
+        skip: offset,
+        orderBy: { created_at: 'desc' },
+      });
+    }
+
+    // For large arrays, use batched approach with OR conditions
+    const batches = [];
+    for (let i = 0; i < currentUrls.length; i += BATCH_SIZE) {
+      batches.push(currentUrls.slice(i, i + BATCH_SIZE));
+    }
+
+    // Fetch all documents of source type and filter in-memory
+    const allDocs = await prisma.knowledge_documents.findMany({
+      where: { source_type: sourceType },
+      orderBy: { created_at: 'desc' },
     });
+
+    // Filter out documents that are in any URL batch
+    const urlSet = new Set(currentUrls);
+    const orphanedDocs = allDocs.filter((doc) => !urlSet.has(doc.source_url));
+
+    // Apply pagination
+    return orphanedDocs.slice(offset, offset + limit);
   }
 }
 

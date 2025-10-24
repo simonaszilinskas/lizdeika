@@ -37,11 +37,23 @@
  * - Controller manages business logic and service integration
  */
 const express = require('express');
+const rateLimit = require('express-rate-limit');
+const { authenticateToken, requireAdmin } = require('../middleware/authMiddleware');
+const { validateIngestDocuments, validateDetectOrphans } = require('../middleware/validationMiddleware');
 const KnowledgeController = require('../controllers/knowledgeController');
 
 function createKnowledgeRoutes() {
     const router = express.Router();
     const knowledgeController = new KnowledgeController();
+
+    // Rate limiter for document operations (10 requests per minute per IP)
+    const documentLimiter = rateLimit({
+        windowMs: 60 * 1000,
+        max: 10,
+        message: 'Too many document operations, please try again later',
+        standardHeaders: true,
+        legacyHeaders: false,
+    });
 
     // File upload endpoint
     router.post('/documents/upload', 
@@ -112,14 +124,25 @@ function createKnowledgeRoutes() {
     });
 
     // Smart document ingestion endpoint (for scraper integration)
-    router.post('/documents/ingest', (req, res) => {
-        knowledgeController.ingestDocuments(req, res);
-    });
+    router.post('/documents/ingest',
+        authenticateToken,
+        documentLimiter,
+        validateIngestDocuments,
+        (req, res) => {
+            knowledgeController.ingestDocuments(req, res);
+        }
+    );
 
     // Detect and clean up orphaned documents
-    router.post('/documents/detect-orphans', (req, res) => {
-        knowledgeController.detectOrphans(req, res);
-    });
+    router.post('/documents/detect-orphans',
+        authenticateToken,
+        requireAdmin,
+        documentLimiter,
+        validateDetectOrphans,
+        (req, res) => {
+            knowledgeController.detectOrphans(req, res);
+        }
+    );
 
     return router;
 }

@@ -27,12 +27,6 @@ CREATE UNIQUE INDEX "knowledge_documents_source_url_key" ON "knowledge_documents
 CREATE UNIQUE INDEX "knowledge_documents_content_hash_key" ON "knowledge_documents"("content_hash");
 
 -- CreateIndex
-CREATE INDEX "knowledge_documents_source_url_idx" ON "knowledge_documents"("source_url");
-
--- CreateIndex
-CREATE INDEX "knowledge_documents_content_hash_idx" ON "knowledge_documents"("content_hash");
-
--- CreateIndex
 CREATE INDEX "knowledge_documents_source_type_idx" ON "knowledge_documents"("source_type");
 
 -- CreateIndex

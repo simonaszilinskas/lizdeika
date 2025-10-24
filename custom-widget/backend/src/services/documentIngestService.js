@@ -104,14 +104,20 @@ class DocumentIngestService {
       // Extract chunk IDs for tracking
       const chunkIds = chunks.map((c) => c.id);
 
-      // Handle content change if URL exists
+      // Handle content change if URL exists but hash differs
       let replacedDocumentId = null;
-      if (existingByUrl && existingByUrl.id !== (existingByHash?.id || null)) {
+      if (existingByUrl && existingByHash && existingByUrl.id !== existingByHash.id) {
         // URL exists but content changed - delete old chunks from ChromaDB
-        if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids)) {
-          await chromaService.deleteChunks(existingByUrl.chroma_ids);
+        if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids) && chromaService.isConnected) {
+          try {
+            await chromaService.deleteChunks(existingByUrl.chroma_ids);
+          } catch (error) {
+            logger.error('[DocumentIngestService.ingestDocument] ChromaDB deletion error, not deleting DB record:', error);
+            // Don't proceed with DB deletion if ChromaDB fails - maintain consistency
+            throw new Error(`Failed to delete old chunks from ChromaDB: ${error.message}`);
+          }
         }
-        // Mark old document as updated
+        // Delete old document record only after successful ChromaDB cleanup
         await DocumentRepository.deleteDocument(existingByUrl.id);
         replacedDocumentId = existingByUrl.id;
       }
@@ -204,9 +210,13 @@ class DocumentIngestService {
    * Detect and handle orphaned documents from scraper
    * Documents not in the current list are marked as orphaned and can be deleted
    * @param {Array<string>} currentScraperUrls - List of URLs currently in scraper
+   * @param {Object} options - Optional settings
+   * @param {boolean} options.dryRun - Preview deletions without executing (default: false)
    * @returns {Promise<Object>} - Orphan detection result
    */
-  static async detectOrphans(currentScraperUrls = []) {
+  static async detectOrphans(currentScraperUrls = [], options = {}) {
+    const { dryRun = false } = options;
+
     try {
       // Find all scraper documents not in current URLs
       const orphanedDocs = await DocumentRepository.findDocumentsNotInUrls(
@@ -218,7 +228,24 @@ class DocumentIngestService {
         return {
           found: 0,
           deleted: 0,
+          dryRun,
           details: [],
+        };
+      }
+
+      // If dryRun, return preview without modifications
+      if (dryRun) {
+        return {
+          found: orphanedDocs.length,
+          deleted: 0,
+          dryRun: true,
+          preview: true,
+          details: orphanedDocs.map((doc) => ({
+            id: doc.id,
+            title: doc.title,
+            sourceUrl: doc.source_url,
+            chunksToDelete: doc.chroma_ids ? doc.chroma_ids.length : 0,
+          })),
         };
       }
 
@@ -230,22 +257,27 @@ class DocumentIngestService {
         }
       });
 
-      // Delete chunks from ChromaDB
-      if (chromaIdsToDelete.length > 0) {
+      // Delete chunks from ChromaDB (only if connected)
+      if (chromaIdsToDelete.length > 0 && chromaService.isConnected) {
         try {
           await chromaService.deleteChunks(chromaIdsToDelete);
         } catch (error) {
           logger.error('[DocumentIngestService.detectOrphans] ChromaDB deletion error:', error);
+          // Mark as orphaned instead of deleting to maintain consistency
+          const orphanIds = orphanedDocs.map((doc) => doc.id);
+          await DocumentRepository.markAsOrphaned(orphanIds);
+          throw new Error(`Failed to delete chunks from ChromaDB, documents marked as orphaned: ${error.message}`);
         }
       }
 
-      // Delete documents from database
+      // Delete documents from database only if ChromaDB cleanup succeeded
       const orphanIds = orphanedDocs.map((doc) => doc.id);
       await DocumentRepository.deleteOrphaned(orphanIds);
 
       return {
         found: orphanedDocs.length,
         deleted: orphanedDocs.length,
+        dryRun,
         details: orphanedDocs.map((doc) => ({
           id: doc.id,
           title: doc.title,

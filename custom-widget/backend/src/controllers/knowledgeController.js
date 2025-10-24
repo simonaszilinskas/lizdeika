@@ -628,27 +628,17 @@ class KnowledgeController {
     /**
      * Ingest documents for scraper integration
      * Smart deduplication with SHA256 hashing and change detection
+     * Validation handled by validateIngestDocuments middleware
      */
     async ingestDocuments(req, res) {
         try {
             const DocumentIngestService = require('../services/documentIngestService');
 
-            if (!req.body.documents || !Array.isArray(req.body.documents)) {
-                return res.status(400).json({
-                    error: 'Invalid request',
-                    message: 'Expected { documents: [{body, title?, sourceUrl?, date?, sourceType?}, ...] }'
-                });
-            }
-
-            if (req.body.documents.length === 0) {
-                return res.status(400).json({
-                    error: 'Invalid request',
-                    message: 'Documents array must not be empty'
-                });
-            }
+            // Use validated data from middleware
+            const { documents } = req.validatedData;
 
             // Ingest batch of documents
-            const result = await DocumentIngestService.ingestBatch(req.body.documents);
+            const result = await DocumentIngestService.ingestBatch(documents);
 
             res.json({
                 success: result.success,
@@ -667,25 +657,21 @@ class KnowledgeController {
 
     /**
      * Detect and clean up orphaned documents from scraper
+     * Validation handled by validateDetectOrphans middleware
      */
     async detectOrphans(req, res) {
         try {
             const DocumentIngestService = require('../services/documentIngestService');
 
-            const { currentUrls = [] } = req.body;
+            // Use validated data from middleware
+            const { currentUrls, dryRun = false } = req.validatedData;
 
-            if (!Array.isArray(currentUrls)) {
-                return res.status(400).json({
-                    error: 'Invalid request',
-                    message: 'currentUrls must be an array of strings'
-                });
-            }
-
-            const result = await DocumentIngestService.detectOrphans(currentUrls);
+            const result = await DocumentIngestService.detectOrphans(currentUrls, { dryRun });
 
             res.json({
                 success: true,
                 orphans: result,
+                dryRun,
                 timestamp: new Date().toISOString()
             });
 
