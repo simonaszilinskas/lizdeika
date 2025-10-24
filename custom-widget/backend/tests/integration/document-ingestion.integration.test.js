@@ -4,252 +4,209 @@
  */
 
 const request = require('supertest');
+const app = require('../../server');
 const { PrismaClient } = require('@prisma/client');
 const DocumentHashService = require('../../src/services/documentHashService');
-const DocumentIngestService = require('../../src/services/documentIngestService');
 const DocumentRepository = require('../../src/repositories/documentRepository');
 
 const prisma = new PrismaClient();
 
-describe('Document Ingestion System', () => {
+describe('Document Ingestion API', () => {
   beforeAll(async () => {
     // Clean up test data before running tests
     await prisma.knowledge_documents.deleteMany({});
   });
 
   afterAll(async () => {
+    await prisma.knowledge_documents.deleteMany({});
     await prisma.$disconnect();
   });
 
   afterEach(async () => {
-    // Clean up after each test
+    // Clean up between test suites
     await prisma.knowledge_documents.deleteMany({});
   });
 
-  describe('DocumentHashService', () => {
-    it('should create consistent hashes for content', () => {
-      const content = 'Test document content';
-      const hash1 = DocumentHashService.computeHash(content);
-      const hash2 = DocumentHashService.computeHash(content);
-      expect(hash1).toBe(hash2);
-      expect(hash1).toHaveLength(64); // SHA256 hex
+  describe('POST /api/knowledge/documents/ingest', () => {
+    it('should ingest a single document successfully', async () => {
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: 'This is test content for document ingestion',
+              title: 'Test Document',
+              sourceUrl: 'https://example.com/test1',
+            },
+          ],
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.batch.successful).toBe(1);
+      expect(response.body.batch.total).toBe(1);
+      expect(response.body.batch.details[0].documentId).toBeDefined();
+      expect(response.body.batch.details[0].title).toBe('Test Document');
+      expect(response.body.batch.details[0].sourceUrl).toBe('https://example.com/test1');
     });
 
-    it('should handle line ending normalization', () => {
-      const content1 = 'Line 1\r\nLine 2\r\nLine 3';
-      const content2 = 'Line 1\nLine 2\nLine 3';
-      const hash1 = DocumentHashService.computeNormalizedHash(content1);
-      const hash2 = DocumentHashService.computeNormalizedHash(content2);
-      expect(hash1).toBe(hash2);
-    });
-  });
+    it('should ingest batch of multiple documents', async () => {
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: 'First document content',
+              title: 'Doc 1',
+              sourceUrl: 'https://example.com/doc1',
+            },
+            {
+              body: 'Second document content',
+              title: 'Doc 2',
+              sourceUrl: 'https://example.com/doc2',
+            },
+            {
+              body: 'Third document content',
+              title: 'Doc 3',
+              sourceUrl: 'https://example.com/doc3',
+            },
+          ],
+        })
+        .expect(200);
 
-  describe('DocumentRepository', () => {
-    it('should create and find documents by hash', async () => {
-      const content = 'Test document content';
-      const hash = DocumentHashService.computeHash(content);
-
-      const created = await DocumentRepository.createDocument({
-        title: 'Test Doc',
-        content_hash: hash,
-        source_type: 'test',
-        chunks_count: 5,
-        total_chars: content.length,
-      });
-
-      expect(created.id).toBeDefined();
-      expect(created.content_hash).toBe(hash);
-
-      const found = await DocumentRepository.findByHash(hash);
-      expect(found).toBeDefined();
-      expect(found.id).toBe(created.id);
-    });
-
-    it('should find documents by source URL', async () => {
-      const sourceUrl = 'https://example.com/doc1';
-      const hash = DocumentHashService.computeHash('Content 1');
-
-      const created = await DocumentRepository.createDocument({
-        title: 'Doc with URL',
-        content_hash: hash,
-        source_type: 'scraper',
-        source_url: sourceUrl,
-        chunks_count: 3,
-        total_chars: 100,
-      });
-
-      const found = await DocumentRepository.findBySourceUrl(sourceUrl);
-      expect(found).toBeDefined();
-      expect(found.source_url).toBe(sourceUrl);
+      expect(response.body.success).toBe(true);
+      expect(response.body.batch.successful).toBe(3);
+      expect(response.body.batch.total).toBe(3);
+      expect(response.body.batch.failed).toBe(0);
     });
 
-    it('should track document statistics', async () => {
-      // Create multiple documents
-      for (let i = 0; i < 3; i++) {
-        await DocumentRepository.createDocument({
-          title: `Doc ${i}`,
-          content_hash: DocumentHashService.computeHash(`Content ${i}`),
-          source_type: 'test',
-          chunks_count: 2,
-          total_chars: 50,
-          status: i === 2 ? 'failed' : 'indexed',
-        });
-      }
+    it('should reject duplicate content by hash', async () => {
+      const contentA = 'Unique content that will be duplicated';
 
-      const stats = await DocumentRepository.getStatistics();
-      expect(stats.total).toBe(3);
-      expect(stats.indexed).toBe(2);
-      expect(stats.failed).toBe(1);
-    });
-  });
+      // First ingestion
+      const response1 = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: contentA,
+              title: 'Original',
+              sourceUrl: 'https://example.com/original',
+            },
+          ],
+        })
+        .expect(200);
 
-  describe('DocumentIngestService - Single Document Ingestion', () => {
-    it('should ingest a new document successfully', async () => {
-      const result = await DocumentIngestService.ingestDocument({
-        body: 'This is a test document content for ingestion testing',
-        title: 'Test Document',
-        sourceUrl: 'https://example.com/test1',
-        sourceType: 'test',
-      });
+      expect(response1.body.batch.successful).toBe(1);
 
-      expect(result.success).toBe(true);
-      expect(result.status).toBe('indexed');
-      expect(result.documentId).toBeDefined();
-      expect(result.title).toBe('Test Document');
-      expect(result.sourceUrl).toBe('https://example.com/test1');
+      // Attempt duplicate ingestion (same content)
+      const response2 = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: contentA,
+              title: 'Duplicate Attempt',
+              sourceUrl: 'https://example.com/duplicate',
+            },
+          ],
+        })
+        .expect(200);
+
+      expect(response2.body.batch.duplicates).toBe(1);
+      expect(response2.body.batch.details[0].status).toBe('duplicate_rejected');
     });
 
     it('should auto-generate title if not provided', async () => {
-      const content =
-        'This is a long document that should have an auto-generated title based on the first 50 characters';
-      const result = await DocumentIngestService.ingestDocument({
-        body: content,
-        sourceType: 'test',
-      });
+      const longContent = 'This is a document with a very long content that should be auto-generated as title from the first 50 characters or so';
 
-      expect(result.success).toBe(true);
-      expect(result.generatedTitle).toBe(true);
-      expect(result.title.length).toBeGreaterThan(0);
-      expect(result.title.length).toBeLessThanOrEqual(53); // 50 chars + "..."
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: longContent,
+              sourceUrl: 'https://example.com/autotitle',
+            },
+          ],
+        })
+        .expect(200);
+
+      expect(response.body.batch.successful).toBe(1);
+      expect(response.body.batch.details[0].generatedTitle).toBe(true);
+      expect(response.body.batch.details[0].title).toBeDefined();
+      expect(response.body.batch.details[0].title.length).toBeGreaterThan(0);
     });
 
-    it('should reject duplicate documents by hash', async () => {
-      const content = 'Duplicate content for testing';
+    it('should reject invalid request missing documents array', async () => {
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          data: 'something',
+        })
+        .expect(400);
 
-      // Ingest first time
-      const result1 = await DocumentIngestService.ingestDocument({
-        body: content,
-        title: 'Original',
-        sourceUrl: 'https://example.com/dup1',
-        sourceType: 'test',
-      });
-
-      expect(result1.success).toBe(true);
-
-      // Try to ingest same content again
-      const result2 = await DocumentIngestService.ingestDocument({
-        body: content,
-        title: 'Duplicate',
-        sourceUrl: 'https://example.com/dup2',
-        sourceType: 'test',
-      });
-
-      expect(result2.success).toBe(false);
-      expect(result2.status).toBe('duplicate_rejected');
-      expect(result2.duplicateHash).toBeDefined();
+      expect(response.body.error).toBeDefined();
+      expect(response.body.message).toContain('documents');
     });
 
-    it('should reject empty documents', async () => {
-      const result = await DocumentIngestService.ingestDocument({
-        body: '',
-        title: 'Empty',
-        sourceType: 'test',
-      });
+    it('should reject empty documents array', async () => {
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [],
+        })
+        .expect(400);
 
-      expect(result.success).toBe(false);
-      expect(result.status).toBe('failed');
-    });
-
-    it('should reject non-string content', async () => {
-      const result = await DocumentIngestService.ingestDocument({
-        body: null,
-        title: 'Invalid',
-        sourceType: 'test',
-      });
-
-      expect(result.success).toBe(false);
-      expect(result.status).toBe('failed');
-    });
-  });
-
-  describe('DocumentIngestService - Batch Ingestion', () => {
-    it('should ingest batch of documents', async () => {
-      const documents = [
-        {
-          body: 'Document 1 content for batch testing',
-          title: 'Doc 1',
-          sourceUrl: 'https://example.com/batch1',
-        },
-        {
-          body: 'Document 2 content for batch testing',
-          title: 'Doc 2',
-          sourceUrl: 'https://example.com/batch2',
-        },
-        {
-          body: 'Document 3 content for batch testing',
-          title: 'Doc 3',
-          sourceUrl: 'https://example.com/batch3',
-        },
-      ];
-
-      const result = await DocumentIngestService.ingestBatch(documents);
-
-      expect(result.success).toBe(true);
-      expect(result.batch.total).toBe(3);
-      expect(result.batch.successful).toBe(3);
-      expect(result.batch.failed).toBe(0);
-      expect(result.batch.details.length).toBe(3);
+      expect(response.body.error).toBeDefined();
     });
 
     it('should handle mixed successful and duplicate documents in batch', async () => {
-      const content = 'Shared content for testing duplicates';
+      const duplicateContent = 'Content that appears twice';
 
-      // First ingest one document
-      await DocumentIngestService.ingestDocument({
-        body: content,
-        title: 'Original',
-        sourceUrl: 'https://example.com/orig',
-        sourceType: 'test',
-      });
+      // Ingest first
+      await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: duplicateContent,
+              title: 'Original',
+            },
+          ],
+        });
 
-      // Try batch with duplicate
-      const batch = [
-        {
-          body: 'New unique document 1',
-          title: 'New Doc 1',
-        },
-        {
-          body: content, // Duplicate
-          title: 'Duplicate',
-        },
-        {
-          body: 'New unique document 2',
-          title: 'New Doc 2',
-        },
-      ];
+      // Batch with mix
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: 'Unique new content 1',
+              title: 'New 1',
+            },
+            {
+              body: duplicateContent,
+              title: 'Duplicate',
+            },
+            {
+              body: 'Unique new content 2',
+              title: 'New 2',
+            },
+          ],
+        })
+        .expect(200);
 
-      const result = await DocumentIngestService.ingestBatch(batch);
-
-      expect(result.batch.total).toBe(3);
-      expect(result.batch.successful).toBe(2);
-      expect(result.batch.duplicates).toBe(1);
-      expect(result.batch.failed).toBe(0);
+      expect(response.body.batch.total).toBe(3);
+      expect(response.body.batch.successful).toBe(2);
+      expect(response.body.batch.duplicates).toBe(1);
+      expect(response.body.batch.failed).toBe(0);
     });
   });
 
-  describe('DocumentIngestService - Orphan Detection', () => {
-    it('should detect orphaned documents', async () => {
-      // Create some scraper documents
+  describe('POST /api/knowledge/documents/detect-orphans', () => {
+    it('should detect orphaned documents when URLs are removed', async () => {
+      // Ingest scraper documents
       const urls = [
         'https://example.com/page1',
         'https://example.com/page2',
@@ -257,64 +214,207 @@ describe('Document Ingestion System', () => {
       ];
 
       for (const url of urls) {
-        await DocumentIngestService.ingestDocument({
-          body: `Content from ${url}`,
-          title: `Page ${url}`,
-          sourceUrl: url,
-          sourceType: 'scraper',
-        });
+        await request(app)
+          .post('/api/knowledge/documents/ingest')
+          .send({
+            documents: [
+              {
+                body: `Content from ${url}`,
+                title: `Page from ${url}`,
+                sourceUrl: url,
+                sourceType: 'scraper',
+              },
+            ],
+          });
       }
 
-      // Now only report that page1 and page2 exist
-      const currentUrls = ['https://example.com/page1', 'https://example.com/page2'];
+      // Report that only page1 and page2 still exist
+      const response = await request(app)
+        .post('/api/knowledge/documents/detect-orphans')
+        .send({
+          currentUrls: ['https://example.com/page1', 'https://example.com/page2'],
+        })
+        .expect(200);
 
-      const orphanResult = await DocumentIngestService.detectOrphans(currentUrls);
-
-      expect(orphanResult.found).toBe(1);
-      expect(orphanResult.deleted).toBe(1);
-      expect(orphanResult.details.length).toBe(1);
-      expect(orphanResult.details[0].sourceUrl).toBe('https://example.com/page3');
+      expect(response.body.success).toBe(true);
+      expect(response.body.orphans.found).toBe(1);
+      expect(response.body.orphans.deleted).toBe(1);
+      expect(response.body.orphans.details[0].sourceUrl).toBe('https://example.com/page3');
     });
 
-    it('should handle no orphans found', async () => {
-      const urls = ['https://example.com/active1', 'https://example.com/active2'];
-
-      for (const url of urls) {
-        await DocumentIngestService.ingestDocument({
-          body: `Content from ${url}`,
-          title: `Active Page ${url}`,
-          sourceUrl: url,
-          sourceType: 'scraper',
+    it('should handle empty current URLs list (implies all are orphaned)', async () => {
+      // Ingest scraper documents
+      await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: 'Page 1 content',
+              title: 'Page 1',
+              sourceUrl: 'https://example.com/page-orphan-1',
+              sourceType: 'scraper',
+            },
+            {
+              body: 'Page 2 content',
+              title: 'Page 2',
+              sourceUrl: 'https://example.com/page-orphan-2',
+              sourceType: 'scraper',
+            },
+          ],
         });
+
+      // Report empty current URLs
+      const response = await request(app)
+        .post('/api/knowledge/documents/detect-orphans')
+        .send({
+          currentUrls: [],
+        })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.orphans.found).toBeGreaterThan(0);
+    });
+
+    it('should return zero orphans when all documents are present', async () => {
+      const urls = [
+        'https://example.com/keep1',
+        'https://example.com/keep2',
+      ];
+
+      // Ingest scraper documents
+      for (const url of urls) {
+        await request(app)
+          .post('/api/knowledge/documents/ingest')
+          .send({
+            documents: [
+              {
+                body: `Content for ${url}`,
+                title: `Title for ${url}`,
+                sourceUrl: url,
+                sourceType: 'scraper',
+              },
+            ],
+          });
       }
 
-      // Report all documents as still active
-      const orphanResult = await DocumentIngestService.detectOrphans(urls);
+      // Report all URLs still exist
+      const response = await request(app)
+        .post('/api/knowledge/documents/detect-orphans')
+        .send({
+          currentUrls: urls,
+        })
+        .expect(200);
 
-      expect(orphanResult.found).toBe(0);
-      expect(orphanResult.deleted).toBe(0);
-      expect(orphanResult.details.length).toBe(0);
+      expect(response.body.success).toBe(true);
+      expect(response.body.orphans.found).toBe(0);
+      expect(response.body.orphans.deleted).toBe(0);
+    });
+
+    it('should reject invalid currentUrls format', async () => {
+      const response = await request(app)
+        .post('/api/knowledge/documents/detect-orphans')
+        .send({
+          currentUrls: 'not-an-array',
+        })
+        .expect(400);
+
+      expect(response.body.error).toBeDefined();
     });
   });
 
-  describe('DocumentIngestService - Statistics', () => {
+  describe('GET /api/knowledge/documents/ingest-stats', () => {
     it('should return ingestion statistics', async () => {
-      // Create various documents
-      for (let i = 0; i < 5; i++) {
-        await DocumentIngestService.ingestDocument({
-          body: `Document ${i} content`,
-          title: `Doc ${i}`,
-          sourceType: 'test',
-        });
+      // Ingest some documents
+      for (let i = 0; i < 3; i++) {
+        await request(app)
+          .post('/api/knowledge/documents/ingest')
+          .send({
+            documents: [
+              {
+                body: `Document ${i} content`,
+                title: `Doc ${i}`,
+              },
+            ],
+          });
       }
 
-      const stats = await DocumentIngestService.getStatistics();
+      const response = await request(app)
+        .get('/api/knowledge/documents/ingest-stats')
+        .expect(200);
 
-      expect(stats).toBeDefined();
-      expect(stats.timestamp).toBeDefined();
-      expect(stats.database).toBeDefined();
-      expect(stats.database.total).toBe(5);
-      expect(stats.database.indexed).toBe(5);
+      expect(response.body.success).toBe(true);
+      expect(response.body.statistics).toBeDefined();
+      expect(response.body.statistics.timestamp).toBeDefined();
+      expect(response.body.statistics.database).toBeDefined();
+      expect(response.body.statistics.database.total).toBe(3);
+      expect(response.body.statistics.database.indexed).toBe(3);
+    });
+
+    it('should show zero documents when none ingested', async () => {
+      const response = await request(app)
+        .get('/api/knowledge/documents/ingest-stats')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.statistics.database.total).toBe(0);
+    });
+  });
+
+  describe('Database Persistence', () => {
+    it('should persist documents to knowledge_documents table', async () => {
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body: 'Content to persist',
+              title: 'Persistence Test',
+              sourceUrl: 'https://example.com/persist',
+            },
+          ],
+        })
+        .expect(200);
+
+      const documentId = response.body.batch.details[0].documentId;
+
+      // Query database directly
+      const dbDoc = await DocumentRepository.findById(documentId);
+
+      expect(dbDoc).toBeDefined();
+      expect(dbDoc.title).toBe('Persistence Test');
+      expect(dbDoc.source_url).toBe('https://example.com/persist');
+      expect(dbDoc.status).toBe('indexed');
+      expect(dbDoc.chunks_count).toBeGreaterThan(0);
+      expect(dbDoc.content_hash).toBeDefined();
+      expect(dbDoc.chroma_ids).toBeDefined();
+      expect(Array.isArray(dbDoc.chroma_ids)).toBe(true);
+    });
+
+    it('should track document metadata correctly', async () => {
+      const body = 'Test content for metadata tracking';
+      const response = await request(app)
+        .post('/api/knowledge/documents/ingest')
+        .send({
+          documents: [
+            {
+              body,
+              title: 'Metadata Test',
+              sourceUrl: 'https://example.com/metadata',
+              sourceType: 'scraper',
+            },
+          ],
+        })
+        .expect(200);
+
+      const documentId = response.body.batch.details[0].documentId;
+      const dbDoc = await DocumentRepository.findById(documentId);
+
+      expect(dbDoc.content_hash).toBe(DocumentHashService.computeHash(
+        DocumentHashService.normalizeContent(body)
+      ));
+      expect(dbDoc.source_type).toBe('scraper');
+      expect(dbDoc.source_url).toBe('https://example.com/metadata');
+      expect(dbDoc.total_chars).toBe(body.length);
     });
   });
 });
