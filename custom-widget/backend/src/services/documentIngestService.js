@@ -160,57 +160,100 @@ class DocumentIngestService {
       // Extract chunk IDs for tracking
       const chunkIds = chunks.map((c) => c.id);
 
-      // Use transaction with row-level locking to prevent race condition
-      // When multiple concurrent requests update the same URL, only one will succeed
-      const documentRecord = await prisma.$transaction(async (tx) => {
-        // Lock existing URL document if it exists (prevents other concurrent requests from reading/updating)
-        let existingByUrl = null;
-        if (sourceUrl) {
-          existingByUrl = await tx.knowledge_documents.findFirst({
-            where: { source_url: sourceUrl },
-          });
+      // Use transaction with unique constraint violation handling for race condition edge case
+      // Even with findFirst, two concurrent requests with same sourceUrl might both read null (time-of-check vs time-of-use)
+      // Solution: catch Prisma unique constraint violation (P2002) and retry with hash-based deduplication
+      let documentRecord = null;
+      let retryCount = 0;
+      const maxRetries = 3;
 
-          // Handle content change: replace old document if URL exists but hash differs
-          if (existingByUrl && (!existingByHash || existingByUrl.id !== existingByHash.id)) {
-            // URL exists but content changed - delete old chunks from ChromaDB with retry
-            if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids) && chromaService.isConnected) {
-              try {
-                await retryChromaOperation(
-                  () => chromaService.deleteChunks(existingByUrl.chroma_ids),
-                  'Deleting old document chunks from ChromaDB'
-                );
-              } catch (error) {
-                logger.error('[DocumentIngestService.ingestDocument] ChromaDB deletion error:', error);
-                throw new Error(`Failed to delete old chunks from ChromaDB: ${error.message}`);
+      while (!documentRecord && retryCount < maxRetries) {
+        try {
+          documentRecord = await prisma.$transaction(async (tx) => {
+            // Lock existing URL document if it exists (prevents other concurrent requests from reading/updating)
+            let existingByUrl = null;
+            if (sourceUrl) {
+              existingByUrl = await tx.knowledge_documents.findFirst({
+                where: { source_url: sourceUrl },
+              });
+
+              // Handle content change: replace old document if URL exists but hash differs
+              if (existingByUrl && (!existingByHash || existingByUrl.id !== existingByHash.id)) {
+                // URL exists but content changed - delete old chunks from ChromaDB with retry
+                if (existingByUrl.chroma_ids && Array.isArray(existingByUrl.chroma_ids) && chromaService.isConnected) {
+                  try {
+                    await retryChromaOperation(
+                      () => chromaService.deleteChunks(existingByUrl.chroma_ids),
+                      'Deleting old document chunks from ChromaDB'
+                    );
+                  } catch (error) {
+                    logger.error('[DocumentIngestService.ingestDocument] ChromaDB deletion error:', error);
+                    throw new Error(`Failed to delete old chunks from ChromaDB: ${error.message}`);
+                  }
+                }
+                // Delete old document record only after successful ChromaDB cleanup
+                await tx.knowledge_documents.delete({
+                  where: { id: existingByUrl.id },
+                });
               }
             }
-            // Delete old document record only after successful ChromaDB cleanup
-            await tx.knowledge_documents.delete({
-              where: { id: existingByUrl.id },
-            });
-          }
-        }
 
-        // Save document metadata to database within transaction
-        return tx.knowledge_documents.create({
-          data: {
-            title: generatedTitle,
-            content_hash: contentHash,
-            source_type: sourceType,
-            source_url: sourceUrl,
-            status: 'indexed',
-            chunks_count: chunkIds.length,
-            total_chars: normalizedContent.length,
-            chroma_ids: chunkIds,
-            metadata: {
-              date,
-              sourceUrl,
-              generatedTitle: !title,
-              chunkingStrategy: chunkingResult.strategy,
-            },
-          },
-        });
-      });
+            // Save document metadata to database within transaction
+            return tx.knowledge_documents.create({
+              data: {
+                title: generatedTitle,
+                content_hash: contentHash,
+                source_type: sourceType,
+                source_url: sourceUrl,
+                status: 'indexed',
+                chunks_count: chunkIds.length,
+                total_chars: normalizedContent.length,
+                chroma_ids: chunkIds,
+                metadata: {
+                  date,
+                  sourceUrl,
+                  generatedTitle: !title,
+                  chunkingStrategy: chunkingResult.strategy,
+                },
+              },
+            });
+          });
+        } catch (error) {
+          // Handle unique constraint violation (race condition edge case)
+          // P2002: Unique constraint failed on the following fields: (source_url)
+          if (error.code === 'P2002' && error.meta?.target?.includes('source_url')) {
+            retryCount += 1;
+            if (retryCount < maxRetries) {
+              logger.warn(
+                `[DocumentIngestService.ingestDocument] Unique constraint violation for URL ${sourceUrl}, retrying (attempt ${retryCount}/${maxRetries})`
+              );
+              // Small exponential backoff: 10ms, 50ms, 100ms
+              await new Promise((resolve) => setTimeout(resolve, 10 * Math.pow(2, retryCount - 1)));
+              continue; // Retry the transaction
+            } else {
+              // After max retries, return duplicate rejection (hash should have caught it, but race condition occurred)
+              const existingDoc = await DocumentRepository.findBySourceUrl(sourceUrl);
+              if (existingDoc) {
+                return {
+                  success: false,
+                  status: 'duplicate_rejected',
+                  documentId: existingDoc.id,
+                  title: existingDoc.title,
+                  reason: 'Document with same URL already exists (race condition resolved)',
+                };
+              }
+              throw error; // Re-throw if document not found
+            }
+          }
+
+          // Non-race-condition errors should propagate
+          throw error;
+        }
+      }
+
+      if (!documentRecord) {
+        throw new Error('Failed to create document after maximum retries');
+      }
 
       return {
         success: true,

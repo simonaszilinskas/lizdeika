@@ -69,13 +69,17 @@ const validateIngestDocuments = (req, res, next) => {
 /**
  * Validation middleware for orphan detection
  * Validates currentUrls array and optional dryRun flag
+ *
+ * Note: currentUrls can be empty to detect ALL scraper documents as orphans
+ * If currentUrls is empty: All scraper documents are considered orphaned
+ * If currentUrls has values: Only scraper documents NOT in this list are orphaned
  */
 const validateDetectOrphans = (req, res, next) => {
   try {
     const schema = z.object({
       currentUrls: z
         .array(z.string().url('Each URL must be valid'))
-        .min(1, 'currentUrls array cannot be empty'),
+        .default([], 'Empty array detects all scraper documents as orphans'),
       dryRun: z.boolean().default(false),
     });
 
