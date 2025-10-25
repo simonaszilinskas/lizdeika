@@ -193,6 +193,7 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 - ✅ **Two-Factor Authentication (2FA/TOTP)** - Time-based one-time passwords with QR code setup, manual entry key, and backup codes
 - ✅ **Smart Document Ingestion (Issue #78)** - Event-driven API with SHA256 deduplication, change detection, and orphan management
 - ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
+- ✅ **CORS Configuration (Issue #74)** - Separate security policies for admin and widget routes
 
 ### Important Implementation Details
 
@@ -406,3 +407,67 @@ This system supports 20 concurrent agents handling 16,000+ conversations annuall
 3. Rebuild: `docker-compose up --build`
 
 This forces a clean database state and re-applies all migrations in order.
+
+### CORS Configuration (Issue #74)
+
+The application implements separate CORS policies for admin and widget routes to enable secure multi-tenant deployments.
+
+**Route Classification**:
+
+**Admin Routes** (Stricter CORS):
+- `/api/auth` - Authentication endpoints
+- `/api/users` - User management (admin only)
+- `/api/categories` - Ticket categories
+- `/api/statistics` - Analytics and metrics
+- `/api/knowledge` - Document management
+- `/api/templates` - Response templates
+- `/api/widget` - Widget configuration
+- HTML pages: `settings.html`, `agent-dashboard.html`, `setup-2fa.html`
+
+**Widget Routes** (Permissive CORS):
+- `/api/conversations` - Customer-facing conversations
+- `/api/messages` - Customer messages
+
+**Configuration**:
+
+```bash
+# Development (.env)
+ADMIN_ALLOWED_ORIGINS=same-origin
+WIDGET_ALLOWED_DOMAINS=*
+
+# Production example (multiple origins)
+ADMIN_ALLOWED_ORIGINS=https://admin.example.com,https://internal.example.com
+WIDGET_ALLOWED_DOMAINS=https://customer1.com,https://customer2.com,https://customer3.com
+
+# Allow any origin for widget (testing only)
+WIDGET_ALLOWED_DOMAINS=*
+```
+
+**Security Model**:
+- **Admin routes**: Same-origin by default (no cross-origin requests)
+- **Widget routes**: Allow any origin (`*`) for customer embedding
+- **Socket.IO**: Uses admin CORS settings (agents/admins only)
+- **Header enforcement**: Admin routes require `Authorization` header
+
+**Implementation Details**:
+- Middleware: `custom-widget/backend/src/middleware/corsMiddleware.js`
+- Route pattern matching for dynamic CORS selection
+- Environment variable parsing with sensible defaults
+- Socket.IO configured to respect admin CORS
+
+**Troubleshooting CORS Issues**:
+
+**Problem**: "CORS policy: No 'Access-Control-Allow-Origin' header" for admin endpoints
+- ✓ This is expected - admin endpoints should reject cross-origin requests
+- Admin pages (settings, dashboard) are same-origin only
+- Widget requests to admin endpoints should not be made from browser
+
+**Problem**: Widget not loading on customer domain
+- Check `WIDGET_ALLOWED_DOMAINS` includes the domain
+- Use `*` for testing, specific domains for production
+- Widget routes (`/api/conversations`, `/api/messages`) should allow the domain
+
+**Problem**: Socket.IO connection failures
+- Socket.IO inherits admin CORS settings
+- If agents can't connect, check `ADMIN_ALLOWED_ORIGINS`
+- Agents should connect from same domain as admin dashboard
