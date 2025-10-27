@@ -46,11 +46,12 @@ RUN npm run test:unit || true
 FROM node:20-slim AS production
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies including gosu for privilege dropping
 RUN apt-get update && apt-get install -y \
     openssl \
     wget \
     dumb-init \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -72,13 +73,13 @@ RUN mkdir -p /app/logs /var/uploads && \
 COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Note: Upload directory is externally mounted at /var/uploads for security
-# This keeps uploaded files outside the codebase directory
-# Entrypoint script ensures proper permissions on volume mount
-# Configure via UPLOADS_DIR environment variable and Docker volume mount
-
-# Run as root for entrypoint (to set permissions), then app runs as nodejs
-# The entrypoint script handles the permission setup and migration before starting app
+# Security: Entrypoint script handles privilege management
+# - Runs as root initially to fix ownership/permissions on /var/uploads volume
+# - Performs database migrations (requires root-level access to filesystem)
+# - Generates Prisma client
+# - Then drops privileges to nodejs user via gosu before launching Node.js application
+# - Node.js process runs as non-root nodejs user (uid 1001)
+# This satisfies container security policy while allowing necessary setup operations
 
 # Health check - use PORT env var, fallback to 3002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
