@@ -27,6 +27,8 @@ const adminRoutePatterns = [
     /^\/api\/auth/,
     /^\/api\/users/,
     /^\/api\/categories/,
+    /^\/api\/activities/,
+    /^\/api\/logs/,
     /^\/api\/statistics/,
     /^\/api\/templates/,
     /^\/api\/widget/,

@@ -334,6 +334,58 @@ Uploaded files are stored outside the codebase directory for security:
 - **Size Limits**: Configurable via `MAX_FILE_SIZE` (default 10MB for message attachments)
 - **Document Processing**: .txt and .docx files for RAG knowledge base (10MB for .txt, 50MB for .docx)
 
+**Migration from Older Deployments**:
+If upgrading from a version where uploads were stored in `./uploads` (inside the codebase):
+```bash
+# 1. Pull latest code changes
+git pull origin main
+
+# 2. Create backup of old uploads (optional but recommended)
+docker-compose exec backend tar -czf /tmp/uploads_backup.tar.gz -C /app uploads/
+
+# 3. Copy files to new location
+docker-compose exec backend sh -c 'cp -r /app/uploads/* /var/uploads/ 2>/dev/null || true'
+
+# 4. Verify files were copied
+docker-compose exec backend ls -lah /var/uploads/
+
+# 5. Rebuild containers with new Dockerfile (which sets proper permissions)
+docker-compose down
+docker-compose up --build -d
+
+# 6. After verifying everything works, clean up old uploads (optional)
+docker-compose exec backend sh -c 'rm -rf /app/uploads/* && rmdir /app/uploads'
+```
+
+**Volume Backup Strategy**:
+To prevent data loss, implement regular backups of upload volumes:
+
+Development:
+```bash
+# Backup uploads_data volume
+docker run --rm -v uploads_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/uploads_backup_$(date +%Y%m%d).tar.gz -C /data .
+
+# Restore from backup
+docker volume rm uploads_data
+docker volume create uploads_data
+docker run --rm -v uploads_data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/uploads_backup_YYYYMMDD.tar.gz -C /data
+```
+
+Production:
+```bash
+# Backup uploads_prod_data volume
+docker run --rm -v uploads_prod_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/uploads_prod_backup_$(date +%Y%m%d).tar.gz -C /data .
+
+# Automated daily backup (add to cron)
+0 2 * * * docker run --rm -v uploads_prod_data:/data -v /backups:/backup \
+  alpine tar czf /backup/uploads_prod_backup_$(date +\%Y\%m\%d).tar.gz -C /data .
+```
+
+**Important**: Ensure backup destination has sufficient disk space for all uploaded files.
+
 This system supports 20 concurrent agents handling 16,000+ conversations annually with full Lithuanian language support.
 
 # Guidance for development

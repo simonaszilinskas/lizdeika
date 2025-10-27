@@ -64,8 +64,9 @@ COPY --from=builder /app/node_modules ./node_modules
 # Ensure Prisma CLI is available for migrations
 RUN npm install -g prisma@latest
 
-# Create necessary directories
-RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
+# Create necessary directories with proper ownership
+RUN mkdir -p /app/logs /var/uploads && \
+    chown -R nodejs:nodejs /app/logs /var/uploads
 
 # Note: Upload directory is externally mounted at /var/uploads for security
 # This keeps uploaded files outside the codebase directory
