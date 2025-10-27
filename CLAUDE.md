@@ -42,7 +42,7 @@ npm run test:watch     # Watch mode for test development
 ### Docker Development
 ```bash
 # Primary development workflow
-docker-compose up --build          # Start all services
+docker-compose up --build          # Start all services (runs migrations automatically)
 docker-compose exec backend npm run db:seed    # Seed database
 docker-compose logs -f backend     # View backend logs
 docker-compose exec postgres psql -U postgres -d vilnius_support  # Database CLI
@@ -51,6 +51,8 @@ docker-compose exec postgres psql -U postgres -d vilnius_support  # Database CLI
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
+**Important**: Database migrations run automatically in the Docker entrypoint. The `message_statistics` table and all other schema changes are created via Prisma migrations stored in `custom-widget/backend/prisma/migrations/`. This ensures consistent database state across all deployments.
+
 ## Architecture Overview
 
 ### Core System Components
@@ -58,7 +60,7 @@ This is an AI-powered customer support platform with three main layers:
 
 1. **Frontend Layer** (Vanilla JS + ES6 Modules):
    - `custom-widget/js/agent-dashboard/` - Modularized agent dashboard (11 modules)
-   - `custom-widget/js/settings/` - Settings management (4 feature modules + 3 core services)
+   - `custom-widget/js/settings/` - Settings management (10 feature modules + 3 core services)
    - `*.html` files served by backend at port 3002
 
 2. **Backend Layer** (Node.js + Express):
@@ -83,12 +85,14 @@ The settings system uses a modernized modular ES6 architecture:
 **Feature Modules** (`custom-widget/js/settings/modules/`):
 - `SystemModeModule.js` - System mode management (HITL/Autopilot/OFF)
 - `UserManagementModule.js` - User CRUD operations (admin only)
-- `AgentStatusModule.js` - Connected agents display and monitoring
 - `WidgetConfigModule.js` - Widget configuration and integration code
 - `BrandingConfigModule.js` - Widget branding and appearance settings
 - `ContextEngineeringModule.js` - RAG and AI prompt configuration
 - `KnowledgeManagementModule.js` - Document upload and knowledge base management
 - `CategoryManagementModule.js` - Ticket categorization settings
+- `TemplateManagementModule.js` - Response templates management
+- `SecurityPolicyModule.js` - Security policy configuration
+- `StatisticsModule.js` - Analytics and statistics dashboards
 
 **Coordinator**: `SettingsManager.js` - Dependency injection and module coordination
 
@@ -120,6 +124,58 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Agent dashboard requires agent/admin role
 - Default admin credentials: `admin@vilnius.lt` / `admin123` (from seed data)
 
+### UI Design Philosophy (Issue #76)
+
+This project follows an **extreme text-light design** philosophy to reduce cognitive load and translation overhead.
+
+**Core Principles**:
+1. **Minimal Text** - Every visible word must serve a purpose (modify behavior or prevent errors)
+2. **Icon-First** - Visual communication replaces verbose labels where safe
+3. **Progressive Disclosure** - Supplementary info only shown on demand (tooltips, focus states)
+4. **Accessibility First** - `aria-label` attributes provide full context for screen readers
+5. **Translation-Friendly** - Reduced text = lower translation costs and faster cross-language deployment
+
+**Implementation Guidelines**:
+
+**Filter Buttons** (Agent Dashboard):
+- Single-letter buttons (M/U/O/A) instead of full text
+- `title` attributes provide hover tooltips
+- `aria-label` describes full intent for accessibility
+
+**Icon-Only Buttons**:
+- Settings → ⚙️ icon
+- Logout → ↗️ icon
+- Archive/Unarchive → box icons
+- Search → magnifying glass
+- Always include `title` and `aria-label`
+
+**Form Labels**:
+- Use `placeholder` text instead of explicit labels in login/2FA flows
+- Minimal helper text (e.g., "Type..." not "Enter your message")
+- Error messages shown only on validation failure
+
+**Empty States**:
+- Icon + one-line caption instead of explanatory paragraphs
+- Visual hierarchy communicates meaning
+
+**Action Buttons**:
+- Prefer icons with surrounding color context
+- Text limited to 1-2 words maximum
+- Example: "→ Dashboard" instead of "Continue to Dashboard"
+
+**When Adding Features**:
+1. Audit every text element - keep only what prevents errors
+2. Replace explanatory text with icons + tooltips
+3. Add ARIA labels for all icon-only elements
+4. Use consistent iconography from Font Awesome
+5. Test with screen readers to ensure accessibility
+6. Consider translation impact of any new text
+
+**Files to Reference**:
+- `custom-widget/agent-dashboard.html` - Filter buttons (M/U/O/A), icon-only navigation
+- `custom-widget/login.html` - Placeholder-based floating labels
+- `custom-widget/setup-2fa.html` - Progressive disclosure (details element for manual key)
+
 ## Current System Status
 
 ### Completed Features (Production Ready)
@@ -135,6 +191,9 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - ✅ **Statistics backend API (Issue #27)** - Conversation metrics, agent performance, AI suggestion usage
 - ✅ **AI Suggestion Security (Issue #63)** - Authentication middleware added to AI suggestion endpoints
 - ✅ **Two-Factor Authentication (2FA/TOTP)** - Time-based one-time passwords with QR code setup, manual entry key, and backup codes
+- ✅ **Smart Document Ingestion (Issue #78)** - Event-driven API with SHA256 deduplication, change detection, and orphan management
+- ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
+- ✅ **CORS Configuration (Issue #74)** - Separate security policies for admin and widget routes
 
 ### Important Implementation Details
 
@@ -213,6 +272,44 @@ npm run test:integration
 - `/api/statistics/trends` - Time-series data for charts
 
 See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
+
+**Smart Document Ingestion (Issue #78)**: Event-driven API for intelligent document management:
+- **Endpoints**:
+  - `POST /api/knowledge/documents/ingest` - Ingest documents with deduplication and change detection
+  - `POST /api/knowledge/documents/detect-orphans` - Identify and delete orphaned documents
+  - `GET /api/knowledge/documents/ingest-stats` - Retrieve ingestion statistics
+- **Core Features**:
+  - **Deduplication**: SHA256 hashing prevents duplicate embeddings
+  - **Change Detection**: Identifies content modifications and cleans old chunks
+  - **Orphan Management**: Detects documents removed from source website
+  - **Metadata Persistence**: Stores document info in `knowledge_documents` PostgreSQL table
+  - **Unified RAG**: Single ChromaDB collection for all document sources
+- **Database Schema**:
+  - `knowledge_documents` table with content_hash, source_type, source_url, chroma_ids tracking
+  - Automatic timestamps and audit trails
+- **Request Format** (POST /api/knowledge/documents/ingest):
+  ```json
+  {
+    "documents": [
+      {
+        "body": "Document content (required)",
+        "title": "Optional title (auto-generated from first 50 chars if omitted)",
+        "sourceUrl": "https://source.example.com/doc (optional)",
+        "date": "ISO timestamp (optional, defaults to now)",
+        "sourceType": "scraper|api|manual_upload (default: api)"
+      }
+    ]
+  }
+  ```
+- **Response**: Returns batch statistics with per-document status (indexed/duplicate_rejected/failed)
+- **Orphan Detection** (POST /api/knowledge/documents/detect-orphans):
+  - Send list of current source URLs
+  - System finds and deletes documents not in list
+  - Returns count and details of deleted orphans
+- **Testing**:
+  - 20+ integration tests covering all scenarios
+  - Unit tests for DocumentHashService with SHA256 validation
+  - Real database testing with PostgreSQL and ChromaDB
 
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)
@@ -305,3 +402,90 @@ This system supports 20 concurrent agents handling 16,000+ conversations annuall
 - One process per container
 - Use .dockerignore file
 - Layer caching optimization
+
+## Troubleshooting
+
+### Statistics API 400 Error
+**Problem**: Statistics dashboard shows HTTP 400 errors, backend logs show "table `public.message_statistics` does not exist"
+
+**Solution**: This was caused by the schema definition existing in `schema.prisma` but the migration not being committed. Fixed with commit `be9505c`. Ensure you:
+1. Pull the latest commits (includes the migration)
+2. Run `docker-compose down -v` to reset the volume
+3. Run `docker-compose up --build` to rebuild with fresh database
+4. Migrations will run automatically in the Docker entrypoint
+
+**Prevention**: Always create migrations for schema changes using `prisma migrate dev --name <description>` and commit them to git. Never use `db:push` in development - it bypasses the migration system.
+
+### Database Migration Failures
+**Problem**: Docker container restarts in a loop with "migrate found failed migrations"
+
+**Solution**:
+1. Stop all containers: `docker-compose down`
+2. Remove volumes: `docker volume prune`
+3. Rebuild: `docker-compose up --build`
+
+This forces a clean database state and re-applies all migrations in order.
+
+### CORS Configuration (Issue #74)
+
+The application implements separate CORS policies for admin and widget routes to enable secure multi-tenant deployments.
+
+**Route Classification**:
+
+**Admin Routes** (Stricter CORS):
+- `/api/auth` - Authentication endpoints
+- `/api/users` - User management (admin only)
+- `/api/categories` - Ticket categories
+- `/api/statistics` - Analytics and metrics
+- `/api/knowledge` - Document management
+- `/api/templates` - Response templates
+- `/api/widget` - Widget configuration
+- HTML pages: `settings.html`, `agent-dashboard.html`, `setup-2fa.html`
+
+**Widget Routes** (Permissive CORS):
+- `/api/conversations` - Customer-facing conversations
+- `/api/messages` - Customer messages
+
+**Configuration**:
+
+```bash
+# Development (.env)
+ADMIN_ALLOWED_ORIGINS=same-origin
+WIDGET_ALLOWED_DOMAINS=*
+
+# Production example (multiple origins)
+ADMIN_ALLOWED_ORIGINS=https://admin.example.com,https://internal.example.com
+WIDGET_ALLOWED_DOMAINS=https://customer1.com,https://customer2.com,https://customer3.com
+
+# Allow any origin for widget (testing only)
+WIDGET_ALLOWED_DOMAINS=*
+```
+
+**Security Model**:
+- **Admin routes**: Same-origin by default (no cross-origin requests)
+- **Widget routes**: Allow any origin (`*`) for customer embedding
+- **Socket.IO**: Uses admin CORS settings (agents/admins only)
+- **Header enforcement**: Admin routes require `Authorization` header
+
+**Implementation Details**:
+- Middleware: `custom-widget/backend/src/middleware/corsMiddleware.js`
+- Route pattern matching for dynamic CORS selection
+- Environment variable parsing with sensible defaults
+- Socket.IO configured to respect admin CORS
+
+**Troubleshooting CORS Issues**:
+
+**Problem**: "CORS policy: No 'Access-Control-Allow-Origin' header" for admin endpoints
+- ✓ This is expected - admin endpoints should reject cross-origin requests
+- Admin pages (settings, dashboard) are same-origin only
+- Widget requests to admin endpoints should not be made from browser
+
+**Problem**: Widget not loading on customer domain
+- Check `WIDGET_ALLOWED_DOMAINS` includes the domain
+- Use `*` for testing, specific domains for production
+- Widget routes (`/api/conversations`, `/api/messages`) should allow the domain
+
+**Problem**: Socket.IO connection failures
+- Socket.IO inherits admin CORS settings
+- If agents can't connect, check `ADMIN_ALLOWED_ORIGINS`
+- Agents should connect from same domain as admin dashboard
