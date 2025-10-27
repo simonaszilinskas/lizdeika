@@ -43,15 +43,16 @@ describe('Upload Security Integration Tests', () => {
   let conversation;
 
   beforeAll(async () => {
-    prisma = await initializeTestDatabase();
-    app = createTestApp();
-
-    // Create temporary directory for test uploads
+    // CRITICAL: Set UPLOADS_DIR BEFORE creating the app
+    // The app loads routes at module level which read UPLOADS_DIR
+    // Setting it after app creation will cause stale config
     testUploadsDir = path.join(os.tmpdir(), `uploads-test-${Date.now()}`);
     fs.mkdirSync(testUploadsDir, { recursive: true });
-
-    // Set UPLOADS_DIR to test directory
     process.env.UPLOADS_DIR = testUploadsDir;
+
+    // Now initialize database and create app (which reads UPLOADS_DIR from env)
+    prisma = await initializeTestDatabase();
+    app = createTestApp();
   });
 
   afterAll(async () => {

@@ -68,11 +68,17 @@ RUN npm install -g prisma@latest
 RUN mkdir -p /app/logs /var/uploads && \
     chown -R nodejs:nodejs /app/logs /var/uploads
 
+# Copy entrypoint script for permission handling and initialization
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Note: Upload directory is externally mounted at /var/uploads for security
 # This keeps uploaded files outside the codebase directory
+# Entrypoint script ensures proper permissions on volume mount
 # Configure via UPLOADS_DIR environment variable and Docker volume mount
 
-USER nodejs
+# Run as root for entrypoint (to set permissions), then app runs as nodejs
+# The entrypoint script handles the permission setup and migration before starting app
 
 # Health check - use PORT env var, fallback to 3002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
@@ -80,6 +86,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 EXPOSE 3002
 
-# Use dumb-init to handle signals properly
+# Use dumb-init with entrypoint script for proper signal handling and initialization
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "server.js"]
+CMD ["/usr/local/bin/entrypoint.sh", "node", "server.js"]
