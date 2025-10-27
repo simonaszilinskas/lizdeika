@@ -124,6 +124,58 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Agent dashboard requires agent/admin role
 - Default admin credentials: `admin@vilnius.lt` / `admin123` (from seed data)
 
+### UI Design Philosophy (Issue #76)
+
+This project follows an **extreme text-light design** philosophy to reduce cognitive load and translation overhead.
+
+**Core Principles**:
+1. **Minimal Text** - Every visible word must serve a purpose (modify behavior or prevent errors)
+2. **Icon-First** - Visual communication replaces verbose labels where safe
+3. **Progressive Disclosure** - Supplementary info only shown on demand (tooltips, focus states)
+4. **Accessibility First** - `aria-label` attributes provide full context for screen readers
+5. **Translation-Friendly** - Reduced text = lower translation costs and faster cross-language deployment
+
+**Implementation Guidelines**:
+
+**Filter Buttons** (Agent Dashboard):
+- Single-letter buttons (M/U/O/A) instead of full text
+- `title` attributes provide hover tooltips
+- `aria-label` describes full intent for accessibility
+
+**Icon-Only Buttons**:
+- Settings → ⚙️ icon
+- Logout → ↗️ icon
+- Archive/Unarchive → box icons
+- Search → magnifying glass
+- Always include `title` and `aria-label`
+
+**Form Labels**:
+- Use `placeholder` text instead of explicit labels in login/2FA flows
+- Minimal helper text (e.g., "Type..." not "Enter your message")
+- Error messages shown only on validation failure
+
+**Empty States**:
+- Icon + one-line caption instead of explanatory paragraphs
+- Visual hierarchy communicates meaning
+
+**Action Buttons**:
+- Prefer icons with surrounding color context
+- Text limited to 1-2 words maximum
+- Example: "→ Dashboard" instead of "Continue to Dashboard"
+
+**When Adding Features**:
+1. Audit every text element - keep only what prevents errors
+2. Replace explanatory text with icons + tooltips
+3. Add ARIA labels for all icon-only elements
+4. Use consistent iconography from Font Awesome
+5. Test with screen readers to ensure accessibility
+6. Consider translation impact of any new text
+
+**Files to Reference**:
+- `custom-widget/agent-dashboard.html` - Filter buttons (M/U/O/A), icon-only navigation
+- `custom-widget/login.html` - Placeholder-based floating labels
+- `custom-widget/setup-2fa.html` - Progressive disclosure (details element for manual key)
+
 ## Current System Status
 
 ### Completed Features (Production Ready)
@@ -140,6 +192,8 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - ✅ **AI Suggestion Security (Issue #63)** - Authentication middleware added to AI suggestion endpoints
 - ✅ **Two-Factor Authentication (2FA/TOTP)** - Time-based one-time passwords with QR code setup, manual entry key, and backup codes
 - ✅ **Smart Document Ingestion (Issue #78)** - Event-driven API with SHA256 deduplication, change detection, and orphan management
+- ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
+- ✅ **CORS Configuration (Issue #74)** - Separate security policies for admin and widget routes
 
 ### Important Implementation Details
 
@@ -262,6 +316,76 @@ See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
 - **Docker**: Backend on `localhost:3002`, internal PostgreSQL on port 5434
 - **Production**: Nginx reverse proxy with SSL termination
 
+### Upload Security
+Uploaded files are stored outside the codebase directory for security:
+- **Directory**: `/var/uploads` (configurable via `UPLOADS_DIR` environment variable)
+- **Docker Volumes**:
+  - Development: `uploads_data:/var/uploads`
+  - Production: `uploads_prod_data:/var/uploads`
+- **Security Features**:
+  - Files stored outside codebase to prevent code/data exposure
+  - No execution permissions on upload directory
+  - File type validation (images, PDFs, documents only)
+  - Filename sanitization with UUID prefix
+  - Rate limiting: 5 uploads per minute per IP
+  - Access control: JWT authentication or valid conversation ID required
+  - Directory traversal protection
+- **File Types**: Images (JPEG, PNG, GIF, WebP), PDF, DOC, DOCX, XLS, XLSX, TXT
+- **Size Limits**: Configurable via `MAX_FILE_SIZE` (default 10MB for message attachments)
+- **Document Processing**: .txt and .docx files for RAG knowledge base (10MB for .txt, 50MB for .docx)
+
+**Migration from Older Deployments**:
+If upgrading from a version where uploads were stored in `./uploads` (inside the codebase):
+```bash
+# 1. Pull latest code changes
+git pull origin main
+
+# 2. Create backup of old uploads (optional but recommended)
+docker-compose exec backend tar -czf /tmp/uploads_backup.tar.gz -C /app uploads/
+
+# 3. Copy files to new location
+docker-compose exec backend sh -c 'cp -r /app/uploads/* /var/uploads/ 2>/dev/null || true'
+
+# 4. Verify files were copied
+docker-compose exec backend ls -lah /var/uploads/
+
+# 5. Rebuild containers with new Dockerfile (which sets proper permissions)
+docker-compose down
+docker-compose up --build -d
+
+# 6. After verifying everything works, clean up old uploads (optional)
+docker-compose exec backend sh -c 'rm -rf /app/uploads/* && rmdir /app/uploads'
+```
+
+**Volume Backup Strategy**:
+To prevent data loss, implement regular backups of upload volumes:
+
+Development:
+```bash
+# Backup uploads_data volume
+docker run --rm -v uploads_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/uploads_backup_$(date +%Y%m%d).tar.gz -C /data .
+
+# Restore from backup
+docker volume rm uploads_data
+docker volume create uploads_data
+docker run --rm -v uploads_data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/uploads_backup_YYYYMMDD.tar.gz -C /data
+```
+
+Production:
+```bash
+# Backup uploads_prod_data volume
+docker run --rm -v uploads_prod_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/uploads_prod_backup_$(date +%Y%m%d).tar.gz -C /data .
+
+# Automated daily backup (add to cron)
+0 2 * * * docker run --rm -v uploads_prod_data:/data -v /backups:/backup \
+  alpine tar czf /backup/uploads_prod_backup_$(date +\%Y\%m\%d).tar.gz -C /data .
+```
+
+**Important**: Ensure backup destination has sufficient disk space for all uploaded files.
+
 This system supports 20 concurrent agents handling 16,000+ conversations annually with full Lithuanian language support.
 
 # Guidance for development
@@ -353,3 +477,67 @@ This system supports 20 concurrent agents handling 16,000+ conversations annuall
 3. Rebuild: `docker-compose up --build`
 
 This forces a clean database state and re-applies all migrations in order.
+
+### CORS Configuration (Issue #74)
+
+The application implements separate CORS policies for admin and widget routes to enable secure multi-tenant deployments.
+
+**Route Classification**:
+
+**Admin Routes** (Stricter CORS):
+- `/api/auth` - Authentication endpoints
+- `/api/users` - User management (admin only)
+- `/api/categories` - Ticket categories
+- `/api/statistics` - Analytics and metrics
+- `/api/knowledge` - Document management
+- `/api/templates` - Response templates
+- `/api/widget` - Widget configuration
+- HTML pages: `settings.html`, `agent-dashboard.html`, `setup-2fa.html`
+
+**Widget Routes** (Permissive CORS):
+- `/api/conversations` - Customer-facing conversations
+- `/api/messages` - Customer messages
+
+**Configuration**:
+
+```bash
+# Development (.env)
+ADMIN_ALLOWED_ORIGINS=same-origin
+WIDGET_ALLOWED_DOMAINS=*
+
+# Production example (multiple origins)
+ADMIN_ALLOWED_ORIGINS=https://admin.example.com,https://internal.example.com
+WIDGET_ALLOWED_DOMAINS=https://customer1.com,https://customer2.com,https://customer3.com
+
+# Allow any origin for widget (testing only)
+WIDGET_ALLOWED_DOMAINS=*
+```
+
+**Security Model**:
+- **Admin routes**: Same-origin by default (no cross-origin requests)
+- **Widget routes**: Allow any origin (`*`) for customer embedding
+- **Socket.IO**: Uses admin CORS settings (agents/admins only)
+- **Header enforcement**: Admin routes require `Authorization` header
+
+**Implementation Details**:
+- Middleware: `custom-widget/backend/src/middleware/corsMiddleware.js`
+- Route pattern matching for dynamic CORS selection
+- Environment variable parsing with sensible defaults
+- Socket.IO configured to respect admin CORS
+
+**Troubleshooting CORS Issues**:
+
+**Problem**: "CORS policy: No 'Access-Control-Allow-Origin' header" for admin endpoints
+- ✓ This is expected - admin endpoints should reject cross-origin requests
+- Admin pages (settings, dashboard) are same-origin only
+- Widget requests to admin endpoints should not be made from browser
+
+**Problem**: Widget not loading on customer domain
+- Check `WIDGET_ALLOWED_DOMAINS` includes the domain
+- Use `*` for testing, specific domains for production
+- Widget routes (`/api/conversations`, `/api/messages`) should allow the domain
+
+**Problem**: Socket.IO connection failures
+- Socket.IO inherits admin CORS settings
+- If agents can't connect, check `ADMIN_ALLOWED_ORIGINS`
+- Agents should connect from same domain as admin dashboard

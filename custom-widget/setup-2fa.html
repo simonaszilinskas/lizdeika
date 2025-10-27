@@ -42,19 +42,8 @@
             <div class="w-20 h-20 bg-gradient-to-br from-green-600 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
                 <i class="fas fa-shield-alt text-white text-3xl"></i>
             </div>
-            <h1 class="text-3xl font-bold text-gray-800">Secure Your Account</h1>
-            <p class="text-gray-600 mt-2" id="step-subtitle">Scan the QR code to get started</p>
-        </div>
-
-        <!-- Quick Explainer -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div class="flex items-start gap-3">
-                <i class="fas fa-info-circle text-blue-600 text-lg mt-0.5"></i>
-                <div class="text-sm text-blue-900">
-                    <p class="font-semibold mb-1">Quick setup - takes 2 minutes!</p>
-                    <p class="text-blue-800">Two-factor authentication adds an extra layer of security. Even if someone knows your password, they can't access your account without your phone.</p>
-                </div>
-            </div>
+            <h1 class="text-3xl font-bold text-gray-800">Enable 2FA</h1>
+            <p class="text-xs text-gray-500 mt-2" id="step-subtitle">Scan QR code</p>
         </div>
 
         <!-- Setup Steps (initially visible) -->
@@ -63,9 +52,7 @@
             <div class="bg-gradient-to-br from-gray-50 to-white p-8 rounded-xl border border-gray-200">
                 <!-- QR Code Section -->
                 <div class="text-center mb-6">
-                    <p class="text-sm text-gray-600 mb-4">
-                        Open your authenticator app and scan this QR code:
-                    </p>
+                    <p class="text-xs text-gray-600 mb-4">Scan with authenticator app:</p>
                     <div class="flex justify-center mb-4">
                         <div id="qrCodeContainer" class="border-4 border-green-500 rounded-xl p-4 bg-white shadow-lg">
                             <div class="w-56 h-56 flex items-center justify-center text-gray-400">
@@ -76,26 +63,16 @@
 
                     <!-- Collapsible Manual Entry -->
                     <details class="mt-4">
-                        <summary class="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">
-                            Can't scan? Enter manually
+                        <summary class="text-xs text-gray-500 hover:text-gray-700 cursor-pointer" title="Manual entry alternative">
+                            No camera? Enter key
                         </summary>
-                        <div class="mt-3 p-4 bg-gray-100 rounded-lg">
-                            <code id="secretText" class="block text-sm font-mono break-all text-gray-800">Loading...</code>
-                            <button onclick="copySecret()" class="mt-2 text-xs text-green-600 hover:text-green-700">
-                                <i class="fas fa-copy mr-1"></i>Copy Secret
+                        <div class="mt-3 p-3 bg-gray-100 rounded-lg">
+                            <code id="secretText" class="block text-xs font-mono break-all text-gray-800">Loading...</code>
+                            <button type="button" onclick="copySecret()" class="mt-2 text-xs text-green-600 hover:text-green-700" aria-label="Copy secret key">
+                                <i class="fas fa-copy"></i>
                             </button>
                         </div>
                     </details>
-
-                    <!-- App Suggestions -->
-                    <div class="mt-4 text-xs text-gray-500">
-                        <p class="mb-2">Recommended apps:</p>
-                        <div class="flex justify-center gap-3">
-                            <span class="px-2 py-1 bg-white rounded border">Google Authenticator</span>
-                            <span class="px-2 py-1 bg-white rounded border">Authy</span>
-                            <span class="px-2 py-1 bg-white rounded border">Microsoft Authenticator</span>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Divider -->
@@ -110,47 +87,43 @@
 
                 <!-- Verify Section -->
                 <div class="text-center">
-                    <p class="text-sm text-gray-600 mb-4 font-medium">
-                        Enter the 6-digit code from your app:
-                    </p>
+                    <p class="text-xs text-gray-600 mb-4">Enter 6-digit code:</p>
                     <form id="verifyForm" class="space-y-4">
                         <input type="text" id="verifyCode" maxlength="6" placeholder="000000" required
                                inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" autofocus
                                class="w-full max-w-xs mx-auto px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 text-center text-3xl font-mono tracking-widest transition-all"
+                               aria-label="Verification code"
                                oninput="this.value = this.value.replace(/[^0-9]/g, ''); if(this.value.length === 6) { setTimeout(() => verify2FA(), 500); }">
                         <button type="submit" id="verifyButton"
-                                class="w-full max-w-xs bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl">
+                                class="w-full max-w-xs bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                                aria-label="Enable 2FA">
                             <span id="verifyButtonText">
-                                <i class="fas fa-check-circle mr-2"></i>Enable 2FA
+                                <i class="fas fa-check-circle"></i>Enable
                             </span>
-                            <i id="verifySpinner" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                            <i id="verifySpinner" class="fas fa-spinner fa-spin hidden"></i>
                         </button>
                     </form>
                 </div>
             </div>
         </div>
 
-        <!-- Backup Codes Section (initially hidden) -->
+        <!-- Backup Codes Section -->
         <div id="backupCodesSection" class="hidden fade-in">
             <div class="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-500 rounded-xl p-8">
                 <div class="text-center mb-6">
                     <div class="w-16 h-16 bg-green-600 rounded-full mx-auto mb-4 flex items-center justify-center">
                         <i class="fas fa-check text-white text-2xl"></i>
                     </div>
-                    <h3 class="text-2xl font-bold text-gray-900 mb-2">
-                        2FA Enabled Successfully!
-                    </h3>
-                    <p class="text-gray-600">
-                        Here are your backup recovery codes
-                    </p>
+                    <h3 class="text-xl font-bold text-gray-900">Enabled!</h3>
+                    <p class="text-xs text-gray-600 mt-2">Save backup codes</p>
                 </div>
 
                 <div class="bg-white rounded-lg p-6 mb-6 border border-gray-200">
                     <div class="flex items-start gap-3 mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <i class="fas fa-exclamation-triangle text-yellow-600 text-xl mt-1"></i>
-                        <div class="text-sm">
-                            <p class="font-semibold text-yellow-900 mb-1">Save these codes now!</p>
-                            <p class="text-yellow-800">Each code works once. Store them safely in case you lose your phone.</p>
+                        <i class="fas fa-exclamation-triangle text-yellow-600 mt-1" aria-hidden="true"></i>
+                        <div class="text-xs">
+                            <p class="font-semibold text-yellow-900 mb-1">Keep codes safe</p>
+                            <p class="text-yellow-800">One-time use for account recovery</p>
                         </div>
                     </div>
 
@@ -160,28 +133,29 @@
                 </div>
 
                 <button onclick="finishSetup()" id="continueButton"
-                        class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl">
-                    <i class="fas fa-arrow-right mr-2"></i>Continue to Dashboard
+                        class="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                        aria-label="Continue to dashboard">
+                    <i class="fas fa-arrow-right"></i>Dashboard
                 </button>
             </div>
         </div>
 
         <!-- Skip Option -->
         <div id="skipOption" class="mt-6 text-center">
-            <button onclick="remindLater()" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                <i class="fas fa-clock mr-1"></i>I'll do this later
+            <button onclick="remindLater()" class="text-xs text-gray-500 hover:text-gray-700 transition-colors" aria-label="Skip for now">
+                <i class="fas fa-clock"></i> Later
             </button>
         </div>
 
         <!-- Error Message -->
-        <div id="errorMessage" class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm hidden">
-            <i class="fas fa-exclamation-circle mr-2"></i>
+        <div id="errorMessage" class="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs hidden">
+            <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
             <span id="errorText"></span>
         </div>
 
         <!-- Success Message -->
-        <div id="successMessage" class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm hidden">
-            <i class="fas fa-check-circle mr-2"></i>
+        <div id="successMessage" class="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs hidden">
+            <i class="fas fa-check-circle" aria-hidden="true"></i>
             <span id="successText"></span>
         </div>
     </div>
