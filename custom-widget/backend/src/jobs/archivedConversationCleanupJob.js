@@ -39,32 +39,97 @@
  */
 
 const cron = require('node-cron');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
 class ArchivedConversationCleanupJob {
-    constructor() {
+    constructor(prismaClient) {
+        if (!prismaClient) {
+            throw new Error('Prisma client is required for ArchivedConversationCleanupJob');
+        }
+        this.prisma = prismaClient;
         this.isRunning = false;
-        this.schedule = '0 2 * * *'; // Daily at 2 AM
-        this.batchSize = 100; // Magic number - process 100 conversations at a time
         this.task = null;
+
+        // Default values (magic numbers) - can be overridden via env vars
+        this.defaultSchedule = '0 2 * * *'; // Daily at 2 AM
+        this.defaultBatchSize = 100;
+
         this.stats = {
             totalRuns: 0,
             totalDeleted: 0,
             lastRun: null,
             lastRunDuration: 0,
             lastRunDeleted: 0,
-            isEnabled: !!process.env.CONVERSATION_RETENTION_DAYS,
-            retentionDays: process.env.CONVERSATION_RETENTION_DAYS ? parseInt(process.env.CONVERSATION_RETENTION_DAYS) : null
+            isEnabled: false,
+            retentionDays: null,
+            schedule: null,
+            batchSize: null
         };
 
+        // Initialize configuration
+        this._validateAndUpdateConfig();
+
         console.log('🗑️  Archived Conversation Cleanup Job initialized');
-        console.log(`   Schedule: ${this.schedule} (daily at 2 AM)`);
+        console.log(`   Schedule: ${this.stats.schedule}`);
         console.log(`   Status: ${this.stats.isEnabled ? 'ENABLED' : 'DISABLED'}`);
         if (this.stats.isEnabled) {
             console.log(`   Retention: ${this.stats.retentionDays} days`);
-            console.log(`   Batch Size: ${this.batchSize} conversations`);
+            console.log(`   Batch Size: ${this.stats.batchSize} conversations`);
         }
+    }
+
+    /**
+     * Validate and update configuration from environment variables
+     * Re-reads env vars on each call to support runtime configuration changes
+     * @private
+     */
+    _validateAndUpdateConfig() {
+        // Parse and validate retention days
+        const retentionEnv = process.env.CONVERSATION_RETENTION_DAYS;
+        let retentionDays = null;
+        let isEnabled = false;
+
+        if (retentionEnv !== undefined && retentionEnv !== '') {
+            const parsed = parseInt(retentionEnv, 10);
+            if (isNaN(parsed)) {
+                console.warn(`⚠️  Invalid CONVERSATION_RETENTION_DAYS: "${retentionEnv}" - must be a number. Cleanup disabled.`);
+                retentionDays = null;
+            } else if (parsed < 0) {
+                console.warn(`⚠️  Negative CONVERSATION_RETENTION_DAYS: ${parsed} - treating as disabled.`);
+                retentionDays = null;
+            } else {
+                retentionDays = parsed;
+                isEnabled = true;
+            }
+        }
+
+        // Validate and set schedule
+        const scheduleEnv = process.env.CLEANUP_SCHEDULE;
+        const schedule = scheduleEnv && cron.validate(scheduleEnv)
+            ? scheduleEnv
+            : this.defaultSchedule;
+
+        if (scheduleEnv && !cron.validate(scheduleEnv)) {
+            console.warn(`⚠️  Invalid CLEANUP_SCHEDULE: "${scheduleEnv}" - using default: ${this.defaultSchedule}`);
+        }
+
+        // Validate and set batch size
+        const batchEnv = process.env.CLEANUP_BATCH_SIZE;
+        let batchSize = this.defaultBatchSize;
+
+        if (batchEnv !== undefined && batchEnv !== '') {
+            const parsed = parseInt(batchEnv, 10);
+            if (isNaN(parsed) || parsed < 1) {
+                console.warn(`⚠️  Invalid CLEANUP_BATCH_SIZE: "${batchEnv}" - must be >= 1. Using default: ${this.defaultBatchSize}`);
+            } else {
+                batchSize = parsed;
+            }
+        }
+
+        // Update stats
+        this.stats.isEnabled = isEnabled;
+        this.stats.retentionDays = retentionDays;
+        this.stats.schedule = schedule;
+        this.stats.batchSize = batchSize;
     }
 
     /**
@@ -73,6 +138,9 @@ class ArchivedConversationCleanupJob {
      * @returns {Promise<{deleted: number, batches: number, conversations: Array}>}
      */
     async execute(dryRun = false) {
+        // Re-validate configuration from environment variables on each run
+        this._validateAndUpdateConfig();
+
         if (this.isRunning) {
             console.log('⏭️  Cleanup job already running, skipping this cycle');
             return { deleted: 0, batches: 0, conversations: [], skipped: true };
@@ -105,7 +173,7 @@ class ArchivedConversationCleanupJob {
             console.log(`   Deleting archived conversations created before this date...`);
 
             // Find eligible conversations
-            const eligibleConversations = await prisma.tickets.findMany({
+            const eligibleConversations = await this.prisma.tickets.findMany({
                 where: {
                     archived: true,
                     created_at: {
@@ -137,8 +205,8 @@ class ArchivedConversationCleanupJob {
             const deletedConversations = [];
 
             // Process in batches
-            for (let i = 0; i < eligibleConversations.length; i += this.batchSize) {
-                const batch = eligibleConversations.slice(i, i + this.batchSize);
+            for (let i = 0; i < eligibleConversations.length; i += this.stats.batchSize) {
+                const batch = eligibleConversations.slice(i, i + this.stats.batchSize);
                 batchCount++;
 
                 console.log('');
@@ -147,7 +215,7 @@ class ArchivedConversationCleanupJob {
                 if (!dryRun) {
                     // Delete conversations (cascade will handle related records)
                     const batchIds = batch.map(c => c.id);
-                    const deleteResult = await prisma.tickets.deleteMany({
+                    const deleteResult = await this.prisma.tickets.deleteMany({
                         where: {
                             id: {
                                 in: batchIds
@@ -242,6 +310,9 @@ class ArchivedConversationCleanupJob {
      * Start the cron job
      */
     start() {
+        // Re-validate configuration from environment
+        this._validateAndUpdateConfig();
+
         if (this.task) {
             console.log('⚠️  Cleanup job already started');
             return;
@@ -254,15 +325,10 @@ class ArchivedConversationCleanupJob {
 
         try {
             console.log('🚀 Starting archived conversation cleanup job...');
-            console.log(`   Schedule: ${this.schedule} (daily at 2 AM)`);
+            console.log(`   Schedule: ${this.stats.schedule}`);
             console.log(`   Retention: ${this.stats.retentionDays} days`);
 
-            // Validate cron schedule
-            if (!cron.validate(this.schedule)) {
-                throw new Error(`Invalid cron schedule: ${this.schedule}`);
-            }
-
-            this.task = cron.schedule(this.schedule, async () => {
+            this.task = cron.schedule(this.stats.schedule, async () => {
                 try {
                     await this.execute(false);
                 } catch (error) {
@@ -297,11 +363,12 @@ class ArchivedConversationCleanupJob {
      * @returns {Object} Job statistics
      */
     getStats() {
+        // Re-validate to ensure latest config is returned
+        this._validateAndUpdateConfig();
+
         return {
             ...this.stats,
             isRunning: this.isRunning,
-            schedule: this.schedule,
-            batchSize: this.batchSize,
             nextRun: this.task ? 'Scheduled (daily at 2 AM)' : 'Not scheduled'
         };
     }
@@ -317,5 +384,5 @@ class ArchivedConversationCleanupJob {
     }
 }
 
-// Export singleton instance
-module.exports = new ArchivedConversationCleanupJob();
+// Export class for dependency injection
+module.exports = ArchivedConversationCleanupJob;

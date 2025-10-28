@@ -162,8 +162,9 @@ async function startServer() {
 
         // Start archived conversation cleanup job
         try {
-            const cleanupJob = require('./src/jobs/archivedConversationCleanupJob');
-            cleanupJob.start();
+            const ArchivedConversationCleanupJob = require('./src/jobs/archivedConversationCleanupJob');
+            global.cleanupJob = new ArchivedConversationCleanupJob(databaseClient.getClient());
+            global.cleanupJob.start();
             console.log('✅ Archived conversation cleanup job started');
         } catch (error) {
             console.warn('⚠️  Failed to start cleanup job:', error.message);
@@ -235,9 +236,10 @@ function gracefulShutdown(signal) {
 
     // Stop cleanup job
     try {
-        const cleanupJob = require('./src/jobs/archivedConversationCleanupJob');
-        cleanupJob.stop();
-        console.log('Cleanup job stopped');
+        if (global.cleanupJob) {
+            global.cleanupJob.stop();
+            console.log('Cleanup job stopped');
+        }
     } catch (error) {
         console.warn('Failed to stop cleanup job:', error.message);
     }

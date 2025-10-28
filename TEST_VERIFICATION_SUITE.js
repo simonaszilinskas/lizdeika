@@ -81,23 +81,8 @@ async function testRoutePatterns() {
     console.log('TEST 2: Route Pattern Matching');
     console.log('═══════════════════════════════════════════\n');
 
-    // Recreate the route pattern matching logic
-    const adminRoutePatterns = [
-        /^\/api\/auth/,
-        /^\/api\/users/,
-        /^\/api\/categories/,
-        /^\/api\/statistics/,
-        /^\/api\/templates/,
-        /^\/api\/widget/,
-        /^\/api\/knowledge/,
-        /^\/settings\.html/,
-        /^\/agent-dashboard\.html/,
-        /^\/setup-2fa\.html/,
-    ];
-
-    function isAdminRoute(path) {
-        return adminRoutePatterns.some(pattern => pattern.test(path));
-    }
+    // Import the shared admin route checking logic
+    const { isAdminRoute } = require('./custom-widget/backend/src/middleware/corsMiddleware');
 
     const adminRoutes = [
         '/api/auth/login',

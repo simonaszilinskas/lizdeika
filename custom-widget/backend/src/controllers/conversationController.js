@@ -59,10 +59,13 @@ const {
 } = require('../utils/validation');
 const { handleControllerError } = require('../utils/errorHandler');
 const { validateFileMetadata } = require('../utils/fileValidation');
+const { createLogger } = require('../utils/logger');
 const conversationService = require('../services/conversationService');
 const aiService = require('../services/aiService');
 const agentService = require('../services/agentService');
 const activityService = require('../services/activityService');
+
+const logger = createLogger('conversationController');
 
 class ConversationController {
     constructor(io) {
@@ -1242,8 +1245,16 @@ class ConversationController {
      */
     async getCleanupStats(req, res) {
         try {
-            const cleanupJob = require('../jobs/archivedConversationCleanupJob');
-            const stats = cleanupJob.getStats();
+            if (!global.cleanupJob) {
+                return res.status(503).json({
+                    success: false,
+                    error: 'Cleanup job not initialized'
+                });
+            }
+
+            const stats = global.cleanupJob.getStats();
+
+            logger.info('Cleanup statistics retrieved', { userId: req.user.id });
 
             res.json({
                 success: true,
@@ -1251,7 +1262,7 @@ class ConversationController {
             });
 
         } catch (error) {
-            console.error('Failed to get cleanup stats:', error);
+            logger.error('Failed to get cleanup stats', { error: error.message, userId: req.user.id });
             res.status(500).json({
                 success: false,
                 error: 'Failed to retrieve cleanup statistics',
@@ -1267,10 +1278,79 @@ class ConversationController {
      */
     async triggerCleanup(req, res) {
         try {
-            console.log('🔧 Manual trigger of cleanup job');
+            if (!global.cleanupJob) {
+                return res.status(503).json({
+                    success: false,
+                    error: 'Cleanup job not initialized'
+                });
+            }
 
-            const cleanupJob = require('../jobs/archivedConversationCleanupJob');
-            const result = await cleanupJob.trigger(false);
+            logger.info('Manual trigger of cleanup job requested', { userId: req.user.id });
+
+            const result = await global.cleanupJob.trigger(false);
+
+            // Check if cleanup was disabled or skipped
+            if (result.disabled) {
+                logger.info('Cleanup job disabled - no retention period configured', { userId: req.user.id });
+
+                await activityService.logActivity({
+                    user_id: req.user.id,
+                    action_type: 'system',
+                    action: 'cleanup_attempted',
+                    resource: 'archived_conversations',
+                    details: {
+                        status: 'disabled',
+                        deleted: 0,
+                        retentionDays: null
+                    },
+                    success: true
+                });
+
+                return res.json({
+                    success: true,
+                    message: 'Cleanup is disabled - CONVERSATION_RETENTION_DAYS not set',
+                    data: result
+                });
+            }
+
+            if (result.skipped) {
+                logger.warn('Cleanup job already running - skipped', { userId: req.user.id });
+
+                await activityService.logActivity({
+                    user_id: req.user.id,
+                    action_type: 'system',
+                    action: 'cleanup_skipped',
+                    resource: 'archived_conversations',
+                    details: { reason: 'already_running' },
+                    success: false
+                });
+
+                return res.json({
+                    success: false,
+                    message: 'Cleanup job already running',
+                    data: result
+                });
+            }
+
+            // Log successful cleanup execution
+            logger.info('Cleanup job executed successfully', {
+                userId: req.user.id,
+                deleted: result.deleted,
+                batches: result.batches
+            });
+
+            await activityService.logActivity({
+                user_id: req.user.id,
+                action_type: 'system',
+                action: 'cleanup_executed',
+                resource: 'archived_conversations',
+                details: {
+                    deleted: result.deleted,
+                    batches: result.batches,
+                    retentionDays: global.cleanupJob.stats.retentionDays
+                },
+                success: true
+            });
 
             res.json({
                 success: true,
@@ -1279,7 +1359,17 @@ class ConversationController {
             });
 
         } catch (error) {
-            console.error('Failed to trigger cleanup job:', error);
+            logger.error('Failed to trigger cleanup job', { error: error.message, userId: req.user.id });
+
+            await activityService.logActivity({
+                user_id: req.user.id,
+                action_type: 'system',
+                action: 'cleanup_failed',
+                resource: 'archived_conversations',
+                details: { error: error.message },
+                success: false
+            });
+
             res.status(500).json({
                 success: false,
                 error: 'Failed to trigger cleanup job',
@@ -1295,19 +1385,79 @@ class ConversationController {
      */
     async dryRunCleanup(req, res) {
         try {
-            console.log('🔍 Dry-run of cleanup job requested');
+            if (!global.cleanupJob) {
+                return res.status(503).json({
+                    success: false,
+                    error: 'Cleanup job not initialized'
+                });
+            }
 
-            const cleanupJob = require('../jobs/archivedConversationCleanupJob');
-            const result = await cleanupJob.trigger(true);
+            logger.info('Dry-run of cleanup job requested', { userId: req.user.id });
+
+            const result = await global.cleanupJob.trigger(true);
+
+            // Check if cleanup was disabled
+            if (result.disabled) {
+                logger.info('Dry-run aborted - cleanup job disabled', { userId: req.user.id });
+
+                await activityService.logActivity({
+                    user_id: req.user.id,
+                    action_type: 'system',
+                    action: 'cleanup_dryrun',
+                    resource: 'archived_conversations',
+                    details: {
+                        status: 'disabled',
+                        wouldDelete: 0,
+                        retentionDays: null
+                    },
+                    success: true
+                });
+
+                return res.json({
+                    success: true,
+                    message: 'Dry-run aborted - cleanup is disabled (CONVERSATION_RETENTION_DAYS not set)',
+                    data: result
+                });
+            }
+
+            // Log dry-run execution
+            logger.info('Dry-run completed successfully', {
+                userId: req.user.id,
+                wouldDelete: result.wouldDelete || 0,
+                batches: result.batches
+            });
+
+            await activityService.logActivity({
+                user_id: req.user.id,
+                action_type: 'system',
+                action: 'cleanup_dryrun',
+                resource: 'archived_conversations',
+                details: {
+                    wouldDelete: result.wouldDelete || 0,
+                    batches: result.batches,
+                    retentionDays: global.cleanupJob.stats.retentionDays
+                },
+                success: true
+            });
 
             res.json({
                 success: true,
-                message: 'Dry-run completed - no data was deleted',
+                message: 'Dry-run completed - no changes applied',
                 data: result
             });
 
         } catch (error) {
-            console.error('Failed to execute dry-run:', error);
+            logger.error('Failed to execute dry-run', { error: error.message, userId: req.user.id });
+
+            await activityService.logActivity({
+                user_id: req.user.id,
+                action_type: 'system',
+                action: 'cleanup_dryrun_failed',
+                resource: 'archived_conversations',
+                details: { error: error.message },
+                success: false
+            });
+
             res.status(500).json({
                 success: false,
                 error: 'Failed to execute dry-run',

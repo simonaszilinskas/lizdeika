@@ -33,6 +33,8 @@ const adminRoutePatterns = [
     /^\/api\/templates/,
     /^\/api\/widget/,
     /^\/api\/knowledge/,
+    /^\/api\/activities/,
+    /^\/api\/logs/,
     /^\/settings\.html/,
     /^\/agent-dashboard\.html/,
     /^\/setup-2fa\.html/,
@@ -130,3 +132,5 @@ function createCorsMiddleware() {
 }
 
 module.exports = createCorsMiddleware;
+module.exports.isAdminRoute = isAdminRoute;
+module.exports.adminRoutePatterns = adminRoutePatterns;
