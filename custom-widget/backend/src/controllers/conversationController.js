@@ -1294,8 +1294,8 @@ class ConversationController {
                 logger.info('Cleanup job disabled - no retention period configured', { userId: req.user.id });
 
                 await activityService.logActivity({
-                    user_id: req.user.id,
-                    action_type: 'system',
+                    userId: req.user.id,
+                    actionType: 'system',
                     action: 'cleanup_attempted',
                     resource: 'archived_conversations',
                     details: {
@@ -1317,8 +1317,8 @@ class ConversationController {
                 logger.warn('Cleanup job already running - skipped', { userId: req.user.id });
 
                 await activityService.logActivity({
-                    user_id: req.user.id,
-                    action_type: 'system',
+                    userId: req.user.id,
+                    actionType: 'system',
                     action: 'cleanup_skipped',
                     resource: 'archived_conversations',
                     details: { reason: 'already_running' },
@@ -1340,8 +1340,8 @@ class ConversationController {
             });
 
             await activityService.logActivity({
-                user_id: req.user.id,
-                action_type: 'system',
+                userId: req.user.id,
+                actionType: 'system',
                 action: 'cleanup_executed',
                 resource: 'archived_conversations',
                 details: {
@@ -1362,8 +1362,8 @@ class ConversationController {
             logger.error('Failed to trigger cleanup job', { error: error.message, userId: req.user.id });
 
             await activityService.logActivity({
-                user_id: req.user.id,
-                action_type: 'system',
+                userId: req.user.id,
+                actionType: 'system',
                 action: 'cleanup_failed',
                 resource: 'archived_conversations',
                 details: { error: error.message },
@@ -1401,8 +1401,8 @@ class ConversationController {
                 logger.info('Dry-run aborted - cleanup job disabled', { userId: req.user.id });
 
                 await activityService.logActivity({
-                    user_id: req.user.id,
-                    action_type: 'system',
+                    userId: req.user.id,
+                    actionType: 'system',
                     action: 'cleanup_dryrun',
                     resource: 'archived_conversations',
                     details: {
@@ -1428,8 +1428,8 @@ class ConversationController {
             });
 
             await activityService.logActivity({
-                user_id: req.user.id,
-                action_type: 'system',
+                userId: req.user.id,
+                actionType: 'system',
                 action: 'cleanup_dryrun',
                 resource: 'archived_conversations',
                 details: {
@@ -1450,8 +1450,8 @@ class ConversationController {
             logger.error('Failed to execute dry-run', { error: error.message, userId: req.user.id });
 
             await activityService.logActivity({
-                user_id: req.user.id,
-                action_type: 'system',
+                userId: req.user.id,
+                actionType: 'system',
                 action: 'cleanup_dryrun_failed',
                 resource: 'archived_conversations',
                 details: { error: error.message },
