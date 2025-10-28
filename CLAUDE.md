@@ -312,6 +312,31 @@ See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
   - Unit tests for DocumentHashService with SHA256 validation
   - Real database testing with PostgreSQL and ChromaDB
 
+**Automated Archived Conversation Cleanup (Issue #20)**: Background job for database maintenance:
+- **Configuration**:
+  - Enable by setting `CONVERSATION_RETENTION_DAYS` environment variable
+  - Example: `CONVERSATION_RETENTION_DAYS=90` deletes archived conversations older than 90 days
+  - If not set, cleanup job is disabled (inactive)
+- **Scheduling**:
+  - Runs daily at 2 AM (cron: `0 2 * * *`)
+  - Batch processing: 100 conversations per batch to prevent table locks
+  - Atomic operations with detailed logging
+- **Admin Endpoints**:
+  - `GET /api/admin/cleanup/stats` - View job statistics and execution history
+  - `POST /api/admin/cleanup/trigger` - Manually execute cleanup job
+  - `POST /api/admin/cleanup/dry-run` - Preview deletions without executing (safe testing)
+- **Safety Features**:
+  - Only deletes conversations where `archived = true`
+  - Uses `created_at` date for age calculation
+  - Cascade deletes automatically handle related records (messages, message_statistics, ticket_actions)
+  - Dry-run mode for safe testing before enabling
+  - Singleton pattern prevents concurrent execution
+  - Comprehensive audit logging
+- **Job Implementation**: `custom-widget/backend/src/jobs/archivedConversationCleanupJob.js`
+  - Singleton class with start(), stop(), execute(), dryRun(), getStats() methods
+  - Integrated in server.js graceful shutdown
+  - Real-time statistics tracking
+
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)
 - **Docker**: Backend on `localhost:3002`, internal PostgreSQL on port 5434

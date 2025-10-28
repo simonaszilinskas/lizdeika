@@ -1234,6 +1234,87 @@ class ConversationController {
             });
         }
     }
+
+    /**
+     * Get archived conversation cleanup job statistics
+     * @route GET /api/admin/cleanup/stats
+     * @access Admin
+     */
+    async getCleanupStats(req, res) {
+        try {
+            const cleanupJob = require('../jobs/archivedConversationCleanupJob');
+            const stats = cleanupJob.getStats();
+
+            res.json({
+                success: true,
+                data: stats
+            });
+
+        } catch (error) {
+            console.error('Failed to get cleanup stats:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to retrieve cleanup statistics',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Manually trigger the cleanup job
+     * @route POST /api/admin/cleanup/trigger
+     * @access Admin
+     */
+    async triggerCleanup(req, res) {
+        try {
+            console.log('🔧 Manual trigger of cleanup job');
+
+            const cleanupJob = require('../jobs/archivedConversationCleanupJob');
+            const result = await cleanupJob.trigger(false);
+
+            res.json({
+                success: true,
+                message: 'Cleanup job executed successfully',
+                data: result
+            });
+
+        } catch (error) {
+            console.error('Failed to trigger cleanup job:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to trigger cleanup job',
+                details: error.message
+            });
+        }
+    }
+
+    /**
+     * Perform a dry-run of the cleanup job (preview only)
+     * @route POST /api/admin/cleanup/dry-run
+     * @access Admin
+     */
+    async dryRunCleanup(req, res) {
+        try {
+            console.log('🔍 Dry-run of cleanup job requested');
+
+            const cleanupJob = require('../jobs/archivedConversationCleanupJob');
+            const result = await cleanupJob.trigger(true);
+
+            res.json({
+                success: true,
+                message: 'Dry-run completed - no data was deleted',
+                data: result
+            });
+
+        } catch (error) {
+            console.error('Failed to execute dry-run:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to execute dry-run',
+                details: error.message
+            });
+        }
+    }
 }
 
 module.exports = ConversationController;

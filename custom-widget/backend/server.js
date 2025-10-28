@@ -160,6 +160,15 @@ async function startServer() {
             console.warn('⚠️  Failed to start categorization job:', error.message);
         }
 
+        // Start archived conversation cleanup job
+        try {
+            const cleanupJob = require('./src/jobs/archivedConversationCleanupJob');
+            cleanupJob.start();
+            console.log('✅ Archived conversation cleanup job started');
+        } catch (error) {
+            console.warn('⚠️  Failed to start cleanup job:', error.message);
+        }
+
         // Start server only after all dependencies are ready
         // Host binding: respects HOST env var first, then falls back to 0.0.0.0 for production or localhost for development
         const host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost');
@@ -222,6 +231,15 @@ function gracefulShutdown(signal) {
         console.log('Categorization job stopped');
     } catch (error) {
         console.warn('Failed to stop categorization job:', error.message);
+    }
+
+    // Stop cleanup job
+    try {
+        const cleanupJob = require('./src/jobs/archivedConversationCleanupJob');
+        cleanupJob.stop();
+        console.log('Cleanup job stopped');
+    } catch (error) {
+        console.warn('Failed to stop cleanup job:', error.message);
     }
 
     // Close the HTTP server
