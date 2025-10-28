@@ -55,7 +55,7 @@ class ArchivedConversationCleanupJob {
             lastRunDuration: 0,
             lastRunDeleted: 0,
             isEnabled: !!process.env.CONVERSATION_RETENTION_DAYS,
-            retentionDays: parseInt(process.env.CONVERSATION_RETENTION_DAYS) || null
+            retentionDays: process.env.CONVERSATION_RETENTION_DAYS ? parseInt(process.env.CONVERSATION_RETENTION_DAYS) : null
         };
 
         console.log('🗑️  Archived Conversation Cleanup Job initialized');
