@@ -336,6 +336,13 @@ See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
   - Singleton class with start(), stop(), execute(), dryRun(), getStats() methods
   - Integrated in server.js graceful shutdown
   - Real-time statistics tracking
+- **Known Limitations**:
+  - ⚠️ **Statistics Data Loss**: Cascade deletes remove `message_statistics` records when conversations are deleted
+  - Impact: Agent performance history, AI suggestion metrics, and template usage statistics are permanently lost
+  - This affects historical dashboards and long-term trend analysis
+  - **Mitigation planned**: Issue #21 will implement monthly statistics aggregation before deletion
+  - **Workaround**: Set longer retention periods (e.g., 365+ days) to preserve more historical data
+  - **Recommendation**: Use dry-run mode and monitor statistics impact before enabling in production
 
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)
