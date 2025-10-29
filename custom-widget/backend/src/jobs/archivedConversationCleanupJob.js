@@ -39,6 +39,7 @@
  */
 
 const cron = require('node-cron');
+const activityService = require('../services/activityService');
 
 class ArchivedConversationCleanupJob {
     constructor(prismaClient) {
@@ -286,6 +287,30 @@ class ArchivedConversationCleanupJob {
             console.log(`✅ Cleanup Job #${this.stats.totalRuns} Completed (${mode})`);
             console.log('═══════════════════════════════════════════════════════════════');
             console.log('');
+
+            // Log activity for audit trail
+            try {
+                await activityService.logActivity({
+                    userId: 'system',
+                    actionType: 'system',
+                    action: 'cleanup_executed',
+                    resource: 'archived_conversations',
+                    details: {
+                        jobName: 'archivedConversationCleanup',
+                        mode: dryRun ? 'dryRun' : 'live',
+                        runNumber: this.stats.totalRuns,
+                        deletedCount: dryRun ? eligibleConversations.length : totalDeleted,
+                        batchCount: batchCount,
+                        duration: this.stats.lastRunDuration,
+                        timestamp: Date.now(),
+                        lifetimeTotalDeleted: this.stats.totalDeleted
+                    },
+                    success: true
+                });
+            } catch (activityError) {
+                console.error(`⚠️  Failed to log cleanup activity: ${activityError.message}`);
+                // Don't throw - activity logging failure shouldn't crash the job
+            }
 
             return {
                 deleted: dryRun ? 0 : totalDeleted,
