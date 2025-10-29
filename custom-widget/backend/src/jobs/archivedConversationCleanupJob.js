@@ -214,11 +214,16 @@ class ArchivedConversationCleanupJob {
 
                 if (!dryRun) {
                     // Delete conversations (cascade will handle related records)
+                    // Re-assert archived=true and age predicates to prevent TOCTOU issues
                     const batchIds = batch.map(c => c.id);
                     const deleteResult = await this.prisma.tickets.deleteMany({
                         where: {
                             id: {
                                 in: batchIds
+                            },
+                            archived: true,
+                            created_at: {
+                                lt: cutoffDate
                             }
                         }
                     });
@@ -231,15 +236,25 @@ class ArchivedConversationCleanupJob {
 
                 // Log first 5 conversations in this batch
                 const previewCount = Math.min(5, batch.length);
+                const shouldLogSubjects = process.env.LOG_CLEANUP_SUBJECTS === 'true';
                 console.log(`   Preview (first ${previewCount}):`);
                 batch.slice(0, previewCount).forEach((conv, idx) => {
                     const age = Math.floor((Date.now() - conv.created_at.getTime()) / (1000 * 60 * 60 * 24));
-                    console.log(`   ${idx + 1}. ${conv.ticket_number} - ${age} days old - "${conv.subject.substring(0, 50)}${conv.subject.length > 50 ? '...' : ''}"`);
+
+                    // Safely handle null/undefined subject and prevent PII leakage
+                    const subject = conv.subject ? String(conv.subject) : '(no subject)';
+                    const subjectPreview = shouldLogSubjects
+                        ? `"${subject.substring(0, 50)}${subject.length > 50 ? '...' : ''}"`
+                        : '[redacted]';
+
+                    console.log(`   ${idx + 1}. ${conv.ticket_number} - ${age} days old - ${subjectPreview}`);
+
+                    // Only store full subject if explicitly enabled, otherwise store redacted version
                     deletedConversations.push({
                         id: conv.id,
                         ticketNumber: conv.ticket_number,
                         age: age,
-                        subject: conv.subject
+                        subject: shouldLogSubjects ? subject : '[redacted]'
                     });
                 });
 
