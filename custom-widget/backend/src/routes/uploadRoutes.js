@@ -34,12 +34,28 @@ const logger = createLogger('uploadRoutes');
 
 const router = express.Router();
 
-// Ensure uploads directory exists
+// Ensure uploads directory exists and is writable
 const uploadsDir = process.env.UPLOADS_DIR
   ? path.resolve(process.env.UPLOADS_DIR)
   : path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Validate directory is writable - fail fast if not
+try {
+    fs.accessSync(uploadsDir, fs.constants.W_OK);
+} catch (error) {
+    logger.error('CRITICAL: Upload directory is not writable', {
+        directory: uploadsDir,
+        error: error.message,
+        code: error.code,
+    });
+    throw new Error(
+        `Upload directory is not writable: ${uploadsDir}. ` +
+        `Check directory permissions and Docker volume mounts. ` +
+        `Error: ${error.message}`
+    );
 }
 
 // Rate limiting for file uploads to prevent abuse

@@ -40,6 +40,7 @@ services:
       - RAG_SHOW_SOURCES=true
       - ADMIN_RECOVERY_KEY=dev-recovery-key-123
       - TOTP_ENCRYPTION_KEY=development-totp-encryption-key-must-be-32-chars!
+      - UPLOADS_DIR=/var/uploads
       - CHROMA_URL=${CHROMA_URL}
       - CHROMA_TENANT=${CHROMA_TENANT}
       - CHROMA_DATABASE=${CHROMA_DATABASE}
@@ -49,6 +50,7 @@ services:
       - ./custom-widget/backend:/app
       - /app/node_modules
       - ./custom-widget/js:/app/public/js
+      - uploads_data:/var/uploads
     ports:
       - "3002:3002"
     depends_on:
@@ -86,6 +88,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  uploads_data:
     driver: local
 
 networks:

@@ -46,11 +46,12 @@ RUN npm run test:unit || true
 FROM node:20-slim AS production
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies including gosu for privilege dropping
 RUN apt-get update && apt-get install -y \
     openssl \
     wget \
     dumb-init \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -64,10 +65,21 @@ COPY --from=builder /app/node_modules ./node_modules
 # Ensure Prisma CLI is available for migrations
 RUN npm install -g prisma@latest
 
-# Create necessary directories
-RUN mkdir -p /app/logs && chown nodejs:nodejs /app/logs
+# Create necessary directories with proper ownership
+RUN mkdir -p /app/logs /var/uploads && \
+    chown -R nodejs:nodejs /app/logs /var/uploads
 
-USER nodejs
+# Copy entrypoint script for permission handling and initialization
+COPY docker-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Security: Entrypoint script handles privilege management
+# - Runs as root initially to fix ownership/permissions on /var/uploads volume
+# - Performs database migrations (requires root-level access to filesystem)
+# - Generates Prisma client
+# - Then drops privileges to nodejs user via gosu before launching Node.js application
+# - Node.js process runs as non-root nodejs user (uid 1001)
+# This satisfies container security policy while allowing necessary setup operations
 
 # Health check - use PORT env var, fallback to 3002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
@@ -75,6 +87,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 EXPOSE 3002
 
-# Use dumb-init to handle signals properly
+# Use dumb-init with entrypoint script for proper signal handling and initialization
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "server.js"]
+CMD ["/usr/local/bin/entrypoint.sh", "node", "server.js"]

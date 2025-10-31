@@ -49,6 +49,37 @@ async function test(name, fn) {
     }
 }
 
+// Helper to manage environment and require cache for tests
+function withCleanEnv(fn) {
+    return async () => {
+        // Snapshot current environment
+        const envSnapshot = { ...process.env };
+
+        try {
+            // Clear require cache for corsMiddleware before test
+            const middlewarePath = require.resolve('./custom-widget/backend/src/middleware/corsMiddleware');
+            delete require.cache[middlewarePath];
+
+            // Run the test
+            await fn();
+        } finally {
+            // Restore environment
+            Object.keys(process.env).forEach(key => {
+                if (!(key in envSnapshot)) {
+                    delete process.env[key];
+                }
+            });
+            Object.keys(envSnapshot).forEach(key => {
+                process.env[key] = envSnapshot[key];
+            });
+
+            // Clear require cache after test
+            const middlewarePath = require.resolve('./custom-widget/backend/src/middleware/corsMiddleware');
+            delete require.cache[middlewarePath];
+        }
+    };
+}
+
 // Test 1: App Initialization
 async function testAppInitialization() {
     console.log('\n═══════════════════════════════════════════');
@@ -81,23 +112,8 @@ async function testRoutePatterns() {
     console.log('TEST 2: Route Pattern Matching');
     console.log('═══════════════════════════════════════════\n');
 
-    // Recreate the route pattern matching logic
-    const adminRoutePatterns = [
-        /^\/api\/auth/,
-        /^\/api\/users/,
-        /^\/api\/categories/,
-        /^\/api\/statistics/,
-        /^\/api\/templates/,
-        /^\/api\/widget/,
-        /^\/api\/knowledge/,
-        /^\/settings\.html/,
-        /^\/agent-dashboard\.html/,
-        /^\/setup-2fa\.html/,
-    ];
-
-    function isAdminRoute(path) {
-        return adminRoutePatterns.some(pattern => pattern.test(path));
-    }
+    // Import the shared admin route checking logic
+    const { isAdminRoute } = require('./custom-widget/backend/src/middleware/corsMiddleware');
 
     const adminRoutes = [
         '/api/auth/login',
@@ -238,46 +254,39 @@ async function testCorsConfig() {
     console.log('TEST 4: CORS Middleware Configuration');
     console.log('═══════════════════════════════════════════\n');
 
-    await test('CORS middleware handles same-origin correctly', () => {
-        const createCorsMiddleware = require('./custom-widget/backend/src/middleware/corsMiddleware');
-
+    await test('CORS middleware handles same-origin correctly', withCleanEnv(() => {
         // Set env for same-origin
         process.env.ADMIN_ALLOWED_ORIGINS = 'same-origin';
         process.env.WIDGET_ALLOWED_DOMAINS = '*';
 
+        const createCorsMiddleware = require('./custom-widget/backend/src/middleware/corsMiddleware');
         const middleware = createCorsMiddleware();
         if (typeof middleware !== 'function') {
             throw new Error('Middleware not a function');
         }
-    });
+    }));
 
-    await test('CORS middleware handles wildcard origins correctly', () => {
-        const createCorsMiddleware = require('./custom-widget/backend/src/middleware/corsMiddleware');
-
+    await test('CORS middleware handles wildcard origins correctly', withCleanEnv(() => {
         process.env.ADMIN_ALLOWED_ORIGINS = '*';
         process.env.WIDGET_ALLOWED_DOMAINS = '*';
 
+        const createCorsMiddleware = require('./custom-widget/backend/src/middleware/corsMiddleware');
         const middleware = createCorsMiddleware();
         if (typeof middleware !== 'function') {
             throw new Error('Middleware not a function');
         }
-    });
+    }));
 
-    await test('CORS middleware handles multiple origins correctly', () => {
-        const createCorsMiddleware = require('./custom-widget/backend/src/middleware/corsMiddleware');
-
+    await test('CORS middleware handles multiple origins correctly', withCleanEnv(() => {
         process.env.ADMIN_ALLOWED_ORIGINS = 'https://admin.example.com, https://internal.example.com';
         process.env.WIDGET_ALLOWED_DOMAINS = 'https://customer1.com, https://customer2.com';
 
+        const createCorsMiddleware = require('./custom-widget/backend/src/middleware/corsMiddleware');
         const middleware = createCorsMiddleware();
         if (typeof middleware !== 'function') {
             throw new Error('Middleware not a function');
         }
-    });
-
-    // Reset to defaults
-    process.env.ADMIN_ALLOWED_ORIGINS = 'same-origin';
-    process.env.WIDGET_ALLOWED_DOMAINS = '*';
+    }));
 }
 
 // Test 5: Socket.IO Configuration
@@ -286,7 +295,7 @@ async function testSocketIOConfig() {
     console.log('TEST 5: Socket.IO Configuration');
     console.log('═══════════════════════════════════════════\n');
 
-    await test('Socket.IO initializes with correct CORS origin for same-origin', () => {
+    await test('Socket.IO initializes with correct CORS origin for same-origin', withCleanEnv(() => {
         process.env.ADMIN_ALLOWED_ORIGINS = 'same-origin';
 
         const createApp = require('./custom-widget/backend/src/app');
@@ -294,28 +303,25 @@ async function testSocketIOConfig() {
 
         if (!io) throw new Error('Socket.IO not initialized');
         // io.engine.opts.cors should have origin configured
-    });
+    }));
 
-    await test('Socket.IO initializes with correct CORS origin for wildcard', () => {
+    await test('Socket.IO initializes with correct CORS origin for wildcard', withCleanEnv(() => {
         process.env.ADMIN_ALLOWED_ORIGINS = '*';
 
         const createApp = require('./custom-widget/backend/src/app');
         const { io } = createApp();
 
         if (!io) throw new Error('Socket.IO not initialized');
-    });
+    }));
 
-    await test('Socket.IO initializes with correct CORS origin for specific domains', () => {
+    await test('Socket.IO initializes with correct CORS origin for specific domains', withCleanEnv(() => {
         process.env.ADMIN_ALLOWED_ORIGINS = 'https://admin.example.com';
 
         const createApp = require('./custom-widget/backend/src/app');
         const { io } = createApp();
 
         if (!io) throw new Error('Socket.IO not initialized');
-    });
-
-    // Reset to default
-    process.env.ADMIN_ALLOWED_ORIGINS = 'same-origin';
+    }));
 }
 
 // Test 6: Core Routes Still Present

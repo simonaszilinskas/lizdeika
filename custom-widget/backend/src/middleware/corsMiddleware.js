@@ -27,6 +27,8 @@ const adminRoutePatterns = [
     /^\/api\/auth/,
     /^\/api\/users/,
     /^\/api\/categories/,
+    /^\/api\/activities/,
+    /^\/api\/logs/,
     /^\/api\/statistics/,
     /^\/api\/templates/,
     /^\/api\/widget/,
@@ -38,14 +40,36 @@ const adminRoutePatterns = [
 
 /**
  * Parse allowed origins from environment variable
+ * Handles malformed input gracefully with fallbacks
  * @param {string} originsString - Comma-separated list or '*'
- * @returns {string|string[]} - '*' or array of origins
+ * @param {string} fallback - Fallback value if input is empty/malformed
+ * @returns {string|string[]} - '*', fallback, or array of origins
  */
-function parseAllowedOrigins(originsString) {
-    if (!originsString || originsString.trim() === '*') {
+function parseAllowedOrigins(originsString, fallback = 'same-origin') {
+    // Handle null, undefined, or empty strings
+    if (!originsString) {
+        return fallback;
+    }
+
+    const trimmed = originsString.trim();
+
+    // Handle explicit wildcard
+    if (trimmed === '*') {
         return '*';
     }
-    return originsString.split(',').map(origin => origin.trim());
+
+    // Parse comma-separated list
+    const origins = trimmed
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(origin => origin.length > 0); // Remove empty strings after trim
+
+    // If no valid origins after parsing, use fallback
+    if (origins.length === 0) {
+        return fallback;
+    }
+
+    return origins;
 }
 
 /**
@@ -62,11 +86,15 @@ function isAdminRoute(path) {
  * Configures CORS based on route type (admin vs widget)
  */
 function createCorsMiddleware() {
+    // Parse environment variables with appropriate fallbacks
+    // If env var is malformed or empty, these fallbacks ensure secure defaults
     const adminAllowedOrigins = parseAllowedOrigins(
-        process.env.ADMIN_ALLOWED_ORIGINS || 'same-origin'
+        process.env.ADMIN_ALLOWED_ORIGINS,
+        'same-origin' // Fallback: strict (same-origin only)
     );
     const widgetAllowedDomains = parseAllowedOrigins(
-        process.env.WIDGET_ALLOWED_DOMAINS || '*'
+        process.env.WIDGET_ALLOWED_DOMAINS,
+        '*' // Fallback: permissive for widget embedding
     );
 
     // Admin CORS configuration (stricter)
@@ -102,3 +130,5 @@ function createCorsMiddleware() {
 }
 
 module.exports = createCorsMiddleware;
+module.exports.isAdminRoute = isAdminRoute;
+module.exports.adminRoutePatterns = adminRoutePatterns;

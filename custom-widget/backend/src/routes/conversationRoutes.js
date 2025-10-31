@@ -175,6 +175,19 @@ function createConversationRoutes(io) {
         conversationController.toggleCategoryOverride(req, res);
     });
 
+    // Archived conversation cleanup routes
+    router.get('/admin/cleanup/stats', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.getCleanupStats(req, res);
+    });
+
+    router.post('/admin/cleanup/trigger', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.triggerCleanup(req, res);
+    });
+
+    router.post('/admin/cleanup/dry-run', authenticateToken, requireAgentOrAdmin, (req, res) => {
+        conversationController.dryRunCleanup(req, res);
+    });
+
     return router;
 }
 

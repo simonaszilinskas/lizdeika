@@ -194,6 +194,7 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 - ✅ **Smart Document Ingestion (Issue #78)** - Event-driven API with SHA256 deduplication, change detection, and orphan management
 - ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
 - ✅ **CORS Configuration (Issue #74)** - Separate security policies for admin and widget routes
+- ✅ **Automated Archived Conversation Cleanup (Issue #20)** - Scheduled job to delete old archived conversations with configurable retention period
 
 ### Important Implementation Details
 
@@ -311,10 +312,112 @@ See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
   - Unit tests for DocumentHashService with SHA256 validation
   - Real database testing with PostgreSQL and ChromaDB
 
+**Automated Archived Conversation Cleanup (Issue #20)**: Background job for database maintenance:
+- **Configuration**:
+  - Enable by setting `CONVERSATION_RETENTION_DAYS` environment variable
+  - Example: `CONVERSATION_RETENTION_DAYS=90` deletes archived conversations older than 90 days
+  - If not set, cleanup job is disabled (inactive)
+- **Scheduling**:
+  - Runs daily at 2 AM (cron: `0 2 * * *`)
+  - Batch processing: 100 conversations per batch to prevent table locks
+  - Atomic operations with detailed logging
+- **Admin Endpoints**:
+  - `GET /api/admin/cleanup/stats` - View job statistics and execution history
+  - `POST /api/admin/cleanup/trigger` - Manually execute cleanup job
+  - `POST /api/admin/cleanup/dry-run` - Preview deletions without executing (safe testing)
+- **Safety Features**:
+  - Only deletes conversations where `archived = true`
+  - Uses `created_at` date for age calculation
+  - Cascade deletes automatically handle related records (messages, message_statistics, ticket_actions)
+  - Dry-run mode for safe testing before enabling
+  - Singleton pattern prevents concurrent execution
+  - Comprehensive audit logging
+- **Job Implementation**: `custom-widget/backend/src/jobs/archivedConversationCleanupJob.js`
+  - Singleton class with start(), stop(), execute(), dryRun(), getStats() methods
+  - Integrated in server.js graceful shutdown
+  - Real-time statistics tracking
+- **Known Limitations**:
+  - ⚠️ **Statistics Data Loss**: Cascade deletes remove `message_statistics` records when conversations are deleted
+  - Impact: Agent performance history, AI suggestion metrics, and template usage statistics are permanently lost
+  - This affects historical dashboards and long-term trend analysis
+  - **Mitigation planned**: Issue #21 will implement monthly statistics aggregation before deletion
+  - **Workaround**: Set longer retention periods (e.g., 365+ days) to preserve more historical data
+  - **Recommendation**: Use dry-run mode and monitor statistics impact before enabling in production
+
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)
 - **Docker**: Backend on `localhost:3002`, internal PostgreSQL on port 5434
 - **Production**: Nginx reverse proxy with SSL termination
+
+### Upload Security
+Uploaded files are stored outside the codebase directory for security:
+- **Directory**: `/var/uploads` (configurable via `UPLOADS_DIR` environment variable)
+- **Docker Volumes**:
+  - Development: `uploads_data:/var/uploads`
+  - Production: `uploads_prod_data:/var/uploads`
+- **Security Features**:
+  - Files stored outside codebase to prevent code/data exposure
+  - No execution permissions on upload directory
+  - File type validation (images, PDFs, documents only)
+  - Filename sanitization with UUID prefix
+  - Rate limiting: 5 uploads per minute per IP
+  - Access control: JWT authentication or valid conversation ID required
+  - Directory traversal protection
+- **File Types**: Images (JPEG, PNG, GIF, WebP), PDF, DOC, DOCX, XLS, XLSX, TXT
+- **Size Limits**: Configurable via `MAX_FILE_SIZE` (default 10MB for message attachments)
+- **Document Processing**: .txt and .docx files for RAG knowledge base (10MB for .txt, 50MB for .docx)
+
+**Migration from Older Deployments**:
+If upgrading from a version where uploads were stored in `./uploads` (inside the codebase):
+```bash
+# 1. Pull latest code changes
+git pull origin main
+
+# 2. Create backup of old uploads (optional but recommended)
+docker-compose exec backend tar -czf /tmp/uploads_backup.tar.gz -C /app uploads/
+
+# 3. Copy files to new location
+docker-compose exec backend sh -c 'cp -r /app/uploads/* /var/uploads/ 2>/dev/null || true'
+
+# 4. Verify files were copied
+docker-compose exec backend ls -lah /var/uploads/
+
+# 5. Rebuild containers with new Dockerfile (which sets proper permissions)
+docker-compose down
+docker-compose up --build -d
+
+# 6. After verifying everything works, clean up old uploads (optional)
+docker-compose exec backend sh -c 'rm -rf /app/uploads/* && rmdir /app/uploads'
+```
+
+**Volume Backup Strategy**:
+To prevent data loss, implement regular backups of upload volumes:
+
+Development:
+```bash
+# Backup uploads_data volume
+docker run --rm -v uploads_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/uploads_backup_$(date +%Y%m%d).tar.gz -C /data .
+
+# Restore from backup
+docker volume rm uploads_data
+docker volume create uploads_data
+docker run --rm -v uploads_data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/uploads_backup_YYYYMMDD.tar.gz -C /data
+```
+
+Production:
+```bash
+# Backup uploads_prod_data volume
+docker run --rm -v uploads_prod_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/uploads_prod_backup_$(date +%Y%m%d).tar.gz -C /data .
+
+# Automated daily backup (add to cron)
+0 2 * * * docker run --rm -v uploads_prod_data:/data -v /backups:/backup \
+  alpine tar czf /backup/uploads_prod_backup_$(date +\%Y\%m\%d).tar.gz -C /data .
+```
+
+**Important**: Ensure backup destination has sufficient disk space for all uploaded files.
 
 This system supports 20 concurrent agents handling 16,000+ conversations annually with full Lithuanian language support.
 

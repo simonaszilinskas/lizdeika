@@ -77,7 +77,9 @@ const logger = createLogger('documentService');
 
 class DocumentService {
     constructor() {
-        this.uploadDir = path.join(__dirname, '../../uploads');
+        this.uploadDir = process.env.UPLOADS_DIR
+            ? path.resolve(process.env.UPLOADS_DIR)
+            : path.join(__dirname, '../../uploads');
         this.ensureUploadDirectory();
     }
 
