@@ -214,8 +214,8 @@ describe('Authentication Service', () => {
         id: 1,
         userId: 1,
         token: 'revoked_refresh_token',
-        expiresAt: new Date(Date.now() + 86400000), // 1 day from now
-        isRevoked: true,
+        expires_at: new Date(Date.now() + 86400000), // 1 day from now
+        is_revoked: true,
         user: mockUser,
         users: mockUser,
       };

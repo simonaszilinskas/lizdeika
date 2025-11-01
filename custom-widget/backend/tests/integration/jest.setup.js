@@ -21,3 +21,9 @@ console.log('[JEST SETUP] NODE_ENV:', process.env.NODE_ENV);
 
 // Increase timeout for integration tests
 jest.setTimeout(30000);
+
+// Global cleanup to prevent timer leaks
+afterAll(() => {
+  // Clear all timers to prevent "Cannot log after tests are done" errors
+  jest.clearAllTimers();
+});

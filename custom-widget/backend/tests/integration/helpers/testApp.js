@@ -21,9 +21,9 @@ const createApp = require('../../../src/app');
  */
 function createTestApp() {
   // Use the real app factory - returns { app, server, io, websocketService }
-  const { app } = createApp();
+  const { app, websocketService } = createApp();
 
-  return app;
+  return { app, websocketService };
 }
 
 module.exports = { createTestApp };

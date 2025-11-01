@@ -12,9 +12,11 @@ const { createTestApp: createApp } = require('./testApp');
 /**
  * Create Express app instance for testing
  * Creates minimal app without external dependencies
+ * Returns { app, websocketService } for proper cleanup
  */
 function createTestApp() {
-  return createApp();
+  const { app, websocketService } = createApp();
+  return { app, websocketService };
 }
 
 /**
@@ -274,6 +276,17 @@ async function createTestMessage(
   return message;
 }
 
+/**
+ * Cleanup WebSocket service to prevent memory leaks
+ * Should be called in afterAll() hook
+ * @param {Object} websocketService - WebSocket service instance
+ */
+function cleanupWebSocketService(websocketService) {
+  if (websocketService && typeof websocketService.destroy === 'function') {
+    websocketService.destroy();
+  }
+}
+
 module.exports = {
   createTestApp,
   login,
@@ -285,4 +298,5 @@ module.exports = {
   authenticatedDelete,
   createTestConversation,
   createTestMessage,
+  cleanupWebSocketService,
 };

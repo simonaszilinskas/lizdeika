@@ -164,28 +164,24 @@ describe('Validation Middleware', () => {
       expect(req.validatedData.dryRun).toBe(true);
     });
 
-    it('should fail when currentUrls is empty', () => {
+    it('should pass when currentUrls is empty (detects all as orphans)', () => {
       req.body = {
         currentUrls: [],
       };
 
       validateDetectOrphans(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          error: 'Validation failed',
-        })
-      );
+      expect(next).toHaveBeenCalled();
+      expect(req.validatedData.currentUrls).toEqual([]);
     });
 
-    it('should fail when currentUrls is missing', () => {
+    it('should pass when currentUrls is missing (defaults to empty array)', () => {
       req.body = {};
 
       validateDetectOrphans(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(next).toHaveBeenCalled();
+      expect(req.validatedData.currentUrls).toEqual([]);
     });
 
     it('should fail when URL in array is invalid', () => {
