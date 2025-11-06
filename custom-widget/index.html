@@ -51,7 +51,7 @@
          */
 
         (function() {
-            const apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+            const apiUrl = window.location.origin;
             const token = localStorage.getItem('agent_token');
 
             if (!token) {
