@@ -41,7 +41,7 @@
 
     const VilniusChat = {
         config: {
-            apiUrl: 'http://localhost:3002',
+            apiUrl: window.location.origin,
             flowiseUrl: 'http://localhost:3000',
             flowiseChatflowId: '',
             theme: {
