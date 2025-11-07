@@ -61,6 +61,8 @@ RUN adduser --system --uid 1001 --ingroup nodejs nodejs
 
 # Copy built application and static assets from builder
 COPY --from=builder --chown=nodejs:nodejs /app ./
+# Explicit node_modules copy for clarity and reliability
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Ensure Prisma CLI is available for migrations
 RUN npm install -g prisma@latest
