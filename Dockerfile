@@ -36,9 +36,10 @@ FROM base AS builder
 RUN npm ci
 
 COPY custom-widget/backend ./
-COPY custom-widget/*.html ../
-COPY custom-widget/*.js ../
-COPY custom-widget/js ../js
+# Copy static assets to ./public for organized structure
+COPY custom-widget/*.html ./public/
+COPY custom-widget/*.js ./public/
+COPY custom-widget/js ./public/js
 RUN npx prisma generate
 RUN npm run test:unit || true
 
@@ -58,13 +59,8 @@ RUN apt-get update && apt-get install -y \
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 --ingroup nodejs nodejs
 
-# Copy built application
+# Copy built application and static assets from builder
 COPY --from=builder --chown=nodejs:nodejs /app ./
-COPY --from=builder /app/node_modules ./node_modules
-# Copy HTML and JS files from builder parent directory (where they were copied in builder stage)
-COPY --from=builder --chown=nodejs:nodejs /*.html ../
-COPY --from=builder --chown=nodejs:nodejs /*.js ../
-COPY --from=builder --chown=nodejs:nodejs /js ../js
 
 # Ensure Prisma CLI is available for migrations
 RUN npm install -g prisma@latest
