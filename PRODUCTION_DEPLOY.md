@@ -31,6 +31,13 @@ curl http://localhost/health
 Edit `.env` and set these:
 
 ```bash
+# **CRITICAL**: SITE_URL is REQUIRED in production (app will not start without it)
+# Must match your deployed URL (used for AI API HTTP-Referer headers)
+SITE_URL=https://yourdomain.com  # or http://your-vps-ip for staging
+
+# Frontend URL (usually same as SITE_URL)
+FRONTEND_URL=https://yourdomain.com
+
 # Database (auto-generated password recommended)
 DB_PASSWORD=your_secure_random_password_here
 
@@ -112,6 +119,34 @@ git pull
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
+## Migrating from Previous Versions
+
+### ⚠️ SITE_URL Now Required (v1.1+)
+
+If updating from an older version, you **must** add `SITE_URL` to your `.env` file:
+
+```bash
+# 1. Stop containers
+docker compose -f docker-compose.prod.yml down
+
+# 2. Add SITE_URL to .env
+echo "SITE_URL=https://yourdomain.com" >> .env
+# or for staging: SITE_URL=http://your-vps-ip
+
+# 3. Restart
+docker compose -f docker-compose.prod.yml up -d
+```
+
+**Why is this required?**
+- Used for HTTP-Referer headers in AI API calls
+- Required by production environment validation
+- Ensures URL consistency across the application
+
+**Startup will fail with this error if not set:**
+```
+Error: Missing critical environment variables: SITE_URL
+```
+
 ## Backup
 
 ```bash
@@ -145,6 +180,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## Security Checklist
 
+- [ ] **Set `SITE_URL` to your production domain (REQUIRED)**
 - [ ] Change default admin password
 - [ ] Set strong `DB_PASSWORD`
 - [ ] Generate unique JWT secrets

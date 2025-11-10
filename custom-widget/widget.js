@@ -42,7 +42,7 @@
     const VilniusChat = {
         config: {
             apiUrl: window.location.origin,
-            flowiseUrl: 'http://localhost:3000',
+            flowiseUrl: window.location.origin, // Legacy: Flowise integration (unused, backend handles AI provider)
             flowiseChatflowId: '',
             theme: {
                 primaryColor: '#4F46E5',
