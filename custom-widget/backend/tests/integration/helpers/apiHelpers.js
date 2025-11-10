@@ -12,9 +12,11 @@ const { createTestApp: createApp } = require('./testApp');
 /**
  * Create Express app instance for testing
  * Creates minimal app without external dependencies
+ * Returns { app, websocketService } for proper cleanup
  */
 function createTestApp() {
-  return createApp();
+  const { app, websocketService } = createApp();
+  return { app, websocketService };
 }
 
 /**
@@ -275,7 +277,8 @@ async function createTestMessage(
 }
 
 /**
- * Cleanup WebSocket service to prevent timer leaks in tests
+ * Cleanup WebSocket service to prevent memory leaks
+ * Should be called in afterAll() hook
  * @param {Object} websocketService - WebSocket service instance
  */
 function cleanupWebSocketService(websocketService) {
