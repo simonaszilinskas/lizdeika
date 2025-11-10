@@ -27,13 +27,14 @@ const {
   createTestMessage,
   createTestMessageStats,
 } = require('./helpers/testData');
-const { authenticatedGet, authenticateAsAgent, createTestApp } = require('./helpers/apiHelpers');
+const { authenticatedGet, authenticateAsAgent, createTestApp, cleanupWebSocketService } = require('./helpers/apiHelpers');
 
 require('dotenv').config({ path: __dirname + '/../../.env.test' });
 
 describe('Agent Statistics Integration Tests', () => {
   let prisma;
   let app;
+  let websocketService;
   let adminUser;
   let agent1;
   let agent2;
@@ -42,10 +43,13 @@ describe('Agent Statistics Integration Tests', () => {
 
   beforeAll(async () => {
     prisma = await initializeTestDatabase();
-    app = createTestApp();
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
   });
 
   afterAll(async () => {
+    cleanupWebSocketService(websocketService);
     await closeTestDatabase();
   });
 

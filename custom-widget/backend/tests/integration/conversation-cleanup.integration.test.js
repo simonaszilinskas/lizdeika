@@ -23,7 +23,7 @@ const {
   createTestMessage,
   createTestMessageStats,
 } = require('./helpers/testData');
-const { createTestApp, authenticateAsAgent } = require('./helpers/apiHelpers');
+const { createTestApp, authenticateAsAgent, cleanupWebSocketService } = require('./helpers/apiHelpers');
 const request = require('supertest');
 
 // Load test environment
@@ -32,15 +32,19 @@ require('dotenv').config({ path: __dirname + '/../../.env.test' });
 describe('Conversation Cleanup Integration Tests', () => {
   let prisma;
   let app;
+  let websocketService;
   let agent;
   let token;
 
   beforeAll(async () => {
     prisma = await initializeTestDatabase();
-    app = createTestApp();
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
   });
 
   afterAll(async () => {
+    cleanupWebSocketService(websocketService);
     await closeTestDatabase();
   });
 

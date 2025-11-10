@@ -61,7 +61,6 @@ describe('Upload Security Integration Tests', () => {
   afterAll(async () => {
     // Clean up WebSocket service to prevent timer leaks
     cleanupWebSocketService(websocketService);
-
     await closeTestDatabase();
 
     // Clean up test uploads directory

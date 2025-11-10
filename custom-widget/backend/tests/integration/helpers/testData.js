@@ -246,6 +246,17 @@ async function createTestMessageStats(prisma, messageId, agentId, ticketId, over
 }
 
 /**
+ * Create test conversation (alias for createTestTicket)
+ * @param {Object} prisma - Prisma client instance
+ * @param {string} userId - User ID (customer)
+ * @param {Object} overrides - Optional overrides
+ * @returns {Promise<Object>} Created ticket/conversation
+ */
+async function createTestConversation(prisma, userId, overrides = {}) {
+  return createTestTicket(prisma, { user_id: userId, ...overrides });
+}
+
+/**
  * Cleanup all test data
  * Removes all data from database in correct order
  * @param {Object} prisma - Prisma client instance
@@ -284,5 +295,6 @@ module.exports = {
   createTestConversation,
   createTestMessage,
   createTestMessageStats,
+  createTestConversation,
   cleanupAllTestData,
 };

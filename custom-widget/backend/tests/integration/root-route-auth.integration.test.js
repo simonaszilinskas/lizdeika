@@ -20,7 +20,7 @@ const {
   createTestAgent,
   createTestAdmin,
 } = require('./helpers/testData');
-const { createTestApp } = require('./helpers/apiHelpers');
+const { createTestApp, cleanupWebSocketService } = require('./helpers/apiHelpers');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
@@ -37,13 +37,17 @@ if (!process.env.JWT_REFRESH_SECRET) {
 describe('Root Route Authentication Integration Tests', () => {
   let prisma;
   let app;
+  let websocketService;
 
   beforeAll(async () => {
     prisma = await initializeTestDatabase();
-    app = createTestApp();
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
   });
 
   afterAll(async () => {
+    cleanupWebSocketService(websocketService);
     await closeTestDatabase();
   });
 
