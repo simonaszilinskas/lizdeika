@@ -1976,6 +1976,14 @@ KLAUSIMAS: {question}"
                 }, 100);
             }
         });
+
+        // Update API documentation examples with current origin
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentOrigin = window.location.origin;
+            document.querySelectorAll('[id^="api-base-url-"]').forEach(el => {
+                el.textContent = currentOrigin;
+            });
+        });
     </script>
 
     <!-- Prompt View Modal -->

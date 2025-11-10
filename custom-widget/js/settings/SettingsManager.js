@@ -23,7 +23,7 @@ import { ErrorHandler } from '../agent-dashboard/utils/ErrorHandler.js';
 
 export class SettingsManager {
     constructor() {
-        this.apiUrl = window.location.protocol + '//' + window.location.hostname + ':3002';
+        this.apiUrl = window.location.origin;
         
         // Initialize core modules
         this.stateManager = new StateManager();

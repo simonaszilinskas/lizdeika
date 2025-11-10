@@ -8,7 +8,7 @@
  */
 class ConversationApiClient {
     constructor(config = {}) {
-        this.apiUrl = config.apiUrl || 'http://localhost:3002';
+        this.apiUrl = config.apiUrl || window.location.origin;
         this.cache = new Map();
         // SIMPLIFIED: No TTL cache - real-time updates need fresh data
         this.logger = config.logger || console;

@@ -105,8 +105,8 @@ function createApp() {
     const fsPromises = fs.promises;
 
     const staticPath = process.env.NODE_ENV === 'production'
-        ? path.join(__dirname, '../../') // Railway: HTML files in /app/custom-widget/
-        : path.join(__dirname, '../../'); // Local: project root, custom-widget/ directory
+        ? path.join(__dirname, '../public') // Production: HTML/JS files in /app/public
+        : path.join(__dirname, '../../'); // Development: HTML/JS files in custom-widget/ directory
 
     const shouldLogStaticDebug = process.env.DEBUG_STATIC_PATH === 'true';
 

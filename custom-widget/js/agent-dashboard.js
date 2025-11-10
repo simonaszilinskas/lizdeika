@@ -145,9 +145,9 @@ import { SystemModeManager } from './agent-dashboard/core/SystemModeManager.js';
 class AgentDashboard {
     constructor(config = {}) {
         // Allow configuration via data attributes or config object
-        const apiUrl = config.apiUrl || 
-                      document.body.dataset.apiUrl || 
-                      window.location.protocol + '//' + window.location.hostname + ':3002';
+        const apiUrl = config.apiUrl ||
+                      document.body.dataset.apiUrl ||
+                      window.location.origin;
         
         this.apiUrl = apiUrl;
 

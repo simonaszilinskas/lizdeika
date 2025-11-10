@@ -667,10 +667,8 @@
 
     <!-- Authentication Check -->
     <script>
-        // Consistent port detection across all pages
-        const apiUrl = window.location.port === '3002'
-            ? window.location.protocol + '//' + window.location.hostname + ':3002'
-            : window.location.origin;
+        // Use current origin for API calls
+        const apiUrl = window.location.origin;
 
         // Check authentication before loading dashboard
         document.addEventListener('DOMContentLoaded', async () => {

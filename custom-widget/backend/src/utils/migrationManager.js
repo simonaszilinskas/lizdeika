@@ -41,11 +41,16 @@ function execPrismaCommand(command, options = {}) {
 }
 
 function validateDeploymentEnvironment() {
-    const criticalVars = ['DATABASE_URL'];
+    const criticalVars = ['DATABASE_URL', 'SITE_URL'];
     const missing = criticalVars.filter((key) => !process.env[key]);
 
     if (missing.length) {
         throw new Error(`Missing critical environment variables: ${missing.join(', ')}`);
+    }
+
+    // Validate SITE_URL format
+    if (process.env.SITE_URL && process.env.SITE_URL.includes('localhost')) {
+        logger.warn('⚠️ SITE_URL contains "localhost" - this may cause issues in production');
     }
 
     const optionalVars = ['PRISMA_MIGRATE_SHADOW_DB_URL', 'SHADOW_DATABASE_URL'];

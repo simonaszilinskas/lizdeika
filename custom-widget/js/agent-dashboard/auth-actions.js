@@ -13,7 +13,7 @@ export async function logoutAgent() {
             // Call backend logout endpoint to invalidate refresh token
             const refreshToken = localStorage.getItem('refresh_token');
             if (refreshToken) {
-                await fetch('http://localhost:3002/api/auth/logout', {
+                await fetch('/api/auth/logout', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

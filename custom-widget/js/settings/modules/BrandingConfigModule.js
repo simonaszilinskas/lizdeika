@@ -1409,16 +1409,16 @@ export class BrandingConfigModule {
             }
             
             // Get current widget configuration URL
-            const widgetUrl = `${window.location.protocol}//${window.location.hostname}:3002/widget.js`;
-            
+            const widgetUrl = `${window.location.origin}/widget.js`;
+
             // Use current settings from memory instead of reloading
             const currentSettings = this.currentSettings;
-            
+
             const integrationCode = `<!-- Vilnius Assistant Chat Widget -->
 <script type="text/javascript">
 (function() {
     var config = {
-        apiUrl: '${window.location.protocol}//${window.location.hostname}:3002',
+        apiUrl: '${window.location.origin}',
         widgetName: '${currentSettings?.widget_name || 'Vilnius Assistant'}',
         primaryColor: '${currentSettings?.widget_primary_color || '#2c5530'}',
         allowedDomains: '${currentSettings?.widget_allowed_domains || '*'}'
