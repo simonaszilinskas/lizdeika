@@ -24,7 +24,7 @@ const {
   createTestMessage,
   createTestMessageStats,
 } = require('./helpers/testData');
-const { authenticatedGet, authenticateAsAgent, createTestApp } = require('./helpers/apiHelpers');
+const { authenticatedGet, authenticateAsAgent, createTestApp, cleanupWebSocketService } = require('./helpers/apiHelpers');
 
 // Load test environment
 require('dotenv').config({ path: __dirname + '/../../.env.test' });
@@ -32,16 +32,20 @@ require('dotenv').config({ path: __dirname + '/../../.env.test' });
 describe('AI Suggestion Statistics Integration Tests', () => {
   let prisma;
   let app;
+  let websocketService;
   let adminUser;
   let agentUser;
   let agentToken;
 
   beforeAll(async () => {
     prisma = await initializeTestDatabase();
-    app = createTestApp();
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
   });
 
   afterAll(async () => {
+    cleanupWebSocketService(websocketService);
     await closeTestDatabase();
   });
 

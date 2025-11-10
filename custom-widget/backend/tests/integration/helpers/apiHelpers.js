@@ -274,6 +274,16 @@ async function createTestMessage(
   return message;
 }
 
+/**
+ * Cleanup WebSocket service to prevent timer leaks in tests
+ * @param {Object} websocketService - WebSocket service instance
+ */
+function cleanupWebSocketService(websocketService) {
+  if (websocketService && typeof websocketService.destroy === 'function') {
+    websocketService.destroy();
+  }
+}
+
 module.exports = {
   createTestApp,
   login,
@@ -285,4 +295,5 @@ module.exports = {
   authenticatedDelete,
   createTestConversation,
   createTestMessage,
+  cleanupWebSocketService,
 };

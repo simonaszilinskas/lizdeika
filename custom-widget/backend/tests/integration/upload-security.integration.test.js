@@ -29,7 +29,7 @@ const {
   createTestConversation,
 } = require('./helpers/testData');
 
-const { createTestApp } = require('./helpers/apiHelpers');
+const { createTestApp, cleanupWebSocketService } = require('./helpers/apiHelpers');
 
 // Load test environment
 require('dotenv').config({ path: __dirname + '/../../.env.test' });
@@ -37,6 +37,7 @@ require('dotenv').config({ path: __dirname + '/../../.env.test' });
 describe('Upload Security Integration Tests', () => {
   let prisma;
   let app;
+  let websocketService;
   let testUploadsDir;
   let agent;
   let customer;
@@ -52,10 +53,13 @@ describe('Upload Security Integration Tests', () => {
 
     // Now initialize database and create app (which reads UPLOADS_DIR from env)
     prisma = await initializeTestDatabase();
-    app = createTestApp();
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
   });
 
   afterAll(async () => {
+    cleanupWebSocketService(websocketService);
     await closeTestDatabase();
 
     // Clean up test uploads directory

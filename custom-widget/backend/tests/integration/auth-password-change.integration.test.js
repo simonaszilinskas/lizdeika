@@ -19,7 +19,7 @@ const {
 const {
   createTestAgent,
 } = require('./helpers/testData');
-const { createTestApp } = require('./helpers/apiHelpers');
+const { createTestApp, cleanupWebSocketService } = require('./helpers/apiHelpers');
 const request = require('supertest');
 
 // Load test environment
@@ -28,13 +28,17 @@ require('dotenv').config({ path: __dirname + '/../../.env.test' });
 describe('Password Change Integration Tests', () => {
   let prisma;
   let app;
+  let websocketService;
 
   beforeAll(async () => {
     prisma = await initializeTestDatabase();
-    app = createTestApp();
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
   });
 
   afterAll(async () => {
+    cleanupWebSocketService(websocketService);
     await closeTestDatabase();
   });
 

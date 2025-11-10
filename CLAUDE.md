@@ -236,6 +236,36 @@ npm run db:test:setup
 npm run test:integration
 ```
 
+**Environment Configuration**:
+- Test environment loads from `custom-widget/backend/.env.test`
+- `DATABASE_URL` must point to test database: `postgresql://user:pass@localhost:5432/vilnius_support_test`
+- All test files use real database operations (no mocks)
+- Tests run with `NODE_ENV=test` for proper isolation
+
+**WebSocket Cleanup**:
+- Integration tests create WebSocket services with periodic timers (30-second broadcast interval)
+- Each test **must** call `cleanupWebSocketService(websocketService)` in `afterAll()` to prevent memory leaks
+- This prevents Jest warning: "Cannot log after tests are done"
+- All 12 integration test files follow this pattern:
+  ```javascript
+  let websocketService;
+  beforeAll(async () => {
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
+  });
+  afterAll(async () => {
+    cleanupWebSocketService(websocketService);
+    await closeTestDatabase();
+  });
+  ```
+
+**Common Test Issues**:
+- **"table does not exist"** → Run `npm run db:test:setup` to apply migrations
+- **Timer/memory leak warnings** → Ensure `cleanupWebSocketService()` is called in all test files
+- **Port conflicts** → Check if test database is accessible and not locked by other processes
+- **Prisma client errors** → Clear Prisma cache: `rm -rf node_modules/.prisma && npm run db:test:setup`
+
 **Current Status**: 220/221 unit tests passing (134 backend + 86 frontend). 57/57 integration tests passing - verifying end-to-end flows with real database operations.
 
 **Known Test Issue**: One auth test occasionally fails in CI due to timing issues with token expiration checks. This is a test environment issue documented in `custom-widget/backend/tests/unit/auth.test.js`. The authentication flow works correctly in production.

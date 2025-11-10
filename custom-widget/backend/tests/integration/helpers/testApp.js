@@ -17,13 +17,13 @@ const createApp = require('../../../src/app');
 
 /**
  * Create Express app for testing (without server.listen())
- * Returns the full application with all routes and middleware
+ * Returns object with app and websocketService for proper cleanup
  */
 function createTestApp() {
   // Use the real app factory - returns { app, server, io, websocketService }
-  const { app } = createApp();
+  const { app, websocketService } = createApp();
 
-  return app;
+  return { app, websocketService };
 }
 
 module.exports = { createTestApp };

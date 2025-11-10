@@ -21,7 +21,7 @@ const {
   createTestAgent,
   createTestCustomer,
 } = require('./helpers/testData');
-const { createTestApp } = require('./helpers/apiHelpers');
+const { createTestApp, cleanupWebSocketService } = require('./helpers/apiHelpers');
 const request = require('supertest');
 
 // Load test environment
@@ -30,6 +30,7 @@ require('dotenv').config({ path: __dirname + '/../../.env.test' });
 describe('RBAC Integration Tests', () => {
   let prisma;
   let app;
+  let websocketService;
   let adminUser;
   let adminToken;
   let agentUser;
@@ -39,10 +40,13 @@ describe('RBAC Integration Tests', () => {
 
   beforeAll(async () => {
     prisma = await initializeTestDatabase();
-    app = createTestApp();
+    const result = createTestApp();
+    app = result.app;
+    websocketService = result.websocketService;
   });
 
   afterAll(async () => {
+    cleanupWebSocketService(websocketService);
     await closeTestDatabase();
   });
 
