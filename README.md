@@ -115,14 +115,24 @@ Deploy Lizdeika to a production Linux VM using Docker Compose. This is a simple,
    cp .env.template .env
    ```
 
-   Edit `.env` and fill in these required secrets:
+2. **Generate security secrets (automated):**
+
+   ```bash
+   ./scripts/generate-secrets.sh
+   ```
+
+   This automatically generates: `JWT_SECRET`, `JWT_REFRESH_SECRET`, `TOTP_ENCRYPTION_KEY`, `ADMIN_RECOVERY_KEY`
+
+3. **Add API keys:**
+
+   Edit `.env` and fill in these required values:
+   - `SITE_URL` – Your production URL (REQUIRED, e.g., https://yourdomain.com)
    - `OPENROUTER_API_KEY` – AI provider API key
    - `MISTRAL_API_KEY` – Embeddings API key
-   - `JWT_SECRET` – JWT signing secret (32+ characters)
-   - `TOTP_ENCRYPTION_KEY` – 2FA encryption key (32+ characters)
+   - `CHROMA_API_KEY` – Vector database key
    - `DB_PASSWORD` – PostgreSQL password
 
-   Other variables (RAG, Langfuse, SMTP) are optional.
+   Other variables (Langfuse, SMTP) are optional.
 
 ### Deploy
 
