@@ -1415,6 +1415,9 @@ export class BrandingConfigModule {
             const currentSettings = this.currentSettings;
 
             const integrationCode = `<!-- Vilnius Assistant Chat Widget -->
+<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"
+        integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+"
+        crossorigin="anonymous"></script>
 <script type="text/javascript">
 (function() {
     var config = {
@@ -1423,12 +1426,12 @@ export class BrandingConfigModule {
         primaryColor: '${currentSettings?.widget_primary_color || '#2c5530'}',
         allowedDomains: '${currentSettings?.widget_allowed_domains || '*'}'
     };
-    
+
     // Create widget container
     var widgetContainer = document.createElement('div');
     widgetContainer.id = 'vilnius-widget-container';
     document.body.appendChild(widgetContainer);
-    
+
     // Load and initialize widget
     var script = document.createElement('script');
     script.src = '${widgetUrl}';
