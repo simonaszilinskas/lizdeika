@@ -22,8 +22,8 @@ describe('TokenUtils', () => {
 
             const token = jwt.sign(payload, TEST_SECRET, {
                 expiresIn: '15m',
-                issuer: 'vilnius-assistant',
-                audience: 'vilnius-users',
+                issuer: 'lizdeika',
+                audience: 'lizdeika-users',
             });
             const decoded = tokenUtils.verifyAccessToken(token);
 

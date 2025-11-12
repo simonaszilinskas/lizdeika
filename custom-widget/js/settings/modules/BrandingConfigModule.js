@@ -243,7 +243,7 @@ export class BrandingConfigModule {
         // Update widget name in preview
         const previewWidgetName = document.getElementById('preview-widget-name');
         if (previewWidgetName) {
-            previewWidgetName.textContent = settings.widget_name || 'Vilnius Assistant';
+            previewWidgetName.textContent = settings.widget_name || 'Lizdeika';
         }
 
         // Update primary color in preview
@@ -372,7 +372,7 @@ export class BrandingConfigModule {
      */
     applyDefaultValues() {
         const defaults = {
-            widget_name: 'Vilnius Assistant',
+            widget_name: 'Lizdeika',
             widget_primary_color: '#2c5530',
             user_message_color: '#3b82f6',
             widget_allowed_domains: '*',
@@ -745,7 +745,7 @@ export class BrandingConfigModule {
                                        value="${widget_name || ''}" 
                                        maxlength="100"
                                        class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                       placeholder="e.g., Vilnius Assistant">
+                                       placeholder="e.g., Lizdeika">
                                 <p class="text-xs text-gray-500 mt-1">Display name for your chat widget</p>
                             </div>
                             
@@ -1414,7 +1414,7 @@ export class BrandingConfigModule {
             // Use current settings from memory instead of reloading
             const currentSettings = this.currentSettings;
 
-            const integrationCode = `<!-- Vilnius Assistant Chat Widget -->
+            const integrationCode = `<!-- Lizdeika Chat Widget -->
 <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"
         integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+"
         crossorigin="anonymous"></script>
@@ -1422,7 +1422,7 @@ export class BrandingConfigModule {
 (function() {
     var config = {
         apiUrl: '${window.location.origin}',
-        widgetName: '${currentSettings?.widget_name || 'Vilnius Assistant'}',
+        widgetName: '${currentSettings?.widget_name || 'Lizdeika'}',
         primaryColor: '${currentSettings?.widget_primary_color || '#2c5530'}',
         allowedDomains: '${currentSettings?.widget_allowed_domains || '*'}'
     };
@@ -1443,7 +1443,7 @@ export class BrandingConfigModule {
     document.head.appendChild(script);
 })();
 </script>
-<!-- End Vilnius Assistant Chat Widget -->`;
+<!-- End Lizdeika Chat Widget -->`;
             
             // Update UI with generated code
             if (this.elements.integrationCodeTextarea) {

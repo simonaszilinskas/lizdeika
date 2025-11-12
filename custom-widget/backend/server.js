@@ -1,7 +1,7 @@
 /**
- * VILNIUS ASSISTANT BACKEND SERVER - MAIN ENTRY POINT
- * 
- * Main Purpose: HTTP and WebSocket server for the Vilnius chat widget system
+ * LIZDEIKA BACKEND SERVER - MAIN ENTRY POINT
+ *
+ * Main Purpose: HTTP and WebSocket server for the Lizdeika chat widget system
  * 
  * Key Responsibilities:
  * - Server Initialization: Start Express HTTP server and Socket.io WebSocket server
@@ -133,7 +133,7 @@ async function displayConfiguration() {
 // Initialize all services before starting server
 async function startServer() {
     try {
-        console.log('🚀 Starting Vilnius Assistant Backend...');
+        console.log('🚀 Starting Lizdeika Backend...');
         console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`🚪 Port: ${PORT}`);
         console.log(`🌐 Host: ${process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost'}`);

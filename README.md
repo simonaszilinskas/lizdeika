@@ -56,10 +56,10 @@ npm install
 
 ### Set up the database
 
-1. Create a database called `vilnius_support`:
+1. Create a database called `lizdeika_support`:
 
    ```bash
-   createdb vilnius_support
+   createdb lizdeika_support
    ```
 
 2. Copy the example environment file and adjust it with your database and API keys:

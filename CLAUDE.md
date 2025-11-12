@@ -45,7 +45,7 @@ npm run test:watch     # Watch mode for test development
 docker-compose up --build          # Start all services (runs migrations automatically)
 docker-compose exec backend npm run db:seed    # Seed database
 docker-compose logs -f backend     # View backend logs
-docker-compose exec postgres psql -U postgres -d vilnius_support  # Database CLI
+docker-compose exec postgres psql -U postgres -d lizdeika_support  # Database CLI
 
 # Production deployment
 docker-compose -f docker-compose.prod.yml up -d
@@ -122,7 +122,7 @@ Key models: `users`, `tickets`, `messages`, `agent_status`, `system_modes`, `kno
 - Login creates JWT + refresh token pair
 - Settings page requires admin role for user management features
 - Agent dashboard requires agent/admin role
-- Default admin credentials: `admin@vilnius.lt` / `admin123` (from seed data)
+- Default admin credentials: `admin@lizdeika.lt` / `admin123` (from seed data)
 
 ### UI Design Philosophy (Issue #76)
 
@@ -199,7 +199,7 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 ### Important Implementation Details
 
 **User Management Loading Fix**: The UserManagementModule requires admin authentication. If users show "Loading..." but don't load, ensure:
-1. User is logged in as admin (`admin@vilnius.lt` / `admin123`)
+1. User is logged in as admin (`admin@lizdeika.lt` / `admin123`)
 2. Navigate to settings page: `http://localhost:3002/settings.html`
 3. Recent fix (latest commit) added missing `await this.userManagementModule.loadUsers()` call
 
@@ -220,14 +220,14 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 2. **Integration Tests** (57 tests - Real database operations):
    - `tests/integration/` - API integration tests for auth, statistics, and conversation management
    - Tests perform real user actions (no mocks)
-   - Use separate test database (vilnius_support_test)
+   - Use separate test database (lizdeika_support_test)
    - Coverage: Authentication, RBAC, Conversations, AI Suggestions, Dashboard, Agent Statistics
    - Run with: `npm run test:integration`
 
 **Test Database Setup**: Integration tests require a separate PostgreSQL test database:
 ```bash
 # Create test database (one-time setup)
-createdb vilnius_support_test
+createdb lizdeika_support_test
 
 # Push schema to test database
 npm run db:test:setup
@@ -238,7 +238,7 @@ npm run test:integration
 
 **Environment Configuration**:
 - Test environment loads from `custom-widget/backend/.env.test`
-- `DATABASE_URL` must point to test database: `postgresql://user:pass@localhost:5432/vilnius_support_test`
+- `DATABASE_URL` must point to test database: `postgresql://user:pass@localhost:5432/lizdeika_support_test`
 - All test files use real database operations (no mocks)
 - Tests run with `NODE_ENV=test` for proper isolation
 

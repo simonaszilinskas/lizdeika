@@ -2,19 +2,19 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: vilnius-postgres-staging
+    container_name: lizdeika-postgres-staging
     restart: always
     environment:
-      POSTGRES_DB: ${DB_NAME:-vilnius_support}
-      POSTGRES_USER: ${DB_USER:-vilnius_user}
+      POSTGRES_DB: ${DB_NAME:-lizdeika_support}
+      POSTGRES_USER: ${DB_USER:-lizdeika_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_staging_data:/var/lib/postgresql/data
     networks:
-      - vilnius-internal
+      - lizdeika-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-vilnius_user} -d ${DB_NAME:-vilnius_support}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lizdeika_user} -d ${DB_NAME:-lizdeika_support}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,7 +30,7 @@ services:
     build:
       context: .
       target: production
-    container_name: vilnius-backend-staging
+    container_name: lizdeika-backend-staging
     restart: always
     env_file:
       - .env
@@ -41,7 +41,7 @@ services:
     volumes:
       - uploads_staging_data:/var/uploads
     networks:
-      - vilnius-internal
+      - lizdeika-internal
       - web
     depends_on:
       postgres:
@@ -71,7 +71,7 @@ services:
   # Nginx Reverse Proxy (HTTP only for staging)
   nginx:
     image: nginx:alpine
-    container_name: vilnius-nginx-staging
+    container_name: lizdeika-nginx-staging
     restart: always
     ports:
       - "80:80"
@@ -80,7 +80,7 @@ services:
       - nginx_logs:/var/log/nginx
     networks:
       - web
-      - vilnius-internal
+      - lizdeika-internal
     depends_on:
       - backend
     deploy:
@@ -99,7 +99,7 @@ volumes:
     driver: local
 
 networks:
-  vilnius-internal:
+  lizdeika-internal:
     driver: bridge
     internal: true
   web:

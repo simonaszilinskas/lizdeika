@@ -1,7 +1,7 @@
 {
-  "name": "vilnius-widget-backend",
+  "name": "lizdeika-backend",
   "version": "1.0.0",
-  "description": "Backend for Vilnius AI chat widget",
+  "description": "Backend for Lizdeika AI chat widget",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,4 +1,4 @@
-# Multi-stage build for Vilnius Assistant
+# Multi-stage build for Lizdeika
 FROM node:20-slim AS base
 WORKDIR /app
 

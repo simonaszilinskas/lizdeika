@@ -2,19 +2,19 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: vilnius-postgres-prod
+    container_name: lizdeika-postgres-prod
     restart: always
     environment:
-      POSTGRES_DB: ${DB_NAME:-vilnius_support}
-      POSTGRES_USER: ${DB_USER:-vilnius_user}
+      POSTGRES_DB: ${DB_NAME:-lizdeika_support}
+      POSTGRES_USER: ${DB_USER:-lizdeika_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     networks:
-      - vilnius-internal
+      - lizdeika-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-vilnius_user} -d ${DB_NAME:-vilnius_support}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lizdeika_user} -d ${DB_NAME:-lizdeika_support}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -30,7 +30,7 @@ services:
     build:
       context: .
       target: production
-    container_name: vilnius-backend-prod
+    container_name: lizdeika-backend-prod
     restart: always
     environment:
       - NODE_ENV=production
@@ -47,8 +47,8 @@ services:
       - FLOWISE_CHATFLOW_ID=${FLOWISE_CHATFLOW_ID}
       - FLOWISE_API_KEY=${FLOWISE_API_KEY}
       - SITE_URL=${SITE_URL}
-      - SITE_NAME=${SITE_NAME:-Vilnius Assistant}
-      - WIDGET_NAME=${WIDGET_NAME:-Vilnius Assistant}
+      - SITE_NAME=${SITE_NAME:-Lizdeika}
+      - WIDGET_NAME=${WIDGET_NAME:-Lizdeika}
       - WIDGET_PRIMARY_COLOR=${WIDGET_PRIMARY_COLOR:-#2c5530}
       - WIDGET_ALLOWED_DOMAINS=${WIDGET_ALLOWED_DOMAINS:-*}
       - RAG_K=${RAG_K:-100}
@@ -69,7 +69,7 @@ services:
     volumes:
       - uploads_prod_data:/var/uploads
     networks:
-      - vilnius-internal
+      - lizdeika-internal
       - web
     depends_on:
       postgres:
@@ -99,7 +99,7 @@ services:
   # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    container_name: vilnius-nginx-prod
+    container_name: lizdeika-nginx-prod
     restart: always
     ports:
       - "80:80"
@@ -111,7 +111,7 @@ services:
       - nginx_logs:/var/log/nginx
     networks:
       - web
-      - vilnius-internal
+      - lizdeika-internal
     depends_on:
       - backend
     deploy:
@@ -124,7 +124,7 @@ services:
   # Log aggregation (optional)
   logrotate:
     image: alpine:latest
-    container_name: vilnius-logrotate
+    container_name: lizdeika-logrotate
     restart: always
     volumes:
       - nginx_logs:/logs
@@ -147,7 +147,7 @@ volumes:
     driver: local
 
 networks:
-  vilnius-internal:
+  lizdeika-internal:
     driver: bridge
     internal: true
   web:

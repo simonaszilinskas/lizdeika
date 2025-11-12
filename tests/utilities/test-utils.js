@@ -75,7 +75,7 @@ class TestUtils {
     static createTestUser(overrides = {}) {
         return {
             id: 'test-user-123',
-            email: 'test@vilnius.lt',
+            email: 'test@lizdeika.lt',
             role: 'agent',
             firstName: 'Test',
             lastName: 'User',

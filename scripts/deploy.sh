@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# VILNIUS ASSISTANT - VM DEPLOYMENT SCRIPT
+# LIZDEIKA - VM DEPLOYMENT SCRIPT
 # ==============================================================================
 # One-command deployment for VMs using Docker
 # Usage: ./scripts/deploy.sh [production|development]
@@ -24,7 +24,7 @@ NC='\033[0m' # No Color
 DEPLOY_MODE="${1:-development}"
 
 echo -e "${BLUE}===============================================================================${NC}"
-echo -e "${BLUE}🚀 VILNIUS ASSISTANT DEPLOYMENT${NC}"
+echo -e "${BLUE}🚀 LIZDEIKA DEPLOYMENT${NC}"
 echo -e "${BLUE}===============================================================================${NC}"
 echo -e "Deployment mode: ${YELLOW}${DEPLOY_MODE}${NC}"
 echo
@@ -266,7 +266,7 @@ show_deployment_summary() {
     echo -e "  💚 Health Check:        http://localhost:3002/health"
     echo
     echo -e "${BLUE}Default Admin Credentials:${NC}"
-    echo -e "  📧 Email:    admin@vilnius.lt"
+    echo -e "  📧 Email:    admin@lizdeika.lt"
     echo -e "  🔒 Password: admin123"
     echo
     echo -e "${BLUE}Useful Commands:${NC}"
@@ -279,7 +279,7 @@ show_deployment_summary() {
         echo -e "  🔄 Restart:             docker-compose restart"
         echo -e "  🛑 Stop:                docker-compose down"
     fi
-    echo -e "  🗄️  Database CLI:        docker-compose exec postgres psql -U vilnius_user -d vilnius_support"
+    echo -e "  🗄️  Database CLI:        docker-compose exec postgres psql -U lizdeika_user -d lizdeika_support"
     echo
     echo -e "${YELLOW}Next Steps:${NC}"
     echo -e "  1. 🌐 Visit http://localhost:3002 to test the application"

@@ -121,7 +121,7 @@ After deployment:
 docker compose -f docker-compose.prod.yml exec backend npm run db:seed
 
 # Default credentials (CHANGE IMMEDIATELY)
-# Email: admin@vilnius.lt
+# Email: admin@lizdeika.lt
 # Password: admin123
 ```
 
@@ -175,11 +175,11 @@ Error: Missing critical environment variables: SITE_URL
 ```bash
 # Database backup
 docker compose -f docker-compose.prod.yml exec postgres \
-  pg_dump -U vilnius_user vilnius_support > backup-$(date +%Y%m%d).sql
+  pg_dump -U lizdeika_user lizdeika_support > backup-$(date +%Y%m%d).sql
 
 # Restore
 cat backup.sql | docker compose -f docker-compose.prod.yml exec -T postgres \
-  psql -U vilnius_user vilnius_support
+  psql -U lizdeika_user lizdeika_support
 ```
 
 ## Troubleshooting
@@ -205,7 +205,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 - [ ] **Run `./scripts/generate-secrets.sh` to create secure secrets**
 - [ ] **Set `SITE_URL` to your production domain (REQUIRED)**
-- [ ] Change default admin password (`admin@vilnius.lt` / `admin123`)
+- [ ] Change default admin password (`admin@lizdeika.lt` / `admin123`)
 - [ ] Set strong `DB_PASSWORD` in `.env`
 - [ ] Add API keys (OpenRouter, Mistral, ChromaDB)
 - [ ] Enable SSL/HTTPS (Let's Encrypt recommended)

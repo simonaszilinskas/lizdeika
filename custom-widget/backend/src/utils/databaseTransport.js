@@ -44,7 +44,7 @@ class DatabaseTransport extends Transport {
             level,
             message,
             correlationId,
-            service = 'vilnius-assistant-backend',
+            service = 'lizdeika-backend',
             module,
             userId,
             metadata,
