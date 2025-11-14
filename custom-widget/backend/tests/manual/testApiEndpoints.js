@@ -18,12 +18,12 @@ async function createTestUser() {
 
     // Try to login with existing test credentials
     const response = await axios.post(`${API_BASE}/auth/login`, {
-      email: 'admin@vilnius.lt',
+      email: 'admin@lizdeika.lt',
       password: 'admin123',
     });
 
     authToken = response.data.data.tokens.accessToken;
-    console.log(`✅ Logged in as admin@vilnius.lt`);
+    console.log(`✅ Logged in as admin@lizdeika.lt`);
     console.log(`   Token: ${authToken.substring(0, 20)}...\n`);
     return true;
   } catch (error) {

@@ -57,7 +57,7 @@ class AgentService {
      * @returns {string} Human-readable display name
      * 
      * @example
-     * getAgentDisplayName('admin@vilnius.lt') → 'Admin User'
+     * getAgentDisplayName('admin@lizdeika.lt') → 'Admin User'
      * getAgentDisplayName('john.doe@support.com') → 'John Doe'
      * getAgentDisplayName('agent_001') → 'Agent 001'
      */
@@ -97,7 +97,7 @@ class AgentService {
      * @returns {Promise<Object>} Updated agent object with status, timestamps, and metadata
      * 
      * @example
-     * const agent = await updateAgentPersonalStatus('admin@vilnius.lt', 'online');
+     * const agent = await updateAgentPersonalStatus('admin@lizdeika.lt', 'online');
      * // Returns: { id, name, status, personalStatus, lastSeen, connected, user_id }
      * 
      * @throws {Error} If agent user creation fails or database update fails
@@ -723,7 +723,7 @@ class AgentService {
             if (!user) {
                 // Create new agent user using upsert to avoid duplicates
                 const isAdmin = agentId.includes('admin') || agentId.includes('Admin');
-                const email = agentId.includes('@') ? agentId : `${agentId}@vilnius.lt`;
+                const email = agentId.includes('@') ? agentId : `${agentId}@lizdeika.lt`;
                 
                 const displayName = this.getAgentDisplayName(agentId);
                 const nameParts = displayName.split(' ');

@@ -168,14 +168,14 @@ describe('AgentService', () => {
             const agentUUID = uuidv4();
             const agent = {
                 id: agentUUID,
-                email: 'agent@vilnius.lt',
+                email: 'agent@lizdeika.lt',
                 role: 'agent'
             };
 
             const agentId = agentService.getUserAgentId(agent);
 
             expect(agentId).toBe(agentUUID);
-            expect(agentId).not.toBe('agent@vilnius.lt');
+            expect(agentId).not.toBe('agent@lizdeika.lt');
         });
 
         it('should maintain consistency across multiple calls', () => {
