@@ -8,7 +8,7 @@
  * - Proper LangChain chain composition instead of manual message construction
  * - Custom ChromaRetriever extending BaseRetriever
  * - QueryRephraseChain using LLMChain
- * - VilniusRAGChain orchestrating the full RAG process
+ * - LizdeikaRAGChain orchestrating the full RAG process
  * - Centralized prompt templates
  * - Better error handling and debug information
  * - Maintains exact same API: getAnswer(query, chatHistory, includeDebug)
@@ -17,7 +17,7 @@
  * @version 2.0.0 - LangChain Patterns
  */
 
-const VilniusRAGChain = require('./chains/VilniusRAGChain');
+const LizdeikaRAGChain = require('./chains/LizdeikaRAGChain');
 const ChromaRetriever = require('./chains/ChromaRetriever');
 const QueryRephraseChain = require('./chains/QueryRephraseChain');
 const { Langfuse } = require("langfuse");
@@ -70,7 +70,7 @@ class LangChainRAG {
             }
 
             // Now initialize the RAG chain with proper configuration
-            this.ragChain = new VilniusRAGChain({
+            this.ragChain = new LizdeikaRAGChain({
                 k: parseInt(process.env.RAG_K) || 100,
                 enableRephrasing: process.env.ENABLE_QUERY_REPHRASING !== 'false',
                 showSources: process.env.RAG_SHOW_SOURCES !== 'false',

@@ -1,5 +1,5 @@
 /**
- * VILNIUS CHAT WIDGET - CUSTOMER INTERFACE
+ * LIZDEIKA CHAT WIDGET - CUSTOMER INTERFACE
  * 
  * Main Purpose: Embeddable chat widget for customer-facing websites
  * 
@@ -39,7 +39,7 @@
 (function() {
     'use strict';
 
-    const VilniusChat = {
+    const LizdeikaChat = {
         config: {
             apiUrl: window.location.origin,
             flowiseUrl: window.location.origin, // Legacy: Flowise integration (unused, backend handles AI provider)
@@ -68,14 +68,14 @@
         createWidget: function() {
             const srOnlyStyle = 'position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;';
             const widgetHTML = `
-                <div id="vilnius-chat-container" style="
+                <div id="lizdeika-chat-container" style="
                     position: fixed;
                     ${this.config.theme.position === 'bottom-right' ? 'right: 20px; bottom: 20px;' : 'left: 20px; bottom: 20px;'}
                     z-index: 9999;
                     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 ">
                     <!-- Chat Bubble -->
-                    <button id="vilnius-chat-bubble" type="button" aria-label="Atidaryti pokalbių langą" aria-haspopup="dialog" aria-controls="vilnius-chat-window" aria-expanded="false" style="
+                    <button id="lizdeika-chat-bubble" type="button" aria-label="Atidaryti pokalbių langą" aria-haspopup="dialog" aria-controls="lizdeika-chat-window" aria-expanded="false" style="
                         width: 60px;
                         height: 60px;
                         border-radius: 50%;
@@ -88,7 +88,7 @@
                         justify-content: center;
                         transition: transform 0.3s ease;
                     ">
-                        <span class="vilnius-sr-only" style="${srOnlyStyle}">Atidaryti pokalbių langą</span>
+                        <span class="lizdeika-sr-only" style="${srOnlyStyle}">Atidaryti pokalbių langą</span>
                         <svg width="30" height="30" viewBox="0 0 24 24" fill="white">
                             <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L1 23l6.71-1.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.41 0-2.73-.36-3.88-.99l-.28-.15-2.9.85.85-2.9-.15-.28C4.36 14.73 4 13.41 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
                             <path d="M7 9h10v2H7zm0 3h7v2H7z"/>
@@ -96,7 +96,7 @@
                     </button>
 
                     <!-- Chat Window -->
-                    <div id="vilnius-chat-window" style="
+                    <div id="lizdeika-chat-window" style="
                         display: none;
                         position: absolute;
                         bottom: 80px;
@@ -108,9 +108,9 @@
                         box-shadow: 0 10px 40px rgba(0,0,0,0.15);
                         overflow: hidden;
                         flex-direction: column;
-                    " role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="vilnius-chat-title" tabindex="-1">
+                    " role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="lizdeika-chat-title" tabindex="-1">
                         <!-- Privacy Gate Overlay (shown initially) -->
-                        <div id="vilnius-privacy-gate" style="
+                        <div id="lizdeika-privacy-gate" style="
                             display: flex;
                             position: absolute;
                             top: 0;
@@ -178,7 +178,7 @@
                                     ">
                                         <input
                                             type="checkbox"
-                                            id="vilnius-privacy-checkbox"
+                                            id="lizdeika-privacy-checkbox"
                                             aria-required="true"
                                             aria-label="Accept privacy policy and terms of service"
                                             style="
@@ -190,14 +190,14 @@
                                                 flex-shrink: 0;
                                             "
                                         />
-                                        <span id="vilnius-privacy-text" style="flex: 1;">
+                                        <span id="lizdeika-privacy-text" style="flex: 1;">
                                             <!-- Privacy text will be loaded from settings -->
                                         </span>
                                     </label>
                                 </div>
 
                                 <!-- Start Chat Button -->
-                                <button id="vilnius-start-chat-btn" type="button" disabled aria-disabled="true" aria-describedby="vilnius-privacy-text" style="
+                                <button id="lizdeika-start-chat-btn" type="button" disabled aria-disabled="true" aria-describedby="lizdeika-privacy-text" style="
                                     width: 100%;
                                     padding: 14px 24px;
                                     background: ${this.config.theme.primaryColor};
@@ -217,7 +217,7 @@
                         </div>
 
                         <!-- Main Chat Interface (hidden initially) -->
-                        <div id="vilnius-chat-interface" style="
+                        <div id="lizdeika-chat-interface" style="
                             display: none;
                             position: absolute;
                             top: 0;
@@ -236,9 +236,9 @@
                                 align-items: center;
                             ">
                                 <div>
-                                    <h3 id="vilnius-chat-title" style="margin: 0; font-size: 15px;">Pagalbos asistentas</h3>
+                                    <h3 id="lizdeika-chat-title" style="margin: 0; font-size: 15px;">Pagalbos asistentas</h3>
                                 </div>
-                                <button id="vilnius-close-chat" type="button" aria-label="Uždaryti pokalbių langą" style="
+                                <button id="lizdeika-close-chat" type="button" aria-label="Uždaryti pokalbių langą" style="
                                     background: none;
                                     border: none;
                                     color: white;
@@ -252,21 +252,21 @@
                             </div>
 
                             <!-- Messages Container -->
-                            <div id="vilnius-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Pokalbio pranešimai" tabindex="0" style="
+                            <div id="lizdeika-messages" role="log" aria-live="polite" aria-relevant="additions text" aria-label="Pokalbio pranešimai" tabindex="0" style="
                                 flex: 1;
                                 overflow-y: auto;
                                 padding: 20px;
                                 background: #f9fafb;
                             ">
                                 <!-- Typing indicator for agent -->
-                                <div id="vilnius-agent-typing" style="
+                                <div id="lizdeika-agent-typing" style="
                                     display: none;
                                     margin-bottom: 16px;
                                     font-size: 14px;
                                     font-style: italic;
                                     color: #6b7280;
                                 " role="status" aria-live="polite">Agentas rašo...</div>
-                                <div class="vilnius-message vilnius-ai" role="article" aria-label="Pagalbos asistento pranešimas" style="
+                                <div class="lizdeika-message lizdeika-ai" role="article" aria-label="Pagalbos asistento pranešimas" style="
                                     margin-bottom: 16px;
                                     display: flex;
                                     align-items: flex-start;
@@ -291,18 +291,18 @@
                                 border-top: 1px solid #e5e7eb;
                                 padding: 16px;
                             ">
-                                <form id="vilnius-chat-form" style="
+                                <form id="lizdeika-chat-form" style="
                                     display: flex;
                                     gap: 12px;
                                     align-items: center;
                                 ">
                                 <input
                                     type="file"
-                                    id="vilnius-file-input"
+                                    id="lizdeika-file-input"
                                     style="display: none;"
                                     accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
                                 />
-                                <button type="button" id="vilnius-attach-button" aria-label="Pridėti failą" style="
+                                <button type="button" id="lizdeika-attach-button" aria-label="Pridėti failą" style="
                                     background: none;
                                     border: none;
                                     color: #6b7280;
@@ -318,7 +318,7 @@
                                     </svg>
                                 </button>
                                 <input
-                                    id="vilnius-chat-input"
+                                    id="lizdeika-chat-input"
                                     type="text"
                                     placeholder="Rašykite savo pranešimą..."
                                     aria-label="Rašykite savo pranešimą"
@@ -332,7 +332,7 @@
                                         transition: border-color 0.3s;
                                     "
                                 />
-                                <button id="vilnius-send-button" type="submit" aria-label="Siųsti pranešimą" style="
+                                <button id="lizdeika-send-button" type="submit" aria-label="Siųsti pranešimą" style="
                                     background: ${this.config.theme.primaryColor};
                                     color: white;
                                     border: none;
@@ -350,7 +350,7 @@
                                     </svg>
                                 </button>
                             </form>
-                            <div id="vilnius-file-preview" role="status" aria-live="polite" style="
+                            <div id="lizdeika-file-preview" role="status" aria-live="polite" style="
                                 margin-top: 8px;
                                 display: none;
                                 padding: 8px;
@@ -361,7 +361,7 @@
                             </div>
                         </div>
                     </div>
-                    <div id="vilnius-live-region" role="status" aria-live="polite" aria-atomic="false" style="${srOnlyStyle}"></div>
+                    <div id="lizdeika-live-region" role="status" aria-live="polite" aria-atomic="false" style="${srOnlyStyle}"></div>
                 </div>
             `;
 
@@ -369,19 +369,19 @@
         },
 
         attachEventListeners: function() {
-            const bubble = document.getElementById('vilnius-chat-bubble');
-            const chatWindow = document.getElementById('vilnius-chat-window');
-            const closeBtn = document.getElementById('vilnius-close-chat');
-            const form = document.getElementById('vilnius-chat-form');
-            const input = document.getElementById('vilnius-chat-input');
-            const attachButton = document.getElementById('vilnius-attach-button');
-            const fileInput = document.getElementById('vilnius-file-input');
-            const filePreview = document.getElementById('vilnius-file-preview');
-            const privacyCheckbox = document.getElementById('vilnius-privacy-checkbox');
-            const startChatBtn = document.getElementById('vilnius-start-chat-btn');
-            const privacyGate = document.getElementById('vilnius-privacy-gate');
-            const chatInterface = document.getElementById('vilnius-chat-interface');
-            const liveRegion = document.getElementById('vilnius-live-region');
+            const bubble = document.getElementById('lizdeika-chat-bubble');
+            const chatWindow = document.getElementById('lizdeika-chat-window');
+            const closeBtn = document.getElementById('lizdeika-close-chat');
+            const form = document.getElementById('lizdeika-chat-form');
+            const input = document.getElementById('lizdeika-chat-input');
+            const attachButton = document.getElementById('lizdeika-attach-button');
+            const fileInput = document.getElementById('lizdeika-file-input');
+            const filePreview = document.getElementById('lizdeika-file-preview');
+            const privacyCheckbox = document.getElementById('lizdeika-privacy-checkbox');
+            const startChatBtn = document.getElementById('lizdeika-start-chat-btn');
+            const privacyGate = document.getElementById('lizdeika-privacy-gate');
+            const chatInterface = document.getElementById('lizdeika-chat-interface');
+            const liveRegion = document.getElementById('lizdeika-live-region');
 
             if (!bubble || !chatWindow || !closeBtn || !form || !input || !attachButton || !fileInput || !filePreview || !startChatBtn || !privacyGate || !chatInterface || !liveRegion) {
                 return;
@@ -489,7 +489,7 @@
                     filePreview.innerHTML = `
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span>📎 ${file.name}</span>
-                            <button type="button" id="vilnius-remove-file" aria-label="Pašalinti priedą" style="
+                            <button type="button" id="lizdeika-remove-file" aria-label="Pašalinti priedą" style="
                                 background: none;
                                 border: none;
                                 color: #ef4444;
@@ -499,7 +499,7 @@
                         </div>
                     `;
 
-                    document.getElementById('vilnius-remove-file').addEventListener('click', () => {
+                    document.getElementById('lizdeika-remove-file').addEventListener('click', () => {
                         this.selectedFile = null;
                         fileInput.value = '';
                         filePreview.style.display = 'none';
@@ -558,13 +558,13 @@
         },
 
         openChatWindow() {
-            const chatWindow = document.getElementById('vilnius-chat-window');
-            const bubble = document.getElementById('vilnius-chat-bubble');
-            const privacyGate = document.getElementById('vilnius-privacy-gate');
-            const privacyCheckbox = document.getElementById('vilnius-privacy-checkbox');
-            const startChatBtn = document.getElementById('vilnius-start-chat-btn');
-            const chatInterface = document.getElementById('vilnius-chat-interface');
-            const input = document.getElementById('vilnius-chat-input');
+            const chatWindow = document.getElementById('lizdeika-chat-window');
+            const bubble = document.getElementById('lizdeika-chat-bubble');
+            const privacyGate = document.getElementById('lizdeika-privacy-gate');
+            const privacyCheckbox = document.getElementById('lizdeika-privacy-checkbox');
+            const startChatBtn = document.getElementById('lizdeika-start-chat-btn');
+            const chatInterface = document.getElementById('lizdeika-chat-interface');
+            const input = document.getElementById('lizdeika-chat-input');
 
             if (!chatWindow || !bubble) return;
 
@@ -593,8 +593,8 @@
         },
 
         closeChatWindow() {
-            const chatWindow = document.getElementById('vilnius-chat-window');
-            const bubble = document.getElementById('vilnius-chat-bubble');
+            const chatWindow = document.getElementById('lizdeika-chat-window');
+            const bubble = document.getElementById('lizdeika-chat-bubble');
 
             if (!chatWindow || !bubble) return;
 
@@ -650,7 +650,7 @@
         },
 
         announceNewMessage(message) {
-            const liveRegion = document.getElementById('vilnius-live-region');
+            const liveRegion = document.getElementById('lizdeika-live-region');
             if (!liveRegion) return;
             if (!message || typeof message !== 'object') return;
 
@@ -758,13 +758,13 @@
         },
         
         showAgentTyping: function(isTyping) {
-            const indicator = document.getElementById('vilnius-agent-typing');
+            const indicator = document.getElementById('lizdeika-agent-typing');
             if (indicator) {
                 indicator.style.display = isTyping ? 'block' : 'none';
                 
                 // Auto-scroll to show typing indicator
                 if (isTyping) {
-                    const messagesContainer = document.getElementById('vilnius-messages');
+                    const messagesContainer = document.getElementById('lizdeika-messages');
                     if (messagesContainer) {
                         messagesContainer.scrollTop = messagesContainer.scrollHeight;
                     }
@@ -799,7 +799,7 @@
         },
 
         updatePrivacyText() {
-            const privacyTextElement = document.getElementById('vilnius-privacy-text');
+            const privacyTextElement = document.getElementById('lizdeika-privacy-text');
             if (privacyTextElement && this.privacyCheckboxText) {
                 // Use DOM-based rendering instead of innerHTML to prevent XSS
                 this.renderMarkdownToDom(privacyTextElement, this.privacyCheckboxText);
@@ -842,7 +842,7 @@
         },
 
         loadConversation: function() {
-            const conversationId = localStorage.getItem('vilnius_conversation_id');
+            const conversationId = localStorage.getItem('lizdeika_conversation_id');
             if (conversationId) {
                 this.conversationId = conversationId;
                 // Load previous messages if needed
@@ -873,10 +873,10 @@
         },
 
         renderMessages(messages) {
-            const messagesContainer = document.getElementById('vilnius-messages');
+            const messagesContainer = document.getElementById('lizdeika-messages');
             
             // Get all existing message elements
-            const existingMessages = Array.from(messagesContainer.querySelectorAll('.vilnius-message:not(:first-child)'));
+            const existingMessages = Array.from(messagesContainer.querySelectorAll('.lizdeika-message:not(:first-child)'));
             
             // Filter messages for customer view
             const visibleMessages = messages.filter(msg => 
@@ -911,8 +911,8 @@
                 const isDuplicate = existingMessageIds.has(msg.id) ||
                     existingMessages.some(el => {
                         const elContent = el.textContent?.trim();
-                        const elSender = el.classList.contains('vilnius-user') ? 'visitor' :
-                                        el.classList.contains('vilnius-ai') ? 'ai' : 'agent';
+                        const elSender = el.classList.contains('lizdeika-user') ? 'visitor' :
+                                        el.classList.contains('lizdeika-ai') ? 'ai' : 'agent';
                         // Check if same content and sender (and not system messages)
                         return elContent === msg.content && elSender === msg.sender && msg.content.length > 0;
                     });
@@ -934,7 +934,7 @@
 
         createMessageElement(msg) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = `vilnius-message vilnius-${msg.sender === 'visitor' ? 'user' : 'ai'}`;
+            messageDiv.className = `lizdeika-message lizdeika-${msg.sender === 'visitor' ? 'user' : 'ai'}`;
             messageDiv.setAttribute('data-message-id', msg.id);
             const senderInfo = this.getAccessibleSenderInfo(msg.sender);
             messageDiv.setAttribute('role', 'article');
@@ -1217,10 +1217,10 @@
         },
 
         getVisitorId() {
-            let visitorId = localStorage.getItem('vilnius_visitor_id');
+            let visitorId = localStorage.getItem('lizdeika_visitor_id');
             if (!visitorId) {
                 visitorId = 'visitor-' + Math.random().toString(36).substring(2, 11);
-                localStorage.setItem('vilnius_visitor_id', visitorId);
+                localStorage.setItem('lizdeika_visitor_id', visitorId);
             }
             return visitorId;
         },
@@ -1246,9 +1246,9 @@
         },
 
         addMessage(text, sender, messageId = null, messageMetadata = null) {
-            const messagesContainer = document.getElementById('vilnius-messages');
+            const messagesContainer = document.getElementById('lizdeika-messages');
             const messageDiv = document.createElement('div');
-            messageDiv.className = `vilnius-message vilnius-${sender}`;
+            messageDiv.className = `lizdeika-message lizdeika-${sender}`;
             const senderInfo = this.getAccessibleSenderInfo(sender);
             messageDiv.setAttribute('role', 'article');
             messageDiv.setAttribute('aria-label', senderInfo.ariaLabel);
@@ -1301,10 +1301,10 @@
 
         showTypingIndicator() {
             const id = 'typing-' + Date.now();
-            const messagesContainer = document.getElementById('vilnius-messages');
+            const messagesContainer = document.getElementById('lizdeika-messages');
             const typingDiv = document.createElement('div');
             typingDiv.id = id;
-            typingDiv.className = 'vilnius-message vilnius-ai';
+            typingDiv.className = 'lizdeika-message lizdeika-ai';
             typingDiv.style.cssText = 'margin-bottom: 16px; display: flex; align-items: flex-start;';
             typingDiv.setAttribute('role', 'status');
             typingDiv.setAttribute('aria-live', 'polite');
@@ -1344,9 +1344,9 @@
             `;
 
             // Add CSS animation
-            if (!document.getElementById('vilnius-typing-styles')) {
+            if (!document.getElementById('lizdeika-typing-styles')) {
                 const style = document.createElement('style');
-                style.id = 'vilnius-typing-styles';
+                style.id = 'lizdeika-typing-styles';
                 style.textContent = `
                     @keyframes typing {
                         0%, 60%, 100% { transform: translateY(0); }
@@ -1371,7 +1371,7 @@
         generateSessionId() {
             const sessionId = 'session-' + Math.random().toString(36).substring(2, 11);
             this.conversationId = sessionId;
-            localStorage.setItem('vilnius_conversation_id', sessionId);
+            localStorage.setItem('lizdeika_conversation_id', sessionId);
             return sessionId;
         },
 
@@ -1432,5 +1432,5 @@
     };
 
     // Expose to global scope
-    window.VilniusChat = VilniusChat;
+    window.LizdeikaChat = LizdeikaChat;
 })();

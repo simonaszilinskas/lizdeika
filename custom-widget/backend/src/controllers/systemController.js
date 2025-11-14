@@ -231,7 +231,7 @@ class SystemController {
      */
     async initializePrompts(req, res) {
         try {
-            const { initializePromptsInLangfuse } = require('../services/chains/VilniusPrompts');
+            const { initializePromptsInLangfuse } = require('../services/chains/LizdeikaPrompts');
             
             logger.info('🚀 Initializing Langfuse prompts...');
             const results = await initializePromptsInLangfuse();
@@ -259,7 +259,7 @@ class SystemController {
      */
     async getPromptHealth(req, res) {
         try {
-            const { checkPromptSystemHealth } = require('../services/chains/VilniusPrompts');
+            const { checkPromptSystemHealth } = require('../services/chains/LizdeikaPrompts');
             
             const health = await checkPromptSystemHealth();
             
