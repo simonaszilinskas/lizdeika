@@ -150,13 +150,12 @@ Supported EU regions:
 
 ### API Version
 
-You're using `2025-01-01-preview` which is a preview version. Important notes:
+You're using `2025-01-01-preview` which is a preview version:
 
-- **Preview versions** may not support all parameters (e.g., `max_tokens` is not supported)
-- **Latest GA**: `2024-10-21` (stable, supports `max_tokens`)
-- **Latest Preview**: `2025-01-01-preview` (newer features, some parameters may differ)
+- **Latest GA**: `2024-10-21` (stable)
+- **Latest Preview**: `2025-01-01-preview` (newer features)
 
-The implementation automatically detects preview versions and omits unsupported parameters.
+Note: The implementation does not use `max_tokens` parameter as Azure OpenAI handles token limits automatically.
 
 ## Troubleshooting
 
