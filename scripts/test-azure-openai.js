@@ -1,13 +1,16 @@
 /**
  * Test script for Azure OpenAI integration
  * Tests actual connection to Azure OpenAI endpoint
+ *
+ * Usage from project root:
+ *   node scripts/test-azure-openai.js
  */
 
-const { AzureOpenAIProvider } = require('./custom-widget/backend/ai-providers.js');
+const { AzureOpenAIProvider } = require('../custom-widget/backend/ai-providers.js');
 
 async function testAzureOpenAI() {
     console.log('🧪 Testing Azure OpenAI Integration\n');
-    console.log('=' . repeat(60));
+    console.log('='.repeat(60));
 
     // Configuration - replace with your actual values
     const config = {

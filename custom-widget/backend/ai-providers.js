@@ -163,7 +163,9 @@ class AzureOpenAIProvider extends AIProvider {
             // Example URI: https://resource.cognitiveservices.azure.com/openai/deployments/gpt-5.1-chat/chat/completions?api-version=2025-01-01-preview
             const url = new URL(uri);
 
-            // Extract resource name from hostname
+            // Extract full hostname as resource name (includes domain suffix)
+            // When this contains a dot, buildEndpoint() will treat it as a complete domain
+            // e.g., "simon-mi0dgd8i-swedencentral.cognitiveservices.azure.com"
             this.resourceName = url.hostname;
 
             // Extract deployment name from path: /openai/deployments/{deployment-name}/...
@@ -209,7 +211,11 @@ class AzureOpenAIProvider extends AIProvider {
         // Support both Azure OpenAI endpoint formats:
         // 1. New format: {resource-name}.openai.azure.com
         // 2. Legacy format: {resource-name}.cognitiveservices.azure.com
-        // If resource name contains a dot, assume it's a full domain
+        //
+        // When resourceName contains a dot, it's a full domain from parseDeploymentUri()
+        // (e.g., "resource.cognitiveservices.azure.com" or "resource.openai.azure.com")
+        // Otherwise, it's just a resource name (e.g., "resource-westeurope") and we append
+        // the .openai.azure.com suffix for the new format
         const baseUrl = this.resourceName.includes('.')
             ? `https://${this.resourceName}`
             : `https://${this.resourceName}.openai.azure.com`;
@@ -274,7 +280,8 @@ class AzureOpenAIProvider extends AIProvider {
             },
             body: JSON.stringify({
                 messages: messages,
-                temperature: 0.2
+                temperature: 0.2,
+                max_tokens: 1000
             }),
             signal: AbortSignal.timeout(30000)
         });
@@ -305,7 +312,8 @@ class AzureOpenAIProvider extends AIProvider {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    messages: [{ role: "user", content: "test" }]
+                    messages: [{ role: "user", content: "test" }],
+                    max_tokens: 10
                 }),
                 signal: AbortSignal.timeout(5000)
             });

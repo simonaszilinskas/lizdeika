@@ -106,7 +106,7 @@ docker-compose logs -f backend | grep -i "azure"
 
 From the project root, run:
 ```bash
-node test-azure-openai.js
+node scripts/test-azure-openai.js
 ```
 
 This will test:
