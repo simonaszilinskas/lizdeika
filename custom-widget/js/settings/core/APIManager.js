@@ -62,6 +62,17 @@ export class APIManager {
             });
 
             if (!response.ok) {
+                // Check for password expiry error
+                if (response.status === 403) {
+                    const data = await response.json().catch(() => ({}));
+                    if (data.code === 'PASSWORD_EXPIRED') {
+                        // Redirect to settings with password change prompt
+                        alert('Your password has expired. You must change it to continue.');
+                        window.location.href = '/settings.html#my-account';
+                        throw new Error('PASSWORD_EXPIRED');
+                    }
+                }
+
                 const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
                 ErrorHandler.logError(error, `API request to ${url}`);
                 throw error;

@@ -76,6 +76,7 @@ const databaseClient = require('../utils/database');
 const tokenUtils = require('../utils/tokenUtils');
 const passwordUtils = require('../utils/passwordUtils');
 const totpUtils = require('../utils/totpUtils');
+const passwordExpiryService = require('./passwordExpiryService');
 const SettingsService = require('./settingsService');
 const { v4: uuidv4 } = require('uuid');
 const { createLogger } = require('../utils/logger');
@@ -137,6 +138,15 @@ class AuthService {
     // Hash password
     const passwordHash = await passwordUtils.hashPassword(password);
 
+    // Calculate password expiry for agents and admins
+    const now = new Date();
+    const passwordData = {};
+    if (role === 'agent' || role === 'admin') {
+      passwordData.password_changed_at = now;
+      passwordData.password_expires_at = passwordExpiryService.calculateExpiryDate(now);
+      passwordData.password_blocked = false;
+    }
+
     // Create user
     const user = await this.db.users.create({
       data: {
@@ -147,6 +157,7 @@ class AuthService {
         role,
         email_verified: false,
         is_active: true,
+        ...passwordData,
       },
       select: {
         id: true,
@@ -688,6 +699,11 @@ class AuthService {
       where: { id: userId },
       data: { password_hash: newPasswordHash },
     });
+
+    // Update password expiry timestamps (for agents and admins)
+    if (user.role === 'agent' || user.role === 'admin') {
+      await passwordExpiryService.updatePasswordTimestamp(userId);
+    }
 
     // Revoke all refresh tokens for security
     await this.db.refresh_tokens.deleteMany({

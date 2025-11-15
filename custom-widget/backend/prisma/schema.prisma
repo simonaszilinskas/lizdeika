@@ -198,6 +198,9 @@ model users {
   totp_failed_attempts                     Int                   @default(0)
   totp_lock_until                          DateTime?
   backup_codes                             Json?
+  password_changed_at                      DateTime?
+  password_expires_at                      DateTime?
+  password_blocked                         Boolean               @default(false)
   agent_status                             agent_status?
   messages                                 messages[]
   message_statistics                       message_statistics[]

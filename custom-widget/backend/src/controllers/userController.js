@@ -37,6 +37,7 @@ const { v4: uuidv4 } = require('uuid');
 const totpUtils = require('../utils/totpUtils');
 const QRCode = require('qrcode');
 const activityService = require('../services/activityService');
+const passwordExpiryService = require('../services/passwordExpiryService');
 
 let prisma;
 
@@ -135,6 +136,15 @@ class UserController {
         const password = generateSecurePassword();
         const passwordHash = await bcrypt.hash(password, 12);
 
+        // Calculate password expiry for agents and admins
+        const now = new Date();
+        const passwordData = {};
+        if (role === 'agent' || role === 'admin') {
+            passwordData.password_changed_at = now;
+            passwordData.password_expires_at = passwordExpiryService.calculateExpiryDate(now);
+            passwordData.password_blocked = false;
+        }
+
         // Create the user
         const user = await prisma.users.create({
             data: {
@@ -146,8 +156,9 @@ class UserController {
                 password_hash: passwordHash,
                 is_active: true,
                 email_verified: false,
-                created_at: new Date(),
-                updated_at: new Date()
+                created_at: now,
+                updated_at: now,
+                ...passwordData
             },
             select: {
                 id: true,
@@ -367,13 +378,23 @@ class UserController {
         const newPassword = generateSecurePassword();
         const hashedPassword = await bcrypt.hash(newPassword, 12);
 
+        // Calculate password expiry for agents and admins
+        const now = new Date();
+        const updateData = {
+            password_hash: hashedPassword,
+            updated_at: now
+        };
+
+        if (user.role === 'agent' || user.role === 'admin') {
+            updateData.password_changed_at = now;
+            updateData.password_expires_at = passwordExpiryService.calculateExpiryDate(now);
+            updateData.password_blocked = false;
+        }
+
         // Update user's password
         await prisma.users.update({
             where: { id },
-            data: {
-                password_hash: hashedPassword,
-                updated_at: new Date()
-            }
+            data: updateData
         });
 
         // Invalidate all refresh tokens for this user to force re-login

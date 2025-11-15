@@ -195,8 +195,17 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 - ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
 - ✅ **CORS Configuration (Issue #74)** - Separate security policies for admin and widget routes
 - ✅ **Automated Archived Conversation Cleanup (Issue #20)** - Scheduled job to delete old archived conversations with configurable retention period
+- ✅ **Password Renewal Enforcement (180 Days)** - Automatic password expiry for agents and admins with progressive warnings and access blocking
 
 ### Important Implementation Details
+
+**Password Renewal Policy**: Agents and admins must change their password every 180 days:
+- Passwords expire 180 days after being set or changed
+- Progressive warnings shown at 30, 14, 7, 3, and 1 day(s) before expiry
+- When expired, access is blocked except for password change endpoints
+- Only administrators can unlock accounts with expired passwords (via regenerate password)
+- Regular users are exempt from this policy
+- See `PASSWORD_RENEWAL_IMPLEMENTATION.md` for complete technical documentation
 
 **User Management Loading Fix**: The UserManagementModule requires admin authentication. If users show "Loading..." but don't load, ensure:
 1. User is logged in as admin (`admin@lizdeika.lt` / `admin123`)

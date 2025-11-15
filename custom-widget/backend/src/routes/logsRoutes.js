@@ -24,12 +24,11 @@
  */
 
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const databaseClient = require('../utils/database');
 const { authenticateToken } = require('../middleware/authMiddleware');
 const { createLogger } = require('../utils/logger');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 const logger = createLogger('logsRoutes');
 
 /**
@@ -100,6 +99,7 @@ router.get('/', authenticateToken, async (req, res) => {
         const take = Math.min(parseInt(limit), 1000); // Max 1000 records
 
         // Execute query
+        const prisma = databaseClient.getClient();
         const [logs, total] = await Promise.all([
             prisma.application_logs.findMany({
                 where,
@@ -175,6 +175,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         }
 
         // Get statistics
+        const prisma = databaseClient.getClient();
         const [
             totalLogs,
             errorCount,
@@ -329,6 +330,7 @@ router.post('/frontend', async (req, res) => {
         };
 
         // Store the frontend log
+        const prisma = databaseClient.getClient();
         await prisma.application_logs.create({
             data: {
                 level: level.toLowerCase(),

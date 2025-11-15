@@ -5,6 +5,7 @@
 
 const tokenUtils = require('../utils/tokenUtils');
 const databaseClient = require('../utils/database');
+const passwordExpiryService = require('../services/passwordExpiryService');
 const { createLogger } = require('../utils/logger');
 const logger = createLogger('authMiddleware');
 
@@ -51,6 +52,9 @@ const authenticateToken = async (req, res, next) => {
         role: true,
         is_active: true,
         email_verified: true,
+        password_changed_at: true,
+        password_expires_at: true,
+        password_blocked: true,
         agent_status: {
           select: {
             status: true,
@@ -78,6 +82,40 @@ const authenticateToken = async (req, res, next) => {
 
     // Attach user to request
     req.user = user;
+
+    // Check password expiry for agents and admins
+    if (user.role === 'agent' || user.role === 'admin') {
+      const passwordStatus = passwordExpiryService.getPasswordStatus(user);
+
+      // Allow access to password change endpoints even if expired
+      const allowedPaths = [
+        '/api/auth/change-password',
+        '/api/auth/profile',
+        '/api/auth/password-status',
+        '/api/auth/logout'
+      ];
+
+      const isAllowedPath = allowedPaths.some(path => req.path === path);
+
+      // Block access if password expired and not on allowed path
+      if ((passwordStatus.isBlocked || passwordStatus.requiresRenewal) && !isAllowedPath) {
+        logger.warn(`Access blocked for user ${user.id} due to expired password`);
+        return res.status(403).json({
+          success: false,
+          error: 'Your password has expired. Please change your password to continue.',
+          code: 'PASSWORD_EXPIRED',
+          passwordStatus: {
+            expired: true,
+            daysRemaining: passwordStatus.daysRemaining,
+            message: passwordStatus.warningMessage
+          }
+        });
+      }
+
+      // Attach password status to request for use in controllers
+      req.passwordStatus = passwordStatus;
+    }
+
     next();
 
   } catch (error) {

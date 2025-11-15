@@ -123,6 +123,13 @@ router.get('/status',
   authController.getAuthStatus
 );
 
+// GET /api/auth/password-status
+router.get('/password-status',
+  generalRateLimit,
+  authenticateToken,
+  authController.getPasswordStatus
+);
+
 /**
  * Admin-only Authentication Routes
  */
