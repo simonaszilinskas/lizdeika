@@ -70,7 +70,7 @@ This is an AI-powered customer support platform with three main layers:
    - Real-time WebSocket communication via Socket.IO
 
 3. **AI Integration Layer**:
-   - Dual AI providers: OpenRouter (Gemini) + Flowise with automatic failover
+   - Multi AI providers: OpenRouter (Gemini), Flowise, and Azure OpenAI (EU regions only) with automatic failover
    - RAG system: ChromaDB Cloud + Mistral embeddings for document search
    - Document processing: .txt/.docx files with vector storage
 
@@ -183,7 +183,7 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 - ✅ Agent dashboard with focused module architecture
 - ✅ Comprehensive testing framework (11 backend + 9 frontend unit tests)
 - ✅ Docker development and production setup
-- ✅ AI dual-provider system with automatic failover
+- ✅ AI multi-provider system (OpenRouter, Flowise, Azure OpenAI) with automatic failover
 - ✅ Document RAG with vector search capabilities
 - ✅ Real-time WebSocket communication
 - ✅ Role-based authentication and user management
@@ -195,8 +195,62 @@ This project follows an **extreme text-light design** philosophy to reduce cogni
 - ✅ **Extreme Text-Light Design (Issue #76)** - Minimal UI text with icon-first approach, 50-70% text reduction, enhanced accessibility
 - ✅ **CORS Configuration (Issue #74)** - Separate security policies for admin and widget routes
 - ✅ **Automated Archived Conversation Cleanup (Issue #20)** - Scheduled job to delete old archived conversations with configurable retention period
+- ✅ **Azure OpenAI Integration (EU Regions)** - Support for Azure-hosted OpenAI models on European servers with GDPR compliance and region validation
 
 ### Important Implementation Details
+
+**Azure OpenAI Provider (EU Regions Only)**: The application supports Azure OpenAI as a third AI provider option with enforced EU region compliance for GDPR requirements:
+
+**Configuration**:
+- **Environment Variables** (fallback):
+  ```bash
+  AI_PROVIDER=azure
+  AZURE_OPENAI_RESOURCE_NAME=your-resource-name-westeurope
+  AZURE_OPENAI_DEPLOYMENT_NAME=your-deployment-name
+  AZURE_OPENAI_API_KEY=your-azure-openai-api-key
+  AZURE_OPENAI_API_VERSION=2024-10-21  # Optional, defaults to 2024-10-21
+  ```
+- **Admin UI Configuration**: Azure OpenAI settings can be configured via the admin settings interface (recommended for production)
+- **Database Storage**: Configuration is stored in `system_settings` table under the `ai_providers` category
+
+**EU Region Validation**:
+- The system automatically validates that the Azure OpenAI resource is deployed in an EU region
+- Supported EU regions: West Europe, North Europe, Sweden Central, France Central, Norway East, Switzerland North, Germany West Central, UK South, UK West
+- Non-EU regions (e.g., East US, West US, Southeast Asia) are automatically rejected with a clear error message
+
+**API Endpoint Structure**:
+- Format: `https://{resource-name}.openai.azure.com/openai/deployments/{deployment-name}/chat/completions?api-version={api-version}`
+- Authentication: API key sent via `api-key` header
+- Compatible with Azure OpenAI Chat Completions API (latest GA: 2024-10-21, latest preview: 2025-04-01-preview)
+
+**How to Obtain Azure OpenAI Credentials**:
+1. Create an Azure OpenAI resource in an EU region (e.g., West Europe)
+2. Deploy a model (e.g., GPT-4, GPT-3.5-Turbo) in the Azure portal
+3. Copy the resource name (e.g., `my-openai-westeurope`)
+4. Copy the deployment name (e.g., `gpt-4`)
+5. Copy the API key from Azure portal > Keys and Endpoint section
+6. Configure in admin settings UI or set environment variables
+
+**Security**:
+- API keys are never logged or exposed in error messages (automatically redacted as `***REDACTED***`)
+- Same message parsing and RAG integration as OpenRouter provider
+- Supports both normal conversation flow and RAG-enhanced context
+
+**Testing**:
+- 30+ unit tests covering EU region validation, endpoint construction, response parsing, error handling, and API key redaction
+- Tests located in `custom-widget/backend/tests/unit/ai-providers.test.js`
+
+**Example Configuration Flow**:
+1. Set `AI_PROVIDER=azure` in `.env` or via admin UI
+2. Configure Azure OpenAI credentials (resource name, deployment name, API key)
+3. System validates EU region on startup
+4. Provider is initialized and ready to handle AI suggestion requests
+5. Automatic fallback to Flowise if Azure OpenAI fails
+
+**Known Limitations**:
+- Only EU regions are supported for GDPR compliance
+- Requires an active Azure subscription and Azure OpenAI service approval
+- Azure OpenAI may have different model availability compared to OpenRouter
 
 **User Management Loading Fix**: The UserManagementModule requires admin authentication. If users show "Loading..." but don't load, ensure:
 1. User is logged in as admin (`admin@lizdeika.lt` / `admin123`)

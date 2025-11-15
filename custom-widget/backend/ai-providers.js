@@ -137,6 +137,153 @@ class FlowiseProvider extends AIProvider {
     }
 }
 
+class AzureOpenAIProvider extends AIProvider {
+    constructor(config) {
+        super(config);
+        this.resourceName = config.resourceName;
+        this.deploymentName = config.deploymentName;
+        this.apiKey = config.apiKey;
+        this.apiVersion = config.apiVersion || '2024-10-21';
+        this.systemPrompt = config.systemPrompt;
+
+        this.validateEURegion();
+    }
+
+    validateEURegion() {
+        const EU_REGIONS = [
+            'westeurope',
+            'northeurope',
+            'swedencentral',
+            'francecentral',
+            'norwayeast',
+            'switzerlandnorth',
+            'germanywestcentral',
+            'uksouth',
+            'ukwest'
+        ];
+
+        const resourceLower = this.resourceName.toLowerCase();
+        const isEURegion = EU_REGIONS.some(region => resourceLower.includes(region));
+
+        if (!isEURegion) {
+            throw new Error(
+                `Azure OpenAI resource "${this.resourceName}" does not appear to be in an EU region. ` +
+                `For GDPR compliance, only EU regions are allowed: ${EU_REGIONS.join(', ')}. ` +
+                `Please create an Azure OpenAI resource in an EU region.`
+            );
+        }
+    }
+
+    buildEndpoint() {
+        return `https://${this.resourceName}.openai.azure.com/openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
+    }
+
+    async generateResponse(conversationContext, conversationId) {
+        const isRAGContext = conversationContext.includes('UŽDUOTIS:');
+
+        let messages;
+
+        if (isRAGContext) {
+            console.log('🔧 Azure OpenAI RAG: Using single message approach');
+
+            messages = [
+                {
+                    role: "user",
+                    content: conversationContext
+                }
+            ];
+        } else {
+            const currentSystemPrompt = process.env.SYSTEM_PROMPT || this.systemPrompt;
+
+            messages = [
+                {
+                    role: "system",
+                    content: currentSystemPrompt
+                }
+            ];
+
+            if (conversationContext.includes('Agent:') || conversationContext.includes('Customer:')) {
+                const lines = conversationContext.split('\n').filter(line => line.trim());
+                for (const line of lines) {
+                    if (line.startsWith('Customer: ')) {
+                        messages.push({
+                            role: "user",
+                            content: line.substring(10)
+                        });
+                    } else if (line.startsWith('Agent: ')) {
+                        messages.push({
+                            role: "assistant",
+                            content: line.substring(7)
+                        });
+                    }
+                }
+            } else {
+                messages.push({
+                    role: "user",
+                    content: conversationContext
+                });
+            }
+        }
+
+        const endpoint = this.buildEndpoint();
+
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "api-key": this.apiKey,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                messages: messages,
+                temperature: 0.2,
+                max_tokens: 1000
+            }),
+            signal: AbortSignal.timeout(30000)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            const sanitizedError = errorText.replace(this.apiKey, '***REDACTED***');
+            throw new Error(`Azure OpenAI API error: ${response.status} ${response.statusText} - ${sanitizedError}`);
+        }
+
+        const result = await response.json();
+
+        if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+            throw new Error('Invalid response format from Azure OpenAI');
+        }
+
+        return result.choices[0].message.content;
+    }
+
+    async healthCheck() {
+        try {
+            const endpoint = this.buildEndpoint();
+
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "api-key": this.apiKey,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: "test" }],
+                    max_tokens: 10
+                }),
+                signal: AbortSignal.timeout(5000)
+            });
+
+            this.isHealthy = response.ok;
+            this.lastHealthCheck = new Date();
+            return this.isHealthy;
+        } catch (error) {
+            this.isHealthy = false;
+            this.lastHealthCheck = new Date();
+            return false;
+        }
+    }
+}
+
 class OpenRouterProvider extends AIProvider {
     constructor(config) {
         super(config);
@@ -278,6 +425,21 @@ function createAIProvider(providerName, config) {
                 siteUrl: config.SITE_URL
             });
 
+        case 'azure':
+        case 'azureopenai':
+            if (!config.AZURE_OPENAI_RESOURCE_NAME || !config.AZURE_OPENAI_DEPLOYMENT_NAME || !config.AZURE_OPENAI_API_KEY) {
+                throw new Error(
+                    'Azure OpenAI requires AZURE_OPENAI_RESOURCE_NAME, AZURE_OPENAI_DEPLOYMENT_NAME, and AZURE_OPENAI_API_KEY to be configured'
+                );
+            }
+            return new AzureOpenAIProvider({
+                resourceName: config.AZURE_OPENAI_RESOURCE_NAME,
+                deploymentName: config.AZURE_OPENAI_DEPLOYMENT_NAME,
+                apiKey: config.AZURE_OPENAI_API_KEY,
+                apiVersion: config.AZURE_OPENAI_API_VERSION,
+                systemPrompt: config.SYSTEM_PROMPT
+            });
+
         default:
             throw new Error(`Unsupported AI provider: ${providerName}`);
     }
@@ -321,7 +483,11 @@ async function getAIProviderConfig() {
                         REPHRASING_MODEL: process.env.REPHRASING_MODEL || 'google/gemini-2.5-flash-lite',
                         SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
                         SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
-                        SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+                        SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || '',
+                        AZURE_OPENAI_RESOURCE_NAME: process.env.AZURE_OPENAI_RESOURCE_NAME || null,
+                        AZURE_OPENAI_DEPLOYMENT_NAME: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || null,
+                        AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || null,
+                        AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21'
                     });
                 }, 2000);
             }
@@ -337,9 +503,14 @@ async function getAIProviderConfig() {
             FLOWISE_API_KEY: process.env.FLOWISE_API_KEY || null,
             OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
             OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
+            REPHRASING_MODEL: process.env.REPHRASING_MODEL || 'google/gemini-2.5-flash-lite',
             SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
             SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
-            SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+            SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || '',
+            AZURE_OPENAI_RESOURCE_NAME: process.env.AZURE_OPENAI_RESOURCE_NAME || null,
+            AZURE_OPENAI_DEPLOYMENT_NAME: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || null,
+            AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || null,
+            AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21'
         };
     }
 }
@@ -374,6 +545,7 @@ module.exports = {
     AIProvider,
     FlowiseProvider,
     OpenRouterProvider,
+    AzureOpenAIProvider,
     createAIProvider,
     getAIProviderConfig,
     retryWithBackoff
