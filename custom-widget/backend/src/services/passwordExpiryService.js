@@ -108,7 +108,7 @@ class PasswordExpiryService {
             return 'Your password expires tomorrow. Change it now to avoid being locked out.';
         }
         if (daysRemaining <= 3) {
-            return `Your password expires in ${daysRemaining} days. Change it now to avoid being locked out.';
+            return `Your password expires in ${daysRemaining} days. Change it now to avoid being locked out.`;
         }
         if (daysRemaining <= 7) {
             return `Your password expires in ${daysRemaining} days. Please change it soon.`;

@@ -278,13 +278,6 @@ async function cleanupAllTestData(prisma) {
   ]);
 }
 
-/**
- * Alias for createTestTicket (conversations and tickets are the same entity)
- */
-async function createTestConversation(prisma, userId, overrides = {}) {
-  return createTestTicket(prisma, { user_id: userId, ...overrides });
-}
-
 module.exports = {
   createTestAdmin,
   createTestAgent,

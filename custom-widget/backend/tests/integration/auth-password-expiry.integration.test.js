@@ -10,7 +10,8 @@
  */
 
 const request = require('supertest');
-const { createTestApp, closeTestDatabase, cleanupWebSocketService } = require('./testSetup');
+const { createTestApp, cleanupWebSocketService } = require('./helpers/apiHelpers');
+const { closeTestDatabase } = require('./setup/testDatabase');
 const databaseClient = require('../../src/utils/database');
 
 let app;
@@ -122,8 +123,8 @@ describe('Password Expiry Integration Tests', () => {
 
             const newDaysRemaining = newPasswordRes.body.data.daysRemaining;
 
-            // New days remaining should be greater (close to 180)
-            expect(newDaysRemaining).toBeGreaterThan(oldDaysRemaining);
+            // New days remaining should be reset to 180 (or very close)
+            expect(newDaysRemaining).toBeGreaterThanOrEqual(oldDaysRemaining);
             expect(newDaysRemaining).toBeGreaterThanOrEqual(179);
             expect(newDaysRemaining).toBeLessThanOrEqual(180);
         });
