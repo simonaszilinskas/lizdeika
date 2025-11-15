@@ -366,6 +366,24 @@ describe('AI Providers', () => {
                     });
                 }).toThrow('Failed to parse Azure OpenAI deployment URI');
             });
+
+            it('should reject HTTP (non-HTTPS) deployment URI', () => {
+                expect(() => {
+                    new AzureOpenAIProvider({
+                        deploymentUri: 'http://test-westeurope.openai.azure.com/openai/deployments/gpt-4/chat/completions',
+                        apiKey: 'test-key'
+                    });
+                }).toThrow('must use HTTPS protocol');
+            });
+
+            it('should reject non-Azure domains', () => {
+                expect(() => {
+                    new AzureOpenAIProvider({
+                        deploymentUri: 'https://api.openai.com/v1/chat/completions',
+                        apiKey: 'test-key'
+                    });
+                }).toThrow('hostname must end with .openai.azure.com or .cognitiveservices.azure.com');
+            });
         });
 
         describe('constructor and EU region validation', () => {

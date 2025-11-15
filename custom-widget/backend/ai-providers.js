@@ -57,6 +57,11 @@
 
 // Node.js 18+ has built-in fetch
 
+// Configuration constants
+const REQUEST_TIMEOUT_MS = 30000;  // 30 seconds for normal AI requests
+const HEALTH_CHECK_TIMEOUT_MS = 5000;  // 5 seconds for health checks
+const RAG_CONTEXT_MARKER = 'UŽDUOTIS:';  // Lithuanian for "TASK:" - marker for RAG-enhanced prompts
+
 class AIProvider {
     constructor(config) {
         this.config = config;
@@ -163,6 +168,21 @@ class AzureOpenAIProvider extends AIProvider {
             // Example URI: https://resource.cognitiveservices.azure.com/openai/deployments/gpt-5.1-chat/chat/completions?api-version=2025-01-01-preview
             const url = new URL(uri);
 
+            // Validate HTTPS protocol for security
+            if (url.protocol !== 'https:') {
+                throw new Error('Invalid Azure OpenAI deployment URI: must use HTTPS protocol');
+            }
+
+            // Validate Azure domain
+            const validAzureDomains = [
+                '.openai.azure.com',
+                '.cognitiveservices.azure.com'
+            ];
+            const isValidDomain = validAzureDomains.some(domain => url.hostname.endsWith(domain));
+            if (!isValidDomain) {
+                throw new Error(`Invalid Azure OpenAI deployment URI: hostname must end with ${validAzureDomains.join(' or ')}`);
+            }
+
             // Extract full hostname as resource name (includes domain suffix)
             // When this contains a dot, buildEndpoint() will treat it as a complete domain
             // e.g., "simon-mi0dgd8i-swedencentral.cognitiveservices.azure.com"
@@ -171,14 +191,16 @@ class AzureOpenAIProvider extends AIProvider {
             // Extract deployment name from path: /openai/deployments/{deployment-name}/...
             const pathMatch = url.pathname.match(/\/openai\/deployments\/([^\/]+)/);
             if (!pathMatch) {
-                throw new Error('Invalid Azure OpenAI deployment URI: cannot find deployment name in path');
+                throw new Error('Invalid Azure OpenAI deployment URI: path must contain /openai/deployments/{deployment-name}');
             }
             this.deploymentName = pathMatch[1];
 
             // Extract API version from query string
             this.apiVersion = url.searchParams.get('api-version') || '2024-10-21';
         } catch (error) {
-            throw new Error(`Failed to parse Azure OpenAI deployment URI: ${error.message}`);
+            // Sanitize error message to prevent API key exposure
+            const sanitizedMessage = error.message.replace(/api-?key[=:]\s*[^\s&]+/gi, 'api-key=***REDACTED***');
+            throw new Error(`Failed to parse Azure OpenAI deployment URI: ${sanitizedMessage}`);
         }
     }
 
@@ -224,7 +246,7 @@ class AzureOpenAIProvider extends AIProvider {
     }
 
     async generateResponse(conversationContext, conversationId) {
-        const isRAGContext = conversationContext.includes('UŽDUOTIS:');
+        const isRAGContext = conversationContext.includes(RAG_CONTEXT_MARKER);
 
         let messages;
 
@@ -283,7 +305,7 @@ class AzureOpenAIProvider extends AIProvider {
                 temperature: 0.2,
                 max_tokens: 1000
             }),
-            signal: AbortSignal.timeout(30000)
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
         });
 
         if (!response.ok) {
@@ -315,7 +337,7 @@ class AzureOpenAIProvider extends AIProvider {
                     messages: [{ role: "user", content: "test" }],
                     max_tokens: 10
                 }),
-                signal: AbortSignal.timeout(5000)
+                signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS)
             });
 
             this.isHealthy = response.ok;
@@ -340,7 +362,7 @@ class OpenRouterProvider extends AIProvider {
 
     async generateResponse(conversationContext, conversationId) {
         // Check if this is RAG-enhanced context by looking for our RAG structure
-        const isRAGContext = conversationContext.includes('UŽDUOTIS:');
+        const isRAGContext = conversationContext.includes(RAG_CONTEXT_MARKER);
         
         let messages;
         

@@ -155,7 +155,7 @@ You're using `2025-01-01-preview` which is a preview version:
 - **Latest GA**: `2024-10-21` (stable)
 - **Latest Preview**: `2025-01-01-preview` (newer features)
 
-Note: The implementation does not use `max_tokens` parameter as Azure OpenAI handles token limits automatically.
+**Token Limits**: The implementation sets `max_tokens: 1000` for AI responses and `max_tokens: 10` for health checks to enforce cost control and prevent runaway completions—critical for production systems handling 16,000+ conversations annually.
 
 ## Troubleshooting
 
