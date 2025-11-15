@@ -25,6 +25,30 @@ services:
         reservations:
           memory: 256M
 
+  # ChromaDB Vector Database
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: lizdeika-chroma-prod
+    restart: always
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma_prod_data:/chroma/chroma
+    networks:
+      - lizdeika-internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
   # Backend Application
   backend:
     build:
@@ -55,10 +79,7 @@ services:
       - RAG_SHOW_SOURCES=${RAG_SHOW_SOURCES:-true}
       - ENABLE_QUERY_REPHRASING=${ENABLE_QUERY_REPHRASING:-true}
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
-      - CHROMA_URL=${CHROMA_URL}
-      - CHROMA_TENANT=${CHROMA_TENANT}
-      - CHROMA_DATABASE=${CHROMA_DATABASE}
-      - CHROMA_AUTH_TOKEN=${CHROMA_AUTH_TOKEN}
+      - CHROMA_URL=http://chroma:8000
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
@@ -73,6 +94,8 @@ services:
       - web
     depends_on:
       postgres:
+        condition: service_healthy
+      chroma:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
@@ -142,6 +165,8 @@ volumes:
   postgres_prod_data:
     driver: local
   uploads_prod_data:
+    driver: local
+  chroma_prod_data:
     driver: local
   nginx_logs:
     driver: local

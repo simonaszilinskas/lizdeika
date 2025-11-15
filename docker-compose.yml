@@ -19,6 +19,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # ChromaDB Vector Database
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: lizdeika-chroma
+    restart: unless-stopped
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      - chroma_data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Backend Application
   backend:
     build:
@@ -41,10 +59,7 @@ services:
       - ADMIN_RECOVERY_KEY=dev-recovery-key-123
       - TOTP_ENCRYPTION_KEY=development-totp-encryption-key-must-be-32-chars!
       - UPLOADS_DIR=/var/uploads
-      - CHROMA_URL=${CHROMA_URL}
-      - CHROMA_TENANT=${CHROMA_TENANT}
-      - CHROMA_DATABASE=${CHROMA_DATABASE}
-      - CHROMA_API_KEY=${CHROMA_API_KEY}
+      - CHROMA_URL=http://chroma:8000
       - MISTRAL_API_KEY=${MISTRAL_API_KEY}
     volumes:
       - ./custom-widget/backend:/app
@@ -55,6 +70,8 @@ services:
       - "3002:3002"
     depends_on:
       postgres:
+        condition: service_healthy
+      chroma:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
@@ -90,6 +107,8 @@ volumes:
   postgres_data:
     driver: local
   uploads_data:
+    driver: local
+  chroma_data:
     driver: local
 
 networks:

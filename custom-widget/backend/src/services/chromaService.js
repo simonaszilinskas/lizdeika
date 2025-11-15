@@ -1,39 +1,42 @@
 /**
  * Chroma DB Service - Vector Database Operations
- * 
- * This service manages the connection and operations with Chroma DB Cloud,
- * a hosted vector database service used for semantic search in the RAG system.
- * 
+ *
+ * This service manages the connection and operations with ChromaDB,
+ * supporting both local and cloud deployments for semantic search in the RAG system.
+ *
  * Key Features:
- * - Chroma DB Cloud client connection and authentication
+ * - Auto-detection of local vs cloud ChromaDB based on environment variables
  * - Vector collection management with HNSW indexing
  * - Document embedding, storage, and retrieval operations
  * - Mistral embeddings integration (1024-dimensional vectors)
  * - Batch operations for efficient document processing
  * - Similarity search with configurable k parameter
- * 
+ *
  * Dependencies:
- * - chromadb - Official Chroma DB client library
+ * - chromadb - Official Chroma DB client library (supports both HttpClient and CloudClient)
  * - mistralEmbeddingFunction - Custom Mistral AI embedding provider
- * - Chroma DB Cloud - Hosted vector database service
- * 
+ *
  * Environment Variables:
- * - CHROMA_URL - Chroma DB Cloud endpoint URL
- * - CHROMA_TENANT - Tenant identifier for multi-tenancy
- * - CHROMA_DATABASE - Database name within tenant
- * - CHROMA_AUTH_TOKEN - Authentication token for cloud access
+ * - CHROMA_URL - ChromaDB endpoint URL (required)
+ * - CHROMA_TENANT - Tenant identifier (if set, uses CloudClient for cloud mode)
+ * - CHROMA_DATABASE - Database name within tenant (cloud mode only)
+ * - CHROMA_API_KEY - API key for authentication (cloud mode only)
  * - MISTRAL_API_KEY - API key for Mistral embedding service
- * 
+ *
+ * Client Selection Logic:
+ * - If CHROMA_TENANT is set → CloudClient (backward compatible with ChromaDB Cloud)
+ * - If CHROMA_TENANT is not set → HttpClient (local ChromaDB in Docker)
+ *
  * Collection Configuration:
- * - Name: 'vilnius-knowledge-base-mistral-1024'
+ * - Name: 'lizdeika-collection-2025'
  * - Embedding: Mistral-embed model (1024 dimensions)
  * - Distance: Cosine similarity
  * - Index: HNSW (ef_construction=200, ef_search=100)
- * 
+ *
  * @author AI Assistant System
- * @version 1.0.0
+ * @version 2.0.0
  */
-const { CloudClient } = require("chromadb");
+const { CloudClient, HttpClient } = require("chromadb");
 const MistralEmbeddingFunction = require('./mistralEmbeddingFunction');
 const { createLogger } = require('../utils/logger');
 const logger = createLogger('chromaService');
@@ -45,22 +48,43 @@ class ChromaService {
         this.collectionName = 'lizdeika-collection-2025';
         this.isConnected = false;
         this.embeddingFunction = null;
+        this.clientType = null;
     }
 
     /**
-     * Initialize connection to Chroma Cloud with Mistral embeddings
+     * Initialize connection to ChromaDB with automatic client detection
+     * Uses CloudClient for cloud deployments (when CHROMA_TENANT is set)
+     * Uses HttpClient for local deployments (when CHROMA_TENANT is not set)
      */
     async initialize() {
         try {
             console.log('[ChromaService] initialize() called');
-            logger.info(`Chroma Config: URL=${process.env.CHROMA_URL}, Tenant=${process.env.CHROMA_TENANT}, Database=${process.env.CHROMA_DATABASE}`);
-            this.client = new CloudClient({
-                url: process.env.CHROMA_URL || "https://api.trychroma.com",
-                apiKey: process.env.CHROMA_API_KEY,
-                tenant: process.env.CHROMA_TENANT,
-                database: process.env.CHROMA_DATABASE
-            });
-            logger.info('CloudClient created successfully');
+
+            const chromaUrl = process.env.CHROMA_URL || "http://localhost:8000";
+            const isCloudMode = !!process.env.CHROMA_TENANT;
+
+            if (isCloudMode) {
+                this.clientType = 'cloud';
+                logger.info('ChromaDB Mode: Cloud (CloudClient)');
+                logger.info(`Cloud Config: URL=${chromaUrl}, Tenant=${process.env.CHROMA_TENANT}, Database=${process.env.CHROMA_DATABASE}`);
+
+                this.client = new CloudClient({
+                    url: chromaUrl,
+                    apiKey: process.env.CHROMA_API_KEY,
+                    tenant: process.env.CHROMA_TENANT,
+                    database: process.env.CHROMA_DATABASE
+                });
+                logger.info('CloudClient created successfully');
+            } else {
+                this.clientType = 'local';
+                logger.info('ChromaDB Mode: Local (HttpClient)');
+                logger.info(`Local Config: URL=${chromaUrl}`);
+
+                this.client = new HttpClient({
+                    path: chromaUrl
+                });
+                logger.info('HttpClient created successfully');
+            }
 
             // Initialize Mistral embedding function
             try {
@@ -96,10 +120,10 @@ class ChromaService {
             logger.info('Collection retrieved successfully');
 
             this.isConnected = true;
-            logger.info(`Connected to Chroma Cloud - Collection: ${this.collectionName}`);
+            logger.info(`Connected to ChromaDB (${this.clientType} mode) - Collection: ${this.collectionName}`);
             logger.info(`Embedding function: ${this.embeddingFunction ? 'Mistral-embed' : 'Default'}`);
             logger.info(`HNSW configuration: cosine similarity, ef_construction=200, ef_search=100`);
-            
+
             return true;
         } catch (error) {
             console.log('[ChromaService] Error during initialize:', error.message);
