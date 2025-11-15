@@ -1,5 +1,5 @@
 /**
- * Vilnius RAG Chain - Main Retrieval-Augmented Generation Chain
+ * Lizdeika RAG Chain - Main Retrieval-Augmented Generation Chain
  * 
  * This chain orchestrates the complete RAG process using proper LangChain patterns
  * while maintaining all existing functionality and compatibility.
@@ -26,7 +26,7 @@ const {
     formatChatHistory,
     formatContextAsMarkdown,
     getSystemPromptManaged
-} = require('./VilniusPrompts');
+} = require('./LizdeikaPrompts');
 
 class LizdeikaRAGChain extends BaseChain {
     constructor(options = {}) {
@@ -43,7 +43,7 @@ class LizdeikaRAGChain extends BaseChain {
                 baseURL: "https://openrouter.ai/api/v1",
                 defaultHeaders: {
                     "HTTP-Referer": config.SITE_URL || process.env.SITE_URL || "http://localhost:3002",
-                    "X-Title": config.SITE_NAME || process.env.SITE_NAME || "Vilnius Chatbot"
+                    "X-Title": config.SITE_NAME || process.env.SITE_NAME || "Lizdeika"
                 }
             },
             temperature: 0.2,
@@ -114,7 +114,7 @@ class LizdeikaRAGChain extends BaseChain {
      * Chain type identifier
      */
     get _chainType() {
-        return "vilnius_rag_chain";
+        return "lizdeika_rag_chain";
     }
 
     /**
