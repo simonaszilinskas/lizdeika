@@ -57,11 +57,11 @@ async function login(app, email, password) {
 /**
  * Authenticate as admin user
  * @param {Object} app - Express app instance
- * @param {string} email - Admin email (default: admin@vilnius.lt)
+ * @param {string} email - Admin email (default: admin@lizdeika.lt)
  * @param {string} password - Admin password (default: admin123)
  * @returns {Promise<string>} JWT access token
  */
-async function authenticateAsAdmin(app, email = 'admin@vilnius.lt', password = 'admin123') {
+async function authenticateAsAdmin(app, email = 'admin@lizdeika.lt', password = 'admin123') {
   return await login(app, email, password);
 }
 

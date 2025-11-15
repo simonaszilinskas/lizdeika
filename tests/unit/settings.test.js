@@ -159,7 +159,7 @@ describe('Settings Component', () => {
             await settings.loadCurrentUser();
             
             expect(settings.currentUser).toBeDefined();
-            expect(settings.currentUser.email).toBe('test@vilnius.lt');
+            expect(settings.currentUser.email).toBe('test@lizdeika.lt');
         });
         
         test('should handle authentication errors gracefully', async () => {

@@ -993,7 +993,7 @@ class ConversationService {
         });
         
         const sequence = (dailyCount + 1).toString().padStart(4, '0');
-        return `VIL-${dateStr}-${sequence}`;
+        return `LZD-${dateStr}-${sequence}`;
     }
 
     /**

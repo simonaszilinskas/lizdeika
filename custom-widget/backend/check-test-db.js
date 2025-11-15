@@ -1,9 +1,11 @@
 const { PrismaClient } = require('@prisma/client');
 
+// Use environment variable for test database connection
+// Falls back to standard test database URL from .env.test
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'postgresql://simonaszilinskas@localhost:5432/vilnius_support_test'
+      url: process.env.DATABASE_URL || 'postgresql://lizdeika_user:secure_password@localhost:5434/lizdeika_support_test'
     }
   }
 });

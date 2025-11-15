@@ -19,7 +19,7 @@ const {
     createRephrasePrompt,
     formatChatHistory,
     getRephrasePromptManaged
-} = require('./VilniusPrompts');
+} = require('./LizdeikaPrompts');
 const { createLogger } = require('../../../utils/logger');
 const logger = createLogger('QueryRephraseChain');
 

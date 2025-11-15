@@ -15,11 +15,11 @@ async function main() {
     // Create default admin user
     const adminPassword = await bcrypt.hash('admin123', 12);
     const admin = await prisma.users.upsert({
-      where: { email: 'admin@vilnius.lt' },
+      where: { email: 'admin@lizdeika.lt' },
       update: {},
       create: {
         id: 'admin_user_001',
-        email: 'admin@vilnius.lt',
+        email: 'admin@lizdeika.lt',
         password_hash: adminPassword,
         first_name: 'System',
         last_name: 'Administrator',
@@ -35,11 +35,11 @@ async function main() {
     const agentPassword = await bcrypt.hash('agent123', 12);
 
     const agent = await prisma.users.upsert({
-      where: { email: 'agent@vilnius.lt' },
+      where: { email: 'agent@lizdeika.lt' },
       update: {},
       create: {
         id: 'agent_user_001',
-        email: 'agent@vilnius.lt',
+        email: 'agent@lizdeika.lt',
         password_hash: agentPassword,
         first_name: 'Test',
         last_name: 'Agent',
@@ -86,11 +86,11 @@ async function main() {
 
     // Create one simple ticket
     const ticket = await prisma.tickets.upsert({
-      where: { ticket_number: 'VIL-2024-001' },
+      where: { ticket_number: 'LZD-2024-001' },
       update: {},
       create: {
         id: 'e72ee248-07a6-4671-8f71-953f7ef88459',
-        ticket_number: 'VIL-2024-001',
+        ticket_number: 'LZD-2024-001',
         user_id: user.id,
         assigned_agent_id: agent.id,
         priority: 'medium',
@@ -144,10 +144,10 @@ async function main() {
 
     console.log('\n🎉 Minimal database seeding completed successfully!');
     console.log('\nDefault credentials:');
-    console.log('Admin: admin@vilnius.lt / admin123');
-    console.log('Agent: agent@vilnius.lt / agent123');
+    console.log('Admin: admin@lizdeika.lt / admin123');
+    console.log('Agent: agent@lizdeika.lt / agent123');
     console.log('User: user@example.com / user123');
-    console.log('\nSample ticket: VIL-2024-001 (with 1 message)');
+    console.log('\nSample ticket: LZD-2024-001 (with 1 message)');
 
   } catch (error) {
     console.error('❌ Error during seeding:', error);

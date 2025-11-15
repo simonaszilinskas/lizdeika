@@ -2,11 +2,11 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: vilnius-postgres
+    container_name: lizdeika-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: vilnius_support
-      POSTGRES_USER: vilnius_user
+      POSTGRES_DB: lizdeika_support
+      POSTGRES_USER: lizdeika_user
       POSTGRES_PASSWORD: secure_password
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
@@ -14,7 +14,7 @@ services:
     ports:
       - "5434:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vilnius_user -d vilnius_support"]
+      test: ["CMD-SHELL", "pg_isready -U lizdeika_user -d lizdeika_support"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,16 +24,16 @@ services:
     build:
       context: .
       target: development
-    container_name: vilnius-backend
+    container_name: lizdeika-backend
     restart: unless-stopped
     environment:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - PORT=3002
-      - DATABASE_URL=postgresql://vilnius_user:secure_password@postgres:5432/vilnius_support
+      - DATABASE_URL=postgresql://lizdeika_user:secure_password@postgres:5432/lizdeika_support
       - JWT_SECRET=development-jwt-secret-change-in-production
       - JWT_REFRESH_SECRET=development-refresh-secret-change-in-production
-      - WIDGET_NAME=Vilnius Assistant
+      - WIDGET_NAME=Lizdeika
       - WIDGET_PRIMARY_COLOR=#2c5530
       - WIDGET_ALLOWED_DOMAINS=*
       - RAG_K=100
@@ -74,7 +74,7 @@ services:
   # Nginx for serving static files (optional for development)
   nginx:
     image: nginx:alpine
-    container_name: vilnius-nginx
+    container_name: lizdeika-nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -94,4 +94,4 @@ volumes:
 
 networks:
   default:
-    name: vilnius-network
+    name: lizdeika-network

@@ -18,7 +18,7 @@ class APIMocks {
                     json: () => Promise.resolve({
                         data: {
                             id: 'test-user-123',
-                            email: 'test@vilnius.lt',
+                            email: 'test@lizdeika.lt',
                             role: 'agent',
                             firstName: 'Test',
                             lastName: 'User'
@@ -78,7 +78,7 @@ class APIMocks {
                         agents: [
                             {
                                 id: 'agent-1',
-                                email: 'agent@vilnius.lt',
+                                email: 'agent@lizdeika.lt',
                                 status: 'online',
                                 personalStatus: 'available'
                             }

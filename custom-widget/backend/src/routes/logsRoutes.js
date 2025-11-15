@@ -333,7 +333,7 @@ router.post('/frontend', async (req, res) => {
             data: {
                 level: level.toLowerCase(),
                 correlation_id: correlationId || null,
-                service: 'vilnius-assistant-frontend',
+                service: 'lizdeika-frontend',
                 module,
                 message: message.substring(0, 1000), // Limit message length
                 user_id: userId || null,

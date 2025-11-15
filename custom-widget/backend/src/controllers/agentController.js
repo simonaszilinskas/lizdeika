@@ -423,7 +423,7 @@ class AgentController {
             
             const legitimateAgents = allAgents.filter(agent => {
                 // Only include real users - exclude fake agent2/agent3 that were created by mistake
-                const validAgentIds = ['admin', 'agent1', 'admin@vilnius.lt', 'agent1@vilnius.lt'];
+                const validAgentIds = ['admin', 'agent1', 'admin@lizdeika.lt', 'agent1@lizdeika.lt'];
                 return validAgentIds.includes(agent.id);
             });
             

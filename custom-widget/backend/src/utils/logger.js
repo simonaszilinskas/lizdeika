@@ -22,8 +22,8 @@
  * {
  *   timestamp: "2025-01-08T10:30:00.000Z",
  *   level: "info|warn|error|debug",
- *   correlationId: "req_abc123", 
- *   service: "vilnius-assistant-backend",
+ *   correlationId: "req_abc123",
+ *   service: "lizdeika-backend",
  *   module: "conversationService",
  *   message: "Conversation assigned to agent",
  *   userId: "user_123",
@@ -43,7 +43,7 @@ const correlationNamespace = cls.createNamespace('correlation');
 class LoggerFactory {
     constructor() {
         this.loggers = new Map();
-        this.service = 'vilnius-assistant-backend';
+        this.service = 'lizdeika-backend';
         this.logDir = process.env.LOG_DIR || path.join(__dirname, '../../logs');
         
         // Ensure logs directory exists
@@ -145,7 +145,7 @@ class LoggerFactory {
      */
     createFileTransport() {
         return new DailyRotateFile({
-            filename: path.join(this.logDir, 'vilnius-assistant-%DATE%.log'),
+            filename: path.join(this.logDir, 'lizdeika-%DATE%.log'),
             datePattern: 'YYYY-MM-DD',
             maxSize: '20m',
             maxFiles: '30d',

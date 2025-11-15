@@ -76,7 +76,7 @@ model application_logs {
   timestamp      DateTime @default(now())
   level          String
   correlation_id String?
-  service        String   @default("vilnius-assistant-backend")
+  service        String   @default("lizdeika-backend")
   module         String?
   message        String
   user_id        String?

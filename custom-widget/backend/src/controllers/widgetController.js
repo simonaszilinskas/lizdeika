@@ -12,7 +12,7 @@ class WidgetController {
     async getWidgetConfig(req, res) {
         try {
             const config = {
-                name: process.env.WIDGET_NAME || 'Vilnius Assistant',
+                name: process.env.WIDGET_NAME || 'Lizdeika',
                 primaryColor: process.env.WIDGET_PRIMARY_COLOR || '#2c5530',
                 allowedDomains: this.parseAllowedDomains(process.env.WIDGET_ALLOWED_DOMAINS || '*'),
                 serverUrl: process.env.SITE_URL || 'http://localhost:3002'
@@ -38,7 +38,7 @@ class WidgetController {
     async getIntegrationCode(req, res) {
         try {
             const serverUrl = process.env.SITE_URL || 'http://localhost:3002';
-            const widgetName = process.env.WIDGET_NAME || 'Vilnius Assistant';
+            const widgetName = process.env.WIDGET_NAME || 'Lizdeika';
             const primaryColor = process.env.WIDGET_PRIMARY_COLOR || '#2c5530';
             
             const integrationCode = this.generateIntegrationCode(serverUrl, widgetName, primaryColor);

@@ -89,7 +89,7 @@ function generateSecret() {
  * @param {string} issuer - Service name
  * @returns {string} otpauth:// URI
  */
-function generateOtpauthUri(secret, email, issuer = 'Vilnius Assistant') {
+function generateOtpauthUri(secret, email, issuer = 'Lizdeika') {
   return authenticator.keyuri(email, issuer, secret);
 }
 

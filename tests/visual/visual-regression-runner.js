@@ -98,7 +98,7 @@ class VisualRegressionTester {
             localStorage.setItem('agent_token', 'test-token');
             localStorage.setItem('user_data', JSON.stringify({
                 id: 'test-user',
-                email: 'test@vilnius.lt',
+                email: 'test@lizdeika.lt',
                 role: 'agent'
             }));
         });

@@ -1,5 +1,5 @@
 /**
- * Vilnius RAG Chain - Main Retrieval-Augmented Generation Chain
+ * Lizdeika RAG Chain - Main Retrieval-Augmented Generation Chain
  * 
  * This chain orchestrates the complete RAG process using proper LangChain patterns
  * while maintaining all existing functionality and compatibility.
@@ -26,9 +26,9 @@ const {
     formatChatHistory,
     formatContextAsMarkdown,
     getSystemPromptManaged
-} = require('./VilniusPrompts');
+} = require('./LizdeikaPrompts');
 
-class VilniusRAGChain extends BaseChain {
+class LizdeikaRAGChain extends BaseChain {
     constructor(options = {}) {
         super(options);
 
@@ -43,7 +43,7 @@ class VilniusRAGChain extends BaseChain {
                 baseURL: "https://openrouter.ai/api/v1",
                 defaultHeaders: {
                     "HTTP-Referer": config.SITE_URL || process.env.SITE_URL || "http://localhost:3002",
-                    "X-Title": config.SITE_NAME || process.env.SITE_NAME || "Vilnius Chatbot"
+                    "X-Title": config.SITE_NAME || process.env.SITE_NAME || "Lizdeika"
                 }
             },
             temperature: 0.2,
@@ -114,7 +114,7 @@ class VilniusRAGChain extends BaseChain {
      * Chain type identifier
      */
     get _chainType() {
-        return "vilnius_rag_chain";
+        return "lizdeika_rag_chain";
     }
 
     /**
@@ -149,7 +149,7 @@ class VilniusRAGChain extends BaseChain {
 
         try {
             if (this.verbose) {
-                console.log('🚀 VilniusRAGChain: Starting RAG process');
+                console.log('🚀 LizdeikaRAGChain: Starting RAG process');
                 console.log(`   Question: "${question}"`);
                 console.log(`   History length: ${chat_history.length}`);
                 console.log(`   Main Model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
@@ -162,7 +162,7 @@ class VilniusRAGChain extends BaseChain {
 
             if (this.enableRephrasing) {
                 if (this.verbose) {
-                    console.log('🔄 VilniusRAGChain: Starting query rephrasing');
+                    console.log('🔄 LizdeikaRAGChain: Starting query rephrasing');
                     console.log(`   Using model: ${this.rephraseChain.rephrasingModel}`);
                 }
 
@@ -198,7 +198,7 @@ class VilniusRAGChain extends BaseChain {
 
             // Step 3: Document retrieval
             if (this.verbose) {
-                console.log('🔍 VilniusRAGChain: Retrieving relevant documents');
+                console.log('🔍 LizdeikaRAGChain: Retrieving relevant documents');
             }
 
             const relevantDocs = await this.retriever._getRelevantDocuments(searchQuery, runManager);
@@ -232,7 +232,7 @@ class VilniusRAGChain extends BaseChain {
 
             // Step 5: Generate response
             if (this.verbose) {
-                console.log('🤖 VilniusRAGChain: Generating response');
+                console.log('🤖 LizdeikaRAGChain: Generating response');
                 console.log(`   Using main model: ${this.mainModelName} (temperature: ${this.llm.temperature})`);
             }
 
@@ -370,7 +370,7 @@ class VilniusRAGChain extends BaseChain {
             };
 
             if (this.verbose) {
-                console.log('✅ VilniusRAGChain: RAG process completed successfully');
+                console.log('✅ LizdeikaRAGChain: RAG process completed successfully');
                 console.log(`   Answer length: ${answer.length} characters`);
                 console.log(`   Sources: ${sources.length}`);
                 console.log(`   Contexts used: ${relevantDocs.length}`);
@@ -379,7 +379,7 @@ class VilniusRAGChain extends BaseChain {
             return result;
 
         } catch (error) {
-            console.error('🔴 VilniusRAGChain Error:', error);
+            console.error('🔴 LizdeikaRAGChain Error:', error);
 
             // Always populate debug info even on error
             debugInfo.error = {
@@ -469,10 +469,10 @@ class VilniusRAGChain extends BaseChain {
     }
 
     /**
-     * Static factory method to create a VilniusRAGChain
+     * Static factory method to create a LizdeikaRAGChain
      */
     static fromLLM(llm, retriever, options = {}) {
-        return new VilniusRAGChain({
+        return new LizdeikaRAGChain({
             llm: llm,
             retriever: retriever,
             ...options
@@ -624,7 +624,7 @@ class VilniusRAGChain extends BaseChain {
                     throw new Error(`Invalid LLM configuration: ${testError.message}`);
                 }
 
-                console.log('🔧 VilniusRAGChain: Updated main LLM configuration');
+                console.log('🔧 LizdeikaRAGChain: Updated main LLM configuration');
                 console.log(`   Model: ${mainModel}`);
                 console.log(`   API Key: ${process.env.OPENROUTER_API_KEY ? 'Set' : 'Not set'}`);
             }
@@ -654,4 +654,4 @@ class VilniusRAGChain extends BaseChain {
     }
 }
 
-module.exports = VilniusRAGChain;
+module.exports = LizdeikaRAGChain;

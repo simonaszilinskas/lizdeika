@@ -25,7 +25,7 @@ describe('Integration Tests - Settings and Dashboard', () => {
             // Test that both components can access user data
             expect(localStorage.getItem('agent_token')).toBe('test-token');
             expect(JSON.parse(localStorage.getItem('user_data'))).toEqual(
-                expect.objectContaining({ email: 'test@vilnius.lt' })
+                expect.objectContaining({ email: 'test@lizdeika.lt' })
             );
         });
         

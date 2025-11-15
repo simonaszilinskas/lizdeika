@@ -395,7 +395,7 @@ function createSystemRoutes() {
                 data: {
                     settings: allBrandingSettings,
                     preview: {
-                        widgetName: allBrandingSettings.widget_name?.value || 'Vilnius Assistant',
+                        widgetName: allBrandingSettings.widget_name?.value || 'Lizdeika',
                         primaryColor: allBrandingSettings.widget_primary_color?.value || '#2c5530',
                         allowedDomains: allBrandingSettings.widget_allowed_domains?.value || '*'
                     }

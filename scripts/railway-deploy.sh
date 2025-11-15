@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==============================================================================
-# VILNIUS ASSISTANT - RAILWAY DEPLOYMENT SCRIPT
+# LIZDEIKA - RAILWAY DEPLOYMENT SCRIPT
 # ==============================================================================
 # One-command deployment to Railway platform
 # Usage: ./scripts/railway-deploy.sh [setup|deploy|status]
@@ -24,7 +24,7 @@ NC='\033[0m' # No Color
 ACTION="${1:-deploy}"
 
 echo -e "${BLUE}===============================================================================${NC}"
-echo -e "${BLUE}🚂 VILNIUS ASSISTANT - RAILWAY DEPLOYMENT${NC}"
+echo -e "${BLUE}🚂 LIZDEIKA - RAILWAY DEPLOYMENT${NC}"
 echo -e "${BLUE}===============================================================================${NC}"
 echo -e "Action: ${YELLOW}${ACTION}${NC}"
 echo
@@ -80,7 +80,7 @@ setup_railway_project() {
     fi
 
     log_info "Creating new Railway project..."
-    railway create "vilnius-assistant"
+    railway create "lizdeika"
 
     log_info "Adding PostgreSQL database..."
     railway add postgresql
@@ -291,7 +291,7 @@ show_deployment_summary() {
     fi
 
     echo -e "${BLUE}Default Admin Credentials:${NC}"
-    echo -e "  📧 Email:    admin@vilnius.lt"
+    echo -e "  📧 Email:    admin@lizdeika.lt"
     echo -e "  🔒 Password: admin123"
     echo
 

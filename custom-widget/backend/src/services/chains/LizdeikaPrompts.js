@@ -1,7 +1,7 @@
 /**
- * Vilnius Assistant Prompt Templates - Enhanced with Langfuse Prompt Management
- * 
- * Centralized prompt templates for the Vilnius city assistant with optional
+ * Lizdeika Prompt Templates - Enhanced with Langfuse Prompt Management
+ *
+ * Centralized prompt templates for the Lizdeika assistant with optional
  * Langfuse prompt management for non-technical editing and performance tracking.
  * 
  * Features:
@@ -17,7 +17,7 @@
 const { PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate } = require("@langchain/core/prompts");
 const promptManager = require('../promptManager');
 const { createLogger } = require('../../../utils/logger');
-const logger = createLogger('VilniusPrompts');
+const logger = createLogger('LizdeikaPrompts');
 
 /**
  * System prompt for the main RAG chain
@@ -251,12 +251,12 @@ function extractChunkInfo(metadata) {
 // =============================================================================
 
 /**
- * Get Vilnius RAG system prompt with Langfuse management
+ * Get Lizdeika RAG system prompt with Langfuse management
  * Falls back to hardcoded version if Langfuse unavailable
  */
 async function getSystemPromptManaged(variables = {}) {
     const prompt = await promptManager.getPrompt(
-        'vilnius-rag-system',
+        'lizdeika-rag-system',
         SYSTEM_PROMPT_TEMPLATE,
         variables
     );
@@ -274,7 +274,7 @@ async function getSystemPromptManaged(variables = {}) {
  */
 async function getRephrasePromptManaged(variables = {}) {
     const prompt = await promptManager.getPrompt(
-        'vilnius-query-rephrase',
+        'lizdeika-query-rephrase',
         REPHRASE_PROMPT_TEMPLATE,
         variables
     );
@@ -292,7 +292,7 @@ async function getRephrasePromptManaged(variables = {}) {
  */
 async function getContextPromptManaged(variables = {}) {
     const prompt = await promptManager.getPrompt(
-        'vilnius-context-format',
+        'lizdeika-context-format',
         CONTEXT_TEMPLATE,
         variables
     );
@@ -310,20 +310,20 @@ async function getContextPromptManaged(variables = {}) {
  * This creates the prompts in Langfuse UI for management
  */
 async function initializePromptsInLangfuse() {
-    logger.info('🚀 Initializing Vilnius Assistant prompts in Langfuse...');
+    logger.info('🚀 Initializing Lizdeika prompts in Langfuse...');
     
     const prompts = [
         {
-            name: 'vilnius-rag-system',
+            name: 'lizdeika-rag-system',
             content: SYSTEM_PROMPT_TEMPLATE,
             config: {
-                description: 'Main system prompt for Vilnius RAG assistant',
+                description: 'Main system prompt for Lizdeika RAG assistant',
                 language: 'lithuanian',
                 category: 'system'
             }
         },
         {
-            name: 'vilnius-query-rephrase',
+            name: 'lizdeika-query-rephrase',
             content: REPHRASE_PROMPT_TEMPLATE,
             config: {
                 description: 'Query rephrasing for better document retrieval',
@@ -332,7 +332,7 @@ async function initializePromptsInLangfuse() {
             }
         },
         {
-            name: 'vilnius-context-format',
+            name: 'lizdeika-context-format',
             content: CONTEXT_TEMPLATE,
             config: {
                 description: 'Context formatting template for RAG responses',
@@ -367,9 +367,9 @@ async function checkPromptSystemHealth() {
         ...health,
         cache: cacheStats,
         prompts: {
-            system: 'vilnius-rag-system',
-            rephrase: 'vilnius-query-rephrase',
-            context: 'vilnius-context-format'
+            system: 'lizdeika-rag-system',
+            rephrase: 'lizdeika-query-rephrase',
+            context: 'lizdeika-context-format'
         }
     };
 }

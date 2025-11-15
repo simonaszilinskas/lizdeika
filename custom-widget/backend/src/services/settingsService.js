@@ -92,7 +92,7 @@ const SETTING_SCHEMAS = {
 
 // Environment variable fallbacks
 const ENV_FALLBACKS = {
-    widget_name: process.env.WIDGET_NAME || 'Vilnius Assistant',
+    widget_name: process.env.WIDGET_NAME || 'Lizdeika',
     widget_primary_color: process.env.WIDGET_PRIMARY_COLOR || '#2c5530',
     widget_allowed_domains: process.env.WIDGET_ALLOWED_DOMAINS || '*',
     welcome_message: process.env.WELCOME_MESSAGE || 'Hello! How can I help you today?',

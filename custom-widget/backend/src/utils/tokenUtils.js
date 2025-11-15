@@ -33,8 +33,8 @@ class TokenUtils {
 
     return jwt.sign(tokenPayload, this.accessSecret, {
       expiresIn: this.accessExpiresIn,
-      issuer: 'vilnius-assistant',
-      audience: 'vilnius-users',
+      issuer: 'lizdeika',
+      audience: 'lizdeika-users',
     });
   }
 
@@ -54,8 +54,8 @@ class TokenUtils {
 
     return jwt.sign(payload, this.refreshSecret, {
       expiresIn: this.refreshExpiresIn,
-      issuer: 'vilnius-assistant',
-      audience: 'vilnius-refresh',
+      issuer: 'lizdeika',
+      audience: 'lizdeika-refresh',
     });
   }
 
@@ -84,8 +84,8 @@ class TokenUtils {
   verifyAccessToken(token) {
     try {
       return jwt.verify(token, this.accessSecret, {
-        issuer: 'vilnius-assistant',
-        audience: 'vilnius-users',
+        issuer: 'lizdeika',
+        audience: 'lizdeika-users',
       });
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
@@ -106,8 +106,8 @@ class TokenUtils {
   verifyRefreshToken(token) {
     try {
       return jwt.verify(token, this.refreshSecret, {
-        issuer: 'vilnius-assistant',
-        audience: 'vilnius-refresh',
+        issuer: 'lizdeika',
+        audience: 'lizdeika-refresh',
       });
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
@@ -152,7 +152,7 @@ class TokenUtils {
 
     return jwt.sign(payload, this.accessSecret, {
       expiresIn: '24h',
-      issuer: 'vilnius-assistant',
+      issuer: 'lizdeika',
       audience: 'email-verification',
     });
   }
@@ -165,7 +165,7 @@ class TokenUtils {
   verifyEmailVerificationToken(token) {
     try {
       return jwt.verify(token, this.accessSecret, {
-        issuer: 'vilnius-assistant',
+        issuer: 'lizdeika',
         audience: 'email-verification',
       });
     } catch (error) {
@@ -189,7 +189,7 @@ class TokenUtils {
 
     return jwt.sign(payload, this.accessSecret, {
       expiresIn: '1h',
-      issuer: 'vilnius-assistant',
+      issuer: 'lizdeika',
       audience: 'password-reset',
     });
   }
@@ -202,7 +202,7 @@ class TokenUtils {
   verifyPasswordResetToken(token) {
     try {
       return jwt.verify(token, this.accessSecret, {
-        issuer: 'vilnius-assistant',
+        issuer: 'lizdeika',
         audience: 'password-reset',
       });
     } catch (error) {
@@ -274,7 +274,7 @@ class TokenUtils {
 
     return jwt.sign(payload, this.accessSecret, {
       expiresIn: '15m', // Short-lived: 15 minutes to complete setup
-      issuer: 'vilnius-assistant',
+      issuer: 'lizdeika',
       audience: '2fa-setup',
     });
   }
@@ -287,7 +287,7 @@ class TokenUtils {
   verify2FASetupToken(token) {
     try {
       return jwt.verify(token, this.accessSecret, {
-        issuer: 'vilnius-assistant',
+        issuer: 'lizdeika',
         audience: '2fa-setup',
       });
     } catch (error) {
