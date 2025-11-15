@@ -71,8 +71,9 @@ This is an AI-powered customer support platform with three main layers:
 
 3. **AI Integration Layer**:
    - Dual AI providers: OpenRouter (Gemini) + Flowise with automatic failover
-   - RAG system: ChromaDB Cloud + Mistral embeddings for document search
+   - RAG system: Local ChromaDB (Docker) + Mistral embeddings for document search
    - Document processing: .txt/.docx files with vector storage
+   - Supports both local ChromaDB (default) and ChromaDB Cloud (optional)
 
 ### Settings System Architecture
 The settings system uses a modernized modular ES6 architecture:
@@ -376,8 +377,163 @@ See `STATISTICS_BACKEND_COMPLETE.md` for API documentation and examples.
 
 ### Port Configuration
 - **Development**: All services on `localhost:3002` (backend serves frontend)
-- **Docker**: Backend on `localhost:3002`, internal PostgreSQL on port 5434
+- **Docker**: Backend on `localhost:3002`, internal PostgreSQL on port 5434, ChromaDB on port 8000 (internal)
 - **Production**: Nginx reverse proxy with SSL termination
+
+### ChromaDB Configuration
+
+The project uses **ChromaDB** for vector storage and semantic search in the RAG (Retrieval-Augmented Generation) system. ChromaDB now runs **locally in Docker** by default, eliminating external dependencies and cloud service costs.
+
+**Architecture**:
+- **Local Mode** (Default): ChromaDB container running in Docker Compose
+- **Cloud Mode** (Optional): ChromaDB Cloud for distributed deployments
+- **Auto-Detection**: Service automatically selects client based on environment variables
+
+**Local ChromaDB Setup (Default)**:
+
+1. **Docker Services**:
+   ```yaml
+   # docker-compose.yml includes ChromaDB service
+   chroma:
+     image: chromadb/chroma:latest
+     volumes:
+       - chroma_data:/chroma/chroma  # Persistent storage
+     ports:
+       - "8000:8000"  # Internal only, not exposed to host
+   ```
+
+2. **Environment Configuration**:
+   ```bash
+   # .env file (local mode - default)
+   CHROMA_URL=http://chroma:8000
+   MISTRAL_API_KEY=your-mistral-api-key
+   # No CHROMA_TENANT needed for local mode
+   ```
+
+3. **Data Persistence**:
+   - Vector embeddings stored in `chroma_data` Docker volume
+   - Survives container restarts and rebuilds
+   - Same backup strategy as PostgreSQL
+
+4. **Collection Management**:
+   - Collection name: `lizdeika-collection-2025`
+   - Embedding model: Mistral-embed (1024 dimensions)
+   - Distance metric: Cosine similarity
+   - Index: HNSW (ef_construction=200, ef_search=100)
+
+**ChromaDB Cloud Setup (Optional)**:
+
+To use ChromaDB Cloud instead of local ChromaDB:
+
+1. **Environment Configuration**:
+   ```bash
+   # .env file (cloud mode)
+   CHROMA_URL=https://api.trychroma.com
+   CHROMA_TENANT=your-tenant-id        # Enables cloud mode
+   CHROMA_DATABASE=your-database-name
+   CHROMA_API_KEY=your-api-key
+   MISTRAL_API_KEY=your-mistral-api-key
+   ```
+
+2. **Client Detection Logic**:
+   - If `CHROMA_TENANT` is set → Uses `CloudClient` (ChromaDB Cloud)
+   - If `CHROMA_TENANT` is empty → Uses `HttpClient` (Local ChromaDB)
+   - Automatic failover and backward compatibility
+
+**Backup and Restore**:
+
+```bash
+# Backup ChromaDB data volume (development)
+docker run --rm -v chroma_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/chroma_backup_$(date +%Y%m%d).tar.gz -C /data .
+
+# Restore from backup
+docker volume create chroma_data
+docker run --rm -v chroma_data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/chroma_backup_YYYYMMDD.tar.gz -C /data
+
+# Production backup
+docker run --rm -v chroma_prod_data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/chroma_prod_backup_$(date +%Y%m%d).tar.gz -C /data .
+```
+
+**Docker Commands**:
+
+```bash
+# View ChromaDB logs
+docker-compose logs -f chroma
+
+# Check ChromaDB health
+curl http://localhost:8000/api/v1/heartbeat
+
+# Access ChromaDB container
+docker-compose exec chroma sh
+
+# Clear ChromaDB data (reset)
+docker-compose down
+docker volume rm lizdeika-network_chroma_data
+docker-compose up --build
+```
+
+**Integration Testing**:
+
+ChromaDB integration tests are located in `tests/integration/chromadb.integration.test.js`:
+- Client type detection (local vs cloud)
+- Document ingestion and vector storage
+- Semantic search and retrieval
+- Collection management operations
+- Graceful degradation when ChromaDB unavailable
+
+**Troubleshooting**:
+
+**Problem**: "ChromaDB not connected" in logs
+- Check if ChromaDB container is running: `docker-compose ps chroma`
+- Verify healthcheck: `docker-compose logs chroma`
+- Ensure `CHROMA_URL=http://chroma:8000` in docker-compose environment
+
+**Problem**: "Failed to initialize ChromaDB"
+- Check network connectivity between backend and chroma containers
+- Verify both are on same Docker network: `lizdeika-network`
+- Review ChromaDB logs for startup errors
+
+**Problem**: Documents not found in search
+- Verify documents were ingested: `GET /api/knowledge/documents`
+- Check Mistral API key is valid (required for embeddings)
+- Review document ingestion logs for errors
+
+**Migration from ChromaDB Cloud**:
+
+If migrating from existing ChromaDB Cloud deployment:
+
+1. **Export Current Data** (via API or console)
+2. **Update Environment Variables**:
+   ```bash
+   # Remove cloud configuration
+   # CHROMA_URL=https://api.trychroma.com
+   # CHROMA_TENANT=...
+   # CHROMA_DATABASE=...
+   # CHROMA_API_KEY=...
+
+   # Add local configuration
+   CHROMA_URL=http://chroma:8000
+   ```
+3. **Re-ingest Documents**:
+   ```bash
+   # Use the smart ingestion API
+   POST /api/knowledge/documents/ingest
+   # Deduplication ensures no duplicates
+   ```
+4. **Restart Containers**:
+   ```bash
+   docker-compose down
+   docker-compose up --build
+   ```
+
+**Performance Considerations**:
+- Local ChromaDB typically has **lower latency** than cloud (no network hops)
+- Vector search on 1024-dimensional embeddings is fast (< 100ms)
+- HNSW index provides excellent recall/performance tradeoff
+- Collection auto-creates on first document ingestion
 
 ### Upload Security
 Uploaded files are stored outside the codebase directory for security:
