@@ -235,17 +235,24 @@ class AzureOpenAIProvider extends AIProvider {
 
         const endpoint = this.buildEndpoint();
 
+        const requestBody = {
+            messages: messages,
+            temperature: 0.2
+        };
+
+        // max_tokens is not supported in some preview API versions (e.g., 2025-01-01-preview)
+        // Only add it for GA versions
+        if (!this.apiVersion.includes('preview')) {
+            requestBody.max_tokens = 1000;
+        }
+
         const response = await fetch(endpoint, {
             method: "POST",
             headers: {
                 "api-key": this.apiKey,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({
-                messages: messages,
-                temperature: 0.2,
-                max_tokens: 1000
-            }),
+            body: JSON.stringify(requestBody),
             signal: AbortSignal.timeout(30000)
         });
 
@@ -268,16 +275,22 @@ class AzureOpenAIProvider extends AIProvider {
         try {
             const endpoint = this.buildEndpoint();
 
+            const requestBody = {
+                messages: [{ role: "user", content: "test" }]
+            };
+
+            // max_tokens is not supported in some preview API versions
+            if (!this.apiVersion.includes('preview')) {
+                requestBody.max_tokens = 10;
+            }
+
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: {
                     "api-key": this.apiKey,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({
-                    messages: [{ role: "user", content: "test" }],
-                    max_tokens: 10
-                }),
+                body: JSON.stringify(requestBody),
                 signal: AbortSignal.timeout(5000)
             });
 

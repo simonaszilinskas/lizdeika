@@ -7,7 +7,7 @@ Based on your Azure OpenAI endpoint, here's your configuration:
 ```bash
 AI_PROVIDER=azure
 AZURE_OPENAI_RESOURCE_NAME=simon-mi0dgd8i-swedencentral.cognitiveservices.azure.com
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5-chat
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5.1-chat
 AZURE_OPENAI_API_KEY=your-azure-api-key-here
 AZURE_OPENAI_API_VERSION=2025-01-01-preview
 ```
@@ -27,7 +27,7 @@ AI_PROVIDER=azure
 
 # Azure OpenAI Configuration
 AZURE_OPENAI_RESOURCE_NAME=simon-mi0dgd8i-swedencentral.cognitiveservices.azure.com
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5-chat
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5.1-chat
 AZURE_OPENAI_API_KEY=your-azure-api-key-here
 AZURE_OPENAI_API_VERSION=2025-01-01-preview
 ```
@@ -51,7 +51,7 @@ npm run dev
    - Click on "Context Engineering" tab
    - AI Provider: Select **"Azure OpenAI"**
    - Resource Name: `simon-mi0dgd8i-swedencentral.cognitiveservices.azure.com`
-   - Deployment Name: `gpt-5-chat`
+   - Deployment Name: `gpt-5.1-chat`
    - API Key: `[paste your key]`
    - API Version: `2025-01-01-preview`
 
@@ -62,14 +62,13 @@ npm run dev
 ### Quick Test (curl)
 
 ```bash
-curl -X POST "https://simon-mi0dgd8i-swedencentral.cognitiveservices.azure.com/openai/deployments/gpt-5-chat/chat/completions?api-version=2025-01-01-preview" \
+curl -X POST "https://simon-mi0dgd8i-swedencentral.cognitiveservices.azure.com/openai/deployments/gpt-5.1-chat/chat/completions?api-version=2025-01-01-preview" \
   -H "api-key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
       {"role": "user", "content": "Hello, can you respond briefly?"}
-    ],
-    "max_tokens": 50
+    ]
   }'
 ```
 
@@ -151,9 +150,13 @@ Supported EU regions:
 
 ### API Version
 
-You're using `2025-01-01-preview` which is a preview version. This is supported, but note:
-- **Latest GA**: `2024-10-21` (stable)
-- **Latest Preview**: `2025-01-01-preview` (your version - newer features but may change)
+You're using `2025-01-01-preview` which is a preview version. Important notes:
+
+- **Preview versions** may not support all parameters (e.g., `max_tokens` is not supported)
+- **Latest GA**: `2024-10-21` (stable, supports `max_tokens`)
+- **Latest Preview**: `2025-01-01-preview` (newer features, some parameters may differ)
+
+The implementation automatically detects preview versions and omits unsupported parameters.
 
 ## Troubleshooting
 
