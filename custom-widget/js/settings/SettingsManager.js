@@ -8,6 +8,7 @@
 import { APIManager } from './core/APIManager.js';
 import { StateManager } from './core/StateManager.js';
 import { ConnectionManager } from './core/ConnectionManager.js';
+import { AccountManagementModule } from './modules/AccountManagementModule.js';
 import { SystemModeModule } from './modules/SystemModeModule.js';
 import { WidgetConfigModule } from './modules/WidgetConfigModule.js';
 import { UserManagementModule } from './modules/UserManagementModule.js';
@@ -29,8 +30,9 @@ export class SettingsManager {
         this.stateManager = new StateManager();
         this.apiManager = new APIManager(this.apiUrl, this.stateManager);
         this.connectionManager = new ConnectionManager(this.apiUrl, this.stateManager);
-        
+
         // Initialize feature modules
+        this.accountManagementModule = new AccountManagementModule(this.apiManager, this.stateManager);
         this.systemModeModule = new SystemModeModule(this.apiManager, this.stateManager, this.connectionManager);
         this.widgetConfigModule = new WidgetConfigModule(this.apiManager, this.stateManager, this.connectionManager);
         this.userManagementModule = new UserManagementModule(this.apiManager, this.stateManager, this.connectionManager);
@@ -86,6 +88,7 @@ export class SettingsManager {
 
             // Initialize feature modules
             console.log('🎯 SettingsManager: Initializing feature modules');
+            await this.accountManagementModule.initialize();
             await this.systemModeModule.initialize();
             await this.widgetConfigModule.initialize();
             await this.userManagementModule.initialize();

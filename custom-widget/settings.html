@@ -305,6 +305,70 @@
         .btn-secondary:hover {
             background: #4b5563;
         }
+
+        /* Password Warning Alerts */
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid;
+        }
+        .alert-danger {
+            background-color: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+        .alert-warning {
+            background-color: #fef3c7;
+            border-color: #fcd34d;
+            color: #92400e;
+        }
+        .alert-info {
+            background-color: #dbeafe;
+            border-color: #93c5fd;
+            color: #1e40af;
+        }
+        .alert strong {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Badge Styles */
+        .badge {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 0.375rem;
+            display: inline-block;
+        }
+        .bg-danger {
+            background-color: #ef4444;
+            color: white;
+        }
+        .bg-warning {
+            background-color: #f59e0b;
+            color: white;
+        }
+        .bg-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .bg-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+        .bg-success {
+            background-color: #10b981;
+            color: white;
+        }
+
+        /* Password Form Required State */
+        .form-required {
+            border: 2px solid #ef4444;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background-color: #fef2f2;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -375,6 +439,103 @@
 
         <!-- System Settings Tab -->
         <div id="system-tab" class="tab-content">
+            <!-- My Account Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <i class="fas fa-user-circle text-indigo-600"></i>
+                    My Account
+                </h2>
+
+                <!-- Password Status Display -->
+                <div id="password-status-container" class="mb-6">
+                    <!-- Warning Banner (shown when password expiring soon) -->
+                    <div id="password-warning-banner" class="alert mb-4" style="display: none;" role="alert">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-exclamation-triangle mt-1"></i>
+                            <div>
+                                <strong>Password Expiry Warning</strong>
+                                <p id="warning-message" class="mt-1"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Password Expiry Status -->
+                    <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-clock text-gray-600"></i>
+                                <span class="text-sm text-gray-700">Password expires in:</span>
+                            </div>
+                            <span id="days-remaining" class="badge"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Password Change Form -->
+                <form id="password-change-form" class="space-y-4">
+                    <h3 class="text-lg font-medium text-gray-900 mb-3 flex items-center gap-2">
+                        <i class="fas fa-key text-gray-600"></i>
+                        Change Password
+                    </h3>
+
+                    <div>
+                        <label for="current-password" class="block text-sm font-medium text-gray-700 mb-1" aria-label="Current password">
+                            Current Password
+                        </label>
+                        <input
+                            type="password"
+                            id="current-password"
+                            name="currentPassword"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            placeholder="Enter current password"
+                            required
+                            autocomplete="current-password"
+                        />
+                    </div>
+
+                    <div>
+                        <label for="new-password" class="block text-sm font-medium text-gray-700 mb-1" aria-label="New password">
+                            New Password
+                        </label>
+                        <input
+                            type="password"
+                            id="new-password"
+                            name="newPassword"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            placeholder="Enter new password (min 8 characters)"
+                            required
+                            minlength="8"
+                            autocomplete="new-password"
+                        />
+                    </div>
+
+                    <div>
+                        <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-1" aria-label="Confirm new password">
+                            Confirm New Password
+                        </label>
+                        <input
+                            type="password"
+                            id="confirm-password"
+                            name="confirmPassword"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            placeholder="Re-enter new password"
+                            required
+                            minlength="8"
+                            autocomplete="new-password"
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        id="change-password-btn"
+                        class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 transition-colors flex items-center gap-2"
+                    >
+                        <i class="fas fa-save"></i>
+                        Change Password
+                    </button>
+                </form>
+            </div>
+
             <!-- System Mode Settings -->
             <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
