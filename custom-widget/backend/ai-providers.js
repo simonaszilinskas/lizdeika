@@ -175,7 +175,15 @@ class AzureOpenAIProvider extends AIProvider {
     }
 
     buildEndpoint() {
-        return `https://${this.resourceName}.openai.azure.com/openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
+        // Support both Azure OpenAI endpoint formats:
+        // 1. New format: {resource-name}.openai.azure.com
+        // 2. Legacy format: {resource-name}.cognitiveservices.azure.com
+        // If resource name contains a dot, assume it's a full domain
+        const baseUrl = this.resourceName.includes('.')
+            ? `https://${this.resourceName}`
+            : `https://${this.resourceName}.openai.azure.com`;
+
+        return `${baseUrl}/openai/deployments/${this.deploymentName}/chat/completions?api-version=${this.apiVersion}`;
     }
 
     async generateResponse(conversationContext, conversationId) {
