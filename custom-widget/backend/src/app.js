@@ -45,6 +45,7 @@ const createCorsMiddleware = require('./middleware/corsMiddleware');
 const errorHandler = require('./middleware/errorHandler');
 const requestLogger = require('./middleware/requestLogger');
 const { correlationMiddleware, socketCorrelationMiddleware } = require('./middleware/correlationMiddleware');
+const { checkPasswordExpiry } = require('./middleware/passwordExpiryMiddleware');
 const { createLogger } = require('./utils/logger');
 
 // Import route creators
@@ -160,6 +161,9 @@ function createApp() {
 
     // Initialize WebSocket service
     const websocketService = new WebSocketService(io);
+
+    // Password expiry middleware (applies to all /api routes with authenticated users)
+    app.use('/api', checkPasswordExpiry);
 
     // Routes
     app.use('/api/auth', authRoutes); // Authentication routes

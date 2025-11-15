@@ -51,6 +51,9 @@ const authenticateToken = async (req, res, next) => {
         role: true,
         is_active: true,
         email_verified: true,
+        password_changed_at: true,
+        password_expires_at: true,
+        password_blocked: true,
         agent_status: {
           select: {
             status: true,

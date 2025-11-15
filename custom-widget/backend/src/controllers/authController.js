@@ -5,6 +5,7 @@
 
 const authService = require('../services/authService');
 const activityService = require('../services/activityService');
+const passwordExpiryService = require('../services/passwordExpiryService');
 const { createLogger } = require('../utils/logger');
 const logger = createLogger('authController');
 
@@ -647,11 +648,43 @@ class AuthController {
       });
     } catch (error) {
       logger.error('Emergency admin creation error:', error);
-      
+
       res.status(400).json({
         success: false,
         error: error.message,
         code: 'EMERGENCY_ADMIN_CREATION_FAILED',
+      });
+    }
+  }
+
+  /**
+   * Get password expiry status
+   * GET /api/auth/password-status
+   */
+  async getPasswordStatus(req, res) {
+    try {
+      // User must be authenticated
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Authentication required',
+          code: 'AUTH_REQUIRED',
+        });
+      }
+
+      const passwordStatus = passwordExpiryService.getPasswordStatus(req.user);
+
+      res.json({
+        success: true,
+        data: passwordStatus
+      });
+    } catch (error) {
+      logger.error('Password status error:', error);
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get password status',
+        code: 'PASSWORD_STATUS_ERROR',
       });
     }
   }
