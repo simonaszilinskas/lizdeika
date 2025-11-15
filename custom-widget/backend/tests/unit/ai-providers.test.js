@@ -78,9 +78,24 @@ describe('AI Providers', () => {
             expect(provider).toBeInstanceOf(AzureOpenAIProvider);
         });
 
+        it('should create AzureOpenAIProvider with deployment URI (new simplified config)', () => {
+            const config = {
+                AZURE_OPENAI_DEPLOYMENT_URI: 'https://test-swedencentral.cognitiveservices.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-10-21',
+                AZURE_OPENAI_API_KEY: 'test-key',
+                SYSTEM_PROMPT: 'test prompt'
+            };
+
+            const provider = createAIProvider('azure', config);
+            expect(provider).toBeInstanceOf(AzureOpenAIProvider);
+            expect(provider.resourceName).toBe('test-swedencentral.cognitiveservices.azure.com');
+            expect(provider.deploymentName).toBe('gpt-4');
+            expect(provider.apiVersion).toBe('2024-10-21');
+            expect(provider.apiKey).toBe(config.AZURE_OPENAI_API_KEY);
+        });
+
         it('should throw error for Azure OpenAI without required configuration', () => {
             expect(() => createAIProvider('azure', {})).toThrow(
-                'Azure OpenAI requires AZURE_OPENAI_RESOURCE_NAME, AZURE_OPENAI_DEPLOYMENT_NAME, and AZURE_OPENAI_API_KEY to be configured'
+                'Azure OpenAI requires either AZURE_OPENAI_DEPLOYMENT_URI + AZURE_OPENAI_API_KEY'
             );
         });
     });
@@ -299,6 +314,57 @@ describe('AI Providers', () => {
                 apiKey: 'test-api-key-12345',
                 apiVersion: '2024-10-21',
                 systemPrompt: 'You are a helpful assistant'
+            });
+        });
+
+        describe('parseDeploymentUri', () => {
+            it('should parse legacy Azure endpoint format', () => {
+                const provider = new AzureOpenAIProvider({
+                    deploymentUri: 'https://test-swedencentral.cognitiveservices.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-10-21',
+                    apiKey: 'test-key'
+                });
+
+                expect(provider.resourceName).toBe('test-swedencentral.cognitiveservices.azure.com');
+                expect(provider.deploymentName).toBe('gpt-4');
+                expect(provider.apiVersion).toBe('2024-10-21');
+            });
+
+            it('should parse new Azure endpoint format', () => {
+                const provider = new AzureOpenAIProvider({
+                    deploymentUri: 'https://test-westeurope.openai.azure.com/openai/deployments/gpt-35-turbo/chat/completions?api-version=2025-01-01-preview',
+                    apiKey: 'test-key'
+                });
+
+                expect(provider.resourceName).toBe('test-westeurope.openai.azure.com');
+                expect(provider.deploymentName).toBe('gpt-35-turbo');
+                expect(provider.apiVersion).toBe('2025-01-01-preview');
+            });
+
+            it('should use default API version if not in URI', () => {
+                const provider = new AzureOpenAIProvider({
+                    deploymentUri: 'https://test-francecentral.openai.azure.com/openai/deployments/gpt-4/chat/completions',
+                    apiKey: 'test-key'
+                });
+
+                expect(provider.apiVersion).toBe('2024-10-21');
+            });
+
+            it('should throw error for invalid deployment URI', () => {
+                expect(() => {
+                    new AzureOpenAIProvider({
+                        deploymentUri: 'https://invalid-url.com/wrong-path',
+                        apiKey: 'test-key'
+                    });
+                }).toThrow('Invalid Azure OpenAI deployment URI: cannot find deployment name in path');
+            });
+
+            it('should throw error for malformed URI', () => {
+                expect(() => {
+                    new AzureOpenAIProvider({
+                        deploymentUri: 'not-a-valid-url',
+                        apiKey: 'test-key'
+                    });
+                }).toThrow('Failed to parse Azure OpenAI deployment URI');
             });
         });
 

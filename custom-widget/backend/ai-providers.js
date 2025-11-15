@@ -140,13 +140,44 @@ class FlowiseProvider extends AIProvider {
 class AzureOpenAIProvider extends AIProvider {
     constructor(config) {
         super(config);
-        this.resourceName = config.resourceName;
-        this.deploymentName = config.deploymentName;
+
+        // Parse deployment URI to extract components
+        if (config.deploymentUri) {
+            this.parseDeploymentUri(config.deploymentUri);
+        } else {
+            // Fallback to individual parameters for backward compatibility
+            this.resourceName = config.resourceName;
+            this.deploymentName = config.deploymentName;
+            this.apiVersion = config.apiVersion || '2024-10-21';
+        }
+
         this.apiKey = config.apiKey;
-        this.apiVersion = config.apiVersion || '2024-10-21';
         this.systemPrompt = config.systemPrompt;
+        this.deploymentUri = config.deploymentUri;
 
         this.validateEURegion();
+    }
+
+    parseDeploymentUri(uri) {
+        try {
+            // Example URI: https://resource.cognitiveservices.azure.com/openai/deployments/gpt-5.1-chat/chat/completions?api-version=2025-01-01-preview
+            const url = new URL(uri);
+
+            // Extract resource name from hostname
+            this.resourceName = url.hostname;
+
+            // Extract deployment name from path: /openai/deployments/{deployment-name}/...
+            const pathMatch = url.pathname.match(/\/openai\/deployments\/([^\/]+)/);
+            if (!pathMatch) {
+                throw new Error('Invalid Azure OpenAI deployment URI: cannot find deployment name in path');
+            }
+            this.deploymentName = pathMatch[1];
+
+            // Extract API version from query string
+            this.apiVersion = url.searchParams.get('api-version') || '2024-10-21';
+        } catch (error) {
+            throw new Error(`Failed to parse Azure OpenAI deployment URI: ${error.message}`);
+        }
     }
 
     validateEURegion() {
@@ -433,18 +464,35 @@ function createAIProvider(providerName, config) {
 
         case 'azure':
         case 'azureopenai':
-            if (!config.AZURE_OPENAI_RESOURCE_NAME || !config.AZURE_OPENAI_DEPLOYMENT_NAME || !config.AZURE_OPENAI_API_KEY) {
+            // Support new simplified URI-based configuration (preferred)
+            if (config.AZURE_OPENAI_DEPLOYMENT_URI && config.AZURE_OPENAI_API_KEY) {
+                return new AzureOpenAIProvider({
+                    deploymentUri: config.AZURE_OPENAI_DEPLOYMENT_URI,
+                    apiKey: config.AZURE_OPENAI_API_KEY,
+                    systemPrompt: config.SYSTEM_PROMPT
+                });
+            }
+            // Fallback to legacy configuration for backward compatibility
+            else if (config.AZURE_OPENAI_RESOURCE_NAME || config.AZURE_OPENAI_DEPLOYMENT_NAME) {
+                if (!config.AZURE_OPENAI_RESOURCE_NAME || !config.AZURE_OPENAI_DEPLOYMENT_NAME || !config.AZURE_OPENAI_API_KEY) {
+                    throw new Error(
+                        'Azure OpenAI legacy format requires AZURE_OPENAI_RESOURCE_NAME, AZURE_OPENAI_DEPLOYMENT_NAME, and AZURE_OPENAI_API_KEY'
+                    );
+                }
+                return new AzureOpenAIProvider({
+                    resourceName: config.AZURE_OPENAI_RESOURCE_NAME,
+                    deploymentName: config.AZURE_OPENAI_DEPLOYMENT_NAME,
+                    apiKey: config.AZURE_OPENAI_API_KEY,
+                    apiVersion: config.AZURE_OPENAI_API_VERSION,
+                    systemPrompt: config.SYSTEM_PROMPT
+                });
+            }
+            else {
                 throw new Error(
-                    'Azure OpenAI requires AZURE_OPENAI_RESOURCE_NAME, AZURE_OPENAI_DEPLOYMENT_NAME, and AZURE_OPENAI_API_KEY to be configured'
+                    'Azure OpenAI requires either AZURE_OPENAI_DEPLOYMENT_URI + AZURE_OPENAI_API_KEY, ' +
+                    'or legacy format (AZURE_OPENAI_RESOURCE_NAME + AZURE_OPENAI_DEPLOYMENT_NAME + AZURE_OPENAI_API_KEY)'
                 );
             }
-            return new AzureOpenAIProvider({
-                resourceName: config.AZURE_OPENAI_RESOURCE_NAME,
-                deploymentName: config.AZURE_OPENAI_DEPLOYMENT_NAME,
-                apiKey: config.AZURE_OPENAI_API_KEY,
-                apiVersion: config.AZURE_OPENAI_API_VERSION,
-                systemPrompt: config.SYSTEM_PROMPT
-            });
 
         default:
             throw new Error(`Unsupported AI provider: ${providerName}`);
@@ -490,9 +538,11 @@ async function getAIProviderConfig() {
                         SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
                         SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
                         SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || '',
+                        AZURE_OPENAI_DEPLOYMENT_URI: process.env.AZURE_OPENAI_DEPLOYMENT_URI || null,
+                        AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || null,
+                        // Legacy fallback for backward compatibility
                         AZURE_OPENAI_RESOURCE_NAME: process.env.AZURE_OPENAI_RESOURCE_NAME || null,
                         AZURE_OPENAI_DEPLOYMENT_NAME: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || null,
-                        AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || null,
                         AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21'
                     });
                 }, 2000);
@@ -513,9 +563,11 @@ async function getAIProviderConfig() {
             SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
             SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
             SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || '',
+            AZURE_OPENAI_DEPLOYMENT_URI: process.env.AZURE_OPENAI_DEPLOYMENT_URI || null,
+            AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || null,
+            // Legacy fallback for backward compatibility
             AZURE_OPENAI_RESOURCE_NAME: process.env.AZURE_OPENAI_RESOURCE_NAME || null,
             AZURE_OPENAI_DEPLOYMENT_NAME: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || null,
-            AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || null,
             AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21'
         };
     }
