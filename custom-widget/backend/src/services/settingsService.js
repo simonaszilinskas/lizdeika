@@ -74,7 +74,7 @@ const SETTING_SCHEMAS = {
     },
     ai_providers: {
         // AI Provider Selection
-        ai_provider: z.enum(['flowise', 'openrouter']),
+        ai_provider: z.enum(['flowise', 'openrouter', 'azure', 'azureopenai']),
 
         // Flowise Settings
         flowise_url: z.union([z.literal(''), z.string().url()]).optional(),
@@ -86,7 +86,15 @@ const SETTING_SCHEMAS = {
         openrouter_model: z.union([z.literal(''), z.string().min(1)]).optional(),
         rephrasing_model: z.union([z.literal(''), z.string().min(1)]).optional(),
         site_url: z.union([z.literal(''), z.string().url()]).optional(),
-        site_name: z.union([z.literal(''), z.string().min(1)]).optional()
+        site_name: z.union([z.literal(''), z.string().min(1)]).optional(),
+
+        // Azure OpenAI Settings (simplified URI-based config - preferred)
+        azure_openai_deployment_uri: z.union([z.literal(''), z.string().url()]).optional(),
+        azure_openai_api_key: z.union([z.literal(''), z.string().min(10)]).optional(),
+        // Legacy settings for backward compatibility
+        azure_openai_resource_name: z.union([z.literal(''), z.string().min(1)]).optional(),
+        azure_openai_deployment_name: z.union([z.literal(''), z.string().min(1)]).optional(),
+        azure_openai_api_version: z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}(-preview)?$/)]).optional()
     }
 };
 
@@ -136,7 +144,15 @@ const ENV_FALLBACKS = {
     openrouter_model: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
     rephrasing_model: process.env.REPHRASING_MODEL || 'google/gemini-2.5-flash-lite',
     site_url: process.env.SITE_URL || 'http://localhost:3002',
-    site_name: process.env.SITE_NAME || 'Vilniaus chatbot'
+    site_name: process.env.SITE_NAME || 'Vilniaus chatbot',
+
+    // Azure OpenAI fallbacks (simplified URI-based config - preferred)
+    azure_openai_deployment_uri: process.env.AZURE_OPENAI_DEPLOYMENT_URI || null,
+    azure_openai_api_key: process.env.AZURE_OPENAI_API_KEY || null,
+    // Legacy fallbacks for backward compatibility
+    azure_openai_resource_name: process.env.AZURE_OPENAI_RESOURCE_NAME || null,
+    azure_openai_deployment_name: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || null,
+    azure_openai_api_version: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21'
 };
 
 class SettingsService extends EventEmitter {
@@ -680,7 +696,13 @@ class SettingsService extends EventEmitter {
                 REPHRASING_MODEL: aiSettings.rephrasing_model?.value || ENV_FALLBACKS.rephrasing_model,
                 SITE_URL: aiSettings.site_url?.value || ENV_FALLBACKS.site_url,
                 SITE_NAME: aiSettings.site_name?.value || ENV_FALLBACKS.site_name,
-                SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+                SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || '',
+                AZURE_OPENAI_DEPLOYMENT_URI: aiSettings.azure_openai_deployment_uri?.value || ENV_FALLBACKS.azure_openai_deployment_uri,
+                AZURE_OPENAI_API_KEY: aiSettings.azure_openai_api_key?.value || ENV_FALLBACKS.azure_openai_api_key,
+                // Legacy fallback for backward compatibility
+                AZURE_OPENAI_RESOURCE_NAME: aiSettings.azure_openai_resource_name?.value || ENV_FALLBACKS.azure_openai_resource_name,
+                AZURE_OPENAI_DEPLOYMENT_NAME: aiSettings.azure_openai_deployment_name?.value || ENV_FALLBACKS.azure_openai_deployment_name,
+                AZURE_OPENAI_API_VERSION: aiSettings.azure_openai_api_version?.value || ENV_FALLBACKS.azure_openai_api_version
             };
 
             // Log configuration source for debugging
@@ -710,9 +732,16 @@ class SettingsService extends EventEmitter {
                 FLOWISE_API_KEY: process.env.FLOWISE_API_KEY || null,
                 OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || null,
                 OPENROUTER_MODEL: process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash',
+                REPHRASING_MODEL: process.env.REPHRASING_MODEL || 'google/gemini-2.5-flash-lite',
                 SITE_URL: process.env.SITE_URL || 'http://localhost:3002',
                 SITE_NAME: process.env.SITE_NAME || 'Vilniaus chatbot',
-                SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || ''
+                SYSTEM_PROMPT: process.env.SYSTEM_PROMPT || '',
+                AZURE_OPENAI_DEPLOYMENT_URI: process.env.AZURE_OPENAI_DEPLOYMENT_URI || null,
+                AZURE_OPENAI_API_KEY: process.env.AZURE_OPENAI_API_KEY || null,
+                // Legacy fallback for backward compatibility
+                AZURE_OPENAI_RESOURCE_NAME: process.env.AZURE_OPENAI_RESOURCE_NAME || null,
+                AZURE_OPENAI_DEPLOYMENT_NAME: process.env.AZURE_OPENAI_DEPLOYMENT_NAME || null,
+                AZURE_OPENAI_API_VERSION: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21'
             };
         }
     }
