@@ -129,9 +129,11 @@ export class AccountManagementModule {
             }
         } catch (error) {
             ErrorHandler.logError(error, 'Failed to load password status');
-            // Hide status section if load fails
-            if (this.elements.passwordStatusContainer) {
-                this.elements.passwordStatusContainer.style.display = 'none';
+            Toast.show('Unable to load password status. Please refresh the page.', 'warning');
+            // Keep status section visible but show error state
+            if (this.elements.daysRemainingSpan) {
+                this.elements.daysRemainingSpan.textContent = 'Error';
+                this.elements.daysRemainingSpan.className = 'badge bg-secondary';
             }
         }
     }

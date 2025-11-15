@@ -162,9 +162,6 @@ function createApp() {
     // Initialize WebSocket service
     const websocketService = new WebSocketService(io);
 
-    // Password expiry middleware (applies to all /api routes with authenticated users)
-    app.use('/api', checkPasswordExpiry);
-
     // Routes
     app.use('/api/auth', authRoutes); // Authentication routes
     app.use('/api/users', userRoutes); // User management routes (admin only)

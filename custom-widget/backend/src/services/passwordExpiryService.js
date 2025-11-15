@@ -29,25 +29,39 @@ const PASSWORD_EXPIRY_DAYS = 180;
 
 class PasswordExpiryService {
     /**
-     * Calculate password expiry date
+     * Calculate password expiry date (UTC-aware)
      */
     calculateExpiryDate(passwordChangedAt) {
         if (!passwordChangedAt) return null;
 
-        const expiryDate = new Date(passwordChangedAt);
-        expiryDate.setDate(expiryDate.getDate() + PASSWORD_EXPIRY_DAYS);
+        const date = new Date(passwordChangedAt);
+        // Calculate expiry date in UTC to avoid timezone issues
+        const expiryDate = new Date(Date.UTC(
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate() + PASSWORD_EXPIRY_DAYS,
+            date.getUTCHours(),
+            date.getUTCMinutes(),
+            date.getUTCSeconds(),
+            date.getUTCMilliseconds()
+        ));
         return expiryDate;
     }
 
     /**
-     * Calculate days remaining until password expires
+     * Calculate days remaining until password expires (UTC-aware)
      */
     getDaysRemaining(passwordExpiresAt) {
         if (!passwordExpiresAt) return null;
 
         const now = new Date();
         const expiryDate = new Date(passwordExpiresAt);
-        const diffTime = expiryDate - now;
+
+        // Calculate difference using UTC to avoid timezone issues
+        const nowUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        const expiryUTC = Date.UTC(expiryDate.getUTCFullYear(), expiryDate.getUTCMonth(), expiryDate.getUTCDate());
+
+        const diffTime = expiryUTC - nowUTC;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
         return diffDays;
