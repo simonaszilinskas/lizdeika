@@ -22,8 +22,8 @@
  * {
  *   timestamp: "2025-01-08T10:30:00.000Z",
  *   level: "info|warn|error|debug",
- *   correlationId: "req_abc123", 
- *   service: "vilnius-assistant-backend",
+ *   correlationId: "req_abc123",
+ *   service: "lizdeika-backend",
  *   module: "conversationService",
  *   message: "Conversation assigned to agent",
  *   userId: "user_123",

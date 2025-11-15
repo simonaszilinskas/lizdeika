@@ -123,16 +123,16 @@ class LangfusePromptManager {
     /**
      * Get prompt from environment variables
      * Supports these .env variables:
-     * - PROMPT_VILNIUS_RAG_SYSTEM
-     * - PROMPT_VILNIUS_QUERY_REPHRASE  
-     * - PROMPT_VILNIUS_CONTEXT_FORMAT
+     * - PROMPT_LIZDEIKA_RAG_SYSTEM
+     * - PROMPT_LIZDEIKA_QUERY_REPHRASE
+     * - PROMPT_LIZDEIKA_CONTEXT_FORMAT
      */
     getEnvPrompt(name) {
         // Map prompt names to env variable names
         const envMapping = {
-            'vilnius-rag-system': 'PROMPT_VILNIUS_RAG_SYSTEM',
-            'vilnius-query-rephrase': 'PROMPT_VILNIUS_QUERY_REPHRASE',
-            'vilnius-context-format': 'PROMPT_VILNIUS_CONTEXT_FORMAT'
+            'lizdeika-rag-system': 'PROMPT_LIZDEIKA_RAG_SYSTEM',
+            'lizdeika-query-rephrase': 'PROMPT_LIZDEIKA_QUERY_REPHRASE',
+            'lizdeika-context-format': 'PROMPT_LIZDEIKA_CONTEXT_FORMAT'
         };
 
         const envKey = envMapping[name];

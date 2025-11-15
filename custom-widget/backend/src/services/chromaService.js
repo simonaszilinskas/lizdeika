@@ -42,7 +42,7 @@ class ChromaService {
     constructor() {
         this.client = null;
         this.collection = null;
-        this.collectionName = 'vilnius-test-collection-2025';
+        this.collectionName = 'lizdeika-collection-2025';
         this.isConnected = false;
         this.embeddingFunction = null;
     }

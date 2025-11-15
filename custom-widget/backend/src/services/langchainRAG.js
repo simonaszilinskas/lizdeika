@@ -599,15 +599,15 @@ class LangChainRAG {
     generateSessionId(query, chatHistory, conversationId) {
         // Always use conversationId when available for proper conversation continuity
         if (conversationId) {
-            return `vilnius-conversation-${conversationId}`;
+            return `lizdeika-conversation-${conversationId}`;
         }
-        
+
         // Fallback: Use consistent hash based on first message only (no timestamp)
         // This ensures session continuity even without conversationId
         const firstMessage = chatHistory.length > 0 ? chatHistory[0][0] : query;
         const queryHash = this.hashString(firstMessage.substring(0, 50));
-        
-        return `vilnius-rag-session-${queryHash}`;
+
+        return `lizdeika-rag-session-${queryHash}`;
     }
 
     /**
@@ -659,7 +659,7 @@ class LangChainRAG {
                 return;
             }
 
-            const sessionId = `vilnius-conversation-${conversationId}`;
+            const sessionId = `lizdeika-conversation-${conversationId}`;
             
             // Map agent actions to user-friendly score names
             const scoreMapping = {
